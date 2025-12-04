@@ -18,9 +18,13 @@ import mammoth from 'mammoth';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 
+// --- IMPORTS FOR SELECTION FALLBACK ---
+import CourseSelector from './CourseSelector';
+import LessonSelector from './LessonSelector';
+
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
-export default function AiQuizGenerator({ onBack, onAiComplete, unitId, subjectId }) {
+export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnitId, subjectId: propSubjectId }) {
     const { showToast } = useToast();
     const { activeOverlay } = useTheme(); 
     
@@ -30,6 +34,10 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId, subjectI
     const [progressMessage, setProgressMessage] = useState('');
     const [progressPercent, setProgressPercent] = useState(0);
     const [generatedQuizData, setGeneratedQuizData] = useState(null); 
+
+    // --- FALLBACK SELECTION STATE ---
+    const [selectedCourse, setSelectedCourse] = useState(null);
+    const [selectedLessons, setSelectedLessons] = useState([]);
 
     // --- MONET THEME GENERATOR ---
     const themeStyles = useMemo(() => {
@@ -115,6 +123,7 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId, subjectI
         setGeneratedQuizData(null);
     };
 
+    // --- EXTRACTOR ---
     const extractTextFromFile = async (fileToProcess) => {
         if (fileToProcess.type === 'application/pdf') {
             const pdf = await pdfjsLib.getDocument(URL.createObjectURL(fileToProcess)).promise;
@@ -154,10 +163,15 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId, subjectI
         }
     };
 
-    // --- SAVING LOGIC (WITH AUTO-GENERATED IDENTIFICATION BOX) ---
+    // --- SAVING LOGIC (With Fallback ID Check) ---
     const saveToFirestore = async (quizData) => {
-        if (!unitId || !subjectId) {
-            showToast("Cannot save: Missing Unit or Subject ID.", "error");
+        // DETERMINE IDs: Use props first, then fallback to local state selection
+        const finalSubjectId = propSubjectId || selectedCourse?.id;
+        // Use prop unitId, OR use the FIRST selected lesson from the dropdown if available
+        const finalUnitId = propUnitId || (selectedLessons.length > 0 ? selectedLessons[0].id : null);
+
+        if (!finalSubjectId) {
+            showToast("Cannot save: Please select a Subject below.", "error");
             return;
         }
 
@@ -180,16 +194,13 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId, subjectI
                 }
             }
 
-            // 2. AUTO-GENERATE BOX IF MISSING (Your Request Fix)
-            // If the AI didn't find a box in the text, we create one from the answers.
+            // 2. AUTO-GENERATE BOX IF MISSING
             if (!globalIdentChoices && identQuestions.length > 0) {
-                console.log("No identification box found in source. Auto-generating from answers...");
-                // Collect all correct answers
+                console.log("No identification box found. Auto-generating...");
                 const collectedAnswers = identQuestions
                     .map(q => q.correctAnswer || q.answer)
-                    .filter(a => a && typeof a === 'string'); // Filter valid strings
+                    .filter(a => a && typeof a === 'string');
                 
-                // Remove duplicates and set as the global box
                 if (collectedAnswers.length > 0) {
                     globalIdentChoices = [...new Set(collectedAnswers)];
                 }
@@ -281,7 +292,7 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId, subjectI
                             ...baseQuestion,
                             type: 'identification',
                             correctAnswer: answer,
-                            choicesBox: globalIdentChoices, // USES THE AUTO-GENERATED BOX HERE
+                            choicesBox: globalIdentChoices, 
                         };
                     }
                 }
@@ -324,8 +335,8 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId, subjectI
             const finalPayload = {
                 title: `Uploaded: ${quizData.title || 'Extracted Quiz'}`,
                 language: 'English',
-                unitId: unitId,
-                subjectId: subjectId,
+                unitId: finalUnitId, // Uses the resolved Unit ID
+                subjectId: finalSubjectId, // Uses the resolved Subject ID
                 lessonId: null, 
                 createdAt: serverTimestamp(),
                 createdBy: 'AI-Extractor',
@@ -334,7 +345,7 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId, subjectI
 
             await setDoc(quizRef, finalPayload);
             showToast("Quiz saved successfully!", "success");
-            onAiComplete(finalPayload); 
+            if(onAiComplete) onAiComplete(finalPayload); 
 
         } catch (err) {
             console.error("Save Error", err);
@@ -579,6 +590,28 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId, subjectI
                                         <ExclamationTriangleIcon className="w-5 h-5" />
                                     </div>
                                     <p className="text-sm font-semibold text-red-600 dark:text-red-400">{error}</p>
+                                </div>
+                            )}
+
+                            {/* --- MOVED SELECTORS HERE --- */}
+                            {/* FALLBACK: If IDs are missing, show selectors here in the Upload state */}
+                            {!propSubjectId && (
+                                <div className="mt-6 mb-2 space-y-4 text-left p-4 rounded-2xl border bg-black/5 dark:bg-white/5" style={{ borderColor: themeStyles.borderColor }}>
+                                    <div className="flex items-center gap-2 mb-2 text-yellow-500">
+                                        <ExclamationTriangleIcon className="w-5 h-5" />
+                                        <span className="text-sm font-bold">Select Destination</span>
+                                    </div>
+                                    <div>
+                                        <CourseSelector onCourseSelect={setSelectedCourse} />
+                                    </div>
+                                    {selectedCourse && (
+                                        <div>
+                                            <LessonSelector 
+                                                subjectId={selectedCourse.id} 
+                                                onLessonsSelect={setSelectedLessons} 
+                                            />
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
