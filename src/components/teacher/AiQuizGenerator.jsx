@@ -11,8 +11,8 @@ import {
     ExclamationTriangleIcon,
     ArrowDownTrayIcon,
     DocumentTextIcon,
-    XMarkIcon,           // Fixed: Added missing import
-    DocumentArrowUpIcon  // Fixed: Added missing import
+    XMarkIcon,
+    DocumentArrowUpIcon
 } from '@heroicons/react/24/outline';
 import mammoth from 'mammoth';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -69,8 +69,9 @@ const processChunkWithRetry = async (chunk, promptTemplate, isGenerationRunningR
             if (!isGenerationRunningRef.current) throw new Error("Processing aborted by user.");
             
             const parsed = robustJsonParse(aiResponse);
-            // Slight delay to be gentle on the API
-            await new Promise(res => setTimeout(res, 300));
+            
+            // INCREASED DELAY: Since we make more calls (smaller chunks), we wait longer to avoid rate limits
+            await new Promise(res => setTimeout(res, 1500)); 
             return parsed; 
 
         } catch (error) {
@@ -78,8 +79,7 @@ const processChunkWithRetry = async (chunk, promptTemplate, isGenerationRunningR
             console.warn(`Attempt ${attempt + 1} failed:`, error.message);
             
             if (attempt === maxRetries - 1) throw error; 
-            // Exponential backoff
-            await new Promise(res => setTimeout(res, 1000 * Math.pow(2, attempt)));
+            await new Promise(res => setTimeout(res, 2000 * Math.pow(2, attempt)));
         }
     }
 };
@@ -338,12 +338,11 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
             
             setProgressPercent(20);
 
-            // 1. SMALLER CHUNKS FOR MATH SAFETY
-            // 1500 chars is roughly 5-8 questions. This ensures AI processes it fast (<10s).
+            // 1. MICROWORKER SPLIT (Very Small Chunks to avoid 30s Timeout)
             const lines = fullText.split('\n');
             const chunks = [];
             let currentChunk = "";
-            const MAX_CHUNK_SIZE = 1500; // <--- OPTIMIZED FOR 5-8 QUESTIONS
+            const MAX_CHUNK_SIZE = 800; // Reduced from 2500 to 800 (approx 2-3 questions)
 
             for (let line of lines) {
                 if ((currentChunk.length + line.length) > MAX_CHUNK_SIZE) {
@@ -357,38 +356,34 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
             let accumulatedQuestions = [];
             let quizTitle = "Extracted Quiz";
 
-            // 2. MICROWORKER LOOP
+            // 2. PROCESSING LOOP
             for (let i = 0; i < chunks.length; i++) {
                 if (!isGenerationRunning.current) throw new Error("Generation aborted by user.");
 
                 const chunk = chunks[i];
                 const isFirstChunk = i === 0;
                 
-                // Calculate progress
                 const currentProgress = 20 + Math.round(((i + 1) / chunks.length) * 70);
                 setProgressPercent(currentProgress);
                 
-                // Inform user which batch we are on
-                setProgressMessage(`Processing batch ${i + 1} of ${chunks.length}...`);
+                // Detailed progress message prevents user thinking it's stuck
+                setProgressMessage(`Analysing batch ${i + 1} of ${chunks.length} (Math Mode)...`);
 
-                // --- UNIVERSAL PROMPT (TEXT + MATH + FILIPINO) ---
+                // --- SHORT PROMPT TO SAVE TOKENS ---
                 const promptTemplate = `
-                You are an Expert Data Entry Specialist.
-                **TASK:** Convert text to strict JSON.
+                Expert Data Entry. Convert text to JSON.
                 
-                **LANGUAGE RULES:**
-                1. **VERBATIM:** Copy the text EXACTLY as it appears. 
-                2. **NO TRANSLATION:** If text is Filipino, keep it Filipino.
+                **LANGUAGE:** Copy text VERBATIM. DO NOT TRANSLATE.
                 
-                **MATH RULES (Apply ONLY if Math Symbols are present):**
-                1. Convert rational exponents like "x12" to "$x^{1/2}$".
-                2. Convert "x2" to "$x^2$".
-                3. Use LaTeX for fractions: "1/2" -> "$\\\\frac{1}{2}$" (double escape backslash).
-                4. Use "$...$" wrappers for all math equations.
+                **MATH LATEX RULES (Mandatory):**
+                1. Exponents: "x2" -> "$x^2$", "5-1" -> "$5^{-1}$"
+                2. Rational Exp: "x12" -> "$x^{1/2}$"
+                3. Fractions: "1/2" -> "$\\\\frac{1}{2}$"
+                4. Wrap all math in "$...$"
                 
-                **FORMATTING RULES:**
-                1. **Clean:** Remove prefixes (1., a., b.).
-                2. **Options:** Return as a simple Array of Strings.
+                **FORMAT:**
+                - Options: Array of Strings only.
+                - Remove prefixes (1., a.).
                 
                 **INPUT:**
                 ---
@@ -397,13 +392,13 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                 
                 **JSON:**
                 {
-                  ${isFirstChunk ? '"title": "Exam Title",' : ''}
+                  ${isFirstChunk ? '"title": "Title",' : ''}
                   "questions": [
                     {
-                      "text": "Ang Pambansang Bayani ng Pilipinas ay si...",
+                      "text": "Simplify $x^{-2}$",
                       "type": "multiple_choice",
-                      "options": ["Jose Rizal", "Andres Bonifacio", "Apolinario Mabini"], 
-                      "correctAnswer": "Jose Rizal"
+                      "options": ["$x^2$", "$\\\\frac{1}{x^2}$"], 
+                      "correctAnswer": "$\\\\frac{1}{x^2}$"
                     }
                   ]
                 }
