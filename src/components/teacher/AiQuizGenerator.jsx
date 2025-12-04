@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useToast } from '../../contexts/ToastContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { callGeminiWithLimitCheck } from '../../services/aiService';
@@ -6,13 +6,11 @@ import { db } from '../../services/firebase';
 import { doc, collection, setDoc, serverTimestamp } from 'firebase/firestore';
 import { 
     ArrowUturnLeftIcon, 
-    DocumentArrowUpIcon, 
-    DocumentTextIcon, 
-    XMarkIcon, 
     SparklesIcon,
     BoltIcon,
     ExclamationTriangleIcon,
-    ArrowDownTrayIcon
+    ArrowDownTrayIcon,
+    DocumentTextIcon
 } from '@heroicons/react/24/outline';
 import mammoth from 'mammoth';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -23,6 +21,63 @@ import CourseSelector from './CourseSelector';
 import LessonSelector from './LessonSelector';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+
+// --- ROBUST JSON PARSER ---
+const robustJsonParse = (text) => {
+    try {
+        let jsonString = text;
+        const markdownMatch = text.match(/```(json)?\s*(\{[\s\S]*\})\s*```/);
+        if (markdownMatch && markdownMatch[2]) jsonString = markdownMatch[2];
+        
+        const startIndex = jsonString.indexOf('{');
+        const endIndex = jsonString.lastIndexOf('}');
+        if (startIndex !== -1 && endIndex !== -1) {
+            return JSON.parse(jsonString.substring(startIndex, endIndex + 1));
+        }
+        throw new Error("No JSON structure found");
+    } catch (e) {
+        console.warn("Strict JSON parse failed, attempting regex salvage...", e);
+        const questionMatches = text.match(/\{[\s\S]*?"text"[\s\S]*?"type"[\s\S]*?\}/g);
+        
+        if (questionMatches && questionMatches.length > 0) {
+            const salvagedQuestions = [];
+            for (const qStr of questionMatches) {
+                try {
+                    const cleanQ = JSON.parse(qStr);
+                    salvagedQuestions.push(cleanQ);
+                } catch (err) { continue; }
+            }
+            if (salvagedQuestions.length > 0) {
+                return { questions: salvagedQuestions };
+            }
+        }
+        throw new Error("Could not salvage any JSON data.");
+    }
+};
+
+// --- MICROWORKER HELPER ---
+const processChunkWithRetry = async (chunk, promptTemplate, isGenerationRunningRef, maxRetries = 3) => {
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+        if (!isGenerationRunningRef.current) throw new Error("Processing aborted by user.");
+
+        try {
+            const fullPrompt = promptTemplate.replace('{{CHUNK_CONTENT}}', chunk);
+            const aiResponse = await callGeminiWithLimitCheck(fullPrompt);
+
+            if (!isGenerationRunningRef.current) throw new Error("Processing aborted by user.");
+            
+            const parsed = robustJsonParse(aiResponse);
+            await new Promise(res => setTimeout(res, 500));
+            return parsed; 
+
+        } catch (error) {
+            if (!isGenerationRunningRef.current) throw new Error("Processing aborted by user.");
+            console.warn(`Attempt ${attempt + 1} failed:`, error.message);
+            if (attempt === maxRetries - 1) throw error; 
+            await new Promise(res => setTimeout(res, 1000 * Math.pow(2, attempt)));
+        }
+    }
+};
 
 export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnitId, subjectId: propSubjectId }) {
     const { showToast } = useToast();
@@ -39,76 +94,16 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
     const [selectedCourse, setSelectedCourse] = useState(null);
     const [selectedLessons, setSelectedLessons] = useState([]);
 
-    // --- MONET THEME GENERATOR ---
-    const themeStyles = useMemo(() => {
-        switch (activeOverlay) {
-            case 'christmas':
-                return {
-                    bgGradient: 'bg-red-950/20',
-                    panelBg: 'bg-[#0f291e]/80',
-                    borderColor: 'border-green-500/30',
-                    textColor: 'text-red-100',
-                    subText: 'text-green-200/70',
-                    accentColor: 'text-red-400',
-                    buttonGradient: 'from-red-700 to-green-800',
-                    iconBg: 'bg-green-900/30',
-                    progressColor: 'text-red-500',
-                    uploadBorder: 'border-green-500/40 hover:border-red-500/60'
-                };
-            case 'valentines':
-                return {
-                    bgGradient: 'bg-pink-950/20',
-                    panelBg: 'bg-[#2a0a12]/80',
-                    borderColor: 'border-pink-500/30',
-                    textColor: 'text-pink-100',
-                    subText: 'text-pink-200/70',
-                    accentColor: 'text-pink-400',
-                    buttonGradient: 'from-pink-600 to-rose-600',
-                    iconBg: 'bg-pink-900/30',
-                    progressColor: 'text-pink-500',
-                    uploadBorder: 'border-pink-500/40 hover:border-rose-500/60'
-                };
-            case 'cyberpunk':
-                return {
-                    bgGradient: 'bg-purple-950/20',
-                    panelBg: 'bg-[#180a2e]/80',
-                    borderColor: 'border-cyan-500/40',
-                    textColor: 'text-cyan-50',
-                    subText: 'text-fuchsia-200/70',
-                    accentColor: 'text-cyan-400',
-                    buttonGradient: 'from-fuchsia-600 to-cyan-600',
-                    iconBg: 'bg-fuchsia-900/30',
-                    progressColor: 'text-cyan-400',
-                    uploadBorder: 'border-fuchsia-500/40 hover:border-cyan-400'
-                };
-            case 'graduation':
-                return {
-                    bgGradient: 'bg-yellow-950/20',
-                    panelBg: 'bg-[#1a1600]/80',
-                    borderColor: 'border-yellow-500/30',
-                    textColor: 'text-yellow-50',
-                    subText: 'text-yellow-200/70',
-                    accentColor: 'text-yellow-400',
-                    buttonGradient: 'from-yellow-600 to-amber-700',
-                    iconBg: 'bg-yellow-900/30',
-                    progressColor: 'text-yellow-500',
-                    uploadBorder: 'border-yellow-500/40 hover:border-amber-500'
-                };
-            default: // Standard
-                return {
-                    bgGradient: 'bg-[#f5f5f7] dark:bg-[#121212]',
-                    panelBg: 'bg-white/60 dark:bg-[#1e1e1e]/60',
-                    borderColor: 'border-white/20 dark:border-white/10',
-                    textColor: 'text-slate-900 dark:text-white',
-                    subText: 'text-slate-500 dark:text-slate-400',
-                    accentColor: 'text-indigo-500',
-                    buttonGradient: 'bg-[#007AFF] hover:bg-[#0062CC]', 
-                    iconBg: 'bg-indigo-100 dark:bg-indigo-900/30',
-                    progressColor: 'text-indigo-500',
-                    uploadBorder: 'border-slate-300 dark:border-slate-600 hover:border-indigo-400'
-                };
-        }
-    }, [activeOverlay]);
+    const isGenerationRunning = useRef(false);
+
+    useEffect(() => {
+        return () => { isGenerationRunning.current = false; };
+    }, []);
+
+    const handleBack = useCallback(() => {
+        isGenerationRunning.current = false;
+        onBack();
+    }, [onBack]);
 
     const handleFileChange = (e) => {
         if (e.target.files.length > 0) {
@@ -145,33 +140,13 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
         }
     };
 
-    const sanitizeJsonComponent = (aiResponse) => {
-        try {
-            let jsonString = aiResponse;
-            const markdownMatch = aiResponse.match(/```(json)?\s*(\{[\s\S]*\})\s*```/);
-            if (markdownMatch && markdownMatch[2]) jsonString = markdownMatch[2];
-
-            const startIndex = jsonString.indexOf('{');
-            const endIndex = jsonString.lastIndexOf('}');
-            if (startIndex === -1 || endIndex === -1) throw new Error('No JSON found.');
-
-            const validJsonString = jsonString.substring(startIndex, endIndex + 1);
-            return JSON.parse(validJsonString);
-        } catch (error) {
-            console.error("JSON Parse Error:", error);
-            throw new Error(`AI response was not valid JSON.`);
-        }
-    };
-
-    // --- SAVING LOGIC (With Fallback ID Check) ---
+    // --- SAVING LOGIC ---
     const saveToFirestore = async (quizData) => {
-        // DETERMINE IDs: Use props first, then fallback to local state selection
         const finalSubjectId = propSubjectId || selectedCourse?.id;
-        // Use prop unitId, OR use the FIRST selected lesson from the dropdown if available
         const finalUnitId = propUnitId || (selectedLessons.length > 0 ? selectedLessons[0].id : null);
 
         if (!finalSubjectId) {
-            showToast("Cannot save: Please select a Subject below.", "error");
+            showToast("Cannot save: Please select a Subject.", "error");
             return;
         }
 
@@ -188,25 +163,23 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
             if (firstIdentWithChoices) {
                 const rawBox = firstIdentWithChoices.choicesBox;
                 if (Array.isArray(rawBox)) {
-                     globalIdentChoices = rawBox.map(c => (typeof c === 'object' ? c.text || c.value : c));
+                     globalIdentChoices = rawBox.map(c => (typeof c === 'object' && c !== null ? c.text || c.value : String(c)));
                 } else {
-                     globalIdentChoices = [rawBox];
+                     globalIdentChoices = [String(rawBox)];
                 }
             }
 
             // 2. AUTO-GENERATE BOX IF MISSING
             if (!globalIdentChoices && identQuestions.length > 0) {
-                console.log("No identification box found. Auto-generating...");
                 const collectedAnswers = identQuestions
                     .map(q => q.correctAnswer || q.answer)
                     .filter(a => a && typeof a === 'string');
-                
                 if (collectedAnswers.length > 0) {
                     globalIdentChoices = [...new Set(collectedAnswers)];
                 }
             }
 
-            // --- Deduplication & Formatting ---
+            // --- PROCESSING ---
             for (const q of quizData.questions) {
                 const normalizedType = (q.type || '').toLowerCase().replace(/\s+/g, '_');
                 const isGroupable = normalizedType === 'matching_type' || normalizedType === 'matching-type'; 
@@ -227,20 +200,29 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                 const questionText = (normalizedType === 'interpretive' && q.passage)
                     ? `${q.passage}\n\n${q.question || ''}`
                     : (q.question || q.text || 'Question text missing');
+                
+                // Clean HTML tags but PRESERVE LaTeX ($...$)
+                const cleanText = String(questionText).replace(/<(?!\/?(span|strong|u|em)\b)[^>]+>/gi, ""); 
 
                 const baseQuestion = {
-                    text: questionText,
+                    text: cleanText,
                     difficulty: q.difficulty || 'easy',
                     explanation: q.explanation || q.solution || '', 
                 };
 
-                // Multiple Choice
+                // 1. Multiple Choice
                 if (normalizedType === 'multiple_choice' || normalizedType === 'analogy' || normalizedType === 'interpretive') {
                     const options = q.options || [];
                     const rawAnswer = q.correctAnswer || '';
-                    const cleanAnswerText = rawAnswer.replace(/^[a-d][\.\)]\s*/i, '').trim();
+                    const cleanAnswerText = String(rawAnswer).replace(/^[a-d][\.\)]\s*/i, '').trim();
 
-                    let correctIndex = options.findIndex(opt => opt.trim() === cleanAnswerText);
+                    const stringOptions = options.map(opt => {
+                         if (typeof opt === 'object' && opt !== null) return opt.text || String(opt);
+                         return String(opt);
+                    });
+
+                    let correctIndex = stringOptions.findIndex(opt => opt.trim() === cleanAnswerText);
+                    
                     if (correctIndex === -1) {
                         const letterMatch = rawAnswer.match(/^([a-d])[\.\)]/i);
                         if (letterMatch) {
@@ -249,19 +231,19 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                         }
                     }
                     if (correctIndex === -1) {
-                        correctIndex = options.findIndex(opt => {
+                        correctIndex = stringOptions.findIndex(opt => {
                             const cleanOpt = opt.toLowerCase().replace(/[^a-z0-9]/g, '');
                             const cleanKey = cleanAnswerText.toLowerCase().replace(/[^a-z0-9]/g, '');
                             return cleanOpt === cleanKey || cleanOpt.includes(cleanKey) || cleanKey.includes(cleanOpt);
                         });
                     }
 
-                    if (options.length > 0 && correctIndex === -1) correctIndex = 0; 
+                    if (stringOptions.length > 0 && correctIndex === -1) correctIndex = 0; 
 
                     return {
                         ...baseQuestion,
                         type: 'multiple-choice',
-                        options: options.map((opt, idx) => ({ 
+                        options: stringOptions.map((opt, idx) => ({ 
                             text: opt, 
                             isCorrect: idx === correctIndex 
                         })),
@@ -269,74 +251,54 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                     };
                 }
                 
-                // True/False
+                // 2. True/False
                 if (normalizedType === 'alternative_response' || normalizedType === 'true_false') {
                     let isTrue = false;
                     if (typeof q.correctAnswer === 'string') {
                         isTrue = q.correctAnswer.toLowerCase() === 'true' || q.correctAnswer.toLowerCase() === 'tama';
-                    } else if (typeof q.correctAnswer === 'boolean') {
-                        isTrue = q.correctAnswer;
-                    }
-                    return {
-                        ...baseQuestion,
-                        type: 'true-false',
-                        correctAnswer: isTrue,
-                    };
+                    } else if (typeof q.correctAnswer === 'boolean') isTrue = q.correctAnswer;
+                    
+                    return { ...baseQuestion, type: 'true-false', correctAnswer: isTrue };
                 }
                 
-                // Identification
+                // 3. Identification
                 if (normalizedType === 'identification' || normalizedType === 'solving') {
-                    const answer = q.correctAnswer || q.answer;
-                    if (answer) {
-                        return {
-                            ...baseQuestion,
-                            type: 'identification',
-                            correctAnswer: answer,
-                            choicesBox: globalIdentChoices, 
-                        };
-                    }
-                }
-                
-                // Matching Type
-                if (normalizedType === 'matching_type' || normalizedType === 'matching-type') {
-                    const prompts = q.prompts || [];
-                    const options = q.options || [];
-                    const correctPairs = q.correctPairs || {};
-
-                    if (prompts.length > 0 && options.length > 0) {
-                        return {
-                            ...baseQuestion,
-                            text: q.instruction || 'Match the following items.',
-                            type: 'matching-type',
-                            prompts: prompts,
-                            options: options,
-                            correctPairs: correctPairs,
-                        };
-                    }
-                }
-                
-                // Essay
-                if (normalizedType === 'essay') {
                     return {
                         ...baseQuestion,
-                        type: 'essay',
-                        rubric: q.rubric || [],
+                        type: 'identification',
+                        correctAnswer: String(q.correctAnswer || q.answer),
+                        choicesBox: globalIdentChoices, 
                     };
+                }
+                
+                // 4. Matching Type
+                if (normalizedType === 'matching_type' || normalizedType === 'matching-type') {
+                    return {
+                        ...baseQuestion,
+                        text: q.instruction || 'Match the following items.',
+                        type: 'matching-type',
+                        prompts: (q.prompts || []).map(p => ({...p, text: String(p.text)})),
+                        options: (q.options || []).map(o => ({...o, text: String(o.text)})),
+                        correctPairs: q.correctPairs || {},
+                    };
+                }
+                
+                // 5. Essay
+                if (normalizedType === 'essay') {
+                    return { ...baseQuestion, type: 'essay', rubric: q.rubric || [] };
                 }
 
                 return null;
             }).filter(Boolean);
 
-            if (formattedQuestions.length === 0) {
-                throw new Error("No compatible questions could be formatted for saving.");
-            }
+            if (formattedQuestions.length === 0) throw new Error("No compatible questions found.");
 
             const quizRef = doc(collection(db, 'quizzes'));
             const finalPayload = {
                 title: `Uploaded: ${quizData.title || 'Extracted Quiz'}`,
                 language: 'English',
-                unitId: finalUnitId, // Uses the resolved Unit ID
-                subjectId: finalSubjectId, // Uses the resolved Subject ID
+                unitId: finalUnitId, 
+                subjectId: finalSubjectId, 
                 lessonId: null, 
                 createdAt: serverTimestamp(),
                 createdBy: 'AI-Extractor',
@@ -355,141 +317,146 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
         }
     };
 
+    // --- GENERATION LOGIC ---
     const handleGenerateQuiz = async () => {
         if (!file) return setError('Please upload a file first.');
         setIsProcessing(true);
         setError('');
         setProgressPercent(10);
         setGeneratedQuizData(null);
+        
+        isGenerationRunning.current = true;
 
         try {
             setProgressMessage('Extracting content structure...');
             const fullText = await extractTextFromFile(file);
             if (fullText.length < 50) throw new Error("File content is too short.");
             
-            setProgressPercent(30);
+            setProgressPercent(20);
 
-            const chunkSize = 5000;
+            // 1. SMART SPLIT
+            const lines = fullText.split('\n');
             const chunks = [];
-            for (let i = 0; i < fullText.length; i += chunkSize) {
-                chunks.push(fullText.substring(i, i + chunkSize));
+            let currentChunk = "";
+            const MAX_CHUNK_SIZE = 2500; 
+
+            for (let line of lines) {
+                if ((currentChunk.length + line.length) > MAX_CHUNK_SIZE) {
+                    chunks.push(currentChunk);
+                    currentChunk = "";
+                }
+                currentChunk += line + "\n";
             }
+            if (currentChunk.trim().length > 0) chunks.push(currentChunk);
 
             let accumulatedQuestions = [];
             let quizTitle = "Extracted Quiz";
 
+            // 2. MICROWORKER LOOP
             for (let i = 0; i < chunks.length; i++) {
+                if (!isGenerationRunning.current) throw new Error("Generation aborted by user.");
+
                 const chunk = chunks[i];
                 const isFirstChunk = i === 0;
-                const currentProgress = 30 + Math.round(((i + 1) / chunks.length) * 60);
+                const currentProgress = 20 + Math.round(((i + 1) / chunks.length) * 70);
                 
                 setProgressPercent(currentProgress);
-                setProgressMessage(`Transcribing section ${i + 1} of ${chunks.length}...`);
+                setProgressMessage(`Processing section ${i + 1} of ${chunks.length}...`);
 
-                const prompt = `
-                You are a precise Data Entry Specialist.
+                // --- UNIVERSAL PROMPT (TEXT + MATH + FILIPINO) ---
+                const promptTemplate = `
+                You are an Expert Data Entry Specialist.
+                **TASK:** Convert text to strict JSON.
                 
-                **TASK:** Convert the document content into strict JSON.
+                **LANGUAGE RULES:**
+                1. **VERBATIM:** Copy the text EXACTLY as it appears. 
+                2. **NO TRANSLATION:** If the text is in Filipino/Tagalog, keep it in Filipino/Tagalog. If it is English, keep it in English.
                 
-                **RULES FOR EXACTNESS:**
-                1. **VERBATIM:** Copy text exactly. Do not paraphrase.
-                2. **MATH:** Interpret HTML/Unicode. "x<sup>2</sup>" -> "$x^2$".
+                **MATH RULES (Apply ONLY if Math Symbols are present):**
+                1. Convert rational exponents like "x12" to "$x^{1/2}$".
+                2. Convert "x2" to "$x^2$".
+                3. Use LaTeX for fractions: "1/2" -> "$\\\\frac{1}{2}$" (double escape backslash).
+                4. Use "$...$" wrappers for all math equations.
                 
-                **DATA STRUCTURE RULES:**
-                1. **MATCHING TYPE:** Return a SINGLE object for the whole section:
-                   - "type": "matching-type"
-                   - "prompts": [{"id": "1", "text": "Question..."}]
-                   - "options": [{"id": "a", "text": "Answer..."}]
-                   - "correctPairs": {"1": "a"}
+                **FORMATTING RULES:**
+                1. **Clean:** Remove prefixes (1., a., b.).
+                2. **Options:** Return as a simple Array of Strings.
                 
-                2. **IDENTIFICATION:**
-                   - If a 'Word Box' exists in the text, extract it to "choicesBox".
-                   - If NO 'Word Box' exists, strictly return "choicesBox": null. (The system will auto-generate it).
-                   - "type": "identification"
-                   - "correctAnswer": "Answer"
-                
-                3. **MULTIPLE CHOICE:**
-                   - "options": ["Option A", "Option B"] (No "a.", "b." prefixes)
-                   - "correctAnswer": "Answer Text"
-
-                **INPUT TEXT:**
+                **INPUT:**
                 ---
-                ${chunk}
+                {{CHUNK_CONTENT}}
                 ---
-
-                **JSON OUTPUT FORMAT:**
+                
+                **JSON:**
                 {
-                  ${isFirstChunk ? '"title": "Extracted Exam Title",' : ''}
+                  ${isFirstChunk ? '"title": "Exam Title",' : ''}
                   "questions": [
                     {
-                      "text": "Question text...",
-                      "type": "multiple_choice | alternative_response | identification | matching-type | essay",
-                      "options": [], 
-                      "correctAnswer": "Answer",
-                      "choicesBox": [] 
+                      "text": "Ang Pambansang Bayani ng Pilipinas ay si...",
+                      "type": "multiple_choice",
+                      "options": ["Jose Rizal", "Andres Bonifacio", "Apolinario Mabini"], 
+                      "correctAnswer": "Jose Rizal"
                     }
                   ]
                 }
                 `;
 
                 try {
-                    const aiResponse = await callGeminiWithLimitCheck(prompt);
-                    const parsed = sanitizeJsonComponent(aiResponse);
+                    const parsed = await processChunkWithRetry(
+                        chunk, 
+                        promptTemplate, 
+                        isGenerationRunning, 
+                        3 
+                    );
                     
                     if (isFirstChunk && parsed.title) quizTitle = parsed.title;
                     if (parsed.questions && Array.isArray(parsed.questions)) {
                         accumulatedQuestions = [...accumulatedQuestions, ...parsed.questions];
                     }
                 } catch (e) {
-                    console.warn(`Chunk ${i + 1} failed, skipping...`, e);
+                    console.warn(`Chunk ${i + 1} skipped.`, e);
                 }
             }
 
             if (accumulatedQuestions.length === 0) throw new Error("No questions could be extracted.");
 
-            const sanitizedQuestions = accumulatedQuestions.map(q => {
-                let type = (q.type || 'multiple_choice').toLowerCase().replace('-', '_'); 
-                if (type === 'true_false') type = 'alternative_response';
-                
-                if (q.options && Array.isArray(q.options)) {
-                    q.options = q.options.map(opt => opt.toString().replace(/^[a-zA-Z0-9]+\.\s*/, '').trim());
-                }
-
-                return { ...q, type };
-            }).filter(q => q.text || q.prompts);
-
             const finalQuizData = {
                 title: quizTitle || "Generated Quiz",
-                questions: sanitizedQuestions
+                questions: accumulatedQuestions 
             };
 
             setGeneratedQuizData(finalQuizData);
-            showToast(`Extracted ${sanitizedQuestions.length} items. Ready to save!`, 'success');
+            showToast(`Extracted ${accumulatedQuestions.length} items. Ready to save!`, 'success');
 
         } catch (err) {
-            console.error('Quiz Gen Error:', err);
-            setError('Failed to process file. Ensure text is readable.');
+            if (err.message && err.message.includes('aborted')) {
+                console.log("Process aborted.");
+            } else {
+                console.error('Quiz Gen Error:', err);
+                setError('Failed to process file. ' + err.message);
+            }
         } finally {
             setIsProcessing(false);
             setProgressPercent(0);
+            isGenerationRunning.current = false;
         }
     };
 
     return (
-        <div className={`flex flex-col h-full font-sans overflow-hidden transition-colors duration-500 ${themeStyles.bgGradient}`}>
+        <div className={`flex flex-col h-full font-sans overflow-hidden transition-colors duration-500`}>
             
             {/* Header */}
-            <div className={`flex-shrink-0 px-6 py-4 flex items-center justify-between backdrop-blur-xl border-b z-10 sticky top-0 transition-colors duration-500 ${themeStyles.panelBg} ${themeStyles.borderColor}`}>
+            <div className={`flex-shrink-0 px-6 py-4 flex items-center justify-between backdrop-blur-xl border-b z-10 sticky top-0 transition-colors duration-500 bg-white/60 dark:bg-[#1e1e1e]/60 border-white/20`}>
                 <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-[14px] flex items-center justify-center shadow-lg transition-colors duration-500 ${activeOverlay !== 'none' ? themeStyles.buttonGradient : 'bg-gradient-to-br from-indigo-500 to-purple-600'}`}>
+                    <div className={`w-10 h-10 rounded-[14px] flex items-center justify-center shadow-lg transition-colors duration-500 bg-[#007AFF]`}>
                         <SparklesIcon className="w-5 h-5 text-white stroke-[2]" />
                     </div>
                     <div>
-                        <h3 className={`text-lg font-bold tracking-tight leading-tight ${themeStyles.textColor}`}>AI Quiz Extractor</h3>
-                        <p className={`text-[12px] font-medium hidden sm:block ${themeStyles.subText}`}>Import from PDF/DOCX</p>
+                        <h3 className={`text-lg font-bold tracking-tight leading-tight text-slate-900 dark:text-white`}>AI Quiz Extractor</h3>
+                        <p className={`text-[12px] font-medium hidden sm:block text-slate-500`}>Import from PDF/DOCX/TXT</p>
                     </div>
                 </div>
-                <button onClick={onBack} className={`px-4 py-2 rounded-[20px] text-[13px] font-semibold transition-all flex items-center gap-2 backdrop-blur-md active:scale-95 border border-transparent ${activeOverlay !== 'none' ? 'bg-black/20 hover:bg-black/30 text-white' : 'bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 text-slate-700 dark:text-slate-200'}`}>
+                <button onClick={handleBack} className={`px-4 py-2 rounded-[20px] text-[13px] font-semibold transition-all flex items-center gap-2 backdrop-blur-md active:scale-95 border border-transparent bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 text-slate-700 dark:text-slate-200`}>
                     <ArrowUturnLeftIcon className="w-4 h-4 stroke-[2.5]" /> Back
                 </button>
             </div>
@@ -497,109 +464,42 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
             {/* Main Content */}
             <div className="flex-grow flex flex-col items-center justify-center p-6 relative z-0">
                 
-                <div className={`absolute top-1/4 left-1/4 w-64 h-64 rounded-full blur-3xl animate-pulse ${activeOverlay === 'christmas' ? 'bg-red-500/10' : activeOverlay === 'cyberpunk' ? 'bg-fuchsia-500/10' : 'bg-blue-400/10'}`} />
-                <div className={`absolute bottom-1/4 right-1/4 w-64 h-64 rounded-full blur-3xl animate-pulse delay-1000 ${activeOverlay === 'christmas' ? 'bg-green-500/10' : activeOverlay === 'cyberpunk' ? 'bg-cyan-500/10' : 'bg-purple-400/10'}`} />
-
-                <div className={`w-full max-w-2xl p-8 relative z-10 backdrop-blur-xl border rounded-[24px] shadow-2xl transition-all duration-500 ${themeStyles.panelBg} ${themeStyles.borderColor} shadow-black/5`}>
+                <div className={`w-full max-w-2xl p-8 relative z-10 backdrop-blur-xl border rounded-[24px] shadow-2xl transition-all duration-500 bg-white/60 dark:bg-[#1e1e1e]/60 border-white/20 shadow-black/5`}>
                     
                     {isProcessing ? (
                         <div className="flex flex-col items-center justify-center py-10 animate-in fade-in zoom-in duration-500">
                             <div className="relative w-24 h-24 mb-6">
+                                <BoltIcon className="w-8 h-8 animate-pulse text-[#007AFF] absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
                                 <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                                    <path className={`opacity-20 ${themeStyles.progressColor}`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
-                                    <path className={`drop-shadow-[0_0_10px_rgba(0,0,0,0.2)] transition-all duration-500 ease-out ${themeStyles.progressColor}`} strokeDasharray={`${progressPercent}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
+                                    <path className={`opacity-20 text-[#007AFF]`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
+                                    <path className={`drop-shadow-[0_0_10px_rgba(0,0,0,0.2)] transition-all duration-500 ease-out text-[#007AFF]`} strokeDasharray={`${progressPercent}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
                                 </svg>
-                                <div className={`absolute inset-0 flex items-center justify-center ${themeStyles.progressColor}`}>
-                                    <BoltIcon className="w-8 h-8 animate-pulse" />
-                                </div>
                             </div>
-                            <h4 className={`text-xl font-bold mb-2 ${themeStyles.textColor}`}>Scanning Document</h4>
-                            <p className={`text-sm font-medium ${themeStyles.subText}`}>{progressMessage}</p>
+                            <h4 className={`text-xl font-bold mb-2 text-slate-900 dark:text-white`}>Scanning Document</h4>
+                            <p className={`text-sm font-medium text-slate-500`}>{progressMessage}</p>
+                            
+                            <button 
+                                onClick={handleBack}
+                                className="mt-8 text-sm text-red-400 hover:text-red-300 underline"
+                            >
+                                Cancel Processing
+                            </button>
                         </div>
                     ) : generatedQuizData ? (
                         <div className="text-center animate-in fade-in zoom-in duration-300">
-                            <div className={`w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg ${themeStyles.iconBg} text-green-500`}>
+                            <div className={`w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg bg-green-100 text-green-500`}>
                                 <SparklesIcon className="w-9 h-9" />
                             </div>
-                            <h2 className={`text-2xl font-bold mb-2 ${themeStyles.textColor}`}>Extraction Complete!</h2>
-                            <p className={`text-sm mb-6 ${themeStyles.subText}`}>
+                            <h2 className={`text-2xl font-bold mb-2 text-slate-900 dark:text-white`}>Extraction Complete!</h2>
+                            <p className={`text-sm mb-6 text-slate-500`}>
                                 Successfully extracted <strong>{generatedQuizData.questions.length}</strong> items.
                             </p>
                             
-                            <div className="space-y-3">
-                                <button 
-                                    onClick={() => saveToFirestore(generatedQuizData)} 
-                                    className={`w-full py-3.5 rounded-[18px] font-bold text-[15px] text-white shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2 group bg-green-600 hover:bg-green-700`}
-                                >
-                                    <ArrowDownTrayIcon className="w-5 h-5" />
-                                    Save to Database
-                                </button>
-                                <button 
-                                    onClick={() => setGeneratedQuizData(null)} 
-                                    className={`w-full py-3 rounded-[18px] font-semibold text-sm transition-all ${themeStyles.textColor} opacity-70 hover:opacity-100 hover:bg-white/10`}
-                                >
-                                    Process Another File
-                                </button>
-                            </div>
-                        </div>
-                    ) : (
-                        <>
-                            <div className="text-center mb-8">
-                                <h2 className={`text-2xl font-bold mb-2 ${themeStyles.textColor}`}>Upload Quiz Document</h2>
-                                <p className={`text-sm leading-relaxed ${themeStyles.subText}`}>
-                                    Supports PDF and DOCX.<br/>
-                                    <span className="opacity-75 text-xs">Best for existing exams with Identification, Matching, and Multiple Choice.</span>
-                                </p>
-                            </div>
-
-                            {!file ? (
-                                <label className={`group flex flex-col items-center justify-center w-full h-64 rounded-[24px] border-2 border-dashed transition-all duration-300 cursor-pointer relative overflow-hidden active:scale-[0.99] ${themeStyles.uploadBorder} ${activeOverlay !== 'none' ? 'bg-black/20' : 'bg-white/50 dark:bg-white/5'}`}>
-                                    <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"/>
-                                    
-                                    <div className={`p-4 rounded-full shadow-sm mb-4 group-hover:scale-110 transition-transform duration-300 ring-1 ring-black/5 ${activeOverlay !== 'none' ? 'bg-white/10' : 'bg-white dark:bg-white/10'}`}>
-                                        <DocumentArrowUpIcon className={`w-10 h-10 stroke-[1.5] ${themeStyles.accentColor}`} />
-                                    </div>
-                                    
-                                    <span className={`text-lg font-bold ${themeStyles.textColor}`}>Click or Drag File Here</span>
-                                    <span className={`text-sm mt-1 font-medium ${themeStyles.subText}`}>PDF, DOCX</span>
-                                    <input type="file" className="hidden" accept=".pdf,.docx" onChange={handleFileChange} />
-                                </label>
-                            ) : (
-                                <div className={`relative flex items-center p-5 rounded-[24px] shadow-lg border group animate-in fade-in zoom-in duration-300 ${activeOverlay !== 'none' ? 'bg-black/20 border-white/10' : 'bg-white dark:bg-[#2C2C2E] border-black/5 dark:border-white/10'}`}>
-                                    <div className={`w-14 h-14 rounded-[18px] flex items-center justify-center mr-4 shadow-inner ${themeStyles.iconBg} ${themeStyles.accentColor}`}>
-                                        <DocumentTextIcon className="w-8 h-8 stroke-[1.5]" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className={`text-lg font-bold truncate ${themeStyles.textColor}`}>{file.name}</p>
-                                        <div className="flex items-center gap-2 mt-1">
-                                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide opacity-80 ${activeOverlay !== 'none' ? 'bg-white/10 text-white' : 'bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-slate-400'}`}>
-                                                {file.name.split('.').pop()}
-                                            </span>
-                                            <p className={`text-xs font-medium ${themeStyles.subText}`}>{(file.size/1024).toFixed(0)} KB</p>
-                                        </div>
-                                    </div>
-                                    <button onClick={removeFile} className={`p-2 rounded-full transition-colors active:scale-90 ${activeOverlay !== 'none' ? 'bg-white/10 hover:bg-red-500/40 text-white/70 hover:text-white' : 'bg-slate-100 dark:bg-white/10 text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20'}`}>
-                                        <XMarkIcon className="w-5 h-5 stroke-[2.5]" />
-                                    </button>
-                                </div>
-                            )}
-
-                            {error && (
-                                <div className="mt-4 p-3 rounded-[16px] bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-500/20 flex items-center gap-3 animate-in slide-in-from-top-2">
-                                    <div className="p-1.5 bg-red-100 dark:bg-red-500/20 rounded-full text-red-600 dark:text-red-400">
-                                        <ExclamationTriangleIcon className="w-5 h-5" />
-                                    </div>
-                                    <p className="text-sm font-semibold text-red-600 dark:text-red-400">{error}</p>
-                                </div>
-                            )}
-
-                            {/* --- MOVED SELECTORS HERE --- */}
-                            {/* FALLBACK: If IDs are missing, show selectors here in the Upload state */}
                             {!propSubjectId && (
-                                <div className="mt-6 mb-2 space-y-4 text-left p-4 rounded-2xl border bg-black/5 dark:bg-white/5" style={{ borderColor: themeStyles.borderColor }}>
+                                <div className="mt-6 mb-6 space-y-4 text-left p-4 rounded-2xl border bg-black/5 dark:bg-white/5 border-slate-300 dark:border-white/10">
                                     <div className="flex items-center gap-2 mb-2 text-yellow-500">
                                         <ExclamationTriangleIcon className="w-5 h-5" />
-                                        <span className="text-sm font-bold">Select Destination</span>
+                                        <span className="text-sm font-bold">Destination Required</span>
                                     </div>
                                     <div>
                                         <CourseSelector onCourseSelect={setSelectedCourse} />
@@ -615,11 +515,78 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                                 </div>
                             )}
 
+                            <div className="space-y-3">
+                                <button 
+                                    onClick={() => saveToFirestore(generatedQuizData)} 
+                                    className={`w-full py-3.5 rounded-[18px] font-bold text-[15px] text-white shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2 group bg-green-600 hover:bg-green-700`}
+                                >
+                                    <ArrowDownTrayIcon className="w-5 h-5" />
+                                    Save to Database
+                                </button>
+                                <button 
+                                    onClick={() => setGeneratedQuizData(null)} 
+                                    className={`w-full py-3 rounded-[18px] font-semibold text-sm transition-all text-slate-500 hover:bg-black/5 dark:hover:bg-white/10`}
+                                >
+                                    Process Another File
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="text-center mb-8">
+                                <h2 className={`text-2xl font-bold mb-2 text-slate-900 dark:text-white`}>Upload Quiz Document</h2>
+                                <p className={`text-sm leading-relaxed text-slate-500`}>
+                                    Supports PDF, DOCX, and Text.<br/>
+                                    <span className="opacity-75 text-xs">Best for existing exams with Identification, Matching, and Multiple Choice.</span>
+                                </p>
+                            </div>
+
+                            {!file ? (
+                                <label className={`group flex flex-col items-center justify-center w-full h-64 rounded-[24px] border-2 border-dashed transition-all duration-300 cursor-pointer relative overflow-hidden active:scale-[0.99] border-slate-300 dark:border-slate-600 hover:border-[#007AFF] bg-white/50 dark:bg-white/5`}>
+                                    <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"/>
+                                    
+                                    <div className={`p-4 rounded-full shadow-sm mb-4 group-hover:scale-110 transition-transform duration-300 ring-1 ring-black/5 bg-white dark:bg-white/10`}>
+                                        <ArrowDownTrayIcon className={`w-10 h-10 stroke-[1.5] text-[#007AFF]`} />
+                                    </div>
+                                    
+                                    <span className={`text-lg font-bold text-slate-900 dark:text-white`}>Click or Drag File Here</span>
+                                    <span className={`text-sm mt-1 font-medium text-slate-500`}>PDF, DOCX, TXT</span>
+                                    <input type="file" className="hidden" accept=".pdf,.docx,.txt" onChange={handleFileChange} />
+                                </label>
+                            ) : (
+                                <div className={`relative flex items-center p-5 rounded-[24px] shadow-lg border group animate-in fade-in zoom-in duration-300 bg-white dark:bg-[#2C2C2E] border-black/5 dark:border-white/10`}>
+                                    <div className={`w-14 h-14 rounded-[18px] flex items-center justify-center mr-4 shadow-inner bg-indigo-100 dark:bg-indigo-900/30 text-[#007AFF]`}>
+                                        <DocumentTextIcon className="w-8 h-8 stroke-[1.5]" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className={`text-lg font-bold truncate text-slate-900 dark:text-white`}>{file.name}</p>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide opacity-80 bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-slate-400`}>
+                                                {file.name.split('.').pop()}
+                                            </span>
+                                            <p className={`text-xs font-medium text-slate-500`}>{(file.size/1024).toFixed(0)} KB</p>
+                                        </div>
+                                    </div>
+                                    <button onClick={removeFile} className={`p-2 rounded-full transition-colors active:scale-90 bg-slate-100 dark:bg-white/10 text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20`}>
+                                        <XMarkIcon className="w-5 h-5 stroke-[2.5]" />
+                                    </button>
+                                </div>
+                            )}
+
+                            {error && (
+                                <div className="mt-4 p-3 rounded-[16px] bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-500/20 flex items-center gap-3 animate-in slide-in-from-top-2">
+                                    <div className="p-1.5 bg-red-100 dark:bg-red-500/20 rounded-full text-red-600 dark:text-red-400">
+                                        <ExclamationTriangleIcon className="w-5 h-5" />
+                                    </div>
+                                    <p className="text-sm font-semibold text-red-600 dark:text-red-400">{error}</p>
+                                </div>
+                            )}
+
                             <div className="mt-8 flex justify-end gap-4">
                                 {file && (
                                     <button 
                                         onClick={handleGenerateQuiz} 
-                                        className={`w-full py-3.5 rounded-[18px] font-bold text-[15px] text-white shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2 group ${activeOverlay !== 'none' ? `bg-gradient-to-r ${themeStyles.buttonGradient} shadow-black/20` : 'bg-[#007AFF] hover:bg-[#0062CC] shadow-blue-500/30 hover:shadow-blue-500/50'}`}
+                                        className={`w-full py-3.5 rounded-[18px] font-bold text-[15px] text-white shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2 group bg-[#007AFF] hover:bg-[#0062CC] shadow-blue-500/30 hover:shadow-blue-500/50`}
                                     >
                                         <SparklesIcon className="w-5 h-5 transition-transform group-hover:rotate-12" />
                                         Generate & Extract
