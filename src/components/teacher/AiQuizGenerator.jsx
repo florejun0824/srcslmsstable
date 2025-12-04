@@ -10,7 +10,9 @@ import {
     BoltIcon,
     ExclamationTriangleIcon,
     ArrowDownTrayIcon,
-    DocumentTextIcon
+    DocumentTextIcon,
+    XMarkIcon,           // <--- Added this
+    DocumentArrowUpIcon  // <--- Added this
 } from '@heroicons/react/24/outline';
 import mammoth from 'mammoth';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -201,7 +203,6 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                     ? `${q.passage}\n\n${q.question || ''}`
                     : (q.question || q.text || 'Question text missing');
                 
-                // Clean HTML tags but PRESERVE LaTeX ($...$)
                 const cleanText = String(questionText).replace(/<(?!\/?(span|strong|u|em)\b)[^>]+>/gi, ""); 
 
                 const baseQuestion = {
@@ -546,7 +547,7 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                                     <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"/>
                                     
                                     <div className={`p-4 rounded-full shadow-sm mb-4 group-hover:scale-110 transition-transform duration-300 ring-1 ring-black/5 bg-white dark:bg-white/10`}>
-                                        <ArrowDownTrayIcon className={`w-10 h-10 stroke-[1.5] text-[#007AFF]`} />
+                                        <DocumentArrowUpIcon className={`w-10 h-10 stroke-[1.5] text-[#007AFF]`} />
                                     </div>
                                     
                                     <span className={`text-lg font-bold text-slate-900 dark:text-white`}>Click or Drag File Here</span>
