@@ -473,7 +473,7 @@ export default function App() {
     };
     if (buildStatus !== 'building') {
       checkBuildStatus();
-      pollInterval = setInterval(checkBuildStatus, 15000);
+      pollInterval = setInterval(checkBuildStatus, 1800000);
     }
     return () => {
       clearInterval(pollInterval);
