@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useToast } from '../../contexts/ToastContext';
 import { useTheme } from '../../contexts/ThemeContext';
-import { callGeminiWithLimitCheck } from '../../services/aiService';
+// Note: We do NOT use the shared aiService here because we need custom streaming logic
 import { db } from '../../services/firebase'; 
 import { doc, collection, setDoc, serverTimestamp } from 'firebase/firestore';
 import { 
@@ -148,9 +148,12 @@ const parseWithRegex = (fullText) => {
 
     return validQuestions;
 };
+
 // ------------------------------------------------------------------
-// 2. AI HELPERS (The "Smart" Engine)
+// 2. STREAMING AI ENGINE (Bypasses 504 Timeout)
 // ------------------------------------------------------------------
+
+// A. Robust JSON Parser
 const robustJsonParse = (text) => {
     try {
         let jsonString = text;
@@ -164,6 +167,7 @@ const robustJsonParse = (text) => {
         }
         throw new Error("No JSON structure found");
     } catch (e) {
+        // Fallback: Try to salvage individual objects using Regex if full parse fails
         const questionMatches = text.match(/\{[\s\S]*?"text"[\s\S]*?"type"[\s\S]*?\}/g);
         if (questionMatches && questionMatches.length > 0) {
             const salvagedQuestions = [];
@@ -179,20 +183,53 @@ const robustJsonParse = (text) => {
     }
 };
 
-const processChunkWithRetry = async (chunk, promptTemplate, isGenerationRunningRef, maxRetries = 3) => {
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-        if (!isGenerationRunningRef.current) throw new Error("Processing aborted by user.");
-        try {
-            const fullPrompt = promptTemplate.replace('{{CHUNK_CONTENT}}', chunk);
-            const aiResponse = await callGeminiWithLimitCheck(fullPrompt);
-            if (!isGenerationRunningRef.current) throw new Error("Processing aborted by user.");
-            return robustJsonParse(aiResponse);
-        } catch (error) {
-            if (!isGenerationRunningRef.current) throw new Error("Processing aborted by user.");
-            if (attempt === maxRetries - 1) throw error; 
-            await new Promise(res => setTimeout(res, 2000 * Math.pow(2, attempt)));
+// B. Streaming Fetcher (UPDATED URL)
+const streamGeminiResponse = async (prompt) => {
+    try {
+        // !!! IMPORTANT: Pointing to the NEW streaming endpoint !!!
+        const response = await fetch('/api/gemini-stream', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt }),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`API Error ${response.status}: ${errorText}`);
         }
+
+        if (!response.body) throw new Error("ReadableStream not supported in this browser.");
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let result = '';
+
+        // Read the stream chunk by chunk
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            const chunk = decoder.decode(value, { stream: true });
+            result += chunk;
+        }
+
+        return result; // The fully accumulated JSON string
+    } catch (error) {
+        console.error("Streaming Error:", error);
+        throw error;
     }
+};
+
+// C. Processing Wrapper
+const processChunkWithStream = async (chunk, promptTemplate, isGenerationRunningRef) => {
+    if (!isGenerationRunningRef.current) throw new Error("Processing aborted by user.");
+    
+    const fullPrompt = promptTemplate.replace('{{CHUNK_CONTENT}}', chunk);
+    
+    // Use the streaming fetcher instead of the standard one
+    const aiResponseText = await streamGeminiResponse(fullPrompt);
+    
+    if (!isGenerationRunningRef.current) throw new Error("Processing aborted by user.");
+    return robustJsonParse(aiResponseText);
 };
 
 // ------------------------------------------------------------------
@@ -208,7 +245,7 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
     const [progressMessage, setProgressMessage] = useState('');
     const [progressPercent, setProgressPercent] = useState(0);
     const [generatedQuizData, setGeneratedQuizData] = useState(null); 
-    const [generationMethod, setGenerationMethod] = useState(''); // 'regex' or 'ai'
+    const [generationMethod, setGenerationMethod] = useState(''); 
 
     const [selectedCourse, setSelectedCourse] = useState(null);
     const [selectedLessons, setSelectedLessons] = useState([]);
@@ -495,17 +532,19 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                 return; // STOP HERE
             }
 
-            // --- STRATEGY B: FALLBACK TO AI (Forced if Math is detected) ---
+            // --- STRATEGY B: STREAMING AI (Forced if Math is detected) ---
             setProgressMessage(hasMathSymbols 
-                ? 'Math symbols detected. Switching to Deep AI Analysis...' 
-                : 'Complex format detected. Switching to AI analysis...');
+                ? 'Math symbols detected. Opening Streaming Connection...' 
+                : 'Complex format detected. Switching to AI Streaming...');
             
-            setGenerationMethod('AI Analysis (Gemini)');
+            setGenerationMethod('AI Analysis (Streaming)');
             
             const lines = fullText.split('\n');
             const chunks = [];
             let currentChunk = "";
-            const TARGET_CHUNK_SIZE = 800; // Smaller chunks for safety
+            
+            // Streaming allows larger chunks safely!
+            const TARGET_CHUNK_SIZE = 1500; 
 
             for (let line of lines) {
                 if ((currentChunk.length + line.length) > TARGET_CHUNK_SIZE) {
@@ -527,12 +566,12 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                 
                 const currentProgress = 20 + Math.round(((i + 1) / chunks.length) * 70);
                 setProgressPercent(currentProgress);
-                setProgressMessage(`AI Processing: Batch ${i + 1} of ${chunks.length}...`);
+                setProgressMessage(`AI Streaming: Batch ${i + 1} of ${chunks.length}...`);
 
                 const promptTemplate = `
-                You are an expert Document Parser and Data Extractor.
+                You are an expert Document Parser.
 **TASK:** Extract questions from the text below into strict JSON format.
-**STRICT RULES:**
+**RULES:**
 1. **EXTRACT ONLY:** Do NOT create, invent, or add questions that are not in the text.
 2. **NO HALLUCINATIONS:** If the text ends, stop. Do not add math formulas or filler questions.
 3. **OPTIONS MUST BE STRINGS:** Return options as a simple array of strings. Example: ["Pride", "Greed", "Envy"]. Do NOT use objects like {"option": "A"}.
@@ -543,7 +582,6 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                 - **Answers:** Extract correct answer if keys are provided.
 
                 **2. MATH & LATEX HANDLING:**
-                - This document may contain math using '$' delimiters or standard text.
                 - Preserve LaTeX: "$x^2$" or "$\\frac{1}{2}$".
                 - Fix common OCR errors: "x2" -> "$x^2$", "a0" -> "$a^0$".
                 - Ensure math formatting is valid LaTeX wrapped in '$'.
@@ -567,11 +605,11 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                 `;
 
                 try {
-                    const parsed = await processChunkWithRetry(
+                    // Use the STREAMING fetcher pointing to the NEW API
+                    const parsed = await processChunkWithStream(
                         chunk, 
                         promptTemplate, 
-                        isGenerationRunning, 
-                        3 
+                        isGenerationRunning
                     );
                     
                     if (isFirstChunk && parsed.title) quizTitle = parsed.title;
@@ -579,14 +617,14 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                         accumulatedQuestions = [...accumulatedQuestions, ...parsed.questions];
                     }
 
-                    await new Promise(res => setTimeout(res, 2500)); 
+                    await new Promise(res => setTimeout(res, 500)); 
 
                 } catch (e) {
-                    console.warn(`Chunk ${i + 1} skipped.`, e);
+                    console.warn(`Chunk ${i + 1} failed.`, e);
                 }
             }
 
-            if (accumulatedQuestions.length === 0) throw new Error("No questions could be extracted.");
+            if (accumulatedQuestions.length === 0) throw new Error("No questions could be extracted. The document might be too complex or empty.");
 
             const finalQuizData = {
                 title: quizTitle || "Generated Quiz",
