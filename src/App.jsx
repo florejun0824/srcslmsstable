@@ -445,7 +445,8 @@ export default function App() {
     let countdownInterval;
     const checkBuildStatus = async () => {
       try {
-        const res = await fetch('/.netlify/functions/build-status', { cache: 'no-store' });
+        // [FIX] CHANGED FROM '/.netlify/functions/build-status' TO '/api/build-status'
+        const res = await fetch('/api/build-status', { cache: 'no-store' });
         const data = await res.json();
         setBuildStatus(prevStatus => {
           if (prevStatus !== 'building' && data.status === 'building') {
