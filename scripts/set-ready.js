@@ -1,14 +1,18 @@
-const { getStore } = require('@netlify/blobs');
+// scripts/set-ready.js
+const { createClient } = require('@vercel/kv');
 
-const setBuildStatus = async () => {
+const kv = createClient({
+  url: process.env.KV_REST_API_URL,
+  token: process.env.KV_REST_API_TOKEN,
+});
+
+const setReadyStatus = async () => {
   try {
-    const store = getStore('build_status_store');
-    // Set the same key to the value 'ready'
-    await store.set('current_status', 'ready');
-    console.log('✅ Set BUILD_STATUS to ready in blob store');
+    await kv.set('build_status', 'ready');
+    console.log('✅ Set BUILD_STATUS to "ready" in Vercel KV');
   } catch (error) {
-    console.error('Error setting build status:', error);
+    console.error('❌ Error setting ready status:', error);
   }
 };
 
-setBuildStatus();
+setReadyStatus();

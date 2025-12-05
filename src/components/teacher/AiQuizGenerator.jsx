@@ -12,7 +12,8 @@ import {
     ArrowDownTrayIcon,
     DocumentTextIcon,
     XMarkIcon,
-    DocumentArrowUpIcon
+    DocumentArrowUpIcon,
+    PencilSquareIcon // Added icon
 } from '@heroicons/react/24/outline';
 import mammoth from 'mammoth';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -21,6 +22,7 @@ import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 // --- IMPORTS FOR SELECTION FALLBACK ---
 import CourseSelector from './CourseSelector';
 import LessonSelector from './LessonSelector';
+import EditQuizModal from '../teacher/EditQuizModal'; // IMPORT THE MODAL
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
@@ -223,6 +225,9 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
     const [selectedCourse, setSelectedCourse] = useState(null);
     const [selectedLessons, setSelectedLessons] = useState([]);
 
+    // --- NEW: EDIT MODAL STATE ---
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
     const isGenerationRunning = useRef(false);
 
     useEffect(() => {
@@ -275,6 +280,162 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
             .replace(/\s+/g, ' ');       
     };
 
+    // --- HELPER: NORMALIZE QUIZ DATA BEFORE SAVING OR EDITING ---
+    // This extracts the logic previously inside saveToFirestore so we can use it for editing too
+    const normalizeQuizData = (rawQuizData) => {
+        const uniqueQuestions = [];
+        const seenGroupableTypes = new Set();
+    
+        const identQuestions = rawQuizData.questions.filter(q => (q.type||'').toLowerCase().includes('identification'));
+        let globalIdentChoices = null;
+    
+        const firstIdentWithChoices = identQuestions.find(q => q.choicesBox && (Array.isArray(q.choicesBox) || typeof q.choicesBox === 'string'));
+        if (firstIdentWithChoices) {
+            const rawBox = firstIdentWithChoices.choicesBox;
+            globalIdentChoices = Array.isArray(rawBox) 
+                ? rawBox.map(c => (typeof c === 'object' && c !== null ? c.text || c.value : String(c)))
+                : [String(rawBox)];
+        }
+
+        if (!globalIdentChoices && identQuestions.length > 0) {
+            const collectedAnswers = identQuestions
+                .map(q => q.correctAnswer || q.answer)
+                .filter(a => a && typeof a === 'string');
+            if (collectedAnswers.length > 0) globalIdentChoices = [...new Set(collectedAnswers)];
+        }
+
+        for (const q of rawQuizData.questions) {
+            const normalizedType = (q.type || '').toLowerCase().replace(/\s+/g, '_');
+            const isGroupable = normalizedType === 'matching_type' || normalizedType === 'matching-type'; 
+            if (isGroupable) {
+                if (!seenGroupableTypes.has(normalizedType)) {
+                    uniqueQuestions.push(q);
+                    seenGroupableTypes.add(normalizedType);
+                }
+            } else {
+                uniqueQuestions.push(q);
+            }
+        }
+
+        const formattedQuestions = uniqueQuestions.map(q => {
+            // Already formatted? Skip (This prevents double-processing if we edited the quiz)
+            if (q.options && Array.isArray(q.options) && q.options.every(o => typeof o === 'string')) {
+                 return q; 
+            }
+
+            const normalizedType = (q.type || '').toLowerCase().replace(/\s+/g, '_');
+            const cleanText = String(q.question || q.text || 'Question text missing').replace(/<(?!\/?(span|strong|u|em)\b)[^>]+>/gi, ""); 
+
+            const baseQuestion = {
+                text: cleanText,
+                difficulty: q.difficulty || 'easy',
+                explanation: q.explanation || q.solution || '', 
+            };
+
+            // --- 1. Multiple Choice / Analogy ---
+            if (normalizedType === 'multiple_choice' || normalizedType === 'analogy' || normalizedType === 'interpretive' || normalizedType === 'multiple-choice') {
+                const rawOptions = q.options || [];
+                
+                // 🔥 FIX: Aggressive option sanitization
+                // This converts [{text: "A"}, {text: "B"}] into ["A", "B"]
+                const stringOptions = rawOptions.map(opt => {
+                    if (typeof opt === 'object' && opt !== null) {
+                        const val = opt.text || opt.value || opt.content || opt.answer || opt.option;
+                        return val ? String(val) : (Object.values(opt)[0] ? String(Object.values(opt)[0]) : JSON.stringify(opt));
+                    }
+                    return String(opt);
+                });
+
+                // CLEANUP: Remove "a. ", "b. " prefixes from the answer text for matching
+                const rawAnswer = q.correctAnswer || '';
+                const cleanAnswerText = rawAnswer.replace(/^[a-d][\.\)]\s*/i, '').trim();
+                
+                // STRATEGY 1: Exact Match
+                let correctIndex = stringOptions.findIndex(opt => opt.trim() === cleanAnswerText);
+
+                // STRATEGY 2: Letter Match
+                if (correctIndex === -1) {
+                    const letterMatch = rawAnswer.match(/^([a-d])[\.\)]/i);
+                    if (letterMatch) {
+                        const letterMap = { 'a': 0, 'b': 1, 'c': 2, 'd': 3 };
+                        correctIndex = letterMap[letterMatch[1].toLowerCase()];
+                    }
+                }
+
+                // STRATEGY 3: Fuzzy Match
+                if (correctIndex === -1) {
+                    correctIndex = stringOptions.findIndex(opt => {
+                        const cleanOpt = opt.toLowerCase().replace(/[^a-z0-9]/g, '');
+                        const cleanKey = cleanAnswerText.toLowerCase().replace(/[^a-z0-9]/g, '');
+                        return cleanOpt === cleanKey || cleanOpt.includes(cleanKey) || cleanKey.includes(cleanOpt);
+                    });
+                }
+
+                const finalCorrectIndex = (correctIndex > -1 && correctIndex < stringOptions.length) ? correctIndex : 0;
+
+                if (stringOptions.length > 0) {
+                    return {
+                        ...baseQuestion,
+                        type: 'multiple-choice',
+                        options: stringOptions, // Now it is just an array of strings!
+                        correctAnswerIndex: finalCorrectIndex,
+                    };
+                } else {
+                        return null; 
+                }
+            }
+            
+            if (normalizedType === 'alternative_response' || normalizedType === 'true_false' || normalizedType === 'true-false') {
+                let isTrue = false;
+                if (typeof q.correctAnswer === 'string') {
+                    isTrue = q.correctAnswer.toLowerCase() === 'true' || q.correctAnswer.toLowerCase() === 'tama';
+                } else if (typeof q.correctAnswer === 'boolean') isTrue = q.correctAnswer;
+                return { ...baseQuestion, type: 'true-false', correctAnswer: isTrue };
+            }
+            
+            if (normalizedType === 'identification' || normalizedType === 'solving') {
+                return {
+                    ...baseQuestion,
+                    type: 'identification',
+                    correctAnswer: String(q.correctAnswer || q.answer),
+                    choicesBox: globalIdentChoices, 
+                };
+            }
+            
+            if (normalizedType === 'matching_type' || normalizedType === 'matching-type') {
+                return {
+                    ...baseQuestion,
+                    text: q.instruction || 'Match the following items.',
+                    type: 'matching-type',
+                    prompts: (q.prompts || []).map(p => ({...p, text: String(p.text)})),
+                    options: (q.options || []).map(o => ({...o, text: String(o.text)})),
+                    correctPairs: q.correctPairs || {},
+                };
+            }
+            return q; // Return as is if we don't recognize type, or mapped earlier
+        }).filter(Boolean);
+
+        return formattedQuestions;
+    };
+
+    const handleEditClick = () => {
+        if(!generatedQuizData) return;
+        // Sanitize the data BEFORE opening the modal
+        // This ensures options are ["A", "B"] not [{text:"A"}]
+        const cleanQuestions = normalizeQuizData(generatedQuizData);
+        setGeneratedQuizData({
+            ...generatedQuizData,
+            questions: cleanQuestions
+        });
+        setIsEditModalOpen(true);
+    };
+
+    const handleLocalSave = (updatedQuiz) => {
+        // This receives the data from EditQuizModal without saving to DB yet
+        setGeneratedQuizData(updatedQuiz);
+        showToast("Changes applied! Ready to save.", "success");
+    };
+
     const saveToFirestore = async (quizData) => {
         const finalSubjectId = propSubjectId || selectedCourse?.id;
         const finalUnitId = propUnitId || (selectedLessons.length > 0 ? selectedLessons[0].id : null);
@@ -286,138 +447,9 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
 
         try {
             setProgressMessage('Saving to database...');
-            const uniqueQuestions = [];
-            const seenGroupableTypes = new Set();
-        
-            const identQuestions = quizData.questions.filter(q => (q.type||'').toLowerCase().includes('identification'));
-            let globalIdentChoices = null;
-        
-            const firstIdentWithChoices = identQuestions.find(q => q.choicesBox && (Array.isArray(q.choicesBox) || typeof q.choicesBox === 'string'));
-            if (firstIdentWithChoices) {
-                const rawBox = firstIdentWithChoices.choicesBox;
-                globalIdentChoices = Array.isArray(rawBox) 
-                    ? rawBox.map(c => (typeof c === 'object' && c !== null ? c.text || c.value : String(c)))
-                    : [String(rawBox)];
-            }
-
-            if (!globalIdentChoices && identQuestions.length > 0) {
-                const collectedAnswers = identQuestions
-                    .map(q => q.correctAnswer || q.answer)
-                    .filter(a => a && typeof a === 'string');
-                if (collectedAnswers.length > 0) globalIdentChoices = [...new Set(collectedAnswers)];
-            }
-
-            for (const q of quizData.questions) {
-                const normalizedType = (q.type || '').toLowerCase().replace(/\s+/g, '_');
-                const isGroupable = normalizedType === 'matching_type' || normalizedType === 'matching-type'; 
-                if (isGroupable) {
-                    if (!seenGroupableTypes.has(normalizedType)) {
-                        uniqueQuestions.push(q);
-                        seenGroupableTypes.add(normalizedType);
-                    }
-                } else {
-                    uniqueQuestions.push(q);
-                }
-            }
-
-            const formattedQuestions = uniqueQuestions.map(q => {
-                const normalizedType = (q.type || '').toLowerCase().replace(/\s+/g, '_');
-                const cleanText = String(q.question || q.text || 'Question text missing').replace(/<(?!\/?(span|strong|u|em)\b)[^>]+>/gi, ""); 
-
-                const baseQuestion = {
-                    text: cleanText,
-                    difficulty: q.difficulty || 'easy',
-                    explanation: q.explanation || q.solution || '', 
-                };
-
-// --- 1. Multiple Choice / Analogy ---
-                if (normalizedType === 'multiple_choice' || normalizedType === 'analogy' || normalizedType === 'interpretive') {
-                    const rawOptions = q.options || [];
-                    
-					// 🔥 FIX: Aggressive option sanitization
-					const stringOptions = rawOptions.map(opt => {
-					    if (typeof opt === 'object' && opt !== null) {
-					        // Try every common key the AI might use
-					        const val = opt.text || opt.value || opt.content || opt.answer || opt.option;
-					        // If specific keys fail, grab the first value in the object, otherwise stringify
-					        return val ? String(val) : (Object.values(opt)[0] ? String(Object.values(opt)[0]) : JSON.stringify(opt));
-					    }
-					    return String(opt);
-					});
-
-                    // CLEANUP: Remove "a. ", "b. " prefixes from the answer text for matching
-                    const rawAnswer = q.correctAnswer || '';
-                    const cleanAnswerText = rawAnswer.replace(/^[a-d][\.\)]\s*/i, '').trim();
-                    
-                    // STRATEGY 1: Exact Match using the sanitized strings
-                    let correctIndex = stringOptions.findIndex(opt => opt.trim() === cleanAnswerText);
-
-                    // STRATEGY 2: If no match, check if Answer starts with a Letter (e.g. "a. Answer")
-                    if (correctIndex === -1) {
-                        const letterMatch = rawAnswer.match(/^([a-d])[\.\)]/i);
-                        if (letterMatch) {
-                            const letterMap = { 'a': 0, 'b': 1, 'c': 2, 'd': 3 };
-                            correctIndex = letterMap[letterMatch[1].toLowerCase()];
-                        }
-                    }
-
-                    // STRATEGY 3: Fuzzy Match (Ignore punctuation/case)
-                    if (correctIndex === -1) {
-                        correctIndex = stringOptions.findIndex(opt => {
-                            const cleanOpt = opt.toLowerCase().replace(/[^a-z0-9]/g, '');
-                            const cleanKey = cleanAnswerText.toLowerCase().replace(/[^a-z0-9]/g, '');
-                            return cleanOpt === cleanKey || cleanOpt.includes(cleanKey) || cleanKey.includes(cleanOpt);
-                        });
-                    }
-
-                    // Fallback to index 0 if detection fails, but prioritize safety
-                    const finalCorrectIndex = (correctIndex > -1 && correctIndex < stringOptions.length) ? correctIndex : 0;
-
-                    if (stringOptions.length > 0) {
-                        return {
-                            ...baseQuestion,
-                            type: 'multiple-choice',
-                            // 🔥 FIX: Use stringOptions here instead of raw options
-                            options: stringOptions.map((opt, idx) => ({ 
-                                text: opt, 
-                                isCorrect: idx === finalCorrectIndex 
-                            })),
-                            correctAnswerIndex: finalCorrectIndex,
-                        };
-                    } else {
-                         return null; // Skip if no options exist
-                    }
-                }
-                
-                if (normalizedType === 'alternative_response' || normalizedType === 'true_false') {
-                    let isTrue = false;
-                    if (typeof q.correctAnswer === 'string') {
-                        isTrue = q.correctAnswer.toLowerCase() === 'true' || q.correctAnswer.toLowerCase() === 'tama';
-                    } else if (typeof q.correctAnswer === 'boolean') isTrue = q.correctAnswer;
-                    return { ...baseQuestion, type: 'true-false', correctAnswer: isTrue };
-                }
-                
-                if (normalizedType === 'identification' || normalizedType === 'solving') {
-                    return {
-                        ...baseQuestion,
-                        type: 'identification',
-                        correctAnswer: String(q.correctAnswer || q.answer),
-                        choicesBox: globalIdentChoices, 
-                    };
-                }
-                
-                if (normalizedType === 'matching_type' || normalizedType === 'matching-type') {
-                    return {
-                        ...baseQuestion,
-                        text: q.instruction || 'Match the following items.',
-                        type: 'matching-type',
-                        prompts: (q.prompts || []).map(p => ({...p, text: String(p.text)})),
-                        options: (q.options || []).map(o => ({...o, text: String(o.text)})),
-                        correctPairs: q.correctPairs || {},
-                    };
-                }
-                return null;
-            }).filter(Boolean);
+            
+            // Normalize again just to be safe (idempotent)
+            const formattedQuestions = normalizeQuizData(quizData);
 
             if (formattedQuestions.length === 0) throw new Error("No compatible questions found.");
 
@@ -467,9 +499,7 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
             setProgressMessage('Analyzing structure (Method A)...');
             const regexQuestions = parseWithRegex(fullText);
 
-            // If we found a good amount of questions, trust the offline parser
             if (regexQuestions.length >= 5) {
-                // Artificial delay just so the UI doesn't flash too fast
                 setProgressPercent(100);
                 await new Promise(r => setTimeout(r, 600));
                 
@@ -484,7 +514,6 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
             }
 
             // --- STRATEGY B: FALLBACK TO AI ---
-            // If regex found < 5 questions, the format is likely complex/messy.
             setProgressMessage('Complex format detected. Switching to AI analysis...');
             setGenerationMethod('AI Analysis (Gemini)');
             
@@ -661,21 +690,31 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                                 </div>
                             )}
 
-                            <div className="space-y-3">
+                            {/* --- BUTTON GROUP --- */}
+                            <div className="flex gap-3 mb-3">
+                                <button 
+                                    onClick={handleEditClick}
+                                    className="flex-1 py-3.5 rounded-[18px] font-bold text-[15px] bg-white dark:bg-[#2C2C2E] border border-black/10 dark:border-white/10 text-slate-700 dark:text-white shadow-sm hover:bg-slate-50 dark:hover:bg-white/10 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                                >
+                                    <PencilSquareIcon className="w-5 h-5" />
+                                    Review & Edit
+                                </button>
+                                
                                 <button 
                                     onClick={() => saveToFirestore(generatedQuizData)} 
-                                    className={`w-full py-3.5 rounded-[18px] font-bold text-[15px] text-white shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2 group bg-green-600 hover:bg-green-700`}
+                                    className={`flex-[2] py-3.5 rounded-[18px] font-bold text-[15px] text-white shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2 group bg-green-600 hover:bg-green-700`}
                                 >
                                     <ArrowDownTrayIcon className="w-5 h-5" />
                                     Save to Database
                                 </button>
-                                <button 
-                                    onClick={() => setGeneratedQuizData(null)} 
-                                    className={`w-full py-3 rounded-[18px] font-semibold text-sm transition-all text-slate-500 hover:bg-black/5 dark:hover:bg-white/10`}
-                                >
-                                    Process Another File
-                                </button>
                             </div>
+                            
+                            <button 
+                                onClick={() => setGeneratedQuizData(null)} 
+                                className={`w-full py-3 rounded-[18px] font-semibold text-sm transition-all text-slate-500 hover:bg-black/5 dark:hover:bg-white/10`}
+                            >
+                                Process Another File
+                            </button>
                         </div>
                     ) : (
                         <>
@@ -740,6 +779,16 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                     )}
                 </div>
             </div>
+
+            {/* EDIT MODAL */}
+            {generatedQuizData && (
+                <EditQuizModal
+                    isOpen={isEditModalOpen}
+                    onClose={() => setIsEditModalOpen(false)}
+                    quiz={generatedQuizData}
+                    onSaveLocal={handleLocalSave} // We pass this prop to enable "Offline Edit"
+                />
+            )}
         </div>
     );
 }

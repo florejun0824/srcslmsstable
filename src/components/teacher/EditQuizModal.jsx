@@ -1,4 +1,3 @@
-// src/components/teacher/EditQuizModal.jsx
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
@@ -264,7 +263,8 @@ const DiscardChangesModal = ({ isOpen, onClose, onConfirm }) => {
 };
 
 // --- MAIN COMPONENT ---
-const EditQuizModal = ({ isOpen, onClose, quiz }) => {
+// Added onSaveLocal prop to support offline editing
+const EditQuizModal = ({ isOpen, onClose, quiz, onSaveLocal }) => {
     const { showToast } = useToast();
 
     // --- STATE ---
@@ -516,7 +516,8 @@ const EditQuizModal = ({ isOpen, onClose, quiz }) => {
 
     // --- SAVE LOGIC ---
     const handleUpdate = async () => {
-        if (!quiz?.id) {
+        // If not saving locally, check for ID
+        if (!onSaveLocal && !quiz?.id) {
             showToast("Error: Missing Quiz ID.", "error");
             return;
         }
@@ -549,15 +550,30 @@ const EditQuizModal = ({ isOpen, onClose, quiz }) => {
 
         setLoading(true);
         setError('');
+        
         try {
-            const quizRef = doc(db, 'quizzes', quiz.id);
-            await updateDoc(quizRef, {
-                title,
-                questions,
-                updatedAt: serverTimestamp()
-            });
-            showToast('Quiz updated successfully!', 'success');
-            onClose();
+            // === NEW: CHECK IF LOCAL SAVE ===
+            if (onSaveLocal) {
+                // Pass data back to parent without using Firebase
+                onSaveLocal({
+                    ...quiz,
+                    title,
+                    questions,
+                    // If it had an ID, keep it, otherwise undefined
+                    updatedAt: new Date() // Fake timestamp
+                });
+                onClose();
+            } else {
+                // Default: Save to Firestore
+                const quizRef = doc(db, 'quizzes', quiz.id);
+                await updateDoc(quizRef, {
+                    title,
+                    questions,
+                    updatedAt: serverTimestamp()
+                });
+                showToast('Quiz updated successfully!', 'success');
+                onClose();
+            }
         } catch (err) {
             console.error('Error updating quiz: ', err);
             setError("Failed to update quiz.");
@@ -762,7 +778,8 @@ const EditQuizModal = ({ isOpen, onClose, quiz }) => {
                             className="px-8 py-2.5 font-bold text-sm bg-gradient-to-r from-[#007AFF] to-[#0051A8] text-white rounded-[14px] shadow-lg shadow-blue-500/30 flex items-center gap-2 hover:shadow-blue-500/50 transition-all active:scale-95 disabled:opacity-50 disabled:scale-100"
                         >
                             {loading ? <ArrowPathIcon className="w-5 h-5 animate-spin" /> : <CheckIcon className="w-5 h-5 stroke-[2.5]" />}
-                            {loading ? 'Updating...' : 'Update Quiz'}
+                            {/* Update text based on whether it is local save or DB save */}
+                            {loading ? 'Saving...' : (onSaveLocal ? 'Save Changes' : 'Update Quiz')}
                         </button>
                     </div>
                 </div>
