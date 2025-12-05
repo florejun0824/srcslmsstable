@@ -324,12 +324,10 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                 if (normalizedType === 'multiple_choice' || normalizedType === 'analogy' || normalizedType === 'interpretive') {
                     const rawOptions = q.options || [];
                     
-					// 🔥 FIX: Aggressive option sanitization
+					// Aggressive option sanitization
 					const stringOptions = rawOptions.map(opt => {
 					    if (typeof opt === 'object' && opt !== null) {
-					        // Try every common key the AI might use
 					        const val = opt.text || opt.value || opt.content || opt.answer || opt.option;
-					        // If specific keys fail, grab the first value in the object, otherwise stringify
 					        return val ? String(val) : (Object.values(opt)[0] ? String(Object.values(opt)[0]) : JSON.stringify(opt));
 					    }
 					    return String(opt);
@@ -360,14 +358,13 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                         });
                     }
 
-                    // Fallback to index 0 if detection fails, but prioritize safety
                     const finalCorrectIndex = (correctIndex > -1 && correctIndex < stringOptions.length) ? correctIndex : 0;
 
                     if (stringOptions.length > 0) {
                         return {
                             ...baseQuestion,
                             type: 'multiple-choice',
-                            // 🔥 FIX: Use stringOptions here instead of raw options
+                            // DATABASE FORMAT: Array of Objects
                             options: stringOptions.map((opt, idx) => ({ 
                                 text: opt, 
                                 isCorrect: idx === finalCorrectIndex 
@@ -412,6 +409,8 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
             if (formattedQuestions.length === 0) throw new Error("No compatible questions found.");
 
             const quizRef = doc(collection(db, 'quizzes'));
+            
+            // --- 1. PREPARE DATABASE PAYLOAD (Objects) ---
             const finalPayload = {
                 title: `Uploaded: ${quizData.title || 'Extracted Quiz'}`,
                 language: 'English',
@@ -425,7 +424,25 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
 
             await setDoc(quizRef, finalPayload);
             showToast("Quiz saved successfully!", "success");
-            if(onAiComplete) onAiComplete(finalPayload); 
+
+            // --- 2. PREPARE UI PAYLOAD (Strings for Edit Modal) ---
+            // Fixes [Object Object] in the Edit Modal by flattening options back to strings
+            if(onAiComplete) {
+                const uiPayload = {
+                    ...finalPayload,
+                    questions: finalPayload.questions.map(q => {
+                        if (q.type === 'multiple-choice' && Array.isArray(q.options)) {
+                            return {
+                                ...q,
+                                // Map back to simple strings for the editor UI
+                                options: q.options.map(o => o.text) 
+                            };
+                        }
+                        return q;
+                    })
+                };
+                onAiComplete(uiPayload); 
+            }
 
         } catch (err) {
             console.error("Save Error", err);
