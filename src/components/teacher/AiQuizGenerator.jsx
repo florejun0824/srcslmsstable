@@ -69,7 +69,8 @@ const parseWithRegex = (fullText) => {
         });
     }
 
-    const optRegex = /(?:^|\s)([a-d]|[A-D])[\.\)\s]\s+(?=[A-Z0-9])/g;
+    // UPDATED REGEX: Removes strict (?=[A-Z0-9]) lookahead to allow options like "a. $x^2$" or "a. x"
+    const optRegex = /(?:^|\s)([a-d]|[A-D])[\.\)\s]\s+(?=\S)/g; 
     while ((match = optRegex.exec(cleanText)) !== null) {
         markers.push({
             type: 'O',
@@ -107,12 +108,11 @@ const parseWithRegex = (fullText) => {
             currentQ = {
                 number: marker.num,
                 text: content,
-                type: 'multiple-choice',
-                options: [], // Temporarily holds objects
+                type: 'multiple_choice', // <--- FIXED: Changed from 'multiple-choice' to 'multiple_choice' (underscore)
+                options: [], 
                 correctAnswerIndex: 0
             };
         } else if (marker.type === 'O' && currentQ) {
-            // We collect them as objects first to keep the structure valid
             currentQ.options.push({ text: content });
         }
     }
@@ -127,18 +127,12 @@ const parseWithRegex = (fullText) => {
         }
         
         if (q.options.length >= 2) {
-            // 1. Get detected answer index
             const keyIdx = answerKeyMap[q.number];
-
-            // 2. FLATTEN OPTIONS TO STRINGS (Fixes [Object Object])
-            // This matches the format the AI produces, ensuring UI consistency
             const stringOptions = q.options.map(o => o.text);
             q.options = stringOptions; 
 
-            // 3. Set Correct Answer
             if (keyIdx !== undefined && keyIdx < stringOptions.length) {
                 q.correctAnswerIndex = keyIdx;
-                // Important: Set the text answer so saveToFirestore logic matches it correctly
                 q.correctAnswer = stringOptions[keyIdx]; 
             }
             return true;
@@ -302,193 +296,185 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
             .replace(/\s+/g, ' ');       
     };
 
-    const saveToFirestore = async (quizData) => {
-        const finalSubjectId = propSubjectId || selectedCourse?.id;
-        const finalUnitId = propUnitId || (selectedLessons.length > 0 ? selectedLessons[0].id : null);
+	const saveToFirestore = async (quizData) => {
+	        const finalSubjectId = propSubjectId || selectedCourse?.id;
+	        const finalUnitId = propUnitId || (selectedLessons.length > 0 ? selectedLessons[0].id : null);
 
-        if (!finalSubjectId) {
-            showToast("Cannot save: Please select a Subject.", "error");
-            return;
-        }
+	        if (!finalSubjectId) {
+	            showToast("Cannot save: Please select a Subject.", "error");
+	            return;
+	        }
 
-        try {
-            setProgressMessage('Saving to database...');
-            const uniqueQuestions = [];
-            const seenGroupableTypes = new Set();
+	        try {
+	            setProgressMessage('Saving to database...');
+	            const uniqueQuestions = [];
+	            const seenGroupableTypes = new Set();
         
-            const identQuestions = quizData.questions.filter(q => (q.type||'').toLowerCase().includes('identification'));
-            let globalIdentChoices = null;
+	            const identQuestions = quizData.questions.filter(q => (q.type||'').toLowerCase().includes('identification'));
+	            let globalIdentChoices = null;
         
-            const firstIdentWithChoices = identQuestions.find(q => q.choicesBox && (Array.isArray(q.choicesBox) || typeof q.choicesBox === 'string'));
-            if (firstIdentWithChoices) {
-                const rawBox = firstIdentWithChoices.choicesBox;
-                globalIdentChoices = Array.isArray(rawBox) 
-                    ? rawBox.map(c => (typeof c === 'object' && c !== null ? c.text || c.value : String(c)))
-                    : [String(rawBox)];
-            }
+	            const firstIdentWithChoices = identQuestions.find(q => q.choicesBox && (Array.isArray(q.choicesBox) || typeof q.choicesBox === 'string'));
+	            if (firstIdentWithChoices) {
+	                const rawBox = firstIdentWithChoices.choicesBox;
+	                globalIdentChoices = Array.isArray(rawBox) 
+	                    ? rawBox.map(c => (typeof c === 'object' && c !== null ? c.text || c.value : String(c)))
+	                    : [String(rawBox)];
+	            }
 
-            if (!globalIdentChoices && identQuestions.length > 0) {
-                const collectedAnswers = identQuestions
-                    .map(q => q.correctAnswer || q.answer)
-                    .filter(a => a && typeof a === 'string');
-                if (collectedAnswers.length > 0) globalIdentChoices = [...new Set(collectedAnswers)];
-            }
+	            if (!globalIdentChoices && identQuestions.length > 0) {
+	                const collectedAnswers = identQuestions
+	                    .map(q => q.correctAnswer || q.answer)
+	                    .filter(a => a && typeof a === 'string');
+	                if (collectedAnswers.length > 0) globalIdentChoices = [...new Set(collectedAnswers)];
+	            }
 
-            for (const q of quizData.questions) {
-                const normalizedType = (q.type || '').toLowerCase().replace(/\s+/g, '_');
-                const isGroupable = normalizedType === 'matching_type' || normalizedType === 'matching-type'; 
-                if (isGroupable) {
-                    if (!seenGroupableTypes.has(normalizedType)) {
-                        uniqueQuestions.push(q);
-                        seenGroupableTypes.add(normalizedType);
-                    }
-                } else {
-                    uniqueQuestions.push(q);
-                }
-            }
+	            for (const q of quizData.questions) {
+	                // --- ROBUST NORMALIZATION FIX ---
+	                // Replaces both spaces AND dashes with underscores to match DB keys
+	                const normalizedType = (q.type || '').toLowerCase().replace(/[\s-]/g, '_');
+                
+	                const isGroupable = normalizedType === 'matching_type'; 
+	                if (isGroupable) {
+	                    if (!seenGroupableTypes.has(normalizedType)) {
+	                        uniqueQuestions.push(q);
+	                        seenGroupableTypes.add(normalizedType);
+	                    }
+	                } else {
+	                    uniqueQuestions.push(q);
+	                }
+	            }
 
-            const formattedQuestions = uniqueQuestions.map(q => {
-                const normalizedType = (q.type || '').toLowerCase().replace(/\s+/g, '_');
-                const cleanText = String(q.question || q.text || 'Question text missing').replace(/<(?!\/?(span|strong|u|em)\b)[^>]+>/gi, ""); 
+	            const formattedQuestions = uniqueQuestions.map(q => {
+	                const normalizedType = (q.type || '').toLowerCase().replace(/[\s-]/g, '_');
+	                const cleanText = String(q.question || q.text || 'Question text missing').replace(/<(?!\/?(span|strong|u|em)\b)[^>]+>/gi, ""); 
 
-                const baseQuestion = {
-                    text: cleanText,
-                    difficulty: q.difficulty || 'easy',
-                    explanation: q.explanation || q.solution || '', 
-                };
+	                const baseQuestion = {
+	                    text: cleanText,
+	                    difficulty: q.difficulty || 'easy',
+	                    explanation: q.explanation || q.solution || '', 
+	                };
 
-// --- 1. Multiple Choice / Analogy ---
-                if (normalizedType === 'multiple_choice' || normalizedType === 'analogy' || normalizedType === 'interpretive') {
-                    const rawOptions = q.options || [];
+	                // --- 1. Multiple Choice / Analogy ---
+	                if (normalizedType === 'multiple_choice' || normalizedType === 'analogy' || normalizedType === 'interpretive') {
+	                    const rawOptions = q.options || [];
                     
-					// Aggressive option sanitization
-					const stringOptions = rawOptions.map(opt => {
-					    if (typeof opt === 'object' && opt !== null) {
-					        const val = opt.text || opt.value || opt.content || opt.answer || opt.option;
-					        return val ? String(val) : (Object.values(opt)[0] ? String(Object.values(opt)[0]) : JSON.stringify(opt));
-					    }
-					    return String(opt);
-					});
+	                    const stringOptions = rawOptions.map(opt => {
+	                        if (typeof opt === 'object' && opt !== null) {
+	                            const val = opt.text || opt.value || opt.content || opt.answer || opt.option;
+	                            return val ? String(val) : (Object.values(opt)[0] ? String(Object.values(opt)[0]) : JSON.stringify(opt));
+	                        }
+	                        return String(opt);
+	                    });
 
-                    // CLEANUP: Remove "a. ", "b. " prefixes from the answer text for matching
-                    const rawAnswer = q.correctAnswer || '';
-                    const cleanAnswerText = rawAnswer.replace(/^[a-d][\.\)]\s*/i, '').trim();
+	                    const rawAnswer = q.correctAnswer || '';
+	                    const cleanAnswerText = rawAnswer.replace(/^[a-d][\.\)]\s*/i, '').trim();
                     
-                    // STRATEGY 1: Exact Match using the sanitized strings
-                    let correctIndex = stringOptions.findIndex(opt => opt.trim() === cleanAnswerText);
+	                    let correctIndex = stringOptions.findIndex(opt => opt.trim() === cleanAnswerText);
 
-                    // STRATEGY 2: If no match, check if Answer starts with a Letter (e.g. "a. Answer")
-                    if (correctIndex === -1) {
-                        const letterMatch = rawAnswer.match(/^([a-d])[\.\)]/i);
-                        if (letterMatch) {
-                            const letterMap = { 'a': 0, 'b': 1, 'c': 2, 'd': 3 };
-                            correctIndex = letterMap[letterMatch[1].toLowerCase()];
-                        }
-                    }
+	                    if (correctIndex === -1) {
+	                        const letterMatch = rawAnswer.match(/^([a-d])[\.\)]/i);
+	                        if (letterMatch) {
+	                            const letterMap = { 'a': 0, 'b': 1, 'c': 2, 'd': 3 };
+	                            correctIndex = letterMap[letterMatch[1].toLowerCase()];
+	                        }
+	                    }
 
-                    // STRATEGY 3: Fuzzy Match (Ignore punctuation/case)
-                    if (correctIndex === -1) {
-                        correctIndex = stringOptions.findIndex(opt => {
-                            const cleanOpt = opt.toLowerCase().replace(/[^a-z0-9]/g, '');
-                            const cleanKey = cleanAnswerText.toLowerCase().replace(/[^a-z0-9]/g, '');
-                            return cleanOpt === cleanKey || cleanOpt.includes(cleanKey) || cleanKey.includes(cleanOpt);
-                        });
-                    }
+	                    if (correctIndex === -1) {
+	                        correctIndex = stringOptions.findIndex(opt => {
+	                            const cleanOpt = opt.toLowerCase().replace(/[^a-z0-9]/g, '');
+	                            const cleanKey = cleanAnswerText.toLowerCase().replace(/[^a-z0-9]/g, '');
+	                            return cleanOpt === cleanKey || cleanOpt.includes(cleanKey) || cleanKey.includes(cleanOpt);
+	                        });
+	                    }
 
-                    const finalCorrectIndex = (correctIndex > -1 && correctIndex < stringOptions.length) ? correctIndex : 0;
+	                    const finalCorrectIndex = (correctIndex > -1 && correctIndex < stringOptions.length) ? correctIndex : 0;
 
-                    if (stringOptions.length > 0) {
-                        return {
-                            ...baseQuestion,
-                            type: 'multiple-choice',
-                            // DATABASE FORMAT: Array of Objects
-                            options: stringOptions.map((opt, idx) => ({ 
-                                text: opt, 
-                                isCorrect: idx === finalCorrectIndex 
-                            })),
-                            correctAnswerIndex: finalCorrectIndex,
-                        };
-                    } else {
-                         return null; // Skip if no options exist
-                    }
-                }
+	                    if (stringOptions.length > 0) {
+	                        return {
+	                            ...baseQuestion,
+	                            type: 'multiple-choice',
+	                            options: stringOptions.map((opt, idx) => ({ 
+	                                text: opt, 
+	                                isCorrect: idx === finalCorrectIndex 
+	                            })),
+	                            correctAnswerIndex: finalCorrectIndex,
+	                        };
+	                    } else {
+	                         return null; 
+	                    }
+	                }
                 
-                if (normalizedType === 'alternative_response' || normalizedType === 'true_false') {
-                    let isTrue = false;
-                    if (typeof q.correctAnswer === 'string') {
-                        isTrue = q.correctAnswer.toLowerCase() === 'true' || q.correctAnswer.toLowerCase() === 'tama';
-                    } else if (typeof q.correctAnswer === 'boolean') isTrue = q.correctAnswer;
-                    return { ...baseQuestion, type: 'true-false', correctAnswer: isTrue };
-                }
+	                if (normalizedType === 'alternative_response' || normalizedType === 'true_false') {
+	                    let isTrue = false;
+	                    if (typeof q.correctAnswer === 'string') {
+	                        isTrue = q.correctAnswer.toLowerCase() === 'true' || q.correctAnswer.toLowerCase() === 'tama';
+	                    } else if (typeof q.correctAnswer === 'boolean') isTrue = q.correctAnswer;
+	                    return { ...baseQuestion, type: 'true-false', correctAnswer: isTrue };
+	                }
                 
-                if (normalizedType === 'identification' || normalizedType === 'solving') {
-                    return {
-                        ...baseQuestion,
-                        type: 'identification',
-                        correctAnswer: String(q.correctAnswer || q.answer),
-                        choicesBox: globalIdentChoices, 
-                    };
-                }
+	                if (normalizedType === 'identification' || normalizedType === 'solving') {
+	                    return {
+	                        ...baseQuestion,
+	                        type: 'identification',
+	                        correctAnswer: String(q.correctAnswer || q.answer),
+	                        choicesBox: globalIdentChoices, 
+	                    };
+	                }
                 
-                if (normalizedType === 'matching_type' || normalizedType === 'matching-type') {
-                    return {
-                        ...baseQuestion,
-                        text: q.instruction || 'Match the following items.',
-                        type: 'matching-type',
-                        prompts: (q.prompts || []).map(p => ({...p, text: String(p.text)})),
-                        options: (q.options || []).map(o => ({...o, text: String(o.text)})),
-                        correctPairs: q.correctPairs || {},
-                    };
-                }
-                return null;
-            }).filter(Boolean);
+	                if (normalizedType === 'matching_type') {
+	                    return {
+	                        ...baseQuestion,
+	                        text: q.instruction || 'Match the following items.',
+	                        type: 'matching-type',
+	                        prompts: (q.prompts || []).map(p => ({...p, text: String(p.text)})),
+	                        options: (q.options || []).map(o => ({...o, text: String(o.text)})),
+	                        correctPairs: q.correctPairs || {},
+	                    };
+	                }
+	                return null;
+	            }).filter(Boolean);
 
-            if (formattedQuestions.length === 0) throw new Error("No compatible questions found.");
+	            if (formattedQuestions.length === 0) throw new Error("No compatible questions found.");
 
-            const quizRef = doc(collection(db, 'quizzes'));
+	            const quizRef = doc(collection(db, 'quizzes'));
             
-            // --- 1. PREPARE DATABASE PAYLOAD (Objects) ---
-            const finalPayload = {
-                title: `Uploaded: ${quizData.title || 'Extracted Quiz'}`,
-                language: 'English',
-                unitId: finalUnitId, 
-                subjectId: finalSubjectId, 
-                lessonId: null, 
-                createdAt: serverTimestamp(),
-                createdBy: 'AI-Extractor',
-                questions: formattedQuestions,
-            };
+	            const finalPayload = {
+	                title: `Uploaded: ${quizData.title || 'Extracted Quiz'}`,
+	                language: 'English',
+	                unitId: finalUnitId, 
+	                subjectId: finalSubjectId, 
+	                lessonId: null, 
+	                createdAt: serverTimestamp(),
+	                createdBy: 'AI-Extractor',
+	                questions: formattedQuestions,
+	            };
 
-            await setDoc(quizRef, finalPayload);
-            showToast("Quiz saved successfully!", "success");
+	            await setDoc(quizRef, finalPayload);
+	            showToast("Quiz saved successfully!", "success");
 
-            // --- 2. PREPARE UI PAYLOAD (Strings for Edit Modal) ---
-            // Fixes [Object Object] in the Edit Modal by flattening options back to strings
-            if(onAiComplete) {
-                const uiPayload = {
-                    ...finalPayload,
-                    questions: finalPayload.questions.map(q => {
-                        if (q.type === 'multiple-choice' && Array.isArray(q.options)) {
-                            return {
-                                ...q,
-                                // Map back to simple strings for the editor UI
-                                options: q.options.map(o => o.text) 
-                            };
-                        }
-                        return q;
-                    })
-                };
-                onAiComplete(uiPayload); 
-            }
+	            if(onAiComplete) {
+	                const uiPayload = {
+	                    ...finalPayload,
+	                    questions: finalPayload.questions.map(q => {
+	                        if (q.type === 'multiple-choice' && Array.isArray(q.options)) {
+	                            return {
+	                                ...q,
+	                                options: q.options.map(o => o.text) 
+	                            };
+	                        }
+	                        return q;
+	                    })
+	                };
+	                onAiComplete(uiPayload); 
+	            }
 
-        } catch (err) {
-            console.error("Save Error", err);
-            showToast(`Save failed: ${err.message}`, "error");
-        } finally {
-            setProgressMessage('');
-        }
-    };
-
+	        } catch (err) {
+	            console.error("Save Error", err);
+	            showToast(`Save failed: ${err.message}`, "error");
+	        } finally {
+	            setProgressMessage('');
+	        }
+	    };
     // ------------------------------------------------------------------
     // 4. HYBRID GENERATION LOGIC
     // ------------------------------------------------------------------
