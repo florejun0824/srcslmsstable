@@ -24,128 +24,7 @@ import LessonSelector from './LessonSelector';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
-// ------------------------------------------------------------------
-// 1. ROBUST OFFLINE PARSER (Tokenizer Strategy)
-// ------------------------------------------------------------------
-const parseWithRegex = (fullText) => {
-    
-    // --- STEP A: PRE-PROCESSING ---
-    let cleanText = fullText
-        .replace(/Question \/ Prompt/gi, "") 
-        .replace(/The following table:/gi, "")
-        .replace(/(\r\n|\n|\r)/gm, " "); 
 
-    // --- STEP B: EXTRACT ANSWER KEY ---
-    const answerKeyMap = {};
-    const keyMatch = fullText.match(/(?:Answer Key|Key to Correction|Answers)[\s\S]+$/i);
-    
-    if (keyMatch) {
-        const keySection = keyMatch[0];
-        const answerPattern = /(\d+)[\.\s\-\)]+\s*(true|false|[a-d](?![a-z]))/gi;
-        let m;
-        while ((m = answerPattern.exec(keySection)) !== null) {
-            const qNum = parseInt(m[1]);
-            const val = m[2].toLowerCase();
-            
-            if (val === 'true') answerKeyMap[qNum] = true;
-            else if (val === 'false') answerKeyMap[qNum] = false;
-            else {
-                const map = {'a':0, 'b':1, 'c':2, 'd':3};
-                if (map[val] !== undefined) answerKeyMap[qNum] = map[val];
-            }
-        }
-    }
-
-    // --- STEP C: TOKENIZE THE TEXT STREAM ---
-    const markers = [];
-    const qRegex = /(?:^|\s)(\d+)[\.\)\s]\s+(?=[A-Z])/g;
-    let match;
-    while ((match = qRegex.exec(cleanText)) !== null) {
-        markers.push({
-            type: 'Q',
-            num: parseInt(match[1]),
-            index: match.index,
-            textIndex: match.index + match[0].length 
-        });
-    }
-
-    // UPDATED REGEX: Removes strict (?=[A-Z0-9]) lookahead to allow options like "a. $x^2$" or "a. x"
-    const optRegex = /(?:^|\s)([a-d]|[A-D])[\.\)\s]\s+(?=\S)/g; 
-    while ((match = optRegex.exec(cleanText)) !== null) {
-        markers.push({
-            type: 'O',
-            label: match[1].toLowerCase(),
-            index: match.index,
-            textIndex: match.index + match[0].length
-        });
-    }
-
-    markers.sort((a, b) => a.index - b.index);
-
-    // --- STEP D: BUILD OBJECTS FROM TOKENS ---
-    const questions = [];
-    let currentQ = null;
-
-    for (let i = 0; i < markers.length; i++) {
-        const marker = markers[i];
-        const nextMarker = markers[i+1];
-        
-        let content = cleanText.substring(
-            marker.textIndex, 
-            nextMarker ? nextMarker.index : undefined
-        ).trim();
-
-        content = content
-            .replace(/\b([a-z0-9]+)\s*\/\s*([a-z0-9]+)\b/gi, "$\\frac{$1}{$2}$")
-            .replace(/(?<!Question\s|Part\s|Item\s|\d\.)\b([a-z]|[0-9]+)\s?(-?\d+)(?![.\)])/gi, (m,b,e) => {
-                if (!isNaN(b) && !isNaN(e) && b.length > 1) return m;
-                return `$${b}^{${e}}$`;
-            })
-            .replace(/^[A-D][\.\)]\s*/, ""); 
-
-        if (marker.type === 'Q') {
-            if (currentQ) questions.push(currentQ);
-            currentQ = {
-                number: marker.num,
-                text: content,
-                type: 'multiple_choice', // <--- FIXED: Changed from 'multiple-choice' to 'multiple_choice' (underscore)
-                options: [], 
-                correctAnswerIndex: 0
-            };
-        } else if (marker.type === 'O' && currentQ) {
-            currentQ.options.push({ text: content });
-        }
-    }
-    if (currentQ) questions.push(currentQ);
-
-    // --- STEP E: APPLY ANSWER KEY & FINAL CLEANUP ---
-    const validQuestions = questions.filter(q => {
-        if (answerKeyMap[q.number] === true || answerKeyMap[q.number] === false) {
-            q.type = 'true-false';
-            q.correctAnswer = answerKeyMap[q.number];
-            return true; 
-        }
-        
-        if (q.options.length >= 2) {
-            const keyIdx = answerKeyMap[q.number];
-            const stringOptions = q.options.map(o => o.text);
-            q.options = stringOptions; 
-
-            if (keyIdx !== undefined && keyIdx < stringOptions.length) {
-                q.correctAnswerIndex = keyIdx;
-                q.correctAnswer = stringOptions[keyIdx]; 
-            }
-            return true;
-        }
-        return false;
-    });
-
-    return validQuestions;
-};
-
-// ------------------------------------------------------------------
-// 2. STREAMING AI ENGINE (Bypasses 504 Timeout)
-// ------------------------------------------------------------------
 
 // A. Robust JSON Parser
 const robustJsonParse = (text) => {
@@ -269,32 +148,33 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
         setGeneratedQuizData(null);
     };
 
-    const extractTextFromFile = async (fileToProcess) => {
-        let rawText = '';
-        if (fileToProcess.type === 'application/pdf') {
-            const pdf = await pdfjsLib.getDocument(URL.createObjectURL(fileToProcess)).promise;
-            for (let i = 1; i <= pdf.numPages; i++) {
-                const page = await pdf.getPage(i);
-                const content = await page.getTextContent();
-                rawText += content.items.map((item) => item.str).join(' ') + '\n';
-            }
-        } else if (fileToProcess.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-            const arrayBuffer = await fileToProcess.arrayBuffer();
-            const result = await mammoth.convertToHtml({ arrayBuffer });
-            rawText = result.value; 
-        } else if (fileToProcess.type === 'text/plain') {
-            rawText = await fileToProcess.text();
-        } else {
-            throw new Error('Unsupported file type.');
-        }
+	const extractTextFromFile = async (fileToProcess) => {
+	        let rawText = '';
+	        if (fileToProcess.type === 'application/pdf') {
+	            const pdf = await pdfjsLib.getDocument(URL.createObjectURL(fileToProcess)).promise;
+	            for (let i = 1; i <= pdf.numPages; i++) {
+	                const page = await pdf.getPage(i);
+	                const content = await page.getTextContent();
+	                // Add a newline after every item to preserve vertical structure
+	                rawText += content.items.map((item) => item.str).join(' ') + '\n';
+	            }
+	        } else if (fileToProcess.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+	            const arrayBuffer = await fileToProcess.arrayBuffer();
+	            const result = await mammoth.extractRawText({ arrayBuffer }); // Use extractRawText to keep newlines
+	            rawText = result.value; 
+	        } else if (fileToProcess.type === 'text/plain') {
+	            rawText = await fileToProcess.text();
+	        } else {
+	            throw new Error('Unsupported file type.');
+	        }
 
-        return rawText
-            .replace(/<[^>]+>/g, '') 
-            .replace(/_{3,}/g, '')       
-            .replace(/\.{3,}/g, '')      
-            .replace(/[^\x20-\x7E\n\r\t]/g, ' ') 
-            .replace(/\s+/g, ' ');       
-    };
+	        return rawText
+	            // Clean up invisible characters but PRESERVE newlines (\n)
+	            .replace(/<[^>]+>/g, '') 
+	            .replace(/[^\x20-\x7E\n\r\t]/g, ' ') 
+	            .replace(/(\r\n|\r)/g, '\n') // Normalize to simple \n
+	            .replace(/\n\s+\n/g, '\n\n'); // Collapse multiple empty lines
+	    };
 
 	const saveToFirestore = async (quizData) => {
 	        const finalSubjectId = propSubjectId || selectedCourse?.id;
@@ -475,164 +355,173 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
 	            setProgressMessage('');
 	        }
 	    };
-    // ------------------------------------------------------------------
-    // 4. HYBRID GENERATION LOGIC
-    // ------------------------------------------------------------------
-    const handleGenerateQuiz = async () => {
-        if (!file) return setError('Please upload a file first.');
-        setIsProcessing(true);
-        setError('');
-        setProgressPercent(5);
-        setGeneratedQuizData(null);
-        setGenerationMethod('');
+	// ------------------------------------------------------------------
+	    // 4. SMART AI GENERATION (Universal: Math + Text Support)
+	    // ------------------------------------------------------------------
+	    const handleGenerateQuiz = async () => {
+	        if (!file) return setError('Please upload a file first.');
+	        setIsProcessing(true);
+	        setError('');
+	        setProgressPercent(5);
+	        setGeneratedQuizData(null);
+	        setGenerationMethod('');
         
-        isGenerationRunning.current = true;
+	        isGenerationRunning.current = true;
 
-        try {
-            setProgressMessage('Reading document...');
-            const fullText = await extractTextFromFile(file);
-            if (fullText.length < 50) throw new Error("File content is too short.");
+	        try {
+	            setProgressMessage('Reading document...');
+	            const fullText = await extractTextFromFile(file);
+	            if (fullText.length < 50) throw new Error("File content is too short.");
             
-            // --- STRATEGY A: FAST OFFLINE REGEX ---
-            setProgressMessage('Analyzing structure (Method A)...');
-            const regexQuestions = parseWithRegex(fullText);
+	            setProgressMessage('Analyzing structure...');
+	            setGenerationMethod('Smart Batch Analysis');
 
-            // --- SMART MATH DETECTOR ---
-            // If the text contains $, \, ^, or { }, it's likely LaTeX/Math.
-            // In that case, we SKIP the fast offline parser and force AI.
-            const hasMathSymbols = /[\$\\\^\{\}]/.test(fullText) || /frac|sqrt|times/i.test(fullText);
+	            // --- STEP 1: SMART SPLITTING ---
+	            // Detect question patterns (1. , 2. , 1) ) to avoid cutting questions in half.
+	            const questionRefRegex = /\n\s*(\d+)[\.\)]/g;
+	            const indices = [];
+	            let match;
+            
+	            while ((match = questionRefRegex.exec(fullText)) !== null) {
+	                indices.push(match.index);
+	            }
 
-            // If we found questions AND it doesn't look like complex math, trust the offline parser
-            if (regexQuestions.length >= 5 && !hasMathSymbols) {
-                // Artificial delay just so the UI doesn't flash too fast
-                setProgressPercent(100);
-                await new Promise(r => setTimeout(r, 600));
+	            let chunks = [];
+            
+	            if (indices.length > 3) {
+	                // STRATEGY A: Question Numbers Found
+	                // Bundle ~1500 chars (approx 3-5 questions) per chunk
+	                let currentStart = 0;
                 
-                setGeneratedQuizData({
-                    title: file.name.replace(/\.[^/.]+$/, ""),
-                    questions: regexQuestions
-                });
-                setGenerationMethod('Fast Extract (Offline)');
-                showToast(`⚡ Fast extraction successful! (${regexQuestions.length} items)`, 'success');
-                setIsProcessing(false);
-                return; // STOP HERE
-            }
-
-            // --- STRATEGY B: STREAMING AI (Forced if Math is detected) ---
-            setProgressMessage(hasMathSymbols 
-                ? 'Math symbols detected. Opening Streaming Connection...' 
-                : 'Complex format detected. Switching to AI Streaming...');
-            
-            setGenerationMethod('AI Analysis (Streaming)');
-            
-            const lines = fullText.split('\n');
-            const chunks = [];
-            let currentChunk = "";
-            
-            // Streaming allows larger chunks safely!
-            const TARGET_CHUNK_SIZE = 1500; 
-
-            for (let line of lines) {
-                if ((currentChunk.length + line.length) > TARGET_CHUNK_SIZE) {
-                    chunks.push(currentChunk);
-                    currentChunk = "";
-                }
-                currentChunk += line + "\n";
-            }
-            if (currentChunk.trim().length > 0) chunks.push(currentChunk);
-
-            let accumulatedQuestions = [];
-            let quizTitle = "Extracted Quiz";
-
-            for (let i = 0; i < chunks.length; i++) {
-                if (!isGenerationRunning.current) throw new Error("Generation aborted by user.");
-
-                const chunk = chunks[i];
-                const isFirstChunk = i === 0;
-                
-                const currentProgress = 20 + Math.round(((i + 1) / chunks.length) * 70);
-                setProgressPercent(currentProgress);
-                setProgressMessage(`AI Streaming: Batch ${i + 1} of ${chunks.length}...`);
-
-                const promptTemplate = `
-                You are an expert Document Parser.
-**TASK:** Extract questions from the text below into strict JSON format.
-**RULES:**
-1. **EXTRACT ONLY:** Do NOT create, invent, or add questions that are not in the text.
-2. **NO HALLUCINATIONS:** If the text ends, stop. Do not add math formulas or filler questions.
-3. **OPTIONS MUST BE STRINGS:** Return options as a simple array of strings. Example: ["Pride", "Greed", "Envy"]. Do NOT use objects like {"option": "A"}.
-
-                **1. IDENTIFICATION & FILL-IN-THE-BLANKS:**
-                - **Word Banks:** If you see "Select from the box", extract terms into "choicesBox" array.
-                - **Type:** "identification".
-                - **Answers:** Extract correct answer if keys are provided.
-
-                **2. MATH & LATEX HANDLING:**
-                - Preserve LaTeX: "$x^2$" or "$\\frac{1}{2}$".
-                - Fix common OCR errors: "x2" -> "$x^2$", "a0" -> "$a^0$".
-                - Ensure math formatting is valid LaTeX wrapped in '$'.
-
-                **3. FORMATTING:**
-                - Clean Text (remove 1., a., b.).
-                - JSON options must be strings.
-
-                **INPUT:**
-                ---
-                {{CHUNK_CONTENT}}
-                ---
-
-                **OUTPUT JSON:**
-                {
-                  ${isFirstChunk ? '"title": "Title",' : ''}
-                  "questions": [
-                    { "text": "Question?", "type": "multiple_choice", "options": ["A", "B"], "correctAnswer": "A" }
-                  ]
-                }
-                `;
-
-                try {
-                    // Use the STREAMING fetcher pointing to the NEW API
-                    const parsed = await processChunkWithStream(
-                        chunk, 
-                        promptTemplate, 
-                        isGenerationRunning
-                    );
+	                for (let i = 0; i < indices.length; i++) {
+	                    const currentIdx = indices[i];
                     
-                    if (isFirstChunk && parsed.title) quizTitle = parsed.title;
-                    if (parsed.questions && Array.isArray(parsed.questions)) {
-                        accumulatedQuestions = [...accumulatedQuestions, ...parsed.questions];
-                    }
+	                    // If the current chunk is getting too big, cut it HERE (at the start of a new question)
+	                    if ((currentIdx - currentStart) > 1500) {
+	                        chunks.push(fullText.substring(currentStart, currentIdx));
+	                        currentStart = currentIdx;
+	                    }
+	                }
+	                chunks.push(fullText.substring(currentStart));
+	            } else {
+	                // STRATEGY B: No Numbers (Paragraphs/Essays)
+	                // Use overlapping windows to ensure context isn't lost
+	                const OVERLAP = 200;
+	                const CHUNK_SIZE = 1200;
+	                for (let i = 0; i < fullText.length; i += (CHUNK_SIZE - OVERLAP)) {
+	                    chunks.push(fullText.substring(i, i + CHUNK_SIZE));
+	                }
+	            }
 
-                    await new Promise(res => setTimeout(res, 500)); 
+	            // --- STEP 2: PROCESS BATCHES ---
+	            let accumulatedQuestions = [];
+	            let quizTitle = "Extracted Quiz";
 
-                } catch (e) {
-                    console.warn(`Chunk ${i + 1} failed.`, e);
-                }
-            }
+	            for (let i = 0; i < chunks.length; i++) {
+	                if (!isGenerationRunning.current) throw new Error("Generation aborted by user.");
 
-            if (accumulatedQuestions.length === 0) throw new Error("No questions could be extracted. The document might be too complex or empty.");
+	                const chunk = chunks[i];
+	                const isFirstChunk = i === 0;
+                
+	                // Progress Bar Math
+	                const currentProgress = 15 + Math.round(((i + 1) / chunks.length) * 80);
+	                setProgressPercent(currentProgress);
+	                setProgressMessage(`Processing Batch ${i + 1} of ${chunks.length}...`);
 
-            const finalQuizData = {
-                title: quizTitle || "Generated Quiz",
-                questions: accumulatedQuestions 
-            };
+	                // --- UNIVERSAL PROMPT (HANDLES MATH AND TEXT) ---
+	                const promptTemplate = `
+	                You are an expert Universal Quiz Parser (Math, Science, English, Filipino, History).
+	                **TASK:** Extract questions from this text batch into strict JSON.
 
-            setGeneratedQuizData(finalQuizData);
-            showToast(`Deep extraction complete! (${accumulatedQuestions.length} items)`, 'success');
+	                **CONTEXT:** This is batch ${i + 1} of a document.
+	                - Ignore cut-off questions at the very start or very end of the text.
+	                - Extract questions exactly as written.
 
-        } catch (err) {
-            if (err.message && err.message.includes('aborted')) {
-                console.log("Process aborted.");
-            } else {
-                console.error('Quiz Gen Error:', err);
-                setError('Failed to process. ' + err.message);
-            }
-        } finally {
-            setIsProcessing(false);
-            setProgressPercent(0);
-            isGenerationRunning.current = false;
-        }
-    };
+	                **RULES BY SUBJECT:**
+	                1. **MATH/PHYSICS:** - Detect implied exponents: "x 2" becomes "$x^2$".
+	                   - Detect fractions: "1/2" becomes "$\\frac{1}{2}$".
+	                   - **IMPORTANT:** Wrap ALL math formulas in '$' (e.g., $E=mc^2$).
+                
+	                2. **ENGLISH/FILIPINO/HISTORY:**
+	                   - Preserve exact wording, capitalization, and punctuation.
+	                   - Do NOT try to format text as math (e.g., don't turn "Table 1" into math).
+	                   - For "Identification" or "Fill in the blanks", set type to "identification".
+
+	                **INPUT TEXT:**
+	                ---
+	                {{CHUNK_CONTENT}}
+	                ---
+
+	                **OUTPUT JSON:**
+	                {
+	                  ${isFirstChunk ? '"title": "Inferred Topic",' : ''}
+	                  "questions": [
+	                    {
+	                      "text": "Question text here",
+	                      "type": "multiple_choice",
+	                      "options": ["A", "B", "C", "D"],
+	                      "correctAnswer": "A"
+	                    }
+	                  ]
+	                }
+	                `;
+
+	                try {
+	                    const parsed = await processChunkWithStream(
+	                        chunk, 
+	                        promptTemplate, 
+	                        isGenerationRunning
+	                    );
+                    
+	                    if (isFirstChunk && parsed.title) quizTitle = parsed.title;
+	                    if (parsed.questions && Array.isArray(parsed.questions)) {
+	                        accumulatedQuestions = [...accumulatedQuestions, ...parsed.questions];
+	                    }
+
+	                    // Slight delay to prevent rate limits
+	                    await new Promise(res => setTimeout(res, 400)); 
+
+	                } catch (e) {
+	                    console.warn(`Batch ${i + 1} empty or failed.`, e);
+	                }
+	            }
+
+	            // --- STEP 3: DEDUPLICATE ---
+	            // Filter out duplicates caused by overlapping chunks
+	            const uniqueQuestions = [];
+	            const seenTexts = new Set();
+            
+	            accumulatedQuestions.forEach(q => {
+	                // Generate a "fingerprint" for the question (first 30 alphanumeric chars)
+	                const sig = (q.text || '').substring(0, 30).toLowerCase().replace(/[^a-z0-9]/g, '');
+	                if (sig.length > 5 && !seenTexts.has(sig)) {
+	                    seenTexts.add(sig);
+	                    uniqueQuestions.push(q);
+	                }
+	            });
+
+	            if (uniqueQuestions.length === 0) throw new Error("No valid questions found.");
+
+	            setGeneratedQuizData({
+	                title: quizTitle || file.name.replace(/\.[^/.]+$/, ""),
+	                questions: uniqueQuestions 
+	            });
+            
+	            showToast(`Success! Extracted ${uniqueQuestions.length} questions.`, 'success');
+
+	        } catch (err) {
+	            if (err.message && err.message.includes('aborted')) {
+	                console.log("Process aborted.");
+	            } else {
+	                console.error('Quiz Gen Error:', err);
+	                setError('Processing Failed: ' + err.message);
+	            }
+	        } finally {
+	            setIsProcessing(false);
+	            setProgressPercent(0);
+	            isGenerationRunning.current = false;
+	        }
+	    };
 
     return (
         <div className={`flex flex-col h-full font-sans overflow-hidden transition-colors duration-500`}>
