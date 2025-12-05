@@ -501,18 +501,17 @@ const getExamComponentPrompt = (guideData, generatedTos, testType, previousQuest
     const { language, combinedContent, gradeLevel } = guideData;
     const { type, numItems, range } = testType;
     
-    // Normalize type for the JSON field
     const normalizedType = type.toLowerCase().replace(/\s+/g, '_');
     const isSingleQuestionType = normalizedType.includes('essay') || normalizedType.includes('solving');
-    
     const tosContext = JSON.stringify(generatedTos, null, 2);
 
     return `
-    You are an expert exam question writer for the Philippines K-12 curriculum. Your task is to generate *only* the questions for a specific section of an exam.
+    You are an expert exam question writer. 
+    **PERSONA:** You are the Subject Matter Expert. You are writing this exam based on your own knowledge. **NEVER** refer to "the lesson", "the text", "the passage", or "the material" in your questions or explanations. State facts directly.
 
-    **PRIMARY DIRECTIVE: YOUR ENTIRE RESPONSE MUST BE A SINGLE, VALID JSON OBJECT.**
+    **PRIMARY DIRECTIVE: RESPONSE MUST BE A SINGLE VALID JSON OBJECT.**
     ---
-    **OUTPUT JSON STRUCTURE (Strict):**
+    **OUTPUT JSON STRUCTURE:**
     {
         "questions": [
             { 
@@ -521,58 +520,46 @@ const getExamComponentPrompt = (guideData, generatedTos, testType, previousQuest
                 "instruction": "...", 
                 "question": "...", 
                 "correctAnswer": "...",
-                "explanation": "Short, general statement verifying the answer based STRICTLY on the lesson content.", 
-                "solution": "Step-by-step calculation (ONLY if type is Solving)."
-                // ... include 'options' ONLY if Multiple Choice.
+                "explanation": "Direct statement of fact. (e.g. 'Photosynthesis occurs in chloroplasts.')", 
+                "solution": "..."
             }
         ]
     }
     ---
-    **INPUT DATA**
-    - **Target Grade Level:** ${gradeLevel} (Adjust vocabulary, sentence length, and conceptual complexity).
-    - **Lesson Content:** \`\`\`${combinedContent}\`\`\`
+    **INPUT DATA:**
+    - **Grade Level:** ${gradeLevel}
     - **Language:** ${language}
-    - **Full Table of Specifications (TOS):** ${tosContext}
+    - **Source Material:** \`\`\`${combinedContent}\`\`\`
     
-    **YOUR SPECIFIC TASK**
-    - **Test Type:** Generate **${type}**
-    - **Number of Items:** ${isSingleQuestionType ? `Generate EXACTLY **1** item.` : `Generate EXACTLY **${numItems}** items.`}
-    - **Item Range:** ${isSingleQuestionType 
-        ? `The "questionNumber" MUST be the START of the range (e.g., if range is "${range}", use "${range.split('-')[0].trim()}").` 
-        : `The "questionNumber" field MUST correspond to the range **${range}**.`}
+    **TASK:**
+    - Type: **${type}**
+    - Count: **${numItems}** items.
+    - Range: **${range}**
 
-    **CRITICAL ACCURACY RULES (READ CAREFULLY):**
-    1.  **SOURCE OF TRUTH:** All questions and answers MUST be derived **SOLELY** from the provided **Lesson Content**. Do NOT use outside knowledge. If the lesson content does not explicitly support an answer, do not ask that question.
-    2.  **CORRECT ANSWER CONSISTENCY:** - For **Multiple Choice**: The \`correctAnswer\` field MUST be the **EXACT text string** of the correct option. Do NOT write "Option A" or "Letter A". Write the full text.
-        - Ensure the correct answer is **unambiguously correct** according to the text.
-    3.  **DISTRACTORS:** For Multiple Choice, ensure the 3 wrong options are plausible but **definitely incorrect** based on the text. Avoid "All of the above" unless strictly necessary.
+    **CRITICAL "AUTHORITATIVE TONE" RULES (NON-NEGOTIABLE):**
+    1.  **NO META-REFERENCES:** It is strictly forbidden to use phrases that cite the source.
+        - **BAD:** "According to the lesson, the sun is a star."
+        - **BAD:** "The text mentions that..."
+        - **BAD:** "Based on the provided material..."
+        - **GOOD:** "The sun is a star."
+        - **GOOD:** "Water boils at 100 degrees Celsius."
+    2.  **DIRECT EXPLANATIONS:** Your explanations must justify the answer using facts, not by pointing to the document.
 
-    **FORMATTING RULES:**
-    1.  **FORMAT STRICTNESS:** You MUST generate questions strictly in the **${type}** format.
-        - If **Identification**: Provide a question/statement and a strict answer. DO NOT provide "options".
-        - If **True/False**: The user must determine validity.
-        - If **Multiple Choice**: Provide exactly 4 options.
-        - The "type" field in your JSON output MUST be "${normalizedType}".
-
-    2.  **NO REDUNDANCY:** Do NOT repeat these questions:
-        \`\`\`
-        ${previousQuestionsSummary || "No previous questions generated yet."}
-        \`\`\`
-
-    3.  **MULTIPLE CHOICE OPTIONS:** The 'options' array MUST contain the option text ONLY. DO NOT include prefixes like "a)" or "1.".
-    
-    4.  **ESSAY / SOLVING:** If **Test Type** is "Essay" or "Solving", generate **ONE prompt**. The \`questionNumber\` is the first number in the range.
-    
-    5.  **IDENTIFICATION:** Group all items. Generate a single \`choicesBox\` with all answers plus ONE distractor.
-    
-    6.  **MATCHING TYPE:** Use \`prompts\`, \`options\`, and \`correctPairs\`. The entire test for this range must be a SINGLE object.
-    
-    7.  **EXPLANATION STYLE:** Provide a short explanation for every item (except Essay) derived from the text.
-    
-    8.  **PHRASING:** Do NOT use phrases like "According to the lesson" or "Based on the text".
+    **ACCURACY & FORMAT RULES:**
+    1.  **SOURCE TRUTH:** Use the Source Material for facts, but present them as absolute truths.
+    2.  **CORRECT ANSWER:** Must be the **EXACT** string from the options (if Multiple Choice).
+    3.  **NO DUPLICATES:** Do not repeat: 
+        \`\`\`${previousQuestionsSummary || "None"}\`\`\`
+    4.  **IDENTIFICATION:** Do not start questions with "Identify...". Phrase them as descriptions (e.g., "This process is defined as...").
+    5.  **MATCHING TYPE:** Return a single object with \`prompts\`, \`options\`, and \`correctPairs\`.
+	6. **ALTERNATIVE RESPONSE / TRUE-FALSE (STRICT FORMAT):**
+    - The question stem MUST be a single, declarative sentence ending in a period (.).
+    - You are ABSOLUTELY FORBIDDEN from using question words such as "What," "Which," "Who," or "How."
+    - You are also FORBIDDEN from generating an option list (A, B, C, D). The item must stand alone as the statement to be judged True or False.
+    - Example of a GOOD statement: "The primary purpose of the small intestine is the absorption of nutrients."
+    - Example of a BAD statement: "According to the textbook, what is the fastest animal?"
     `;
 };
-
 // --- BATCHING HELPER: Generates a small chunk of questions to avoid 504 Timeouts ---
 const generateSingleBatch = async (guideData, generatedTos, batchTestType, previousQuestionsSummary, isGenerationRunningRef, maxRetries) => {
     const prompt = getExamComponentPrompt(guideData, generatedTos, batchTestType, previousQuestionsSummary);
