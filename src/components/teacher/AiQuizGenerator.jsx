@@ -474,8 +474,13 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
             setProgressMessage('Analyzing structure (Method A)...');
             const regexQuestions = parseWithRegex(fullText);
 
-            // If we found a good amount of questions, trust the offline parser
-            if (regexQuestions.length >= 5) {
+            // --- SMART MATH DETECTOR ---
+            // If the text contains $, \, ^, or { }, it's likely LaTeX/Math.
+            // In that case, we SKIP the fast offline parser and force AI.
+            const hasMathSymbols = /[\$\\\^\{\}]/.test(fullText) || /frac|sqrt|times/i.test(fullText);
+
+            // If we found questions AND it doesn't look like complex math, trust the offline parser
+            if (regexQuestions.length >= 5 && !hasMathSymbols) {
                 // Artificial delay just so the UI doesn't flash too fast
                 setProgressPercent(100);
                 await new Promise(r => setTimeout(r, 600));
@@ -490,9 +495,11 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                 return; // STOP HERE
             }
 
-            // --- STRATEGY B: FALLBACK TO AI ---
-            // If regex found < 5 questions, the format is likely complex/messy.
-            setProgressMessage('Complex format detected. Switching to AI analysis...');
+            // --- STRATEGY B: FALLBACK TO AI (Forced if Math is detected) ---
+            setProgressMessage(hasMathSymbols 
+                ? 'Math symbols detected. Switching to Deep AI Analysis...' 
+                : 'Complex format detected. Switching to AI analysis...');
+            
             setGenerationMethod('AI Analysis (Gemini)');
             
             const lines = fullText.split('\n');
@@ -535,10 +542,11 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                 - **Type:** "identification".
                 - **Answers:** Extract correct answer if keys are provided.
 
-                **2. MATH REPAIR:**
-                - "x-1y-2 / z" -> "$\\frac{x^{-1}y^{-2}}{z}$"
-                - "x2" -> "$x^2$"
-                - "sqrt(x)" -> "$\\sqrt{x}$"
+                **2. MATH & LATEX HANDLING:**
+                - This document may contain math using '$' delimiters or standard text.
+                - Preserve LaTeX: "$x^2$" or "$\\frac{1}{2}$".
+                - Fix common OCR errors: "x2" -> "$x^2$", "a0" -> "$a^0$".
+                - Ensure math formatting is valid LaTeX wrapped in '$'.
 
                 **3. FORMATTING:**
                 - Clean Text (remove 1., a., b.).

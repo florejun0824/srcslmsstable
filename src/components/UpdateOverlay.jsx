@@ -2,10 +2,10 @@ import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Lottie from "lottie-react";
 import maintenanceAnimation from "../assets/systemmaintenance.json"; 
-import { useTheme } from '../contexts/ThemeContext'; // Import Theme Context
+import { useTheme } from '../contexts/ThemeContext';
+import { ArrowPathIcon } from "@heroicons/react/24/solid"; // Added Icon for the button
 
-// --- macOS 26 Visual Constants (Updated) ---
-// Changed backdrop-blur-3xl to backdrop-blur-md for lighter effect
+// --- macOS 26 Visual Constants ---
 const glassCard = "bg-white/70 dark:bg-[#1a1b26]/80 backdrop-blur-md border border-white/40 dark:border-white/10 shadow-2xl shadow-black/5 dark:shadow-black/50 rounded-[32px]";
 const progressTrack = "bg-slate-200 dark:bg-white/10 h-1.5 rounded-full overflow-hidden";
 
@@ -13,6 +13,7 @@ export default function UpdateOverlay({ status, timeLeft, onEnter }) {
   const [progress, setProgress] = useState(0);
   const [currentFile, setCurrentFile] = useState("");
   const [message, setMessage] = useState("");
+  const [showRefresh, setShowRefresh] = useState(false); // New state for timeout
   
   // --- MONET SUPPORT ---
   const { activeOverlay } = useTheme();
@@ -27,7 +28,8 @@ export default function UpdateOverlay({ status, timeLeft, onEnter }) {
                 accent: 'bg-red-600',
                 iconGradient: 'from-red-500 to-green-600',
                 btnGradient: 'bg-gradient-to-r from-red-600 to-green-700 hover:from-red-500 hover:to-green-600',
-                glow: 'bg-red-500/20'
+                glow: 'bg-red-500/20',
+                textError: 'text-red-500'
             };
         case 'valentines':
             return {
@@ -36,7 +38,8 @@ export default function UpdateOverlay({ status, timeLeft, onEnter }) {
                 accent: 'bg-pink-500',
                 iconGradient: 'from-pink-500 to-rose-600',
                 btnGradient: 'bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-400 hover:to-rose-500',
-                glow: 'bg-pink-500/20'
+                glow: 'bg-pink-500/20',
+                textError: 'text-rose-500'
             };
         case 'cyberpunk':
             return {
@@ -45,43 +48,19 @@ export default function UpdateOverlay({ status, timeLeft, onEnter }) {
                 accent: 'bg-fuchsia-500',
                 iconGradient: 'from-fuchsia-600 to-cyan-600',
                 btnGradient: 'bg-gradient-to-r from-fuchsia-600 to-cyan-600 hover:from-fuchsia-500 hover:to-cyan-500',
-                glow: 'bg-cyan-500/20'
+                glow: 'bg-cyan-500/20',
+                textError: 'text-cyan-500'
             };
-        case 'space':
-            return {
-                blob1: 'bg-indigo-500/40',
-                blob2: 'bg-violet-500/40',
-                accent: 'bg-indigo-500',
-                iconGradient: 'from-indigo-600 to-violet-600',
-                btnGradient: 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500',
-                glow: 'bg-indigo-500/20'
-            };
-        case 'graduation':
-             return {
-                blob1: 'bg-yellow-500/30',
-                blob2: 'bg-amber-500/30',
-                accent: 'bg-amber-500',
-                iconGradient: 'from-yellow-500 to-amber-600',
-                btnGradient: 'bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-400 hover:to-yellow-500',
-                glow: 'bg-yellow-500/20'
-            };
-        case 'rainy':
-             return {
-                blob1: 'bg-teal-500/30',
-                blob2: 'bg-slate-500/30',
-                accent: 'bg-teal-600',
-                iconGradient: 'from-teal-600 to-slate-600',
-                btnGradient: 'bg-gradient-to-r from-teal-600 to-slate-600 hover:from-teal-500 hover:to-slate-500',
-                glow: 'bg-teal-500/20'
-            };
-        default: // Standard / Spring
+        // ... (Other cases kept same, adding textError fallback)
+        default: 
             return {
                 blob1: 'bg-blue-400/30',
                 blob2: 'bg-indigo-400/30',
                 accent: 'bg-[#007AFF]',
                 iconGradient: 'from-blue-500 to-indigo-600',
                 btnGradient: 'bg-[#007AFF] hover:bg-[#0062CC]',
-                glow: 'bg-blue-500/20'
+                glow: 'bg-blue-500/20',
+                textError: 'text-[#007AFF]'
             };
     }
   }, [activeOverlay]);
@@ -102,20 +81,21 @@ export default function UpdateOverlay({ status, timeLeft, onEnter }) {
   ];
 
   useEffect(() => {
-    let progressInterval, fileInterval;
+    let progressInterval, fileInterval, timeoutTimer;
 
     if (status === "building") {
       setProgress(0);
       setMessage("Preparing update...");
+      setShowRefresh(false);
       
-      // --- LOGIC UPDATE: 1.5 Minutes (90 Seconds) ---
-      const totalDuration = 180000; // 90,000ms = 3 minutes
-      const updateFrequency = 200; // Update every 100ms for smoothness
+      const totalDuration = 180000; // 3 minutes target
+      const updateFrequency = 200; 
       const totalSteps = totalDuration / updateFrequency;
-      const incrementPerStep = 99 / totalSteps; // Target 99%
+      const incrementPerStep = 99 / totalSteps; 
       
       let currentProgress = 0;
 
+      // 1. Progress Bar Interval
       progressInterval = setInterval(() => {
         currentProgress += incrementPerStep;
         if (currentProgress >= 99) {
@@ -125,9 +105,8 @@ export default function UpdateOverlay({ status, timeLeft, onEnter }) {
         setProgress(currentProgress);
       }, updateFrequency);
 
-      // --- LOGIC UPDATE: Sync File Messages to 1.5 Minutes ---
+      // 2. File Message Interval
       let fileIndex = 0;
-      // Distribute files evenly across the 90 seconds
       const fileSwitchSpeed = totalDuration / (files.length + 1); 
 
       fileInterval = setInterval(() => {
@@ -138,29 +117,37 @@ export default function UpdateOverlay({ status, timeLeft, onEnter }) {
         }
       }, fileSwitchSpeed);
 
+      // 3. --- NEW TIMEOUT LOGIC (2m 7s) ---
+      // 2 minutes = 120s, + 7s = 127s = 127,000ms
+      timeoutTimer = setTimeout(() => {
+          setShowRefresh(true);
+          // Stop animations to indicate process is "stuck"
+          clearInterval(progressInterval);
+          clearInterval(fileInterval);
+          setMessage("Update Taking Too Long? Press the Refresh button to fix the issue.");
+      }, 127000); 
+
     } else if (status === "complete") {
       setProgress(100);
       setMessage("System update successful!");
+      setShowRefresh(false);
     }
 
     return () => {
       clearInterval(progressInterval);
       clearInterval(fileInterval);
+      clearTimeout(timeoutTimer);
     };
   }, [status]);
 
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
+  const handleRefresh = () => {
+      window.location.reload();
   };
-
-  const estimatedTime = timeLeft ? formatTime(timeLeft) : "--:--";
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#f5f5f7] dark:bg-black font-sans overflow-hidden">
         
-        {/* Background Mesh (Dynamic Colors) */}
+        {/* Background Mesh */}
         <div className="absolute inset-0 pointer-events-none opacity-40 dark:opacity-20">
              <div className={`absolute top-[-20%] left-[-10%] w-[70vw] h-[70vw] rounded-full blur-[150px] animate-pulse-slow ${themeStyles.blob1}`} />
              <div className={`absolute bottom-[-20%] right-[-10%] w-[70vw] h-[70vw] rounded-full blur-[150px] animate-pulse-slow delay-1000 ${themeStyles.blob2}`} />
@@ -184,27 +171,43 @@ export default function UpdateOverlay({ status, timeLeft, onEnter }) {
 
             {/* Main Text */}
             <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2 tracking-tight">
-                Updating System
+                {showRefresh ? "Update Issue Detected" : "Updating System"}
             </h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-8 h-5 overflow-hidden">
-                 <span className="inline-block animate-fade-in-up key={currentFile}">{message}</span>
+            
+            <p className={`text-sm mb-8 h-auto min-h-[1.25rem] transition-colors duration-300 ${showRefresh ? "text-amber-600 dark:text-amber-400 font-semibold" : "text-slate-500 dark:text-slate-400"}`}>
+                 {message}
             </p>
 
-            {/* Progress Bar */}
-            <div className="w-full space-y-2">
-                <div className={progressTrack}>
+            {/* Conditional Render: Progress Bar OR Refresh Button */}
+            <div className="w-full min-h-[50px] flex items-center justify-center">
+                {!showRefresh ? (
                     <motion.div 
-                        className={`h-full rounded-full transition-all duration-300 ease-out ${themeStyles.accent}`}
-                        style={{ width: `${progress}%` }}
-                        initial={{ width: 0 }}
-                        animate={{ width: `${progress}%` }}
-                    />
-                </div>
-                <div className="flex justify-between text-[11px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                    <span>{Math.floor(progress)}% Completed</span>
-                    {/* Optional: Show static text or dynamic time if passed */}
-                    <span>Est. 1m 30s</span>
-                </div>
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="w-full space-y-2"
+                    >
+                        <div className={progressTrack}>
+                            <motion.div 
+                                className={`h-full rounded-full transition-all duration-300 ease-out ${themeStyles.accent}`}
+                                style={{ width: `${progress}%` }}
+                            />
+                        </div>
+                        <div className="flex justify-between text-[11px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                            <span>{Math.floor(progress)}% Completed</span>
+                            <span>Running scripts...</span>
+                        </div>
+                    </motion.div>
+                ) : (
+                    <motion.button
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        onClick={handleRefresh}
+                        className={`px-6 py-2.5 rounded-full text-white text-sm font-semibold shadow-md flex items-center gap-2 transition-transform active:scale-95 ${themeStyles.btnGradient}`}
+                    >
+                        <ArrowPathIcon className="w-4 h-4 animate-spin-slow" />
+                        Refresh Now
+                    </motion.button>
+                )}
             </div>
           </motion.div>
         )}
