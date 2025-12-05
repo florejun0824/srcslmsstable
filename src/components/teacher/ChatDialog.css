@@ -237,12 +237,22 @@
 }
 
 /* =========================================
-   DARK MODE FALLBACKS (If 'none' theme is active)
+   DARK MODE FALLBACKS (Standard Theme)
    ========================================= */
-.dark .chat-dialog[style*="--chat-bg: undefined"] {
-  background: rgba(30, 30, 30, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+/* When no inline theme variables are set (standard mode), 
+   these class-based variables take over if .dark is present */
+.dark .chat-dialog {
+  --chat-bg: rgba(30, 30, 30, 0.95);
+  --chat-border: rgba(255, 255, 255, 0.15);
+  --header-bg: rgba(255, 255, 255, 0.05);
+  --input-bg: rgba(0, 0, 0, 0.3);
+  --text-color: #f5f5f7;
+  --ai-bubble-bg: rgba(255, 255, 255, 0.1);
+  
+  /* Adjust shadow for dark mode depth */
+  box-shadow: 
+    0 25px 50px -12px rgba(0, 0, 0, 0.5), 
+    0 0 0 1px rgba(255, 255, 255, 0.1) inset;
 }
 
 /* =========================================

@@ -334,15 +334,16 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                 if (normalizedType === 'multiple_choice' || normalizedType === 'analogy' || normalizedType === 'interpretive') {
                     const rawOptions = q.options || [];
                     
-                    // 🔥 FIX: Sanitize options to ensure they are strictly strings
-                    // This prevents [object Object] if the AI returns objects instead of strings
-                    const stringOptions = rawOptions.map(opt => {
-                        if (typeof opt === 'object' && opt !== null) {
-                            // Try to extract text from common AI object keys, or stringify as fallback
-                            return opt.text || opt.value || opt.option || JSON.stringify(opt);
-                        }
-                        return String(opt);
-                    });
+					// 🔥 FIX: Aggressive option sanitization
+					const stringOptions = rawOptions.map(opt => {
+					    if (typeof opt === 'object' && opt !== null) {
+					        // Try every common key the AI might use
+					        const val = opt.text || opt.value || opt.content || opt.answer || opt.option;
+					        // If specific keys fail, grab the first value in the object, otherwise stringify
+					        return val ? String(val) : (Object.values(opt)[0] ? String(Object.values(opt)[0]) : JSON.stringify(opt));
+					    }
+					    return String(opt);
+					});
 
                     // CLEANUP: Remove "a. ", "b. " prefixes from the answer text for matching
                     const rawAnswer = q.correctAnswer || '';
@@ -515,8 +516,12 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                 setProgressMessage(`AI Processing: Batch ${i + 1} of ${chunks.length}...`);
 
                 const promptTemplate = `
-                You are an Expert Math Teacher.
-                **TASK:** Convert quiz text to strict JSON.
+                You are an expert Document Parser and Data Extractor.
+**TASK:** Extract questions from the text below into strict JSON format.
+**STRICT RULES:**
+1. **EXTRACT ONLY:** Do NOT create, invent, or add questions that are not in the text.
+2. **NO HALLUCINATIONS:** If the text ends, stop. Do not add math formulas or filler questions.
+3. **OPTIONS MUST BE STRINGS:** Return options as a simple array of strings. Example: ["Pride", "Greed", "Envy"]. Do NOT use objects like {"option": "A"}.
 
                 **1. IDENTIFICATION & FILL-IN-THE-BLANKS:**
                 - **Word Banks:** If you see "Select from the box", extract terms into "choicesBox" array.
