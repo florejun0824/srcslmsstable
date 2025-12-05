@@ -1,8 +1,9 @@
+// src/components/lessons/AiLessonGenerator.jsx
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { db } from '../../services/firebase';
 import { collection, query, where, getDocs, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '../../contexts/ToastContext';
-import { useTheme } from '../../contexts/ThemeContext'; // 1. Import Theme Context
+import { useTheme } from '../../contexts/ThemeContext'; 
 import { callGeminiWithLimitCheck } from '../../services/aiService';
 import { getAllSubjects } from '../../services/firestoreService';
 import { sanitizeLessonsJson as sanitizeJsonBlock } from './sanitizeLessonText';
@@ -19,7 +20,8 @@ import {
     ArrowPathIcon,
     ExclamationTriangleIcon,
     FunnelIcon,
-    ChevronDownIcon
+    ChevronDownIcon,
+    CalculatorIcon // Added for math indication
 } from '@heroicons/react/24/outline'; 
 import Spinner from '../common/Spinner';
 import LessonPage from './LessonPage';
@@ -41,9 +43,7 @@ const sanitizeJsonComponent = (aiResponse) => {
 
         let jsonString = aiResponse.substring(startIndex, endIndex + 1);
         
-        // Safety Net: If the AI double-escaped newlines (\\n), revert them to single escaped (\n) 
-        // strictly for the JSON parsing step to work cleaner with Markdown.
-        // Note: This regex looks for literal \\n and replaces with \n
+        // Safety Net: Revert double-escaped newlines for clean JSON parsing
         jsonString = jsonString.replace(/\\\\n/g, '\\n');
 
         return JSON.parse(jsonString);
@@ -56,7 +56,7 @@ const sanitizeJsonComponent = (aiResponse) => {
 
 export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }) {
     const { showToast } = useToast();
-    const { activeOverlay } = useTheme(); // 2. Get Active Overlay
+    const { activeOverlay } = useTheme(); 
 
     const [file, setFile] = useState(null);
     const [previewLessons, setPreviewLessons] = useState([]);
@@ -84,7 +84,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
 
     const isMounted = useRef(false);
 
-    // --- MONET THEME GENERATOR ---
+    // --- MONET THEME GENERATOR (FULL PALETTE) ---
     const themeStyles = useMemo(() => {
         switch (activeOverlay) {
             case 'christmas':
@@ -138,6 +138,45 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                     iconBg: 'bg-yellow-900/30',
                     highlight: 'bg-yellow-900/40 border-yellow-500/30',
                     inputBg: 'bg-black/30'
+                };
+            case 'rainy':
+                return {
+                    bgGradient: 'bg-slate-900/40',
+                    panelBg: 'bg-slate-900/80',
+                    borderColor: 'border-blue-400/20',
+                    textColor: 'text-blue-50',
+                    subText: 'text-blue-200/50',
+                    accentColor: 'text-blue-300',
+                    buttonGradient: 'from-blue-800 to-slate-700',
+                    iconBg: 'bg-blue-900/30',
+                    highlight: 'bg-blue-900/20 border-blue-400/20',
+                    inputBg: 'bg-black/40'
+                };
+            case 'spring':
+                return {
+                    bgGradient: 'bg-pink-900/10',
+                    panelBg: 'bg-[#2a0a10]/80', 
+                    borderColor: 'border-pink-300/30',
+                    textColor: 'text-pink-50',
+                    subText: 'text-pink-200/60',
+                    accentColor: 'text-green-300', // Floral contrast
+                    buttonGradient: 'from-pink-600 to-green-600',
+                    iconBg: 'bg-pink-900/30',
+                    highlight: 'bg-pink-900/20 border-pink-400/30',
+                    inputBg: 'bg-black/30'
+                };
+            case 'space':
+                return {
+                    bgGradient: 'bg-black/60',
+                    panelBg: 'bg-[#050510]',
+                    borderColor: 'border-indigo-500/40',
+                    textColor: 'text-indigo-50',
+                    subText: 'text-indigo-200/50',
+                    accentColor: 'text-indigo-400',
+                    buttonGradient: 'from-indigo-700 to-purple-800',
+                    iconBg: 'bg-indigo-900/20',
+                    highlight: 'bg-indigo-900/20 border-indigo-500/20',
+                    inputBg: 'bg-black/60'
                 };
             default: // Standard
                 return {
@@ -354,194 +393,205 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         };
     };
 
-	const getPlannerPrompt = (sourceText, baseContext) => {
-	        const { languageAndGradeInstruction, perspectiveInstruction, scaffoldingInstruction, standardsInstruction } = baseContext;
+    const getPlannerPrompt = (sourceText, baseContext) => {
+        const { languageAndGradeInstruction, perspectiveInstruction, scaffoldingInstruction, standardsInstruction } = baseContext;
         
-	        return `
-	        You are an expert curriculum planner. Your *only* task is to read the provided source text and curriculum context, and then generate a *plan* (a JSON array of lessons).
+        // ADDED: Math awareness in planning
+        return `
+        You are an expert curriculum planner. Your *only* task is to read the provided source text and curriculum context, and then generate a *plan* (a JSON array of lessons).
         
-	        ${languageAndGradeInstruction}
-	        ${perspectiveInstruction}
-	        ${standardsInstruction}
-	        ${scaffoldingInstruction}
+        ${languageAndGradeInstruction}
+        ${perspectiveInstruction}
+        ${standardsInstruction}
+        ${scaffoldingInstruction}
 
-	        **CRITICAL TASK: ANALYZE DOCUMENT SCOPE**
-        
-	        **Step 1: Identify Structure**
-	        Scan the text for lesson headers (e.g., "Lesson 1", "1.1", "Lesson A").
-        
-	        **Step 2: Apply Strict Rules**
-        
-	        **RULE A: SINGLE LESSON (Most Likely)**
-	        - If the document focuses on **ONE** specific lesson title (e.g., "Lesson 1: Comparison Texts") or one main topic, create **EXACTLY ONE** lesson object.
-	        - **DO NOT** split sub-topics (like "Introduction", "Activity", "Analysis", "Writing") into separate lessons. These are merely *pages* within the single lesson.
-	        - **Example:** If the text is "Unit 15, Lesson 1", generate ONLY "Lesson 1".
+        **MATH & SCIENCE HANDLING:**
+        If the source text contains mathematical formulas, ensure your lesson titles and summaries reflect the mathematical content accurately.
 
-	        **RULE B: MULTIPLE LESSONS (Only if explicit)**
-	        - ONLY generate multiple lessons if the source text explicitly contains distinct headers for multiple lessons (e.g., It contains text for "Lesson 1" AND text for "Lesson 2").
+        **CRITICAL TASK: ANALYZE DOCUMENT SCOPE**
         
-	        **RULE C: UNIT OVERVIEW**
-	        - Only create a "Unit Overview" lesson if the uploaded file is a Table of Contents or a Syllabus covering an entire Quarter/Unit.
+        **Step 1: Identify Structure**
+        Scan the text for lesson headers (e.g., "Lesson 1", "1.1", "Lesson A").
+        
+        **Step 2: Apply Strict Rules**
+        
+        **RULE A: SINGLE LESSON (Most Likely)**
+        - If the document focuses on **ONE** specific lesson title (e.g., "Lesson 1: Comparison Texts") or one main topic, create **EXACTLY ONE** lesson object.
+        - **DO NOT** split sub-topics (like "Introduction", "Activity", "Analysis", "Writing") into separate lessons. These are merely *pages* within the single lesson.
+        - **Example:** If the text is "Unit 15, Lesson 1", generate ONLY "Lesson 1".
 
-	        **JSON OUTPUT FORMAT:**
-	        {
-	          "lessons": [
-	            {
-	              "lessonTitle": "Lesson ${existingLessonCount + 1}: [Title]",
-	              "summary": "1-2 sentence summary."
-	            }
-	            // Only add more objects if the text explicitly covers Lesson 2, Lesson 3, etc.
-	          ]
-	        }
+        **RULE B: MULTIPLE LESSONS (Only if explicit)**
+        - ONLY generate multiple lessons if the source text explicitly contains distinct headers for multiple lessons (e.g., It contains text for "Lesson 1" AND text for "Lesson 2").
+        
+        **RULE C: UNIT OVERVIEW**
+        - Only create a "Unit Overview" lesson if the uploaded file is a Table of Contents or a Syllabus covering an entire Quarter/Unit.
 
-	        **SOURCE TEXT:**
-	        ${sourceText.substring(0, 30000)} 
-	        `;
-	    };
+        **JSON OUTPUT FORMAT:**
+        {
+          "lessons": [
+            {
+              "lessonTitle": "Lesson ${existingLessonCount + 1}: [Title]",
+              "summary": "1-2 sentence summary."
+            }
+            // Only add more objects if the text explicitly covers Lesson 2, Lesson 3, etc.
+          ]
+        }
+
+        **SOURCE TEXT:**
+        ${sourceText.substring(0, 30000)} 
+        `;
+    };
     
-		const getComponentPrompt = (sourceText, baseContext, lessonPlan, componentType, extraData = {}) => {
-		        const { languageAndGradeInstruction, perspectiveInstruction, scaffoldingInstruction, standardsInstruction } = baseContext;
-		        let taskInstruction, jsonFormat;
+    const getComponentPrompt = (sourceText, baseContext, lessonPlan, componentType, extraData = {}) => {
+        const { languageAndGradeInstruction, perspectiveInstruction, scaffoldingInstruction, standardsInstruction } = baseContext;
+        let taskInstruction, jsonFormat;
 
-		        // UPDATED: Added Negative Constraints to prevent Objectives redundancy
-		        const commonHeader = `
-		        You are an expert curriculum designer.
-		        ${languageAndGradeInstruction}
-		        ${perspectiveInstruction}
+        const commonHeader = `
+        You are an expert curriculum designer.
+        ${languageAndGradeInstruction}
+        ${perspectiveInstruction}
         
-		        **LESSON CONTEXT:**
-		        - **Lesson Title:** ${lessonPlan.lessonTitle}
-		        - **Lesson Summary:** ${lessonPlan.summary}
+        **LESSON CONTEXT:**
+        - **Lesson Title:** ${lessonPlan.lessonTitle}
+        - **Lesson Summary:** ${lessonPlan.summary}
 
-		        **NEGATIVE CONSTRAINTS (CRITICAL):**
-		        1. **NO OBJECTIVES IN CONTENT:** Do NOT list Learning Objectives, Competencies, or Standards inside the page content. These are already displayed in the UI header.
-		        2. **NO METADATA:** Do not include "Teacher Notes", "Lesson Plan ID", or "Copyright" footers.
-		        `;
+        **NEGATIVE CONSTRAINTS (CRITICAL):**
+        1. **NO OBJECTIVES IN CONTENT:** Do NOT list Learning Objectives, Competencies, or Standards inside the page content. These are already displayed in the UI header.
+        2. **NO METADATA:** Do not include "Teacher Notes", "Lesson Plan ID", or "Copyright" footers.
+        `;
 
-		        // UPDATED: Clarified Newline vs LaTeX escaping rules
-		        const styleRules = `
-		        **STYLE & FORMATTING:**
-		        - **Markdown:** Use Pure Markdown. No HTML. Use \`###\` for headings and \`**bold**\` for emphasis.
+        // UPDATED: Added Smart Math & LaTeX Logic
+        const styleRules = `
+        **STYLE & FORMATTING:**
+        - **Markdown:** Use Pure Markdown. No HTML. Use \`###\` for headings and \`**bold**\` for emphasis.
         
-		        **JSON FORMATTING RULES (STRICT):**
-		        1. **Newlines:** Use standard \`\\n\` for line breaks. **DO NOT** double-escape newlines (i.e., do NOT use \`\\\\n\`).
-		        2. **LaTeX (Math/Science):**
-		           - You MUST double-escape backslashes **ONLY** for LaTeX commands.
-		           - *Correct:* "Equation: $\\\\frac{x}{y}$"
-		           - *Incorrect:* "Equation: $\\frac{x}{y}$" (Breaks JSON)
-		           - *Incorrect:* "Line 1\\\\nLine 2" (Prints literal \\n)
-		        `;
+        **MATH & SCIENCE RULES (CRITICAL):**
+        1. **LaTeX Enforcement:** You MUST use LaTeX formatting for ALL mathematical equations, variables, and formulas. 
+           - **Inline Math:** Wrap in single dollar signs, e.g., $E=mc^2$.
+           - **Block Math:** Wrap in double dollar signs, e.g., $$x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$.
+        2. **OCR Correction (SMART):**
+           - Fix common OCR errors in math contexts:
+           - "x 2" or "x2" should become "$x^2$"
+           - "1/2" should become "$\\frac{1}{2}$"
+           - "*" should become "$\\times$" or "$\\cdot$"
 
-		        switch (componentType) {
-		            case 'objectives':
-		                taskInstruction = 'Generate 3-5 specific, measurable, and student-friendly learning objectives.';
-		                jsonFormat = `{"objectives": ["Objective 1...", "Objective 2..."]}`;
-		                break;
+        **JSON FORMATTING RULES (STRICT):**
+        1. **Newlines:** Use standard \`\\n\` for line breaks. **DO NOT** double-escape newlines (i.e., do NOT use \`\\\\n\`).
+        2. **LaTeX Escaping:** - You MUST double-escape backslashes **ONLY** for LaTeX commands within the JSON string.
+           - *Correct JSON:* "Equation: $\\\\frac{x}{y}$"
+           - *Incorrect JSON:* "Equation: $\\frac{x}{y}$" (This breaks the JSON parser)
+        `;
+
+        switch (componentType) {
+            case 'objectives':
+                taskInstruction = 'Generate 3-5 specific, measurable, and student-friendly learning objectives.';
+                jsonFormat = `{"objectives": ["Objective 1...", "Objective 2..."]}`;
+                break;
             
-		            case 'competencies':
-		                taskInstruction = `Select 1-3 competencies from the provided Master List that are addressed by this lesson.`;
-		                jsonFormat = `{"competencies": ["Competency 1...", "Competency 2..."]}`;
-		                break;
+            case 'competencies':
+                taskInstruction = `Select 1-3 competencies from the provided Master List that are addressed by this lesson.`;
+                jsonFormat = `{"competencies": ["Competency 1...", "Competency 2..."]}`;
+                break;
 
-		            case 'UnitOverview_Overview':
-		                taskInstruction = 'Generate the "Overview" page content (1-2 paragraphs).';
-		                jsonFormat = `{"page": {"title": "Overview", "content": "Markdown content..."}}`;
-		                break;
+            case 'UnitOverview_Overview':
+                taskInstruction = 'Generate the "Overview" page content (1-2 paragraphs).';
+                jsonFormat = `{"page": {"title": "Overview", "content": "Markdown content..."}}`;
+                break;
 
-		            case 'UnitOverview_Targets':
-		                taskInstruction = 'Generate the "Learning Targets" page content (bullet points).';
-		                jsonFormat = `{"page": {"title": "Learning Targets", "content": "Markdown content..."}}`;
-		                break;
+            case 'UnitOverview_Targets':
+                taskInstruction = 'Generate the "Learning Targets" page content (bullet points).';
+                jsonFormat = `{"page": {"title": "Learning Targets", "content": "Markdown content..."}}`;
+                break;
 
-		            case 'Introduction':
-		                // UPDATED: Reinforced no objectives
-		                taskInstruction = 'Generate an "Engaging Introduction" page. Use a thematic subheader title. Do NOT list objectives here.';
-		                jsonFormat = `{"page": {"title": "Thematic Title", "content": "Markdown content..."}}`;
-		                break;
+            case 'Introduction':
+                taskInstruction = 'Generate an "Engaging Introduction" page. Use a thematic subheader title. Do NOT list objectives here.';
+                jsonFormat = `{"page": {"title": "Thematic Title", "content": "Markdown content..."}}`;
+                break;
             
-		            case 'LetsGetStarted':
-		                taskInstruction = 'Generate a "Let\'s Get Started" warm-up activity page.';
-		                jsonFormat = `{"page": {"title": "Let's Get Started", "content": "Activity instructions..."}}`;
-		                break;
+            case 'LetsGetStarted':
+                taskInstruction = 'Generate a "Let\'s Get Started" warm-up activity page.';
+                jsonFormat = `{"page": {"title": "Let's Get Started", "content": "Activity instructions..."}}`;
+                break;
 
-		            case 'CoreContentPlanner':
-		                taskInstruction = `Identify the main sub-topics required to cover the content for this lesson found in the source text. Return a list of titles.`;
-		                jsonFormat = `{"coreContentTitles": ["Sub-Topic 1", "Sub-Topic 2"]}`;
-		                break;
+            case 'CoreContentPlanner':
+                taskInstruction = `Identify the main sub-topics required to cover the content for this lesson found in the source text. Return a list of titles.`;
+                jsonFormat = `{"coreContentTitles": ["Sub-Topic 1", "Sub-Topic 2"]}`;
+                break;
 
-					case 'CoreContentPage':
-		                const allTitles = extraData.allContentTitles || [extraData.contentTitle];
-		                const currentIndex = extraData.currentIndex !== undefined ? extraData.currentIndex : 0;
-		                const currentTitle = extraData.contentTitle;
+            case 'CoreContentPage':
+                const allTitles = extraData.allContentTitles || [extraData.contentTitle];
+                const currentIndex = extraData.currentIndex !== undefined ? extraData.currentIndex : 0;
+                const currentTitle = extraData.contentTitle;
 
-		                const contentContextInstruction = `
-		                **CRITICAL CONTENT BOUNDARIES (NON-NEGOTIABLE):**
-		                This lesson's core content is divided into ${allTitles.length} main page(s).
+                const contentContextInstruction = `
+                **CRITICAL CONTENT BOUNDARIES (NON-NEGOTIABLE):**
+                This lesson's core content is divided into ${allTitles.length} main page(s).
                 
-		                **This is Page ${currentIndex + 1} of ${allTitles.length}.**
+                **This is Page ${currentIndex + 1} of ${allTitles.length}.**
                 
-		                - **Your Page Title:** "${currentTitle}"
-		                - **All Page Titles (in order):** ${allTitles.map((t, i) => `\n  ${i + 1}. ${t} ${i === currentIndex ? "(THIS IS YOUR PAGE)" : ""}`).join('')}
+                - **Your Page Title:** "${currentTitle}"
+                - **All Page Titles (in order):** ${allTitles.map((t, i) => `\n  ${i + 1}. ${t} ${i === currentIndex ? "(THIS IS YOUR PAGE)" : ""}`).join('')}
 
-		                **YOUR TASK:**
-		                1.  You are **strictly forbidden** from discussing topics belonging to the *other* page titles.
-		                2.  Your content MUST focus *exclusively* on the material from the source text that is relevant *only* to your assigned title: "**${currentTitle}**".
-		                3.  Do NOT repeat content from previous pages. Do NOT summarize the entire document.
-		                `;
+                **YOUR TASK:**
+                1.  You are **strictly forbidden** from discussing topics belonging to the *other* page titles.
+                2.  Your content MUST focus *exclusively* on the material from the source text that is relevant *only* to your assigned title: "**${currentTitle}**".
+                3.  Do NOT repeat content from previous pages. Do NOT summarize the entire document.
+                `;
 
-		                taskInstruction = `Generate *one* core content page for this lesson.
-		                - **Page Title:** It MUST be exactly: "${currentTitle}"
+                taskInstruction = `Generate *one* core content page for this lesson.
+                - **Page Title:** It MUST be exactly: "${currentTitle}"
 
-		                ${contentContextInstruction}
+                ${contentContextInstruction}
 
-		                **CRITICAL CONTENT GENERATION RULES (NON-NEGOTIABLE):**
+                **CRITICAL CONTENT GENERATION RULES (NON-NEGOTIABLE):**
 
-		                1.  **Information Fidelity:** The generated content must be detail-rich and **100% faithful** to all information, facts, and concepts from the source text relevant to **your specific page title**. Do **not** omit key information or concepts *from your section*.
+                1.  **Information Fidelity:** The generated content must be detail-rich and **100% faithful** to all information, facts, and concepts from the source text relevant to **your specific page title**. Do **not** omit key information or concepts *from your section*.
 
-		                2.  **Paraphrasing (Copyright):** You are **strictly forbidden** from copying the source text verbatim. You MUST **paraphrase and rewrite** all content in your own words to avoid copyright infringement. The core *ideas* must be preserved, but the *wording* must be original.
+                2.  **Paraphrasing (Copyright):** You are **strictly forbidden** from copying the source text verbatim. You MUST **paraphrase and rewrite** all content in your own words to avoid copyright infringement. The core *ideas* must be preserved, but the *wording* must be original.
 
-		                3.  **Academic Tone & Audience:** The language MUST be **academic, clear, and informative**. The choice of words must be **strictly appropriate for the target Grade Level** (e.g., ${gradeLevel}) in a Philippine (DepEd) educational context. Do not oversimplify, but ensure clarity.
-		                `;
+                3.  **Academic Tone & Audience:** The language MUST be **academic, clear, and informative**. The choice of words must be **strictly appropriate for the target Grade Level** (e.g., ${gradeLevel}) in a Philippine (DepEd) educational context. Do not oversimplify, but ensure clarity.
+                `;
 
-		                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${currentTitle}",\n    "content": "Detailed, *paraphrased*, and academic markdown content for **this specific page only**..."\n  }\n}`;
-		                break;
+                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${currentTitle}",\n    "content": "Detailed, *paraphrased*, and academic markdown content for **this specific page only**..."\n  }\n}`;
+                break;
             
-		            case 'CheckForUnderstanding':
-		                taskInstruction = 'Generate a "Check for Understanding" page with 3-4 questions.';
-		                jsonFormat = `{"page": {"title": "Check for Understanding", "content": "Questions..."}}`;
-		                break;
+            case 'CheckForUnderstanding':
+                taskInstruction = 'Generate a "Check for Understanding" page with 3-4 questions.';
+                jsonFormat = `{"page": {"title": "Check for Understanding", "content": "Questions..."}}`;
+                break;
 
-		            case 'LessonSummary':
-		                taskInstruction = 'Generate a "Lesson Summary" page (concise recap).';
-		                jsonFormat = `{"page": {"title": "Lesson Summary", "content": "Recap..."}}`;
-		                break;
+            case 'LessonSummary':
+                taskInstruction = 'Generate a "Lesson Summary" page (concise recap).';
+                jsonFormat = `{"page": {"title": "Lesson Summary", "content": "Recap..."}}`;
+                break;
             
-		            case 'WrapUp':
-		                taskInstruction = 'Generate a motivational "Wrap Up" page.';
-		                jsonFormat = `{"page": {"title": "Wrap Up", "content": "Closure..."}}`;
-		                break;
+            case 'WrapUp':
+                taskInstruction = 'Generate a motivational "Wrap Up" page.';
+                jsonFormat = `{"page": {"title": "Wrap Up", "content": "Closure..."}}`;
+                break;
 
-		            case 'EndofLessonAssessment':
-		                taskInstruction = 'Generate an "End of Lesson Assessment" with 5-8 questions.';
-		                jsonFormat = `{"page": {"title": "End of Lesson Assessment", "content": "Questions..."}}`;
-		                break;
+            case 'EndofLessonAssessment':
+                taskInstruction = 'Generate an "End of Lesson Assessment" with 5-8 questions.';
+                jsonFormat = `{"page": {"title": "End of Lesson Assessment", "content": "Questions..."}}`;
+                break;
 
-		            case 'AnswerKey':
-		                taskInstruction = 'Generate the "Answer Key" for the assessment.';
-		                jsonFormat = `{"page": {"title": "Answer Key", "content": "Answers..."}}`;
-		                break;
+            case 'AnswerKey':
+                taskInstruction = 'Generate the "Answer Key" for the assessment.';
+                jsonFormat = `{"page": {"title": "Answer Key", "content": "Answers..."}}`;
+                break;
 
-		            case 'References':
-		                taskInstruction = 'Generate a "References" page.';
-		                jsonFormat = `{"page": {"title": "References", "content": "Sources..."}}`;
-		                break;
+            case 'References':
+                taskInstruction = 'Generate a "References" page.';
+                jsonFormat = `{"page": {"title": "References", "content": "Sources..."}}`;
+                break;
 
-		            default:
-		                throw new Error(`Unknown component type: ${componentType}`);
-		        }
+            default:
+                throw new Error(`Unknown component type: ${componentType}`);
+        }
 
-		        return `${commonHeader}\n\n**TASK:** ${taskInstruction}\n${styleRules}\n\n**JSON FORMAT:**\n${jsonFormat}\n\n**SOURCE TEXT:**\n${sourceText}`;
-		    };
+        return `${commonHeader}\n\n**TASK:** ${taskInstruction}\n${styleRules}\n\n**JSON FORMAT:**\n${jsonFormat}\n\n**SOURCE TEXT:**\n${sourceText}`;
+    };
+
     const generateLessonComponent = async (sourceText, baseContext, lessonPlan, componentType, isMountedRef, extraData = {}, maxRetries = 3) => {
         const prompt = getComponentPrompt(sourceText, baseContext, lessonPlan, componentType, extraData);
 
@@ -574,6 +624,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
             setProgressMessage('Step 1/3: Extracting text...');
             let extractedText = await extractTextFromFile(file);
             if (!isMounted.current) return;
+            // Pre-process common currency symbol for better AI recognition
             extractedText = extractedText.replace(/₱/g, 'PHP ');
             const sourceText = extractedText;
             
