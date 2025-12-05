@@ -24,29 +24,55 @@ import LessonSelector from './LessonSelector';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
-// A. Robust JSON Parser
+// A. Robust JSON Parser (FIXED FOR MATH)
 const robustJsonParse = (text) => {
+    // Helper: Pre-process text to fix common LaTeX/JSON escape issues
+    const sanitizeText = (input) => {
+        let cleaned = input;
+        // 1. Remove Markdown code blocks
+        cleaned = cleaned.replace(/```json/g, '').replace(/```/g, '');
+        
+        // 2. Fix single backslashes in LaTeX that break JSON
+        // Logic: Find a backslash that is NOT followed by another backslash, " or n/r/t/u
+        // This is a heuristic to save "broken" math JSON
+        cleaned = cleaned.replace(/\\(?!["\\/bfnrtu])/g, '\\\\');
+        
+        return cleaned;
+    };
+
     try {
         let jsonString = text;
         const markdownMatch = text.match(/```(json)?\s*(\{[\s\S]*\})\s*```/);
         if (markdownMatch && markdownMatch[2]) jsonString = markdownMatch[2];
         
-        const startIndex = jsonString.indexOf('{');
-        const endIndex = jsonString.lastIndexOf('}');
-        if (startIndex !== -1 && endIndex !== -1) {
-            return JSON.parse(jsonString.substring(startIndex, endIndex + 1));
+        // Attempt clean parse
+        try {
+             return JSON.parse(jsonString);
+        } catch (e1) {
+            // If failed, try sanitizing the string (fixing backslashes)
+            const sanitized = sanitizeText(jsonString);
+            return JSON.parse(sanitized);
         }
-        throw new Error("No JSON structure found");
+
     } catch (e) {
         // Fallback: Try to salvage individual objects using Regex
+        // We use a "lazy" match for the closing brace to capture individual objects
         const questionMatches = text.match(/\{[\s\S]*?"text"[\s\S]*?"type"[\s\S]*?\}/g);
+        
         if (questionMatches && questionMatches.length > 0) {
             const salvagedQuestions = [];
             for (const qStr of questionMatches) {
                 try {
-                    const cleanQ = JSON.parse(qStr);
-                    salvagedQuestions.push(cleanQ);
-                } catch (err) { continue; }
+                    // Try parsing raw
+                    salvagedQuestions.push(JSON.parse(qStr));
+                } catch (err) { 
+                    try {
+                        // Try parsing sanitized
+                        salvagedQuestions.push(JSON.parse(sanitizeText(qStr)));
+                    } catch (err2) {
+                        console.warn("Failed to salvage question:", qStr);
+                    }
+                }
             }
             if (salvagedQuestions.length > 0) return { questions: salvagedQuestions };
         }
@@ -279,9 +305,6 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
         };
 
     const saveToFirestore = async (quizData) => {
-            // --- UPDATED LOGIC: PRIORITIZE PROPS ---
-            // If propSubjectId/propUnitId are provided (from Unit context), use them.
-            // Otherwise, fallback to the dropdown selections.
             const finalSubjectId = propSubjectId || selectedCourse?.id;
             const finalUnitId = propUnitId || (selectedLessons.length > 0 ? selectedLessons[0].id : null);
 
@@ -495,8 +518,10 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                 let currentStart = 0;
                 for (let i = 0; i < indices.length; i++) {
                     const currentIdx = indices[i];
-                    // Keep chunks small (~450-500) to ensure fast "Math Solving" speed
-                    if ((currentIdx - currentStart) > 500) {
+                    
+                    // FIXED: Reduced chunk size from 500 to 400
+                    // Math questions are dense with tokens. Smaller chunks = safer "solving" by AI.
+                    if ((currentIdx - currentStart) > 400) {
                         chunks.push(fullText.substring(currentStart, currentIdx));
                         currentStart = currentIdx;
                     }
@@ -538,8 +563,10 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                    - "x 2" or "x2" -> "$x^2$"
                    - "1/2" -> "$\\frac{1}{2}$"
                    - "*" -> "$\\times$"
-                2. **LaTeX Enforcement:** - Wrap ALL formulas and variables in single dollar signs ($...$).
-                   - Example: "Calculate $x$ if $x + 2 = 5$".
+                2. **LaTeX Enforcement (CRITICAL):** - Wrap ALL formulas and variables in single dollar signs ($...$).
+                   - **DOUBLE ESCAPE BACKSLASHES:** In JSON, you must write "\\\\" to produce a single backslash.
+                   - CORRECT: "$\\frac{x}{y}$" becomes string: "$\\frac{x}{y}" (wait, in JSON source it is "$\\\\frac{x}{y}")
+                   - INCORRECT: "$\frac{x}{y}" (This will break the JSON parser)
 
                 **INPUT:**
                 ---
@@ -551,7 +578,7 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                   ${isFirstChunk ? '"title": "Topic",' : ''}
                   "questions": [
                     { 
-                      "text": "Question text here (with $LaTeX$ math)", 
+                      "text": "Question text here (with $\\LaTeX$ math)", 
                       "type": "multiple_choice", 
                       "options": ["Option A", "Option B", "Option C", "Option D"], 
                       "correctAnswer": "Option A", 
@@ -573,19 +600,24 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                         accumulatedQuestions = [...accumulatedQuestions, ...parsed.questions];
                     }
 
-                    await new Promise(res => setTimeout(res, 1000)); 
+                    // Small delay to prevent rate limiting
+                    await new Promise(res => setTimeout(res, 500)); 
 
                 } catch (e) {
                     console.warn(`Batch ${i + 1} failed (likely empty or too complex). Skipping.`, e);
                 }
             }
 
-            // --- STEP 3: DEDUPLICATE ---
+            // --- STEP 3: DEDUPLICATE (FIXED) ---
             const uniqueQuestions = [];
             const seenTexts = new Set();
         
             accumulatedQuestions.forEach(q => {
-                const sig = (q.text || '').substring(0, 30).toLowerCase().replace(/[^a-z0-9]/g, '');
+                // FIXED: Increased deduplication signature length
+                // Math questions often start identical "Simplify..."
+                // We now check 100 chars and keep digits to differentiate "Simplify x^2" vs "Simplify x^3"
+                const sig = (q.text || '').substring(0, 100).toLowerCase().replace(/[^a-z0-9]/g, '');
+                
                 if (sig.length > 5 && !seenTexts.has(sig)) {
                     seenTexts.add(sig);
                     uniqueQuestions.push(q);
