@@ -28,10 +28,11 @@ const GEMINI_MODEL = 'gemini-flash-latest';
 
 // --- Unified API Configuration (UPDATED - Removed HuggingFace) ---
 const API_CONFIGS = [
-    // --- Gemini Endpoints ---
-    { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini-primary`, name: 'Gemini Primary' },
-    { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini-fallback`, name: 'Gemini Fallback 1' },
-    { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini-fallback-2`, name: 'Gemini Fallback 2' },
+    // We point all URLs to the same Vercel endpoint. 
+    // The 'model' field stays exactly as you defined it (GEMINI_MODEL).
+    { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Primary' },
+    { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Fallback 1' },
+    { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Fallback 2' },
 ];
 
 // This will now be 3
