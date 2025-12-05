@@ -30,7 +30,7 @@ export default async function handler(req) {
 
     const genAI = new GoogleGenerativeAI(apiKey);
     // Using 'gemini-1.5-flash' for speed and lower cost
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
 
     // 2. Generate the stream from Google
     const result = await model.generateContentStream(prompt);
