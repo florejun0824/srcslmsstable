@@ -11,8 +11,55 @@ import 'katex/dist/katex.min.css';
 import mermaid from 'mermaid';
 import { ChevronDownIcon } from '@heroicons/react/24/solid';
 
+// --- CSS OVERRIDES: FIX INDEX.CSS CONFLICTS ---
+const katexDarkFix = `
+  .content-renderer .katex {
+    color: inherit !important;
+    font-size: 1.1em;
+  }
+  
+  /* 1. Fix the "roof" of the square root (vinculum) */
+  .content-renderer .katex .sqrt > .root {
+    border-top-color: currentColor !important;
+  }
+  
+  /* 2. Fix fraction bars */
+  .content-renderer .katex .frac-line {
+    border-bottom-color: currentColor !important;
+  }
+  
+  /* 3. CRITICAL FIX: NEUTRALIZE GLOBAL INDEX.CSS CONFLICT */
+  /* Your index.css forces all '.content-renderer svg' to be block/100% width. */
+  /* We must strictly reset this for KaTeX SVGs to prevent them from vanishing. */
+  .content-renderer .katex svg {
+    display: inline-block !important; /* Override 'display: block' */
+    width: auto !important;           /* Override 'width: 100%' */
+    height: auto !important;          /* Let KaTeX control height via attributes */
+    max-width: none !important;       /* Remove 'max-width: 600px' limit */
+    margin: 0 !important;             /* Remove 'margin: auto' centering */
+    
+    /* Restore KaTeX's specific positioning for the radical hook */
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+  }
+
+  /* 4. Ensure the SVG path (the hook itself) is visible */
+  .content-renderer .katex path {
+    fill: currentColor !important;
+    stroke: none !important;
+    fill-opacity: 1 !important;
+  }
+
+  /* Ensure proper spacing in display mode */
+  .content-renderer .katex-display {
+    margin: 1em 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+`;
+
 // --- NEW HELPER: The "Healer" (Fixes Broken Table Rows) ---
-// This ensures the web view looks just as good as your PDF export
 const healBrokenMarkdown = (text) => {
     if (!text) return '';
     
@@ -116,13 +163,21 @@ const normalizeLatex = (text) => {
   if (!text) return '';
   let normalized = text;
   
-  // ✅ FIX: Replace both complex and simple broken Peso sign commands.
+  // --- FIXES ---
   normalized = normalized.replace(/\\text{\\char`\\₱}/g, '₱');
   normalized = normalized.replace(/\\₱/g, '₱');
-  
-  // ✅ FIX: Convert LaTeX degrees to symbol
   normalized = normalized.replace(/\\degree/g, '°');
   normalized = normalized.replace(/\^\\circ/g, '°'); 
+
+  // --- SYMBOL FALLBACKS ---
+  normalized = normalized.replace(/\\ne /g, '≠ ');
+  normalized = normalized.replace(/\\neq /g, '≠ ');
+  normalized = normalized.replace(/\\le /g, '≤ ');
+  normalized = normalized.replace(/\\ge /g, '≥ ');
+  normalized = normalized.replace(/\\times /g, '× ');
+  normalized = normalized.replace(/\\div /g, '÷ ');
+  normalized = normalized.replace(/\\approx /g, '≈ ');
+  normalized = normalized.replace(/\\infty /g, '∞ ');
 
   return normalized;
 };
@@ -217,27 +272,23 @@ export default function ContentRenderer({ htmlContent, text }) {
   if (text && typeof text === 'string') {
     let processedText = text;
 
-    // --- NEW: APPLY THE HEALER FIRST ---
-    // This fixes broken tables before any other processing happens
+    // --- APPLY THE HEALER FIRST ---
     processedText = healBrokenMarkdown(processedText);
     
-    // ✅ FIX: Replace non-breaking spaces (\u00A0) with regular spaces to fix list rendering.
+    // ✅ FIX: Replace non-breaking spaces
     processedText = processedText.replace(/\u00A0/g, ' ');
 
-    // ✅ Find SVG code wrapped in markdown fences (```) and unwrap it.
+    // ✅ Find SVG code wrapped in markdown fences
     processedText = processedText.replace(
       /```(html)?\s*(<svg[\s\S]*?<\/svg>)\s*```/gi,
       '$2'
     );
     
-    // ✅ Find SVG code prefixed with an `html` keyword, unescape its quotes,
-    // and trim leading whitespace from each line to fix parsing errors.
+    // ✅ Find SVG code prefixed with html
     processedText = processedText.replace(
         /(?:^|\n)html\s*\n(<svg[\s\S]*?<\/svg>)/gi,
         (match, svgContent) => {
-            // Unescape quotes
             let cleanedSvg = svgContent.replace(/\\"/g, '"');
-            // Remove leading whitespace/invisible characters from each line
             cleanedSvg = cleanedSvg.split('\n').map(line => line.trim()).join('\n');
             return cleanedSvg;
         }
@@ -252,12 +303,12 @@ export default function ContentRenderer({ htmlContent, text }) {
       return <MermaidRenderer code={processedText} />;
     }
 
-    // ✅ Handle "html" prefixes (inline at the start) - This is a fallback
+    // ✅ Handle "html" prefixes
     if (/^html\s*\n/i.test(processedText.trim())) {
       processedText = processedText.replace(/^html\s*\n?/i, '');
     }
 
-    // ✅ Handle inline "html <svg>" snippets inside text
+    // ✅ Handle inline "html <svg>"
     processedText = processedText.replace(
       /\bhtml\s*<svg([\s\S]*?)<\/svg>/gi,
       '<svg$1</svg>'
@@ -266,11 +317,10 @@ export default function ContentRenderer({ htmlContent, text }) {
     // ✅ Handle ```html fenced blocks
     if (/^```html/i.test(processedText.trim())) {
       processedText = processedText
-        .replace(/^```html/i, '') // strip opening fence
-        .replace(/```$/, '')     // strip closing fence
+        .replace(/^```html/i, '')
+        .replace(/```$/, '')
         .trim();
 
-      // If it contains Mermaid code
       if (/<div[^>]*class=["']?mermaid["']?[^>]*>([\s\S]*?)<\/div>/i.test(processedText)) {
         const match = processedText.match(/<div[^>]*class=["']?mermaid["']?[^>]*>([\s\S]*?)<\/div>/i);
         const mermaidCode = match ? match[1] : '';
@@ -285,7 +335,7 @@ export default function ContentRenderer({ htmlContent, text }) {
       );
     }
 
-    // Decode unicode escapes like \u221e → ∞
+    // Decode unicode escapes
     const unescapedText = processedText.replace(/\\u([\dA-F]{4})/gi, (match, grp) =>
       String.fromCharCode(parseInt(grp, 16))
     );
@@ -295,8 +345,9 @@ export default function ContentRenderer({ htmlContent, text }) {
     processedText = normalizeLatex(processedText);
 
     return (
-      // --- MODIFIED: Added dark:prose-invert to automatically style markdown in dark mode ---
       <div className="content-renderer prose max-w-full dark:prose-invert">
+        <style>{katexDarkFix}</style>
+        
         <ReactMarkdown
           children={processedText}
           remarkPlugins={[remarkGfm, remarkMath, remarkBreaks]}
@@ -304,7 +355,6 @@ export default function ContentRenderer({ htmlContent, text }) {
           components={{
             blockquote: ({ node, ...props }) => {
               const textContent = getNodeText(node);
-              // --- MODIFIED: Added dark mode classes ---
               let styleClass = 'border-blue-500 bg-blue-50 text-blue-800 dark:border-blue-400 dark:bg-blue-900/30 dark:text-blue-200';
               if (textContent.toLowerCase().includes('tip:')) {
                 styleClass = 'border-green-500 bg-green-50 text-green-800 dark:border-green-400 dark:bg-green-900/30 dark:text-green-200';
@@ -319,7 +369,6 @@ export default function ContentRenderer({ htmlContent, text }) {
               );
             },
             strong: ({ node, ...props }) => {
-              // --- MODIFIED: Added dark mode text color (prose-invert also handles this, but this is a safe override) ---
               return <strong className="font-bold text-slate-800 dark:text-slate-100" {...props} />;
             },
             img: ({ node, ...props }) => (
@@ -331,30 +380,21 @@ export default function ContentRenderer({ htmlContent, text }) {
               </div>
             ),
             div: ({ node, ...props }) => {
-              // Auto-detect Mermaid inside Markdown HTML
               if (props.className && props.className.includes('mermaid')) {
                 return <MermaidRenderer code={getNodeText(node)} />;
               }
               return <div className="overflow-x-auto my-2" {...props} />;
             },
-
-            // --- ADDED: INTERACTIVE "CLICK TO REVEAL" ---
             details: ({ node, ...props }) => {
-              // We separate the <summary> from the rest of the content
-              // so we can wrap the content in a styled, inset box.
               const summaryChild = props.children[0];
               const contentChildren = props.children.slice(1);
-
               return (
                 <details 
-                  // --- MODIFIED: Added dark mode classes ---
                   className="my-4 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-lg group overflow-hidden" 
                   {...props}
                 >
                   {summaryChild}
                   <div className="p-4 pt-0">
-                    {/* This inset box contains the hidden content */}
-                    {/* --- MODIFIED: Added dark mode classes AND dark:prose-invert --- */}
                     <div className="p-4 rounded-xl bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark prose max-w-full dark:prose-invert">
                       {contentChildren}
                     </div>
@@ -364,16 +404,13 @@ export default function ContentRenderer({ htmlContent, text }) {
             },
             summary: ({ node, ...props }) => (
               <summary 
-                // --- MODIFIED: Added dark mode classes ---
                 className="flex items-center justify-between p-4 cursor-pointer select-none list-none font-semibold text-gray-800 dark:text-slate-100 transition-all active:shadow-neumorphic-inset active:dark:shadow-neumorphic-inset-dark"
                 {...props}
               >
-                {/* This renders the text inside the summary */}
                 {props.children} 
                 <ChevronDownIcon className="w-5 h-5 text-gray-500 dark:text-slate-400 transition-transform duration-200 group-open:rotate-180" />
               </summary>
             ),
-            // --- END ADDED ---
           }}
         />
       </div>
