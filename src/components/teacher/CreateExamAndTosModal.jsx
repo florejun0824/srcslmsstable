@@ -505,23 +505,39 @@ const getExamComponentPrompt = (guideData, generatedTos, testType, previousQuest
     const isSingleQuestionType = normalizedType.includes('essay') || normalizedType.includes('solving');
     const tosContext = JSON.stringify(generatedTos, null, 2);
 
+    // CRITICAL: Define the required structure based on the TYPE
+    let requiredJsonStructure = `
+    "question": "...", 
+    "correctAnswer": "...",
+    "explanation": "Direct statement of fact. (e.g. 'Photosynthesis occurs in chloroplasts.')"
+    `;
+
+    if (normalizedType === 'multiple_choice' || normalizedType === 'analogy' || normalizedType === 'interpretive') {
+        requiredJsonStructure += `,
+    "options": ["Option A", "Option B", "Option C", "Option D"]`;
+    } else if (normalizedType === 'solving') {
+        requiredJsonStructure += `,
+    "solution": "Step-by-step calculation."`;
+    } else if (normalizedType === 'essay') {
+        requiredJsonStructure += `,
+    "rubric": [{"criteria": "...", "points": 0}]`;
+    }
+
+
     return `
     You are an expert exam question writer. 
     **PERSONA:** You are the Subject Matter Expert. You are writing this exam based on your own knowledge. **NEVER** refer to "the lesson", "the text", "the passage", or "the material" in your questions or explanations. State facts directly.
 
     **PRIMARY DIRECTIVE: RESPONSE MUST BE A SINGLE VALID JSON OBJECT.**
     ---
-    **OUTPUT JSON STRUCTURE:**
+    **OUTPUT JSON STRUCTURE (Strict):**
     {
         "questions": [
             { 
                 "questionNumber": 1, 
                 "type": "${normalizedType}", 
                 "instruction": "...", 
-                "question": "...", 
-                "correctAnswer": "...",
-                "explanation": "Direct statement of fact. (e.g. 'Photosynthesis occurs in chloroplasts.')", 
-                "solution": "..."
+                ${requiredJsonStructure}
             }
         ]
     }
@@ -536,28 +552,29 @@ const getExamComponentPrompt = (guideData, generatedTos, testType, previousQuest
     - Count: **${numItems}** items.
     - Range: **${range}**
 
-    **CRITICAL "AUTHORITATIVE TONE" RULES (NON-NEGOTIABLE):**
-    1.  **NO META-REFERENCES:** It is strictly forbidden to use phrases that cite the source.
-        - **BAD:** "According to the lesson, the sun is a star."
-        - **BAD:** "The text mentions that..."
-        - **BAD:** "Based on the provided material..."
-        - **GOOD:** "The sun is a star."
-        - **GOOD:** "Water boils at 100 degrees Celsius."
-    2.  **DIRECT EXPLANATIONS:** Your explanations must justify the answer using facts, not by pointing to the document.
+    **CRITICAL TONE & FACT RULES (NON-NEGOTIABLE):**
+    1.  **NO META-REFERENCES (TONE):** It is strictly forbidden to use phrases that cite the source. Use an authoritative voice.
+    2.  **SOURCE TRUTH:** Use the Source Material for facts, but present them as absolute truths.
+    3.  **CORRECT ANSWER:** Must be the **EXACT** string from the options (if Multiple Choice).
 
-    **ACCURACY & FORMAT RULES:**
-    1.  **SOURCE TRUTH:** Use the Source Material for facts, but present them as absolute truths.
-    2.  **CORRECT ANSWER:** Must be the **EXACT** string from the options (if Multiple Choice).
-    3.  **NO DUPLICATES:** Do not repeat: 
-        \`\`\`${previousQuestionsSummary || "None"}\`\`\`
-    4.  **IDENTIFICATION:** Do not start questions with "Identify...". Phrase them as descriptions (e.g., "This process is defined as...").
-    5.  **MATCHING TYPE:** Return a single object with \`prompts\`, \`options\`, and \`correctPairs\`.
-	6. **ALTERNATIVE RESPONSE / TRUE-FALSE (STRICT FORMAT):**
-    - The question stem MUST be a single, declarative sentence ending in a period (.).
-    - You are ABSOLUTELY FORBIDDEN from using question words such as "What," "Which," "Who," or "How."
-    - You are also FORBIDDEN from generating an option list (A, B, C, D). The item must stand alone as the statement to be judged True or False.
-    - Example of a GOOD statement: "The primary purpose of the small intestine is the absorption of nutrients."
-    - Example of a BAD statement: "According to the textbook, what is the fastest animal?"
+    **FORMAT & QUESTION PHRASING RULES (STRICT):**
+    
+    **A. MULTIPLE CHOICE / ANALOGY / INTERPRETIVE:**
+    - The output MUST include the "options" array with **EXACTLY four options** for every question.
+    - The question text MUST be formatted as a question or an incomplete statement requiring a choice.
+    
+    **B. ALTERNATIVE RESPONSE / TRUE-FALSE:**
+    - The statement MUST be a **single, declarative sentence ending in a period (.)**.
+    - You are ABSOLUTELY FORBIDDEN from using question words ("What," "Which," "Who," or "How").
+    - You are FORBIDDEN from generating an "options" array (A, B, C, D).
+
+    **C. GENERAL PHRASING:**
+    - Do NOT start questions with "Identify...". Phrase them as descriptions.
+    - Do NOT repeat questions: \`\`\`${previousQuestionsSummary || "None"}\`\`\`
+    
+    **D. COMPLEX TYPES (MATCHING/IDENTIFICATION):**
+    - **MATCHING:** Return a single object with \`prompts\`, \`options\`, and \`correctPairs\`.
+    - **IDENTIFICATION:** Group all items. Generate a single \`choicesBox\` with answers + distractors.
     `;
 };
 // --- BATCHING HELPER: Generates a small chunk of questions to avoid 504 Timeouts ---
