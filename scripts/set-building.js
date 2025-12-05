@@ -1,8 +1,5 @@
-// scripts/set-building.js
-// Note: This script runs in Node.js during the build
-const { createClient } = require('@vercel/kv');
+import { createClient } from '@vercel/kv';
 
-// Ensure these ENV vars are available in your Build Settings!
 const kv = createClient({
   url: process.env.KV_REST_API_URL,
   token: process.env.KV_REST_API_TOKEN,
@@ -14,7 +11,7 @@ const setBuildStatus = async () => {
     console.log('✅ Set BUILD_STATUS to "building" in Vercel KV');
   } catch (error) {
     console.error('❌ Error setting build status:', error);
-    // Don't fail the build just because status update failed
+    // Exit gracefully so we don't crash the build if KV fails
     process.exit(0);
   }
 };

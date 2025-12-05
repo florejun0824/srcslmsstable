@@ -1,5 +1,4 @@
-// scripts/set-ready.js
-const { createClient } = require('@vercel/kv');
+import { createClient } from '@vercel/kv';
 
 const kv = createClient({
   url: process.env.KV_REST_API_URL,
