@@ -152,7 +152,7 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
         // --- CLEANUP STEP ---
         // This removes "visual noise" specific to your files to prevent the AI from wasting tokens
         return rawText
-            .replace(/\/g, '') // FIX: Specifically removes tags found in your PDF
+            .replace(/<[^>]+>/g, '') // FIX: Specifically removes HTML tags (vital for Mammoth/DOCX)
             .replace(/_{3,}/g, '')       // Remove long underlines (e.g., fill in the blank lines)
             .replace(/\.{3,}/g, '')      // Remove long dot leaders
             .replace(/[^\x20-\x7E\n\r\t]/g, ' ') // Remove non-printable binary garbage
@@ -404,44 +404,53 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                 
                 setProgressMessage(`Analysing batch ${i + 1} of ${chunks.length}...`);
 
-                // --- MATH REPAIR PROMPT ---
-                // Optimized for consistency with Heavy Models
-                const promptTemplate = `
-                You are an Expert Math Teacher & Data Entry Specialist.
-                **TASK:** Convert quiz text to strict JSON.
-                
-                **MATH REPAIR RULES (CRITICAL):**
-                Source text often mangles equations (e.g. "x-1y-2" instead of exponents).
-                1. **DETECT FRACTIONS:** If you see "x-1y-2 / x-1y-4" or piled variables, convert to LaTeX fraction: "$\\\\frac{x^{-1}y^{-2}}{x^{-1}y^{-4}}$".
-                2. **EXPONENTS:** Convert "x2" -> "$x^2$", "x-1" -> "$x^{-1}$".
-                3. **ROOTS:** "sqrt(x)" -> "$\\\\sqrt{x}$".
-                4. **WRAPPER:** ALL math must be inside single dollar signs "$...$".
-                
-                **LANGUAGE:**
-                - Copy text VERBATIM. Do NOT translate Filipino/English.
-                
-                **FORMATTING:**
-                - Remove prefixes (1., a., b.).
-                - **Options must be STRINGS**. Do NOT return objects.
-                
-                **INPUT:**
-                ---
-                {{CHUNK_CONTENT}}
-                ---
-                
-                **JSON:**
-                {
-                  ${isFirstChunk ? '"title": "Exam Title",' : ''}
-                  "questions": [
-                    {
-                      "text": "Simplify $\\\\frac{x^{-1}}{y^2}$",
-                      "type": "multiple_choice",
-                      "options": ["$x^2$", "$\\\\frac{1}{x^2}$"], 
-                      "correctAnswer": "$\\\\frac{1}{x^2}$"
-                    }
-                  ]
-                }
-                `;
+			
+
+				// --- REFINED PROMPT TEMPLATE ---
+				const promptTemplate = `
+				You are an Expert Math Teacher & Data Entry Specialist.
+				**TASK:** Convert quiz text to strict JSON.
+
+				**1. IDENTIFICATION & FILL-IN-THE-BLANKS:**
+				- **Word Banks:** If you see a list of terms at the start of a section (e.g., "Select from the box:", "Choices:"), you MUST extract them into a "choicesBox" array for every question in that section.
+				- **Type:** Label these questions as "identification".
+				- **Answers:** Extract the correct answer if provided in the text/key.
+
+				**2. MATH REPAIR RULES (CRITICAL):**
+				- **Fractions:** Convert "x-1y-2 / z" to LaTeX: "$\\\\frac{x^{-1}y^{-2}}{z}$".
+				- **Exponents:** Convert "x2" -> "$x^2$".
+				- **Roots:** "sqrt(x)" -> "$\\\\sqrt{x}$".
+				- **Wrapper:** All math formulas must be enclosed in single dollar signs "$...$".
+
+				**3. FORMATTING:**
+				- **Clean Text:** Remove question numbering (1., 2.) and prefixes (a., b.).
+				- **Strict JSON:** Do NOT return objects for options, only Strings.
+				- **Language:** Copy text VERBATIM. Do not translate.
+
+				**INPUT TEXT:**
+				---
+				{{CHUNK_CONTENT}}
+				---
+
+				**REQUIRED JSON OUTPUT:**
+				{
+				  ${isFirstChunk ? '"title": "Extracted Quiz Title",' : ''}
+				  "questions": [
+				    {
+				      "text": "The powerhouse of the cell.",
+				      "type": "identification", 
+				      "correctAnswer": "Mitochondria",
+				      "choicesBox": ["Mitochondria", "Nucleus", "Ribosome"] 
+				    },
+				    {
+				      "text": "Simplify $\\\\frac{1}{x^{-1}}$",
+				      "type": "multiple_choice",
+				      "options": ["$x$", "$x^2$", "$1$"],
+				      "correctAnswer": "$x$"
+				    }
+				  ]
+				}
+				`;
 
                 try {
                     const parsed = await processChunkWithRetry(

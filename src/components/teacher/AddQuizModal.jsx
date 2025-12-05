@@ -1,10 +1,11 @@
 import React, { useState, useCallback, Suspense, lazy } from 'react';
 import { Dialog, DialogPanel } from '@headlessui/react';
 import {
-    XMarkIcon, DocumentPlusIcon, ChevronRightIcon, DocumentArrowUpIcon, SparklesIcon
+    XMarkIcon, DocumentPlusIcon, ChevronRightIcon, SparklesIcon,
+    ExclamationTriangleIcon // 1. Added Warning Icon
 } from '@heroicons/react/24/outline';
 import Spinner from '../common/Spinner';
-import { useTheme } from '../../contexts/ThemeContext'; // 1. Import Theme Context
+import { useTheme } from '../../contexts/ThemeContext';
 
 // Lazy load the main panel components
 const AiQuizGenerator = lazy(() => import('./AiQuizGenerator'));
@@ -15,16 +16,18 @@ const getMonetStyles = (activeOverlay) => {
     if (!activeOverlay) return null;
 
     const base = {
-        // Modal Container (Selection Mode)
         container: "backdrop-blur-xl shadow-2xl border", 
-        // Solid Background (Editor Mode - No Blur for performance)
         solidBg: "bg-[#0f172a]", 
         textTitle: "text-white",
         textSub: "text-white/60",
         card: "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-white shadow-lg",
         iconBox: "bg-white/10 ring-white/10 text-white",
         accentText: "text-white",
-        closeBtn: "bg-white/10 hover:bg-white/20 text-white border-transparent"
+        closeBtn: "bg-white/10 hover:bg-white/20 text-white border-transparent",
+        // New Warning styles
+        warningBox: "bg-white/5 border-white/10",
+        buttonPrimary: "bg-white text-black hover:bg-white/90",
+        buttonSecondary: "bg-white/10 text-white hover:bg-white/20"
     };
 
     switch (activeOverlay) {
@@ -32,49 +35,49 @@ const getMonetStyles = (activeOverlay) => {
             return {
                 ...base,
                 container: `${base.container} bg-[#0f172a]/95 border-emerald-500/20 shadow-emerald-900/20`,
-                solidBg: "bg-[#020617]", // Deepest Blue/Green
+                solidBg: "bg-[#020617]",
                 accentIcon: "text-emerald-400",
             };
         case 'valentines':
             return {
                 ...base,
                 container: `${base.container} bg-[#2c0b0e]/95 border-rose-500/20 shadow-rose-900/20`,
-                solidBg: "bg-[#1f0508]", // Deepest Red
+                solidBg: "bg-[#1f0508]",
                 accentIcon: "text-rose-400",
             };
         case 'graduation':
             return {
                 ...base,
                 container: `${base.container} bg-[#1a1400]/95 border-amber-500/20 shadow-amber-900/20`,
-                solidBg: "bg-[#140f00]", // Deepest Gold
+                solidBg: "bg-[#140f00]",
                 accentIcon: "text-amber-400",
             };
         case 'rainy':
             return {
                 ...base,
                 container: `${base.container} bg-[#061816]/95 border-teal-500/20 shadow-teal-900/20`,
-                solidBg: "bg-[#020909]", // Deepest Teal
+                solidBg: "bg-[#020909]",
                 accentIcon: "text-teal-400",
             };
         case 'cyberpunk':
             return {
                 ...base,
                 container: `${base.container} bg-[#180a20]/95 border-fuchsia-500/20 shadow-fuchsia-900/20`,
-                solidBg: "bg-[#0d0312]", // Deepest Purple
+                solidBg: "bg-[#0d0312]",
                 accentIcon: "text-fuchsia-400",
             };
         case 'spring':
             return {
                 ...base,
                 container: `${base.container} bg-[#1f0f15]/95 border-pink-500/20 shadow-pink-900/20`,
-                solidBg: "bg-[#120509]", // Deepest Pink
+                solidBg: "bg-[#120509]",
                 accentIcon: "text-pink-400",
             };
         case 'space':
             return {
                 ...base,
                 container: `${base.container} bg-[#020617]/95 border-indigo-500/20 shadow-indigo-900/20`,
-                solidBg: "bg-[#00020a]", // Deepest Void
+                solidBg: "bg-[#00020a]",
                 accentIcon: "text-indigo-400",
             };
         default:
@@ -82,14 +85,73 @@ const getMonetStyles = (activeOverlay) => {
     }
 };
 
-// Fallback component for Suspense
 const LoadingPanel = () => (
     <div className="flex h-full min-h-[400px] w-full items-center justify-center">
         <Spinner />
     </div>
 );
 
-// --- REDESIGNED MODE SELECTION ---
+// --- NEW COMPONENT: AI LIMITATION WARNING ---
+const AiLimitationWarning = ({ onConfirm, onCancel, monet }) => {
+    // Styles
+    const titleClass = monet ? monet.textTitle : "text-slate-900 dark:text-white";
+    const textClass = monet ? monet.textSub : "text-slate-500 dark:text-slate-400";
+    const boxClass = monet ? monet.warningBox : "bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20";
+    const iconClass = monet ? "text-amber-400" : "text-amber-600 dark:text-amber-500";
+    
+    // Button Styles
+    const primaryBtn = monet 
+        ? monet.buttonPrimary 
+        : "bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20";
+    const secondaryBtn = monet 
+        ? monet.buttonSecondary 
+        : "bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-white/10 dark:hover:bg-white/20 dark:text-white";
+
+    return (
+        <div className="p-8 sm:p-12 flex flex-col h-full items-center justify-center text-center max-w-xl mx-auto">
+            <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-6 bg-amber-100 dark:bg-amber-900/30 ${iconClass}`}>
+                <ExclamationTriangleIcon className="w-8 h-8 stroke-[2]" />
+            </div>
+
+            <Dialog.Title as="h3" className={`text-2xl font-bold mb-4 ${titleClass}`}>
+                Limitation Notice
+            </Dialog.Title>
+
+            <p className={`mb-8 text-lg leading-relaxed ${textClass}`}>
+                Please be aware that the AI Quiz Generator currently has limitations processing complex technical content.
+            </p>
+
+            <div className={`w-full p-5 rounded-2xl border text-left mb-8 ${boxClass}`}>
+                <ul className="space-y-3">
+                    <li className={`flex items-start text-sm font-medium ${monet ? 'text-white/80' : 'text-slate-700 dark:text-slate-300'}`}>
+                        <span className="mr-3 text-amber-500">•</span>
+                        <span><strong>Mathematics & Chemistry:</strong> Formulas and equations may not parse correctly.</span>
+                    </li>
+                    <li className={`flex items-start text-sm font-medium ${monet ? 'text-white/80' : 'text-slate-700 dark:text-slate-300'}`}>
+                        <span className="mr-3 text-amber-500">•</span>
+                        <span><strong>Images:</strong> Diagrams and visual content in documents are currently not supported.</span>
+                    </li>
+                </ul>
+            </div>
+
+            <div className="flex w-full gap-4">
+                <button
+                    onClick={onCancel}
+                    className={`flex-1 py-3.5 px-6 rounded-xl font-semibold transition-all duration-200 ${secondaryBtn}`}
+                >
+                    Go Back
+                </button>
+                <button
+                    onClick={onConfirm}
+                    className={`flex-1 py-3.5 px-6 rounded-xl font-semibold transition-all duration-200 ${primaryBtn}`}
+                >
+                    I Understand, Proceed
+                </button>
+            </div>
+        </div>
+    );
+};
+
 const ModeSelection = ({ onSelect, monet }) => {
     // Default Styles (Candy)
     const defaultCardClass = "bg-white dark:bg-[#2c2c2e] border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-2xl hover:shadow-blue-500/10";
@@ -169,6 +231,7 @@ const ModeSelection = ({ onSelect, monet }) => {
 export default function AddQuizModal({ isOpen, onClose, unitId, subjectId }) {
     const [creationMode, setCreationMode] = useState(null);
     const [generatedQuizData, setGeneratedQuizData] = useState(null);
+    const [showWarning, setShowWarning] = useState(false); // 2. New State for Warning
     
     // Theme Context
     const { activeOverlay } = useTheme();
@@ -178,9 +241,28 @@ export default function AddQuizModal({ isOpen, onClose, unitId, subjectId }) {
         setTimeout(() => {
             setCreationMode(null);
             setGeneratedQuizData(null);
+            setShowWarning(false); // Reset warning
         }, 300);
         onClose();
     }, [onClose]);
+
+    // 3. Logic: Intercept AI selection
+    const handleModeSelect = (mode) => {
+        if (mode === 'ai') {
+            setShowWarning(true);
+        } else {
+            setCreationMode(mode);
+        }
+    };
+
+    const confirmAiMode = () => {
+        setShowWarning(false);
+        setCreationMode('ai');
+    };
+
+    const cancelAiMode = () => {
+        setShowWarning(false);
+    };
 
     const handleAiComplete = (quizData) => {
         setGeneratedQuizData(quizData);
@@ -190,6 +272,7 @@ export default function AddQuizModal({ isOpen, onClose, unitId, subjectId }) {
     const handleBack = () => {
         setCreationMode(null);
         setGeneratedQuizData(null);
+        setShowWarning(false);
     };
 
     const getPanelClassName = () => {
@@ -205,11 +288,23 @@ export default function AddQuizModal({ isOpen, onClose, unitId, subjectId }) {
             case 'manual':
                 return `${baseClasses} w-screen h-screen max-w-full max-h-screen rounded-none ${editorBg}`;
             default:
+                // Selection or Warning mode
                 return `${baseClasses} w-full max-w-3xl rounded-[36px] ${selectionBg}`;
         }
     };
 
     const renderContent = () => {
+        // 4. Check for Warning state first
+        if (showWarning) {
+            return (
+                <AiLimitationWarning 
+                    onConfirm={confirmAiMode}
+                    onCancel={cancelAiMode}
+                    monet={monet}
+                />
+            );
+        }
+
         switch (creationMode) {
             case 'ai':
                 return <AiQuizGenerator
@@ -225,7 +320,7 @@ export default function AddQuizModal({ isOpen, onClose, unitId, subjectId }) {
                             initialData={generatedQuizData}
                         />;
             default:
-                return <ModeSelection onSelect={setCreationMode} monet={monet} />;
+                return <ModeSelection onSelect={handleModeSelect} monet={monet} />;
         }
     };
 
