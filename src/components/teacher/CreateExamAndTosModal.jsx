@@ -557,6 +557,14 @@ const getExamComponentPrompt = (guideData, generatedTos, testType, previousQuest
     2.  **SOURCE TRUTH:** Use the Source Material for facts, but present them as absolute truths.
     3.  **CORRECT ANSWER:** Must be the **EXACT** string from the options (if Multiple Choice).
 
+    **NON-NEGOTIABLE REPETITION RULE (CRITICAL CHECK):**
+    - **ABSOLUTELY DO NOT REPEAT THE CONCEPT OR PHRASING** of any question listed in the section below. If a question is similar, you MUST rephrase it significantly or address a different facet of the same competency.
+
+    **PREVIOUSLY GENERATED QUESTIONS TO AVOID:**
+    \`\`\`
+    ${previousQuestionsSummary || "None"}
+    \`\`\`
+
     **FORMAT & QUESTION PHRASING RULES (STRICT):**
     
     **A. MULTIPLE CHOICE / ANALOGY / INTERPRETIVE:**
@@ -570,7 +578,6 @@ const getExamComponentPrompt = (guideData, generatedTos, testType, previousQuest
 
     **C. GENERAL PHRASING:**
     - Do NOT start questions with "Identify...". Phrase them as descriptions.
-    - Do NOT repeat questions: \`\`\`${previousQuestionsSummary || "None"}\`\`\`
     
     **D. COMPLEX TYPES (MATCHING/IDENTIFICATION):**
     - **MATCHING:** Return a single object with \`prompts\`, \`options\`, and \`correctPairs\`.
