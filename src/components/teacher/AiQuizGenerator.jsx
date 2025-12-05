@@ -70,8 +70,6 @@ const processChunkWithRetry = async (chunk, promptTemplate, isGenerationRunningR
             if (!isGenerationRunningRef.current) throw new Error("Processing aborted by user.");
             
             const parsed = robustJsonParse(aiResponse);
-            // Increased delay to prevent rate limits during heavy math processing
-            await new Promise(res => setTimeout(res, 2000)); 
             return parsed; 
 
         } catch (error) {
@@ -126,28 +124,42 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
 
     // --- EXTRACTOR ---
     const extractTextFromFile = async (fileToProcess) => {
+        let rawText = '';
+
         if (fileToProcess.type === 'application/pdf') {
             const pdf = await pdfjsLib.getDocument(URL.createObjectURL(fileToProcess)).promise;
-            let text = '';
             for (let i = 1; i <= pdf.numPages; i++) {
                 const page = await pdf.getPage(i);
                 const content = await page.getTextContent();
-                text += content.items.map((item) => item.str).join(' ') + '\n';
+                // FIX: Join with space to prevent 'x' and '2' merging into 'x2'
+                rawText += content.items.map((item) => item.str).join(' ') + '\n';
             }
-            return text;
         } else if (fileToProcess.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
             const arrayBuffer = await fileToProcess.arrayBuffer();
             // Use convertToHtml to preserve subscripts/superscripts (vital for math)
             const result = await mammoth.convertToHtml({ arrayBuffer });
-            return result.value; 
+            
+            // For processing, we convert HTML back to a cleaner text format if needed, 
+            // but for now, we will treat the HTML content as the text source 
+            // so subscripts like <sub> are preserved for the prompt.
+            rawText = result.value; 
         } else if (fileToProcess.type === 'text/plain') {
-            return await fileToProcess.text();
+            rawText = await fileToProcess.text();
         } else {
             throw new Error('Unsupported file type. Please use PDF, DOCX, or TXT.');
         }
+
+        // --- CLEANUP STEP ---
+        // This removes "visual noise" specific to your files to prevent the AI from wasting tokens
+        return rawText
+            .replace(/\/g, '') // FIX: Specifically removes tags found in your PDF
+            .replace(/_{3,}/g, '')       // Remove long underlines (e.g., fill in the blank lines)
+            .replace(/\.{3,}/g, '')      // Remove long dot leaders
+            .replace(/[^\x20-\x7E\n\r\t]/g, ' ') // Remove non-printable binary garbage
+            .replace(/\s+/g, ' ');       // Collapse multiple spaces into one
     };
 
-    // --- SAVING LOGIC ---
+// --- SAVING LOGIC (Modified to fix [object Object] bug) ---
     const saveToFirestore = async (quizData) => {
         const finalSubjectId = propSubjectId || selectedCourse?.id;
         const finalUnitId = propUnitId || (selectedLessons.length > 0 ? selectedLessons[0].id : null);
@@ -162,7 +174,7 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
             const uniqueQuestions = [];
             const seenGroupableTypes = new Set();
         
-            // 1. EXTRACT EXISTING BOX FROM AI
+            // 1. EXTRACT EXISTING BOX FROM AI (Identification)
             const identQuestions = quizData.questions.filter(q => (q.type||'').toLowerCase().includes('identification'));
             let globalIdentChoices = null;
         
@@ -170,7 +182,6 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
             if (firstIdentWithChoices) {
                 const rawBox = firstIdentWithChoices.choicesBox;
                 if (Array.isArray(rawBox)) {
-                     // FIX: Ensure strings to avoid [object Object]
                      globalIdentChoices = rawBox.map(c => (typeof c === 'object' && c !== null ? c.text || c.value : String(c)));
                 } else {
                      globalIdentChoices = [String(rawBox)];
@@ -187,7 +198,7 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                 }
             }
 
-            // --- PROCESSING ---
+            // --- PROCESSING QUESTIONS ---
             for (const q of quizData.questions) {
                 const normalizedType = (q.type || '').toLowerCase().replace(/\s+/g, '_');
                 const isGroupable = normalizedType === 'matching_type' || normalizedType === 'matching-type'; 
@@ -225,16 +236,29 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                     const rawAnswer = q.correctAnswer || '';
                     const cleanAnswerText = String(rawAnswer).replace(/^[a-d][\.\)]\s*/i, '').trim();
 
-                    // CRITICAL FIX: Ensure options are strings, not objects
+                    // 🔥 CRITICAL FIX: FORCE STRING CONVERSION 🔥
+                    // This prevents [object Object] by digging into nested AI responses
                     const stringOptions = options.map(opt => {
-                         if (typeof opt === 'object' && opt !== null) {
-                             return opt.text || opt.value || JSON.stringify(opt);
+                         let val = opt;
+                         
+                         // 1. Unwrap common object wrappers if AI sent { text: "..." } or { latex: "..." }
+                         if (typeof val === 'object' && val !== null) {
+                             val = val.text || val.value || val.math || val.latex || val.content || val;
                          }
-                         return String(opt);
+
+                         // 2. If it's STILL an object (deeply nested or unknown key), stringify it
+                         if (typeof val === 'object' && val !== null) {
+                             return JSON.stringify(val);
+                         }
+                         
+                         // 3. Final safety net: Convert numbers/booleans to string
+                         return String(val);
                     });
 
+                    // Recalculate correct index based on clean strings
                     let correctIndex = stringOptions.findIndex(opt => opt.trim() === cleanAnswerText);
                     
+                    // Fallback: Check if answer was "A", "B", "C"...
                     if (correctIndex === -1) {
                         const letterMatch = rawAnswer.match(/^([a-d])[\.\)]/i);
                         if (letterMatch) {
@@ -242,8 +266,8 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                             correctIndex = letterMap[letterMatch[1].toLowerCase()];
                         }
                     }
+                    // Fallback: Fuzzy matching
                     if (correctIndex === -1) {
-                        // Fuzzy Fallback
                         correctIndex = stringOptions.findIndex(opt => {
                             const cleanOpt = opt.toLowerCase().replace(/[^a-z0-9]/g, '');
                             const cleanKey = cleanAnswerText.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -251,12 +275,12 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                         });
                     }
 
+                    // Default to A if detection fails
                     if (stringOptions.length > 0 && correctIndex === -1) correctIndex = 0; 
 
                     return {
                         ...baseQuestion,
                         type: 'multiple-choice',
-                        // Save as objects for the Quiz Player compatibility
                         options: stringOptions.map((opt, idx) => ({ 
                             text: opt, 
                             isCorrect: idx === correctIndex 
@@ -348,11 +372,13 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
             
             setProgressPercent(20);
 
-            // 1. MICROWORKER SPLIT (Very Small Chunks to avoid 30s Timeout)
+            // 1. MICROWORKER SPLIT 
+            // FIX: Reduced chunk size to 300 characters. 
+            // This is CRITICAL for "Smart" models like Gemini Pro to finish "thinking" before Netlify times out.
             const lines = fullText.split('\n');
             const chunks = [];
             let currentChunk = "";
-            const MAX_CHUNK_SIZE = 800; // <--- Reduced to prevent 502 Timeout on complex math
+            const MAX_CHUNK_SIZE = 300; 
 
             for (let line of lines) {
                 if ((currentChunk.length + line.length) > MAX_CHUNK_SIZE) {
@@ -376,17 +402,17 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                 const currentProgress = 20 + Math.round(((i + 1) / chunks.length) * 70);
                 setProgressPercent(currentProgress);
                 
-                // Detailed progress message for user feedback
                 setProgressMessage(`Analysing batch ${i + 1} of ${chunks.length}...`);
 
                 // --- MATH REPAIR PROMPT ---
+                // Optimized for consistency with Heavy Models
                 const promptTemplate = `
                 You are an Expert Math Teacher & Data Entry Specialist.
                 **TASK:** Convert quiz text to strict JSON.
                 
                 **MATH REPAIR RULES (CRITICAL):**
                 Source text often mangles equations (e.g. "x-1y-2" instead of exponents).
-                1. **DETECT FRACTIONS:** If you see something like "x-1y-2 / x-1y-4" or piled variables, convert to LaTeX fraction: "$\\\\frac{x^{-1}y^{-2}}{x^{-1}y^{-4}}$".
+                1. **DETECT FRACTIONS:** If you see "x-1y-2 / x-1y-4" or piled variables, convert to LaTeX fraction: "$\\\\frac{x^{-1}y^{-2}}{x^{-1}y^{-4}}$".
                 2. **EXPONENTS:** Convert "x2" -> "$x^2$", "x-1" -> "$x^{-1}$".
                 3. **ROOTS:** "sqrt(x)" -> "$\\\\sqrt{x}$".
                 4. **WRAPPER:** ALL math must be inside single dollar signs "$...$".
@@ -429,6 +455,10 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                     if (parsed.questions && Array.isArray(parsed.questions)) {
                         accumulatedQuestions = [...accumulatedQuestions, ...parsed.questions];
                     }
+
+                    // FIX: 2.5s Delay to prevent Rate Limiting and give the server a breather
+                    await new Promise(res => setTimeout(res, 2500)); 
+
                 } catch (e) {
                     console.warn(`Chunk ${i + 1} skipped.`, e);
                 }

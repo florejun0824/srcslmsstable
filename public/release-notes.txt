@@ -1,4 +1,4 @@
-SRCS LMS RELEASE NOTE (DECEMBER 3 PATCH)
+SRCS LMS RELEASE NOTE (DECEMBER 5 PATCH)
 
 - Redesigned the main dashboard navigation
 - Added new multiple themes overlay
