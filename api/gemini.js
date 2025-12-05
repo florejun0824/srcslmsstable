@@ -4,6 +4,43 @@ export const config = {
   maxDuration: 60,
 };
 
+// --- KEY POOL BUILDER (Matches your specific variables) ---
+const getApiKeyPool = () => {
+  const keys = new Set();
+
+  // 1. Primary Key
+  if (process.env.GEMINI_API_KEY) {
+    keys.add(process.env.GEMINI_API_KEY);
+  }
+
+  // 2. Fallback 1
+  if (process.env.GEMINI_FALLBACK_API_KEY) {
+    keys.add(process.env.GEMINI_FALLBACK_API_KEY);
+  }
+
+  // 3. Fallback 2
+  if (process.env.GEMINI_FALLBACK_API_KEY_2) {
+    keys.add(process.env.GEMINI_FALLBACK_API_KEY_2);
+  }
+
+  // 4. Legacy/Frontend check (Just in case)
+  if (process.env.VITE_GEMINI_API_KEY) {
+    keys.add(process.env.VITE_GEMINI_API_KEY);
+  }
+
+  // Filter out empty strings and return array
+  return Array.from(keys).filter(k => k && k.length > 10);
+};
+
+// Generate the pool once
+const API_KEYS = getApiKeyPool();
+
+const getRandomKey = () => {
+  if (API_KEYS.length === 0) return null;
+  const randomIndex = Math.floor(Math.random() * API_KEYS.length);
+  return API_KEYS[randomIndex];
+};
+
 export default async function handler(req, res) {
   // CORS Setup
   res.setHeader('Access-Control-Allow-Credentials', true);
@@ -25,12 +62,11 @@ export default async function handler(req, res) {
 
     if (!prompt) return res.status(400).json({ error: "No prompt provided" });
 
-    // [FIX] Check for BOTH variable names
-    // This supports your "VITE_GEMINI_API_KEY" setup
-    const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+    // [FIX] Select a Random Key from your pool
+    const apiKey = getRandomKey();
 
     if (!apiKey) {
-      throw new Error("Server Error: API Key is missing. Check Vercel Environment Variables.");
+      throw new Error("Server Error: No valid API Keys found in environment variables.");
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
@@ -46,7 +82,6 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error("Vercel Gemini Error:", error);
-    // Return the actual error message so you can see it in the console
     res.status(500).json({ error: error.message });
   }
 }

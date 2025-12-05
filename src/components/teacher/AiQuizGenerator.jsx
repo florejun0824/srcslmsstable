@@ -356,7 +356,7 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
 	        }
 	    };
 	// ------------------------------------------------------------------
-	    // 4. SMART AI GENERATION (Universal: Math + Text Support)
+	    // 4. MICRO-BATCH AI GENERATION (Prevents 504 Timeouts)
 	    // ------------------------------------------------------------------
 	    const handleGenerateQuiz = async () => {
 	        if (!file) return setError('Please upload a file first.');
@@ -374,10 +374,10 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
 	            if (fullText.length < 50) throw new Error("File content is too short.");
             
 	            setProgressMessage('Analyzing structure...');
-	            setGenerationMethod('Smart Batch Analysis');
+	            setGenerationMethod('Micro-Batch Analysis');
 
-	            // --- STEP 1: SMART SPLITTING ---
-	            // Detect question patterns (1. , 2. , 1) ) to avoid cutting questions in half.
+	            // --- STEP 1: SMART MICRO-SPLITTING ---
+	            // We scan for Question Numbers (1. , 2.) to avoid cutting questions in half.
 	            const questionRefRegex = /\n\s*(\d+)[\.\)]/g;
 	            const indices = [];
 	            let match;
@@ -390,24 +390,26 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
             
 	            if (indices.length > 3) {
 	                // STRATEGY A: Question Numbers Found
-	                // Bundle ~1500 chars (approx 3-5 questions) per chunk
+	                // CRITICAL CHANGE: We reduced the buffer from 1500 to 600.
+	                // This forces the AI to handle only 1-2 questions per call.
+	                // It prevents the "Thinking Time" from exceeding 10 seconds.
 	                let currentStart = 0;
                 
 	                for (let i = 0; i < indices.length; i++) {
 	                    const currentIdx = indices[i];
                     
-	                    // If the current chunk is getting too big, cut it HERE (at the start of a new question)
-	                    if ((currentIdx - currentStart) > 1500) {
+	                    // Cut chunk if it exceeds 600 chars (approx 1-2 math questions)
+	                    if ((currentIdx - currentStart) > 600) {
 	                        chunks.push(fullText.substring(currentStart, currentIdx));
 	                        currentStart = currentIdx;
 	                    }
 	                }
 	                chunks.push(fullText.substring(currentStart));
 	            } else {
-	                // STRATEGY B: No Numbers (Paragraphs/Essays)
-	                // Use overlapping windows to ensure context isn't lost
-	                const OVERLAP = 200;
-	                const CHUNK_SIZE = 1200;
+	                // STRATEGY B: No Numbers (Essays/Paragraphs)
+	                // Reduced window size for safety
+	                const OVERLAP = 100;
+	                const CHUNK_SIZE = 800; 
 	                for (let i = 0; i < fullText.length; i += (CHUNK_SIZE - OVERLAP)) {
 	                    chunks.push(fullText.substring(i, i + CHUNK_SIZE));
 	                }
@@ -423,45 +425,34 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
 	                const chunk = chunks[i];
 	                const isFirstChunk = i === 0;
                 
-	                // Progress Bar Math
-	                const currentProgress = 15 + Math.round(((i + 1) / chunks.length) * 80);
+	                // Progress Calculation
+	                const currentProgress = 10 + Math.round(((i + 1) / chunks.length) * 85);
 	                setProgressPercent(currentProgress);
 	                setProgressMessage(`Processing Batch ${i + 1} of ${chunks.length}...`);
 
-	                // --- UNIVERSAL PROMPT (HANDLES MATH AND TEXT) ---
+	                // --- UNIVERSAL PROMPT (Optimized for Speed) ---
 	                const promptTemplate = `
-	                You are an expert Universal Quiz Parser (Math, Science, English, Filipino, History).
-	                **TASK:** Extract questions from this text batch into strict JSON.
+	                You are an expert Quiz Parser.
+	                **TASK:** Extract questions into strict JSON.
+	                **CONTEXT:** Batch ${i + 1} of a document. Ignore incomplete start/end sentences.
 
-	                **CONTEXT:** This is batch ${i + 1} of a document.
-	                - Ignore cut-off questions at the very start or very end of the text.
-	                - Extract questions exactly as written.
+	                **SUBJECT RULES:**
+	                1. **MATH:** Fix broken OCR. 
+	                   - "x 2" -> "$x^2$"
+	                   - "1/2" -> "$\\frac{1}{2}$"
+	                   - **WRAP FORMULAS IN $...$**
+	                2. **TEXT (English/Filipino):** Keep exact wording.
 
-	                **RULES BY SUBJECT:**
-	                1. **MATH/PHYSICS:** - Detect implied exponents: "x 2" becomes "$x^2$".
-	                   - Detect fractions: "1/2" becomes "$\\frac{1}{2}$".
-	                   - **IMPORTANT:** Wrap ALL math formulas in '$' (e.g., $E=mc^2$).
-                
-	                2. **ENGLISH/FILIPINO/HISTORY:**
-	                   - Preserve exact wording, capitalization, and punctuation.
-	                   - Do NOT try to format text as math (e.g., don't turn "Table 1" into math).
-	                   - For "Identification" or "Fill in the blanks", set type to "identification".
-
-	                **INPUT TEXT:**
+	                **INPUT:**
 	                ---
 	                {{CHUNK_CONTENT}}
 	                ---
 
 	                **OUTPUT JSON:**
 	                {
-	                  ${isFirstChunk ? '"title": "Inferred Topic",' : ''}
+	                  ${isFirstChunk ? '"title": "Topic",' : ''}
 	                  "questions": [
-	                    {
-	                      "text": "Question text here",
-	                      "type": "multiple_choice",
-	                      "options": ["A", "B", "C", "D"],
-	                      "correctAnswer": "A"
-	                    }
+	                    { "text": "Q", "type": "multiple_choice", "options": ["A"], "correctAnswer": "A" }
 	                  ]
 	                }
 	                `;
@@ -478,21 +469,21 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
 	                        accumulatedQuestions = [...accumulatedQuestions, ...parsed.questions];
 	                    }
 
-	                    // Slight delay to prevent rate limits
-	                    await new Promise(res => setTimeout(res, 400)); 
+	                    // CRITICAL: Longer delay between requests to allow the server to "cool down"
+	                    // and avoid Rate Limits since we are making more requests now.
+	                    await new Promise(res => setTimeout(res, 1000)); 
 
 	                } catch (e) {
-	                    console.warn(`Batch ${i + 1} empty or failed.`, e);
+	                    // Log but do not crash the whole process if one tiny batch fails
+	                    console.warn(`Batch ${i + 1} failed (likely empty or too complex). Skipping.`, e);
 	                }
 	            }
 
 	            // --- STEP 3: DEDUPLICATE ---
-	            // Filter out duplicates caused by overlapping chunks
 	            const uniqueQuestions = [];
 	            const seenTexts = new Set();
             
 	            accumulatedQuestions.forEach(q => {
-	                // Generate a "fingerprint" for the question (first 30 alphanumeric chars)
 	                const sig = (q.text || '').substring(0, 30).toLowerCase().replace(/[^a-z0-9]/g, '');
 	                if (sig.length > 5 && !seenTexts.has(sig)) {
 	                    seenTexts.add(sig);
@@ -500,7 +491,7 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
 	                }
 	            });
 
-	            if (uniqueQuestions.length === 0) throw new Error("No valid questions found.");
+	            if (uniqueQuestions.length === 0) throw new Error("No valid questions found. The file might be illegible or encrypted.");
 
 	            setGeneratedQuizData({
 	                title: quizTitle || file.name.replace(/\.[^/.]+$/, ""),
