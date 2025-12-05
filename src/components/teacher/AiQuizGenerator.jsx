@@ -24,7 +24,143 @@ import LessonSelector from './LessonSelector';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
-// --- ROBUST JSON PARSER ---
+// ------------------------------------------------------------------
+// 1. ROBUST OFFLINE PARSER (Tokenizer Strategy)
+// ------------------------------------------------------------------
+const parseWithRegex = (fullText) => {
+    
+    // --- STEP A: PRE-PROCESSING ---
+    // Fix common PDF extraction artifacts
+    let cleanText = fullText
+        .replace(/Question \/ Prompt/gi, "") // Remove table headers
+        .replace(/The following table:/gi, "")
+        .replace(/(\r\n|\n|\r)/gm, " "); // Flatten everything to a stream for tokenizing
+
+    // --- STEP B: EXTRACT ANSWER KEY ---
+    // Scan specifically for the answer key section pattern first
+    const answerKeyMap = {};
+    // Look for keywords indicating the key section
+    const keyMatch = fullText.match(/(?:Answer Key|Key to Correction|Answers)[\s\S]+$/i);
+    
+    if (keyMatch) {
+        const keySection = keyMatch[0];
+        // Match "41. B" or "41 B" or "21 true"
+        const answerPattern = /(\d+)[\.\s\-\)]+\s*(true|false|[a-d](?![a-z]))/gi;
+        let m;
+        while ((m = answerPattern.exec(keySection)) !== null) {
+            const qNum = parseInt(m[1]);
+            const val = m[2].toLowerCase();
+            
+            if (val === 'true') answerKeyMap[qNum] = true;
+            else if (val === 'false') answerKeyMap[qNum] = false;
+            else {
+                const map = {'a':0, 'b':1, 'c':2, 'd':3};
+                if (map[val] !== undefined) answerKeyMap[qNum] = map[val];
+            }
+        }
+    }
+
+    // --- STEP C: TOKENIZE THE TEXT STREAM ---
+    // We look for markers: "1.", "a.", "b.", etc.
+    const markers = [];
+    
+    // 1. Find Question Numbers (e.g., "10 ", "10.", "10)")
+    // Logic: Number followed by dot/paren OR space, then a capital letter or "What/Which/How"
+    const qRegex = /(?:^|\s)(\d+)[\.\)\s]\s+(?=[A-Z])/g;
+    let match;
+    while ((match = qRegex.exec(cleanText)) !== null) {
+        markers.push({
+            type: 'Q',
+            num: parseInt(match[1]),
+            index: match.index,
+            textIndex: match.index + match[0].length // Start of actual content
+        });
+    }
+
+    // 2. Find Options (e.g., "a. ", "A. ", "a) ")
+    // Logic: Letter a-d followed by dot/paren
+    const optRegex = /(?:^|\s)([a-d]|[A-D])[\.\)\s]\s+(?=[A-Z0-9])/g;
+    while ((match = optRegex.exec(cleanText)) !== null) {
+        // Double Label Fix: If "a. A. Freedom", we want to skip the "A." part in the content later
+        markers.push({
+            type: 'O',
+            label: match[1].toLowerCase(),
+            index: match.index,
+            textIndex: match.index + match[0].length
+        });
+    }
+
+    // Sort markers by position in text
+    markers.sort((a, b) => a.index - b.index);
+
+    // --- STEP D: BUILD OBJECTS FROM TOKENS ---
+    const questions = [];
+    let currentQ = null;
+
+    for (let i = 0; i < markers.length; i++) {
+        const marker = markers[i];
+        const nextMarker = markers[i+1];
+        
+        // Extract content between this marker and the next (or end of text)
+        let content = cleanText.substring(
+            marker.textIndex, 
+            nextMarker ? nextMarker.index : undefined
+        ).trim();
+
+        // MATH REPAIR on the content
+        content = content
+            .replace(/\b([a-z0-9]+)\s*\/\s*([a-z0-9]+)\b/gi, "$\\frac{$1}{$2}$")
+            .replace(/(?<!Question\s|Part\s|Item\s|\d\.)\b([a-z]|[0-9]+)\s?(-?\d+)(?![.\)])/gi, (m,b,e) => {
+                if (!isNaN(b) && !isNaN(e) && b.length > 1) return m;
+                return `$${b}^{${e}}$`;
+            })
+            // Remove double labels like "A. Freedom" if the marker was already "a."
+            .replace(/^[A-D][\.\)]\s*/, ""); 
+
+        if (marker.type === 'Q') {
+            if (currentQ) questions.push(currentQ);
+            currentQ = {
+                number: marker.num,
+                text: content,
+                type: 'multiple-choice', // Default
+                options: [],
+                correctAnswerIndex: 0
+            };
+        } else if (marker.type === 'O' && currentQ) {
+            currentQ.options.push({
+                text: content,
+                isCorrect: false
+            });
+        }
+    }
+    if (currentQ) questions.push(currentQ);
+
+    // --- STEP E: APPLY ANSWER KEY & FINAL CLEANUP ---
+    const validQuestions = questions.filter(q => {
+        // Heuristic: A valid MCQ needs at least 2 options OR we found a T/F answer in key
+        if (answerKeyMap[q.number] === true || answerKeyMap[q.number] === false) {
+            q.type = 'true-false';
+            q.correctAnswer = answerKeyMap[q.number];
+            return true; // Keep T/F questions even without options
+        }
+        
+        if (q.options.length >= 2) {
+            // Apply MCQ key
+            const keyIdx = answerKeyMap[q.number];
+            if (keyIdx !== undefined && keyIdx < q.options.length) {
+                q.correctAnswerIndex = keyIdx;
+                q.options[keyIdx].isCorrect = true;
+            }
+            return true;
+        }
+        return false;
+    });
+
+    return validQuestions;
+};
+// ------------------------------------------------------------------
+// 2. AI HELPERS (The "Smart" Engine)
+// ------------------------------------------------------------------
 const robustJsonParse = (text) => {
     try {
         let jsonString = text;
@@ -38,10 +174,7 @@ const robustJsonParse = (text) => {
         }
         throw new Error("No JSON structure found");
     } catch (e) {
-        console.warn("Strict JSON parse failed, attempting regex salvage...", e);
-        // Fallback: Regex extraction of individual question objects
         const questionMatches = text.match(/\{[\s\S]*?"text"[\s\S]*?"type"[\s\S]*?\}/g);
-        
         if (questionMatches && questionMatches.length > 0) {
             const salvagedQuestions = [];
             for (const qStr of questionMatches) {
@@ -50,39 +183,31 @@ const robustJsonParse = (text) => {
                     salvagedQuestions.push(cleanQ);
                 } catch (err) { continue; }
             }
-            if (salvagedQuestions.length > 0) {
-                return { questions: salvagedQuestions };
-            }
+            if (salvagedQuestions.length > 0) return { questions: salvagedQuestions };
         }
         throw new Error("Could not salvage any JSON data.");
     }
 };
 
-// --- MICROWORKER HELPER ---
 const processChunkWithRetry = async (chunk, promptTemplate, isGenerationRunningRef, maxRetries = 3) => {
     for (let attempt = 0; attempt < maxRetries; attempt++) {
         if (!isGenerationRunningRef.current) throw new Error("Processing aborted by user.");
-
         try {
             const fullPrompt = promptTemplate.replace('{{CHUNK_CONTENT}}', chunk);
             const aiResponse = await callGeminiWithLimitCheck(fullPrompt);
-
             if (!isGenerationRunningRef.current) throw new Error("Processing aborted by user.");
-            
-            const parsed = robustJsonParse(aiResponse);
-            return parsed; 
-
+            return robustJsonParse(aiResponse);
         } catch (error) {
             if (!isGenerationRunningRef.current) throw new Error("Processing aborted by user.");
-            console.warn(`Attempt ${attempt + 1} failed:`, error.message);
-            
             if (attempt === maxRetries - 1) throw error; 
-            // Exponential backoff
             await new Promise(res => setTimeout(res, 2000 * Math.pow(2, attempt)));
         }
     }
 };
 
+// ------------------------------------------------------------------
+// 3. MAIN COMPONENT
+// ------------------------------------------------------------------
 export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnitId, subjectId: propSubjectId }) {
     const { showToast } = useToast();
     const { activeOverlay } = useTheme(); 
@@ -93,8 +218,8 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
     const [progressMessage, setProgressMessage] = useState('');
     const [progressPercent, setProgressPercent] = useState(0);
     const [generatedQuizData, setGeneratedQuizData] = useState(null); 
+    const [generationMethod, setGenerationMethod] = useState(''); // 'regex' or 'ai'
 
-    // --- FALLBACK SELECTION STATE ---
     const [selectedCourse, setSelectedCourse] = useState(null);
     const [selectedLessons, setSelectedLessons] = useState([]);
 
@@ -114,6 +239,7 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
             setFile(e.target.files[0]);
             setError('');
             setGeneratedQuizData(null);
+            setGenerationMethod('');
         }
     };
 
@@ -122,44 +248,33 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
         setGeneratedQuizData(null);
     };
 
-    // --- EXTRACTOR ---
     const extractTextFromFile = async (fileToProcess) => {
         let rawText = '';
-
         if (fileToProcess.type === 'application/pdf') {
             const pdf = await pdfjsLib.getDocument(URL.createObjectURL(fileToProcess)).promise;
             for (let i = 1; i <= pdf.numPages; i++) {
                 const page = await pdf.getPage(i);
                 const content = await page.getTextContent();
-                // FIX: Join with space to prevent 'x' and '2' merging into 'x2'
                 rawText += content.items.map((item) => item.str).join(' ') + '\n';
             }
         } else if (fileToProcess.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
             const arrayBuffer = await fileToProcess.arrayBuffer();
-            // Use convertToHtml to preserve subscripts/superscripts (vital for math)
             const result = await mammoth.convertToHtml({ arrayBuffer });
-            
-            // For processing, we convert HTML back to a cleaner text format if needed, 
-            // but for now, we will treat the HTML content as the text source 
-            // so subscripts like <sub> are preserved for the prompt.
             rawText = result.value; 
         } else if (fileToProcess.type === 'text/plain') {
             rawText = await fileToProcess.text();
         } else {
-            throw new Error('Unsupported file type. Please use PDF, DOCX, or TXT.');
+            throw new Error('Unsupported file type.');
         }
 
-        // --- CLEANUP STEP ---
-        // This removes "visual noise" specific to your files to prevent the AI from wasting tokens
         return rawText
-            .replace(/<[^>]+>/g, '') // FIX: Specifically removes HTML tags (vital for Mammoth/DOCX)
-            .replace(/_{3,}/g, '')       // Remove long underlines (e.g., fill in the blank lines)
-            .replace(/\.{3,}/g, '')      // Remove long dot leaders
-            .replace(/[^\x20-\x7E\n\r\t]/g, ' ') // Remove non-printable binary garbage
-            .replace(/\s+/g, ' ');       // Collapse multiple spaces into one
+            .replace(/<[^>]+>/g, '') 
+            .replace(/_{3,}/g, '')       
+            .replace(/\.{3,}/g, '')      
+            .replace(/[^\x20-\x7E\n\r\t]/g, ' ') 
+            .replace(/\s+/g, ' ');       
     };
 
-// --- SAVING LOGIC (Modified to fix [object Object] bug) ---
     const saveToFirestore = async (quizData) => {
         const finalSubjectId = propSubjectId || selectedCourse?.id;
         const finalUnitId = propUnitId || (selectedLessons.length > 0 ? selectedLessons[0].id : null);
@@ -174,35 +289,27 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
             const uniqueQuestions = [];
             const seenGroupableTypes = new Set();
         
-            // 1. EXTRACT EXISTING BOX FROM AI (Identification)
             const identQuestions = quizData.questions.filter(q => (q.type||'').toLowerCase().includes('identification'));
             let globalIdentChoices = null;
         
             const firstIdentWithChoices = identQuestions.find(q => q.choicesBox && (Array.isArray(q.choicesBox) || typeof q.choicesBox === 'string'));
             if (firstIdentWithChoices) {
                 const rawBox = firstIdentWithChoices.choicesBox;
-                if (Array.isArray(rawBox)) {
-                     globalIdentChoices = rawBox.map(c => (typeof c === 'object' && c !== null ? c.text || c.value : String(c)));
-                } else {
-                     globalIdentChoices = [String(rawBox)];
-                }
+                globalIdentChoices = Array.isArray(rawBox) 
+                    ? rawBox.map(c => (typeof c === 'object' && c !== null ? c.text || c.value : String(c)))
+                    : [String(rawBox)];
             }
 
-            // 2. AUTO-GENERATE BOX IF MISSING
             if (!globalIdentChoices && identQuestions.length > 0) {
                 const collectedAnswers = identQuestions
                     .map(q => q.correctAnswer || q.answer)
                     .filter(a => a && typeof a === 'string');
-                if (collectedAnswers.length > 0) {
-                    globalIdentChoices = [...new Set(collectedAnswers)];
-                }
+                if (collectedAnswers.length > 0) globalIdentChoices = [...new Set(collectedAnswers)];
             }
 
-            // --- PROCESSING QUESTIONS ---
             for (const q of quizData.questions) {
                 const normalizedType = (q.type || '').toLowerCase().replace(/\s+/g, '_');
                 const isGroupable = normalizedType === 'matching_type' || normalizedType === 'matching-type'; 
-
                 if (isGroupable) {
                     if (!seenGroupableTypes.has(normalizedType)) {
                         uniqueQuestions.push(q);
@@ -215,14 +322,7 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
 
             const formattedQuestions = uniqueQuestions.map(q => {
                 const normalizedType = (q.type || '').toLowerCase().replace(/\s+/g, '_');
-                
-                // Clean HTML tags but PRESERVE LaTeX ($...$)
-                const questionText = (normalizedType === 'interpretive' && q.passage)
-                    ? `${q.passage}\n\n${q.question || ''}`
-                    : (q.question || q.text || 'Question text missing');
-                
-                // Remove generic HTML tags but preserve LaTeX logic
-                const cleanText = String(questionText).replace(/<(?!\/?(span|strong|u|em)\b)[^>]+>/gi, ""); 
+                const cleanText = String(q.question || q.text || 'Question text missing').replace(/<(?!\/?(span|strong|u|em)\b)[^>]+>/gi, ""); 
 
                 const baseQuestion = {
                     text: cleanText,
@@ -230,35 +330,28 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                     explanation: q.explanation || q.solution || '', 
                 };
 
-                // --- 1. Multiple Choice ---
+// --- 1. Multiple Choice / Analogy ---
                 if (normalizedType === 'multiple_choice' || normalizedType === 'analogy' || normalizedType === 'interpretive') {
-                    const options = q.options || [];
-                    const rawAnswer = q.correctAnswer || '';
-                    const cleanAnswerText = String(rawAnswer).replace(/^[a-d][\.\)]\s*/i, '').trim();
-
-                    // 🔥 CRITICAL FIX: FORCE STRING CONVERSION 🔥
-                    // This prevents [object Object] by digging into nested AI responses
-                    const stringOptions = options.map(opt => {
-                         let val = opt;
-                         
-                         // 1. Unwrap common object wrappers if AI sent { text: "..." } or { latex: "..." }
-                         if (typeof val === 'object' && val !== null) {
-                             val = val.text || val.value || val.math || val.latex || val.content || val;
-                         }
-
-                         // 2. If it's STILL an object (deeply nested or unknown key), stringify it
-                         if (typeof val === 'object' && val !== null) {
-                             return JSON.stringify(val);
-                         }
-                         
-                         // 3. Final safety net: Convert numbers/booleans to string
-                         return String(val);
+                    const rawOptions = q.options || [];
+                    
+                    // 🔥 FIX: Sanitize options to ensure they are strictly strings
+                    // This prevents [object Object] if the AI returns objects instead of strings
+                    const stringOptions = rawOptions.map(opt => {
+                        if (typeof opt === 'object' && opt !== null) {
+                            // Try to extract text from common AI object keys, or stringify as fallback
+                            return opt.text || opt.value || opt.option || JSON.stringify(opt);
+                        }
+                        return String(opt);
                     });
 
-                    // Recalculate correct index based on clean strings
-                    let correctIndex = stringOptions.findIndex(opt => opt.trim() === cleanAnswerText);
+                    // CLEANUP: Remove "a. ", "b. " prefixes from the answer text for matching
+                    const rawAnswer = q.correctAnswer || '';
+                    const cleanAnswerText = rawAnswer.replace(/^[a-d][\.\)]\s*/i, '').trim();
                     
-                    // Fallback: Check if answer was "A", "B", "C"...
+                    // STRATEGY 1: Exact Match using the sanitized strings
+                    let correctIndex = stringOptions.findIndex(opt => opt.trim() === cleanAnswerText);
+
+                    // STRATEGY 2: If no match, check if Answer starts with a Letter (e.g. "a. Answer")
                     if (correctIndex === -1) {
                         const letterMatch = rawAnswer.match(/^([a-d])[\.\)]/i);
                         if (letterMatch) {
@@ -266,7 +359,8 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                             correctIndex = letterMap[letterMatch[1].toLowerCase()];
                         }
                     }
-                    // Fallback: Fuzzy matching
+
+                    // STRATEGY 3: Fuzzy Match (Ignore punctuation/case)
                     if (correctIndex === -1) {
                         correctIndex = stringOptions.findIndex(opt => {
                             const cleanOpt = opt.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -275,31 +369,33 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                         });
                     }
 
-                    // Default to A if detection fails
-                    if (stringOptions.length > 0 && correctIndex === -1) correctIndex = 0; 
+                    // Fallback to index 0 if detection fails, but prioritize safety
+                    const finalCorrectIndex = (correctIndex > -1 && correctIndex < stringOptions.length) ? correctIndex : 0;
 
-                    return {
-                        ...baseQuestion,
-                        type: 'multiple-choice',
-                        options: stringOptions.map((opt, idx) => ({ 
-                            text: opt, 
-                            isCorrect: idx === correctIndex 
-                        })),
-                        correctAnswerIndex: correctIndex > -1 ? correctIndex : 0,
-                    };
+                    if (stringOptions.length > 0) {
+                        return {
+                            ...baseQuestion,
+                            type: 'multiple-choice',
+                            // 🔥 FIX: Use stringOptions here instead of raw options
+                            options: stringOptions.map((opt, idx) => ({ 
+                                text: opt, 
+                                isCorrect: idx === finalCorrectIndex 
+                            })),
+                            correctAnswerIndex: finalCorrectIndex,
+                        };
+                    } else {
+                         return null; // Skip if no options exist
+                    }
                 }
                 
-                // --- 2. True/False ---
                 if (normalizedType === 'alternative_response' || normalizedType === 'true_false') {
                     let isTrue = false;
                     if (typeof q.correctAnswer === 'string') {
                         isTrue = q.correctAnswer.toLowerCase() === 'true' || q.correctAnswer.toLowerCase() === 'tama';
                     } else if (typeof q.correctAnswer === 'boolean') isTrue = q.correctAnswer;
-                    
                     return { ...baseQuestion, type: 'true-false', correctAnswer: isTrue };
                 }
                 
-                // --- 3. Identification ---
                 if (normalizedType === 'identification' || normalizedType === 'solving') {
                     return {
                         ...baseQuestion,
@@ -309,7 +405,6 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                     };
                 }
                 
-                // --- 4. Matching Type ---
                 if (normalizedType === 'matching_type' || normalizedType === 'matching-type') {
                     return {
                         ...baseQuestion,
@@ -320,12 +415,6 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                         correctPairs: q.correctPairs || {},
                     };
                 }
-                
-                // --- 5. Essay ---
-                if (normalizedType === 'essay') {
-                    return { ...baseQuestion, type: 'essay', rubric: q.rubric || [] };
-                }
-
                 return null;
             }).filter(Boolean);
 
@@ -355,33 +444,56 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
         }
     };
 
-    // --- GENERATION LOGIC ---
+    // ------------------------------------------------------------------
+    // 4. HYBRID GENERATION LOGIC
+    // ------------------------------------------------------------------
     const handleGenerateQuiz = async () => {
         if (!file) return setError('Please upload a file first.');
         setIsProcessing(true);
         setError('');
-        setProgressPercent(10);
+        setProgressPercent(5);
         setGeneratedQuizData(null);
+        setGenerationMethod('');
         
         isGenerationRunning.current = true;
 
         try {
-            setProgressMessage('Extracting content structure...');
+            setProgressMessage('Reading document...');
             const fullText = await extractTextFromFile(file);
             if (fullText.length < 50) throw new Error("File content is too short.");
             
-            setProgressPercent(20);
+            // --- STRATEGY A: FAST OFFLINE REGEX ---
+            setProgressMessage('Analyzing structure (Method A)...');
+            const regexQuestions = parseWithRegex(fullText);
 
-            // 1. MICROWORKER SPLIT 
-            // FIX: Reduced chunk size to 300 characters. 
-            // This is CRITICAL for "Smart" models like Gemini Pro to finish "thinking" before Netlify times out.
+            // If we found a good amount of questions, trust the offline parser
+            if (regexQuestions.length >= 5) {
+                // Artificial delay just so the UI doesn't flash too fast
+                setProgressPercent(100);
+                await new Promise(r => setTimeout(r, 600));
+                
+                setGeneratedQuizData({
+                    title: file.name.replace(/\.[^/.]+$/, ""),
+                    questions: regexQuestions
+                });
+                setGenerationMethod('Fast Extract (Offline)');
+                showToast(`⚡ Fast extraction successful! (${regexQuestions.length} items)`, 'success');
+                setIsProcessing(false);
+                return; // STOP HERE
+            }
+
+            // --- STRATEGY B: FALLBACK TO AI ---
+            // If regex found < 5 questions, the format is likely complex/messy.
+            setProgressMessage('Complex format detected. Switching to AI analysis...');
+            setGenerationMethod('AI Analysis (Gemini)');
+            
             const lines = fullText.split('\n');
             const chunks = [];
             let currentChunk = "";
-            const MAX_CHUNK_SIZE = 300; 
+            const TARGET_CHUNK_SIZE = 800; // Smaller chunks for safety
 
             for (let line of lines) {
-                if ((currentChunk.length + line.length) > MAX_CHUNK_SIZE) {
+                if ((currentChunk.length + line.length) > TARGET_CHUNK_SIZE) {
                     chunks.push(currentChunk);
                     currentChunk = "";
                 }
@@ -392,7 +504,6 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
             let accumulatedQuestions = [];
             let quizTitle = "Extracted Quiz";
 
-            // 2. PROCESSING LOOP
             for (let i = 0; i < chunks.length; i++) {
                 if (!isGenerationRunning.current) throw new Error("Generation aborted by user.");
 
@@ -401,56 +512,39 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                 
                 const currentProgress = 20 + Math.round(((i + 1) / chunks.length) * 70);
                 setProgressPercent(currentProgress);
-                
-                setProgressMessage(`Analysing batch ${i + 1} of ${chunks.length}...`);
+                setProgressMessage(`AI Processing: Batch ${i + 1} of ${chunks.length}...`);
 
-			
+                const promptTemplate = `
+                You are an Expert Math Teacher.
+                **TASK:** Convert quiz text to strict JSON.
 
-				// --- REFINED PROMPT TEMPLATE ---
-				const promptTemplate = `
-				You are an Expert Math Teacher & Data Entry Specialist.
-				**TASK:** Convert quiz text to strict JSON.
+                **1. IDENTIFICATION & FILL-IN-THE-BLANKS:**
+                - **Word Banks:** If you see "Select from the box", extract terms into "choicesBox" array.
+                - **Type:** "identification".
+                - **Answers:** Extract correct answer if keys are provided.
 
-				**1. IDENTIFICATION & FILL-IN-THE-BLANKS:**
-				- **Word Banks:** If you see a list of terms at the start of a section (e.g., "Select from the box:", "Choices:"), you MUST extract them into a "choicesBox" array for every question in that section.
-				- **Type:** Label these questions as "identification".
-				- **Answers:** Extract the correct answer if provided in the text/key.
+                **2. MATH REPAIR:**
+                - "x-1y-2 / z" -> "$\\frac{x^{-1}y^{-2}}{z}$"
+                - "x2" -> "$x^2$"
+                - "sqrt(x)" -> "$\\sqrt{x}$"
 
-				**2. MATH REPAIR RULES (CRITICAL):**
-				- **Fractions:** Convert "x-1y-2 / z" to LaTeX: "$\\\\frac{x^{-1}y^{-2}}{z}$".
-				- **Exponents:** Convert "x2" -> "$x^2$".
-				- **Roots:** "sqrt(x)" -> "$\\\\sqrt{x}$".
-				- **Wrapper:** All math formulas must be enclosed in single dollar signs "$...$".
+                **3. FORMATTING:**
+                - Clean Text (remove 1., a., b.).
+                - JSON options must be strings.
 
-				**3. FORMATTING:**
-				- **Clean Text:** Remove question numbering (1., 2.) and prefixes (a., b.).
-				- **Strict JSON:** Do NOT return objects for options, only Strings.
-				- **Language:** Copy text VERBATIM. Do not translate.
+                **INPUT:**
+                ---
+                {{CHUNK_CONTENT}}
+                ---
 
-				**INPUT TEXT:**
-				---
-				{{CHUNK_CONTENT}}
-				---
-
-				**REQUIRED JSON OUTPUT:**
-				{
-				  ${isFirstChunk ? '"title": "Extracted Quiz Title",' : ''}
-				  "questions": [
-				    {
-				      "text": "The powerhouse of the cell.",
-				      "type": "identification", 
-				      "correctAnswer": "Mitochondria",
-				      "choicesBox": ["Mitochondria", "Nucleus", "Ribosome"] 
-				    },
-				    {
-				      "text": "Simplify $\\\\frac{1}{x^{-1}}$",
-				      "type": "multiple_choice",
-				      "options": ["$x$", "$x^2$", "$1$"],
-				      "correctAnswer": "$x$"
-				    }
-				  ]
-				}
-				`;
+                **OUTPUT JSON:**
+                {
+                  ${isFirstChunk ? '"title": "Title",' : ''}
+                  "questions": [
+                    { "text": "Question?", "type": "multiple_choice", "options": ["A", "B"], "correctAnswer": "A" }
+                  ]
+                }
+                `;
 
                 try {
                     const parsed = await processChunkWithRetry(
@@ -465,7 +559,6 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                         accumulatedQuestions = [...accumulatedQuestions, ...parsed.questions];
                     }
 
-                    // FIX: 2.5s Delay to prevent Rate Limiting and give the server a breather
                     await new Promise(res => setTimeout(res, 2500)); 
 
                 } catch (e) {
@@ -481,14 +574,14 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
             };
 
             setGeneratedQuizData(finalQuizData);
-            showToast(`Extracted ${accumulatedQuestions.length} items. Ready to save!`, 'success');
+            showToast(`Deep extraction complete! (${accumulatedQuestions.length} items)`, 'success');
 
         } catch (err) {
             if (err.message && err.message.includes('aborted')) {
                 console.log("Process aborted.");
             } else {
                 console.error('Quiz Gen Error:', err);
-                setError('Failed to process file. ' + err.message);
+                setError('Failed to process. ' + err.message);
             }
         } finally {
             setIsProcessing(false);
@@ -497,25 +590,8 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
         }
     };
 
-    // --- THEME ---
-    const themeStyles = useMemo(() => {
-         return {
-            bgGradient: 'bg-[#f5f5f7] dark:bg-[#121212]',
-            panelBg: 'bg-white/60 dark:bg-[#1e1e1e]/60',
-            borderColor: 'border-white/20 dark:border-white/10',
-            textColor: 'text-slate-900 dark:text-white',
-            subText: 'text-slate-500 dark:text-slate-400',
-            buttonGradient: 'bg-[#007AFF] hover:bg-[#0062CC]', 
-            iconBg: 'bg-indigo-100 dark:bg-indigo-900/30',
-            progressColor: 'text-indigo-500',
-            accentColor: 'text-indigo-500',
-            uploadBorder: 'border-slate-300 dark:border-slate-600 hover:border-indigo-400'
-        };
-    }, []);
-
     return (
         <div className={`flex flex-col h-full font-sans overflow-hidden transition-colors duration-500`}>
-            
             {/* Header */}
             <div className={`flex-shrink-0 px-6 py-4 flex items-center justify-between backdrop-blur-xl border-b z-10 sticky top-0 transition-colors duration-500 bg-white/60 dark:bg-[#1e1e1e]/60 border-white/20`}>
                 <div className="flex items-center gap-3">
@@ -534,7 +610,6 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
 
             {/* Main Content */}
             <div className="flex-grow flex flex-col items-center justify-center p-6 relative z-0">
-                
                 <div className={`w-full max-w-2xl p-8 relative z-10 backdrop-blur-xl border rounded-[24px] shadow-2xl transition-all duration-500 bg-white/60 dark:bg-[#1e1e1e]/60 border-white/20 shadow-black/5`}>
                     
                     {isProcessing ? (
@@ -549,10 +624,7 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                             <h4 className={`text-xl font-bold mb-2 text-slate-900 dark:text-white`}>Scanning Document</h4>
                             <p className={`text-sm font-medium text-slate-500`}>{progressMessage}</p>
                             
-                            <button 
-                                onClick={handleBack}
-                                className="mt-8 text-sm text-red-400 hover:text-red-300 underline"
-                            >
+                            <button onClick={handleBack} className="mt-8 text-sm text-red-400 hover:text-red-300 underline">
                                 Cancel Processing
                             </button>
                         </div>
@@ -562,9 +634,14 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                                 <SparklesIcon className="w-9 h-9" />
                             </div>
                             <h2 className={`text-2xl font-bold mb-2 text-slate-900 dark:text-white`}>Extraction Complete!</h2>
-                            <p className={`text-sm mb-6 text-slate-500`}>
-                                Successfully extracted <strong>{generatedQuizData.questions.length}</strong> items.
-                            </p>
+                            <div className="flex items-center justify-center gap-2 mb-6">
+                                <span className={`text-sm font-medium text-slate-500`}>
+                                    Found <strong>{generatedQuizData.questions.length}</strong> items via
+                                </span>
+                                <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                                    {generationMethod || 'Hybrid'}
+                                </span>
+                            </div>
                             
                             {!propSubjectId && (
                                 <div className="mt-6 mb-6 space-y-4 text-left p-4 rounded-2xl border bg-black/5 dark:bg-white/5 border-slate-300 dark:border-white/10">
@@ -572,16 +649,9 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                                         <ExclamationTriangleIcon className="w-5 h-5" />
                                         <span className="text-sm font-bold">Destination Required</span>
                                     </div>
-                                    <div>
-                                        <CourseSelector onCourseSelect={setSelectedCourse} />
-                                    </div>
+                                    <div><CourseSelector onCourseSelect={setSelectedCourse} /></div>
                                     {selectedCourse && (
-                                        <div>
-                                            <LessonSelector 
-                                                subjectId={selectedCourse.id} 
-                                                onLessonsSelect={setSelectedLessons} 
-                                            />
-                                        </div>
+                                        <div><LessonSelector subjectId={selectedCourse.id} onLessonsSelect={setSelectedLessons} /></div>
                                     )}
                                 </div>
                             )}
@@ -607,19 +677,16 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                             <div className="text-center mb-8">
                                 <h2 className={`text-2xl font-bold mb-2 text-slate-900 dark:text-white`}>Upload Quiz Document</h2>
                                 <p className={`text-sm leading-relaxed text-slate-500`}>
-                                    Supports PDF, DOCX, and Text.<br/>
-                                    <span className="opacity-75 text-xs">Best for existing exams with Identification, Matching, and Multiple Choice.</span>
+                                    Smart Hybrid Mode: <span className="text-green-600 dark:text-green-400 font-medium">Instant</span> for clean files, <span className="text-blue-600 dark:text-blue-400 font-medium">AI</span> for complex ones.
                                 </p>
                             </div>
 
                             {!file ? (
                                 <label className={`group flex flex-col items-center justify-center w-full h-64 rounded-[24px] border-2 border-dashed transition-all duration-300 cursor-pointer relative overflow-hidden active:scale-[0.99] border-slate-300 dark:border-slate-600 hover:border-[#007AFF] bg-white/50 dark:bg-white/5`}>
                                     <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"/>
-                                    
                                     <div className={`p-4 rounded-full shadow-sm mb-4 group-hover:scale-110 transition-transform duration-300 ring-1 ring-black/5 bg-white dark:bg-white/10`}>
                                         <DocumentArrowUpIcon className={`w-10 h-10 stroke-[1.5] text-[#007AFF]`} />
                                     </div>
-                                    
                                     <span className={`text-lg font-bold text-slate-900 dark:text-white`}>Click or Drag File Here</span>
                                     <span className={`text-sm mt-1 font-medium text-slate-500`}>PDF, DOCX, TXT</span>
                                     <input type="file" className="hidden" accept=".pdf,.docx,.txt" onChange={handleFileChange} />
