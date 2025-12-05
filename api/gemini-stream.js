@@ -1,13 +1,12 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { GoogleGenerativeAIStream, StreamingTextResponse } from 'ai';
 
-// IMPORTANT: This enables the Edge Runtime (longer timeouts, streaming support)
+// Enable Edge Runtime
 export const config = {
   runtime: 'edge',
 };
 
 export default async function handler(req) {
-  // 1. Handle CORS manually for Edge Functions
+  // 1. Handle CORS manually
   if (req.method === 'OPTIONS') {
     return new Response(null, {
       status: 200,
@@ -30,16 +29,34 @@ export default async function handler(req) {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' }); // Use Flash for speed
+    // Using 'gemini-1.5-flash' for speed and lower cost
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-    // 2. Generate the stream
+    // 2. Generate the stream from Google
     const result = await model.generateContentStream(prompt);
-    
-    // 3. Convert to a standard stream response
-    const stream = GoogleGenerativeAIStream(result);
 
-    return new StreamingTextResponse(stream, {
+    // 3. Create a standard Web ReadableStream (Native Edge support)
+    const stream = new ReadableStream({
+      async start(controller) {
+        const encoder = new TextEncoder();
+        try {
+          for await (const chunk of result.stream) {
+            const chunkText = chunk.text();
+            if (chunkText) {
+              controller.enqueue(encoder.encode(chunkText));
+            }
+          }
+          controller.close();
+        } catch (err) {
+          controller.error(err);
+        }
+      },
+    });
+
+    // 4. Return the stream response
+    return new Response(stream, {
       headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
@@ -49,8 +66,11 @@ export default async function handler(req) {
   } catch (error) {
     console.error("Stream Error:", error);
     return new Response(JSON.stringify({ error: error.message }), { 
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
+        status: 500, 
+        headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+        }
     });
   }
 }
