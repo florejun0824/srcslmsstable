@@ -1,12 +1,11 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// 1. CONFIG: Unlock 60-second timeout
 export const config = {
   maxDuration: 60,
 };
 
 export default async function handler(req, res) {
-  // 2. CORS: Allow your frontend to connect
+  // CORS Setup
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -22,15 +21,22 @@ export default async function handler(req, res) {
 
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-    // 3. Extract the exact model you sent from frontend
     const { prompt, model: requestedModel } = body;
 
     if (!prompt) return res.status(400).json({ error: "No prompt provided" });
 
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    // [FIX] Check for BOTH variable names
+    // This supports your "VITE_GEMINI_API_KEY" setup
+    const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+
+    if (!apiKey) {
+      throw new Error("Server Error: API Key is missing. Check Vercel Environment Variables.");
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
     
-    // 4. Use the model requested by the frontend (or fallback to flash only if undefined)
-    const model = genAI.getGenerativeModel({ model: requestedModel || 'gemini-1.5-flash' });
+    // Use the model requested by the frontend (or fallback to flash)
+    const model = genAI.getGenerativeModel({ model: requestedModel || 'gemini-flash-latest' });
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
@@ -40,6 +46,7 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error("Vercel Gemini Error:", error);
+    // Return the actual error message so you can see it in the console
     res.status(500).json({ error: error.message });
   }
 }
