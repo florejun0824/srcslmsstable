@@ -10,7 +10,8 @@ import ProgressIndicator from '../common/ProgressIndicator';
 import SourceContentSelector from '../../hooks/SourceContentSelector';
 import { marked } from 'marked';
 
-// --- ROBUST TABLE HEALER (ENHANCED) ---
+// --- ROBUST TABLE HEALER (ENHANCED V2) ---
+// Fixes indentation (code block issue) and wrapped lines
 function healBrokenMarkdownTables(text) {
     if (!text || typeof text !== "string") return text;
 
@@ -19,49 +20,60 @@ function healBrokenMarkdownTables(text) {
     let buffer = "";
     let insideTable = false;
 
-    const isFullRow = (line) => line.trim().startsWith('|') && line.trim().endsWith('|');
-    const isPartialRow = (line) => line.trim().startsWith('|') && !line.trim().endsWith('|');
-    const isSeparator = (line) => /^\s*\|?[\s\-:]+\|\s*/.test(line);
+    // Helper: Separator line |---| or |:---|
+    const isSeparator = (line) => /^\|?[\s:-]+\|[\s:-]+\|?$/.test(line.trim());
+    // Helper: Row start (starts with pipe)
+    const isRow = (line) => line.trim().startsWith('|');
 
     for (let i = 0; i < lines.length; i++) {
         let line = lines[i];
-        
-        if (!insideTable && isSeparator(lines[i+1])) {
+        let trimmed = line.trim();
+
+        // 1. Detect Start of Table
+        // If we are not in a table, but the NEXT line is a separator, this line is the Header.
+        if (!insideTable && i + 1 < lines.length && isSeparator(lines[i + 1])) {
             insideTable = true;
+            // Markdown requires a blank line before a table. Ensure we have one.
+            if (healedLines.length > 0 && healedLines[healedLines.length - 1].trim() !== '') {
+                healedLines.push(''); 
+            }
         }
 
         if (insideTable) {
-            if (line.trim() === "") {
+            // 2. End of Table Detection (Empty line)
+            if (trimmed === '') {
                 if (buffer) { healedLines.push(buffer); buffer = ""; }
                 insideTable = false;
                 healedLines.push(line);
                 continue;
             }
 
-            if (buffer) {
-                buffer += " " + line.trim();
-                if (isFullRow(buffer)) {
+            // 3. Process Table Content
+            if (isRow(line) || isSeparator(line)) {
+                // If we have a buffer (previous row), push it now
+                if (buffer) {
                     healedLines.push(buffer);
-                    buffer = "";
                 }
+                // Start buffering this row. 
+                // CRITICAL FIX: Use 'trimmed' to strip indentation so it doesn't render as a Code Block.
+                buffer = trimmed;
             } else {
-                if (isFullRow(line) || isSeparator(line)) {
-                    healedLines.push(line);
-                } else if (isPartialRow(line)) {
-                    buffer = line.trim();
+                // Line does NOT start with pipe. It is likely a wrapped cell text.
+                // Append to buffer with a space.
+                if (buffer) {
+                    buffer += " " + trimmed;
                 } else {
-                    if (!line.trim().startsWith('|')) {
-                        insideTable = false;
-                        healedLines.push(line);
-                    } else {
-                        buffer = line.trim();
-                    }
+                    // Edge case: content inside table block that isn't a row and we have no buffer?
+                    // Treat as end of table/normal text to be safe.
+                    insideTable = false;
+                    healedLines.push(line);
                 }
             }
         } else {
             healedLines.push(line);
         }
     }
+    // Flush lingering buffer
     if (buffer) healedLines.push(buffer);
 
     return healedLines.join('\n');
@@ -204,18 +216,15 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
         if (selectedUnitIds.size === 0) return { title: '', content: '', lessonTitles: [], error: "Please select at least one source unit." };
         const unitDetails = Array.from(selectedUnitIds).map(id => unitsForSubject.find(u => u.id === id)).filter(Boolean);
         const title = unitDetails.map(u => u.title).join(' & ');
-        
         let formattedLessonList = [];
         unitDetails.forEach(unit => {
             formattedLessonList.push(`Unit: ${unit.title}`);
             const relevantLessons = lessonsForUnit.filter(lesson => lesson.unitId === unit.id);
             relevantLessons.forEach(lesson => formattedLessonList.push(`- ${lesson.title}`));
         });
-        
         const relevantLessons = lessonsForUnit.filter(lesson => selectedUnitIds.has(lesson.unitId));
         const lessonTitles = formattedLessonList;
         const content = relevantLessons.map(l => l.pages.map(p => p.content).join('\n')).join('\n\n---\n\n');
-        
         if (!content && generationTarget === 'teacherGuide') return { title, content: '', lessonTitles, error: `The selected unit(s) '${title}' appear to have no lesson content.`};
         return { title, content, lessonTitles, error: null };
     }, [selectedUnitIds, unitsForSubject, lessonsForUnit, generationTarget]);
@@ -237,7 +246,6 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
       return true;
     };
 
-    // --- AI GENERATION LOGIC ---
     const generateUlpSection = async (type, context, maxRetries = 3) => {
       let prompt;
       const iCan = context.language === 'Filipino' ? 'Kaya kong...' : 'I can...';
@@ -246,8 +254,9 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
       const contextInjection = context.previousContent ? `
       **SCAFFOLDING CONTEXT (CRITICAL):**
       You are writing the NEXT lesson in a sequence.
-      - **Reinforce:** Explicitly reference concepts from the previous lesson.
-      - **Scaffold:** Ensure the complexity increases.
+      - **Reinforce:** Explicitly reference concepts from the previous lesson to build connection.
+      - **Scaffold:** Ensure the complexity increases from the previous content.
+      
       --- PREVIOUS CONTENT SUMMARY ---
       ${context.previousContent}
       --- END PREVIOUS CONTENT ---
@@ -255,26 +264,26 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
 
       const verbosityRules = `
       **CRITICAL CONTENT RULES (MUST FOLLOW):**
-      1. **BE EXTREMELY DETAILED:** Do not use placeholders like "[Insert text here]" or "Teacher explains topic." YOU MUST WRITE THE EXPLANATION.
-      2. **MATERIALS CONTENT:** If an activity uses a Worksheet, Scenario Card, or Quiz, **YOU MUST GENERATE THE ACTUAL TEXT CONTENT** of that item inside the instructions. 
-         - Do not just list "Worksheet 1". 
-         - Instead write: "**Worksheet Content:** Question 1: ... Question 2: ..."
-      3. **MARKDOWN FORMATTING:**
-         - Bold keys (**text**).
-         - Numbered lists for steps.
+      1. **BE EXTREMELY DETAILED:** Do not just summarize. Write out the actual content.
+      2. **MARKDOWN FORMATTING:** You MUST use valid Markdown. 
+         - For bold text use **text**.
+         - For numbered lists use 1. (space) text.
+      3. **CREATE THE MATERIALS:** If an activity uses "Scenario Cards" or "Worksheets", YOU MUST WRITE THE CONTENT of those cards/worksheets in the instruction text.
       `;
 
       const valuesRule = `
       **SRCS VALUES INTEGRATION (REQUIRED):**
       ${SRCS_VALUES_CONTEXT}
-      **INSTRUCTION:** Select **ONE** specific value. Write a **seamless, conversational 'Teacher's Connection' paragraph**.
-      - Connect the activity they just did to the SRCS Core Value.
-      - **OUTPUT FIELD:** "valuesIntegration": { "value": "Name", "integration": "Conversational paragraph..." }
+      **INSTRUCTION:** Select **ONE** specific value. Write a **seamless, conversational 'Small Talk' or 'Teacher's Connection' paragraph** (3-4 sentences). 
+      - DO NOT just define the value. 
+      - Speak as if you are the teacher transitioning the class, connecting the activity they just did to the SRCS Core Value and a real-world application.
+      - Make it flow naturally.
+      **OUTPUT FIELD:** "valuesIntegration": { "value": "Name", "integration": "Conversational paragraph..." }
       `;
 
-      // UPDATED: STRICT TABLE RULES AND AUDIENCE SETTING
       const commonRules = `
-      **ROLE:** Master Curriculum Developer for San Ramon Catholic School.
+      **ROLE:** You are a Master Curriculum Developer and Theologian for San Ramon Catholic School (SRCS). 
+      **TONE:** Your "Support Discussions" must be deep, insightful, and pedagogical. Do not be superficial. Treat the teacher reading this as a professional who needs deep background knowledge.
       
       **INPUTS:**
       - Standards: ${context.contentStandard} / ${context.performanceStandard}
@@ -285,14 +294,17 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
       ${verbosityRules}
       ${valuesRule}
 
-      **STRICT TABLE RULE (CRITICAL - DO NOT BREAK):**
-      1. **NO NEWLINES IN CELLS:** Do NOT use the newline character (\\n) inside a table cell. It breaks the table.
-      2. **USE HTML BREAKS:** If you need a line break inside a table cell, use the HTML tag <br> or <br/>.
-      3. **ROW STRUCTURE:** Ensure every row starts with | and ends with |.
-      
+      **STRICT TABLE RULE (CRITICAL):**
+      When generating Markdown tables in the JSON string:
+      1. Ensure EVERY row starts and ends with a pipe character (|).
+      2. **NEVER** use line breaks (\\n) inside a table row. Keep all content for a single row on ONE line.
+      3. Always insert a double newline (\\n\\n) before starting a table.
+      4. **DO NOT INDENT** the table. Start tables at the beginning of the line.
+
       **TECHNICAL RULES:**
       1. **OUTPUT:** Valid JSON object ONLY.
       2. **ESCAPING:** Escape double quotes inside strings (\\").
+      3. **FORMATTING:** Use \\n for line breaks inside strings.
       `;
 
       switch (type) {
@@ -300,22 +312,13 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
           prompt = `
             ${commonRules}
             **TASK:** Generate "Explore" (Diagnosis/Hook).
-            
-            **STRICT DATA INSTRUCTION:**
-            The field "lessonsList" must NOT be generated by you. 
-            COPY THIS EXACT LIST into the "lessonsList" field:
-            "${context.sourceLessonTitles.replace(/\n/g, '\\n')}"
-            
-            **AUDIENCE:** - "Unit Overview": Address the **STUDENT** directly (e.g., "Welcome, dear students! In this unit...").
-            - "Instructions": Address the **TEACHER**.
-
             **JSON STRUCTURE:**
             {
             "type": "explore",
-            "lessonsList": "THE_EXACT_LIST_FROM_INSTRUCTIONS_ABOVE",
-            "unitOverview": "2 paragraphs addressing the STUDENT. 1. Welcoming/Hook. 2. Roadmap of the journey.",
-            "hookedActivities": "Create 2 DISTINCT activities. Include Title, Description, Step-by-Step Instructions, and **FULL TEXT OF ANY MATERIALS NEEDED**.",
-            "mapOfConceptualChange": "Instructions for a diagnostic activity (e.g., KWL). Include the exact questions students will answer.",
+            "lessonsList": "Bulleted list of lessons in this unit.",
+            "unitOverview": "2 paragraphs. First: engaging welcome. Second: summary of the journey.",
+            "hookedActivities": "Create 2 DISTINCT activities. For each: Title, Description, Detailed Step-by-Step Instructions (4+ steps), and Materials List.",
+            "mapOfConceptualChange": "Detailed instructions for a diagnostic activity (e.g., KWL, IRF). Include the exact column headers or questions students will answer.",
             "essentialQuestions": ["EQ1 (Deep/Philosophical)", "EQ2", "EQ3"]
             }
             `;
@@ -325,27 +328,27 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
           prompt = `
             ${commonRules}
             **TASK:** Generate "Firm-Up" (Acquisition) for: "${context.competency}" (${context.code}).
+            **FOCUS:** Acquisition of facts and skills. Scaffolds towards Meaning-Making.
             
-            **REQUIREMENTS:**
-            - **Worksheets:** If the activity needs a worksheet, write the content in a Markdown Table within the instructions.
-            - **Definitions:** Define terms explicitly in the "templates" field.
+            **SUPPORT DISCUSSION REQUIREMENT:** 1. **Checking for Understanding Questions:** 4-5 specific questions.
+            2. **In-Depth Discussion:** 2-3 substantial paragraphs explaining significance and connecting to life values.
 
             **JSON STRUCTURE:**
             {
             "type": "firmUp",
             "code": "${context.code}",
             "competency": "${context.competency}",
-            "learningTargets": ["${iCan} define...", "${iCan} identify..."],
+            "learningTargets": ["${iCan} define...", "${iCan} identify...", "${iCan} describe..."],
             "successIndicators": ["3 distinct bullet points."],
             "inPersonActivity": { 
-                "instructions": "Title: [Name]\\n1. [Step 1]\\n...\\n\\n**WORKSHEET CONTENT:**\\n| Term | Definition |\\n|---|---|\\n| [Term 1] | [Def 1] |", 
-                "materials": "List materials (e.g., printed worksheet)." 
+                "instructions": "Title: [Name]\\n1. [Step 1]\\n2. [Step 2]...\\n\\n**CONTENT FOR WORKSHEET:**\\n\\n| Column 1 | Column 2 |\\n|---|---|\\n| Item 1 | Detail 1 |\\n| Item 2 | Detail 2 |", 
+                "materials": "Detailed list." 
             },
             "onlineActivity": { "instructions": "Digital equivalent.", "materials": "Tools..." },
-            "supportDiscussion": "**Checking for Understanding:**\\n1. [Specific Question]\\n\\n**Deep Explanation:**\\n[Detailed content knowledge for the teacher]",
-            "assessment": { "type": "Quiz/Matching", "content": "Generate the specific quiz items here." },
-            "templates": "Definitions or Flashcard content.",
-            "valuesIntegration": { "value": "Name", "integration": "Connection..." }
+            "supportDiscussion": "**Checking for Understanding Questions:**\\n1. [Question]...\\n\\n**In-Depth Discussion:**\\n[Write a rich, detailed explanation.]",
+            "assessment": { "type": "Quiz/Matching/Graphic Organizer", "content": "Write the actual questions/items here. USE MARKDOWN TABLE if matching." },
+            "templates": "Text content for any definitions/flashcards needed.",
+            "valuesIntegration": { "value": "Name of SRCS Value", "integration": "Conversational connection paragraph." }
             }
             `;
           break;
@@ -354,24 +357,28 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
           prompt = `
             ${commonRules}
             **TASK:** Generate "Deepen" (Meaning-Making) for: "${context.competency}" (${context.code}).
-            **CRITICAL:** Create specific **Scenario Cards** or **Case Studies**.
+            **FOCUS:** Making Meaning, Analysis, Generalization.
+            **CRITICAL:** Use **Guided Generalization**. Generate specific "Scenario Cards" or "Case Studies".
+            
+            **SUPPORT DISCUSSION REQUIREMENT:** 1. **Detailed Summarization of Key Concepts:** 2 substantial paragraphs.
+            2. **In-Depth Elaboration:** 3-4 probing questions with Teacher Notes.
             
             **JSON STRUCTURE:**
             {
             "type": "deepen",
             "code": "${context.code}",
             "competency": "${context.competency}",
-            "learningTargets": ["${iCan} analyze...", "${iCan} justify..."],
-            "successIndicators": ["3 indicators."],
+            "learningTargets": ["${iCan} analyze...", "${iCan} justify...", "${iCan} generalize..."],
+            "successIndicators": ["3 distinct indicators."],
             "inPersonActivity": { 
-                "instructions": "Title: [Name]\\nInstructions:\\n1. [Step]...\\n\\n**SCENARIO CARDS (Cut these out):**\\n| Card # | Scenario Text |\\n|---|---|\\n| 1 | [Write full scenario situation here] |\\n| 2 | [Write full scenario situation here] |", 
-                "materials": "Scenario Cards, Worksheet." 
+                "instructions": "Activity: [Name]\\nInstructions:\\n1. [Step]...\\n\\n**SCENARIO CARDS CONTENT:**\\n\\n| Card | Scenario |\\n|---|---|\\n| Card 1 | [Full text] |\\n| Card 2 | [Full text] |", 
+                "materials": "Scenario Cards, C-E-R Worksheet." 
             },
-            "onlineActivity": { "instructions": "Digital equivalent.", "materials": "Links..." },
+            "onlineActivity": { "instructions": "Instructions for breakout rooms/shared docs.", "materials": "Links..." },
             "supportDiscussion": "**Detailed Summarization:**\\n[Text]\\n\\n**In-Depth Elaboration:**\\n* [Question 1]",
-            "assessment": { "type": "Analysis", "content": "Instructions and Rubric criteria." },
-            "templates": "Worksheet structure.",
-            "valuesIntegration": { "value": "Name", "integration": "Connection..." }
+            "assessment": { "type": "Case Analysis/Analogy/Diagram", "content": "Instructions for the varied assessment task." },
+            "templates": "Structure of the worksheet.",
+            "valuesIntegration": { "value": "Name of SRCS Value", "integration": "Conversational connection paragraph." }
             }
             `;
           break;
@@ -380,21 +387,26 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
           prompt = `
             ${commonRules}
             **TASK:** Generate "Transfer" (Application) for: "${context.competency}" (${context.code}).
+            **GOAL:** Application in real-world situations.
             
+            **SUPPORT DISCUSSION REQUIREMENT:** 1. **Core Behavioral Principles:** Psychology/spirituality behind behavior.
+            2. **Practical Application & Nuance:** Building psychological safety/unity.
+            3. **Transition:** Connect to Performance Task.
+
             **JSON STRUCTURE:**
             {
             "type": "transfer",
             "code": "${context.code}",
             "competency": "${context.competency}",
-            "learningTargets": ["${iCan} apply...", "${iCan} create..."],
-            "successIndicators": ["3 indicators."],
+            "learningTargets": ["${iCan} apply...", "${iCan} prepare..."],
+            "successIndicators": ["3 distinct indicators."],
             "inPersonActivity": { 
-                "instructions": "Title: [Name]\\nInstructions...\\n\\n**PROMPTS/PROBLEMS:**\\n1. [Specific Problem A]\\n2. [Specific Problem B]", 
+                "instructions": "Activity: [Scaffold to Performance Task]\\nInstructions:\\n1. [Step]...\\n\\n**SCENARIOS/PROMPTS:**\\n[Specific content]", 
                 "materials": "Specific list." 
             },
             "onlineActivity": { "instructions": "Digital equivalent.", "materials": "Tools..." },
-            "supportDiscussion": "**Core Behavioral Principles:**\\n[Text]\\n\\n**Transition to Performance Task:**\\n[Text]",
-            "valuesIntegration": { "value": "Name", "integration": "Connection..." }
+            "supportDiscussion": "**Core Behavioral Principles:**\\n[Text]\\n\\n**Practical Application:**\\n[Text]\\n\\n**Transition:**\\n[Text]",
+            "valuesIntegration": { "value": "Name of SRCS Value", "integration": "Conversational connection paragraph." }
             }
             `;
           break;
@@ -403,31 +415,29 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
           prompt = `
             ${commonRules}
             **TASK:** Final Synthesis.
-            **JSON STRUCTURE:** { "type": "synthesis", "summary": "3 Paragraphs. 1. Recap Explore/Firm-Up. 2. Recap Deepen. 3. Recap Transfer. Address the STUDENT directly." }
+            **JSON STRUCTURE:** { "type": "synthesis", "summary": "3 Paragraphs. 1. Summarize Explore/Firm-Up. 2. Summarize Deepen. 3. Summarize Transfer. Be inspiring." }
             `;
           break;
 
         case 'performanceTask':
           prompt = `
             ${commonRules}
-            **TASK:** Unit Performance Task (GRASPS). 
-            **IMPORTANT:** Fill in the [Goal, Role, Audience, Situation, Product, Standards] with CREATIVE, SPECIFIC details. Do not use generic placeholders.
-            
+            **TASK:** Unit Performance Task (GRASPS). Be very specific.
             **JSON STRUCTURE:**
             {
             "type": "performanceTask",
             "graspsTask": {
-                "goal": "Detailed goal.", 
-                "role": "Creative role.", 
+                "goal": "Detailed goal statement.", 
+                "role": "Creative role name.", 
                 "audience": "Specific audience.", 
-                "situation": "Detailed paragraph.", 
-                "product": "Specific output.", 
-                "standards": "Criteria."
+                "situation": "Detailed paragraph describing the challenge/context.", 
+                "product": "Specific output description.", 
+                "standards": "Criteria for success."
             },
             "rubric": [
-                { "criteria": "Criteria Name", "description": "Detailed description of what 5 stars looks like.", "points": "20" },
-                { "criteria": "Criteria Name", "description": "Description.", "points": "15" },
-                { "criteria": "Criteria Name", "description": "Description.", "points": "15" }
+                { "criteria": "Content Integration", "description": "Detailed description.", "points": "20" },
+                { "criteria": "Practicality/Feasibility", "description": "Detailed description.", "points": "15" },
+                { "criteria": "Creativity & Presentation", "description": "Detailed description.", "points": "15" }
             ]
             }
             `;
@@ -493,12 +503,13 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
             if (!text) return '';
 
             // A. HEAL THE TABLES FIRST (Critical Step)
+            // This fixes wrapped lines, missing pipes, AND strips indentation
             text = healBrokenMarkdownTables(text);
 
             // B. Standardize newlines
             let safeText = text.replace(/\r\n/g, '\n');
 
-            // C. Dedent
+            // C. Dedent (Global check)
             const lines = safeText.split('\n');
             const minIndent = lines.reduce((min, line) => {
                 if (line.trim().length === 0) return min;
@@ -529,7 +540,6 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
         // --- 1. EXPLORE ---
         const explore = components.find(c => c.type === 'explore');
         if (explore) {
-            const lessonsList = formatAIContent(explore.lessonsList);
             const unitOverview = formatAIContent(explore.unitOverview);
             const mapOfConceptualChange = formatAIContent(explore.mapOfConceptualChange);
             const hookedActivities = formatAIContent(explore.hookedActivities);
@@ -537,8 +547,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
             tbody += `
             <tr><td colspan='2' style='background-color: #f0f0f0; font-weight: bold; padding: 10px; border: 1px solid black;'>EXPLORE</td></tr>
             <tr><td colspan='2' style='padding: 10px; border: 1px solid black; vertical-align: top;'>
-                <strong>Unit Coverage:</strong><br/>${renderMd(lessonsList)}<br/><br/>
-                <strong>Unit Overview (Student Facing):</strong><br/>${renderMd(unitOverview)}<br/><br/>
+                <strong>Unit Overview:</strong><br/>${renderMd(unitOverview)}<br/><br/>
                 <strong>Essential Questions:</strong><ul>${(explore.essentialQuestions || []).map(q => `<li>${renderInlineMd(q)}</li>`).join('')}</ul>
                 <strong>Map of Conceptual Change:</strong><br/>${renderMd(mapOfConceptualChange)}<br/><br/>
                 <strong>Hook Activities:</strong><br/>${renderMd(hookedActivities)}
@@ -638,7 +647,8 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
             /* Styles for inner content tables (from Markdown) */
             td table { 
                 width: 100% !important; 
-                table-layout: auto !important;
+                table-layout: fixed !important; /* Force fixed layout for inner tables */
+                word-wrap: break-word !important;
                 border-collapse: collapse !important; 
                 margin: 15px 0 !important; 
                 border: 1px solid #666 !important; 
@@ -660,7 +670,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
             .inner-table {
                 width: 100% !important;
                 border-collapse: collapse !important;
-                table-layout: auto !important;
+                table-layout: fixed !important;
                 margin: 12px 0 !important;
                 border: 1px solid #666 !important;
             }

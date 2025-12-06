@@ -16,7 +16,8 @@ import {
     ShareIcon,
     ArrowPathIcon,
     Squares2X2Icon,
-    CheckCircleIcon
+    CheckCircleIcon,
+    ArrowsUpDownIcon 
 } from '@heroicons/react/24/solid';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 
@@ -245,6 +246,39 @@ const getSubjectStyling = (subjectTitle, monet) => {
     }
 
     return { icon: IconComponent, iconColor, gradient };
+};
+
+// --- COMPONENT: CONTENT SCOPE SWITCHER (DROPDOWN) ---
+const ContentScopeSwitcher = ({ activeGroup, onSwitch, monet }) => {
+    return (
+        <div className="relative inline-block w-full sm:w-auto">
+            <select
+                value={activeGroup}
+                onChange={(e) => onSwitch(e.target.value)}
+                className={`
+                    appearance-none pl-10 pr-10 py-2.5 rounded-2xl 
+                    text-sm font-bold shadow-sm transition-all cursor-pointer outline-none w-full
+                    ${monet 
+                        ? 'bg-white/10 text-white border border-white/20 hover:bg-white/20 focus:ring-2 focus:ring-white/30' 
+                        : 'bg-white dark:bg-white/5 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/10 focus:ring-2 focus:ring-blue-500/20 shadow-slate-200/50 dark:shadow-none'
+                    }
+                `}
+            >
+                <option value="learner" className="text-slate-900 bg-white dark:text-slate-200 dark:bg-[#1A1D24]">Learner's Space</option>
+                <option value="teacher" className="text-slate-900 bg-white dark:text-slate-200 dark:bg-[#1A1D24]">Teacher's Space</option>
+            </select>
+            
+            {/* Left Icon */}
+            <div className={`absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none ${monet ? 'text-white/70' : 'text-slate-500 dark:text-slate-400'}`}>
+                {activeGroup === 'learner' ? <LearnerIcon className="w-4 h-4"/> : <TeacherIcon className="w-4 h-4"/>}
+            </div>
+
+            {/* Right Chevron */}
+            <div className={`absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none ${monet ? 'text-white/50' : 'text-slate-400'}`}>
+                <ArrowsUpDownIcon className="w-4 h-4" />
+            </div>
+        </div>
+    );
 };
 
 // --- LEVEL 3: SUBJECT DETAIL VIEW ---
@@ -576,6 +610,10 @@ const SubjectList = memo((props) => {
         return categoryCourses.filter(course => course.title.toLowerCase().includes(searchTerm.toLowerCase()));
     }, [courses, decodedCategoryName, searchTerm]);
 
+    const handleSwitchGroup = (newGroup) => {
+        navigate(`/dashboard/courses/${newGroup}`);
+    };
+
     return (
         <div className={commonContainerClasses}>
             {/* NO AuroraBackground */}
@@ -583,9 +621,11 @@ const SubjectList = memo((props) => {
                 {/* Header */}
                 <div className={headerClasses}>
                     <div className="flex flex-col gap-2 w-full md:w-auto">
-                        <div className="flex items-center gap-2">
-                             <button onClick={() => navigate(`/dashboard/courses/${contentGroup}`)} className={`${getButtonClass('icon', monet)} !p-1.5`}><ArrowUturnLeftIcon className="w-4 h-4" /></button>
-                             <span className={`text-xs font-bold uppercase tracking-widest ${monet ? monet.subText : 'text-slate-400'}`}>{contentGroup} View</span>
+                        <div className="w-full flex items-center gap-3 mb-1">
+                            <button onClick={() => navigate(`/dashboard/courses/${contentGroup}`)} className={`${getButtonClass('icon', monet)} !p-2`} title="Back to Categories">
+                                <ArrowUturnLeftIcon className="w-4 h-4" />
+                            </button>
+                            <ContentScopeSwitcher activeGroup={contentGroup} onSwitch={handleSwitchGroup} monet={monet} />
                         </div>
                         <h1 className={`text-2xl sm:text-4xl font-black tracking-tight leading-tight ${monet ? monet.text : 'text-slate-800 dark:text-white'}`}>
                             {decodedCategoryName.replace(/\s\((Teacher|Learner)'s Content\)/i, '')}
@@ -672,13 +712,23 @@ const CategoryList = memo((props) => {
         return filtered.sort((a, b) => a.name.localeCompare(b.name));
     }, [courseCategories, isLearner]);
 
+    const handleSwitchGroup = (newGroup) => {
+        navigate(`/dashboard/courses/${newGroup}`);
+    };
+
     return (
         <div className={commonContainerClasses}>
             {/* NO AuroraBackground */}
             <div className={containerClasses}>
                 <div className={headerClasses}>
                     <div className="w-full">
-                        <button onClick={() => navigate('/dashboard/courses')} className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wider mb-2 transition-colors ${monet ? 'text-white/60 hover:text-white' : 'text-slate-400 hover:text-blue-500'}`}><ArrowUturnLeftIcon className="w-3 h-3" /> Change Profile</button>
+                        <div className="flex items-center gap-3 mb-2">
+                            <button onClick={() => navigate('/dashboard/courses')} className={`${getButtonClass('icon', monet)} !p-2`} title="Back to Selection">
+                                <ArrowUturnLeftIcon className="w-4 h-4" />
+                            </button>
+                            <ContentScopeSwitcher activeGroup={contentGroup} onSwitch={handleSwitchGroup} monet={monet} />
+                        </div>
+                        
                         <h1 className={`text-3xl sm:text-5xl font-black tracking-tighter leading-tight ${monet ? monet.text : 'text-slate-800 dark:text-white'}`}>{title}</h1>
                         <p className={`text-base sm:text-lg mt-1 font-light ${monet ? monet.subText : 'text-slate-500 dark:text-slate-400'}`}>{subtitle}</p>
                     </div>
