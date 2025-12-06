@@ -42,21 +42,28 @@ const extractJson = (text) => {
     return null;
 };
 
+// --- UPDATED PARSER: Handles Math/LaTeX JSON issues ---
 const tryParseJson = (jsonString) => {
   try {
     if (!jsonString) return null;
     return JSON.parse(jsonString);
   } catch (error) {
-    console.warn("Standard JSON.parse failed. Attempting to fix.", error);
+    console.warn("Standard JSON.parse failed. Attempting to fix math/syntax.", error);
     if (typeof jsonString !== 'string') return null;
+    
+    // 1. Basic Markdown cleanup
     let sanitizedString = jsonString
       .replace(/```json|```/g, '')
-      .replace(/,\s*([}\]])/g, '$1')
-      .replace(/([{,]\s*)([A-Za-z0-9_]+)\s*:/g, '$1"$2":')
-      .replace(/[“”]/g, '"')
-      .replace(/[\u0000-\u001F]+/g, ' ')
-      .replace(/\\(?!["\\/bfnrtu])/g, '\\\\')
-      .trim();
+      .replace(/,\s*([}\]])/g, '$1') // Remove trailing commas
+      .replace(/([{,]\s*)([A-Za-z0-9_]+)\s*:/g, '$1"$2":') // Fix unquoted keys
+      .replace(/[“”]/g, '"') // Fix smart quotes
+      .replace(/[\u0000-\u001F]+/g, ' '); // Remove control chars
+
+    // 2. MATH FIX: Fix single backslashes in LaTeX that break JSON
+    // Logic: Find a backslash that is NOT followed by a valid JSON escape char (" \ / b f n r t u)
+    // Example: Turns "\frac" into "\\frac" so JSON.parse accepts it
+    sanitizedString = sanitizedString.replace(/\\(?!["\\/bfnrtu])/g, '\\\\');
+
     try {
       return JSON.parse(sanitizedString);
     } catch (finalError) {
@@ -87,9 +94,9 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
     const [unitsForSubject, setUnitsForSubject] = useState([]);
     const [lessonsForUnit, setLessonsForUnit] = useState([]);
     
-    // Updated State Defaults
+    // State Defaults
     const [selectedLanguage, setSelectedLanguage] = useState('English');
-    const [selectedGradeLevel, setSelectedGradeLevel] = useState('Grade 7'); // Default
+    const [selectedGradeLevel, setSelectedGradeLevel] = useState('Grade 7'); 
     
     const [selectedSubjectId, setSelectedSubjectId] = useState(subjectId || '');
     const [selectedUnitIds, setSelectedUnitIds] = useState(new Set(initialUnitId ? [initialUnitId] : []));
@@ -223,10 +230,9 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
       **OUTPUT FIELD:** "valuesIntegration": { "value": "Name", "integration": "Conversational paragraph..." }
       `;
 
-      // --- UPDATED COMMON RULES WITH GRADE LEVEL ALIGNMENT ---
+      // --- UPDATED COMMON RULES ---
       const commonRules = `
-      **ROLE:** You are a Master Curriculum Developer and Theologian for San Ramon Catholic School (SRCS). 
-      **TONE:** Your "Support Discussions" must be deep, insightful, and pedagogical.
+      **ROLE:** You are a Master Curriculum Developer for San Ramon Catholic School (SRCS). 
       
       **INPUTS:**
       - Standards: ${context.contentStandard} / ${context.performanceStandard}
@@ -238,25 +244,25 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
       ${verbosityRules}
       ${valuesRule}
 
-      **GRADE LEVEL ALIGNMENT INSTRUCTION (CRITICAL):**
-      You are writing for **${context.gradeLevel}** students in the Philippines.
-      - **Vocabulary:** Must be age-appropriate. (e.g., Simple for Grade 1, Academic for Grade 12).
-      - **Activity Complexity:** Ensure tasks are cognitively appropriate for this age group.
-      - **Examples:** Use local Filipino examples or context where relevant to the grade level.
+      **GRADE LEVEL & TONE INSTRUCTIONS (CRITICAL):**
+      1. **Cognitive Level:** Write content appropriate for **${context.gradeLevel}**.
+      2. **TONE CONSTRAINT (NEGATIVE):** **DO NOT** use phrases like "Grade 10 learners..." or "As a Grade 7 student...". Just present the content directly and professionally.
+      3. **Content Depth:** For "Hook Activities", do not just describe the activity. **WRITE THE ACTUAL CONTENT** (e.g., The specific moral dilemma text, the specific questions to ask).
 
-      **STRICT TABLE RULE (CRITICAL):**
-      **DO NOT USE MARKDOWN TABLES (pipes |...|).** They break the layout.
-      For ANY tabular data (worksheets, rubrics, scenarios, charts), you **MUST** use valid HTML format with the class 'inner-table':
-      
-      Example:
-      <table class="inner-table">
-        <thead>
-          <tr><th>Header 1</th><th>Header 2</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>Content A</td><td>Content B</td></tr>
-        </tbody>
-      </table>
+      **HEADER & ACTIVITY NAMING:**
+      - **GENERIC SECTION HEADERS:** Use simple titles (e.g., "Key Definitions", not "Key Definitions for Grade 10").
+      - **ACTIVITY TITLES:** ALL Activities must have a specific, bold title formatted as: **Activity [N]: [Creative Name]** (e.g., **Activity 1: The Great Debate**)
+
+      **MATH & SCIENCE FORMATTING:**
+      1. **Use LaTeX:** For all formulas ($...$).
+      2. **JSON ESCAPING:** Double-escape backslashes (e.g., $\\\\frac{1}{2}$).
+
+      **STRICT TABLE RULE (CRITICAL - READ CAREFULLY):**
+      1. **NO MARKDOWN TABLES:** Do not use pipes (|).
+      2. **USE HTML TABLES:** Use <table class='inner-table'>...</table>.
+      3. **NO MARKDOWN INSIDE HTML:** **DO NOT** use asterisks (**) for bolding inside the HTML table. It will not render.
+         - **CORRECT:** <td><strong>Seeking Wealth</strong></td>
+         - **WRONG:** <td>**Seeking Wealth**</td>
 
       **TECHNICAL RULES:**
       1. **OUTPUT:** Valid JSON object ONLY.
@@ -274,7 +280,18 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                   "type": "explore",
                   "lessonsList": "Bulleted list of lessons.",
                   "unitOverview": "2 paragraphs welcome/summary tailored to ${context.gradeLevel}.",
-                  "hookedActivities": "2 DISTINCT activities. Title, Description, Steps.",
+                  "hookedActivities": [
+                    {
+                        "title": "Activity 1: [Creative Name]",
+                        "content": "THE ACTUAL CONTENT/SCRIPT. (e.g., 'Read this scenario to the class: You find a wallet...')",
+                        "instructions": "Step-by-step teacher instructions."
+                    },
+                    {
+                        "title": "Activity 2: [Creative Name]",
+                        "content": "THE ACTUAL CONTENT/SCRIPT.",
+                        "instructions": "Step-by-step teacher instructions."
+                    }
+                  ],
                   "mapOfConceptualChange": "Instructions for diagnostic activity.",
                   "essentialQuestions": ["EQ1", "EQ2", "EQ3"]
                   }
@@ -295,13 +312,13 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                   "learningTargets": ["${iCan} define...", "${iCan} identify..."],
                   "successIndicators": ["3 distinct bullet points."],
                   "inPersonActivity": { 
-                      "instructions": "Title: [Name]\\n1. [Step 1]...\\n\\n**CONTENT FOR WORKSHEET:**\\n<table class='inner-table'><thead><tr><th>Column 1</th><th>Column 2</th></tr></thead><tbody><tr><td>Item 1</td><td>Detail 1</td></tr></tbody></table>", 
+                      "instructions": "**Activity 1: [Creative Name]**\\n\\n1. [Step 1]...\\n\\n**CONTENT FOR WORKSHEET:**\\n<table class='inner-table'><thead><tr><th>Column 1</th><th>Column 2</th></tr></thead><tbody><tr><td><strong>Item 1</strong></td><td>Detail 1</td></tr></tbody></table>", 
                       "materials": "List." 
                   },
                   "onlineActivity": { "instructions": "Digital equivalent.", "materials": "Tools..." },
                   "supportDiscussion": "**Checking for Understanding:**\\n1. [Q1]...\\n\\n**In-Depth Discussion:**\\n[Paragraphs]",
                   "assessment": { "type": "Quiz", "content": "Matching or Multiple Choice. Use <table class='inner-table'> for matching columns." },
-                  "templates": "Definitions or flashcard text.",
+                  "templates": "Content for 'Key Definitions' or similar. Title MUST be simple (e.g., 'Key Definitions').",
                   "valuesIntegration": { "value": "Value Name", "integration": "Conversational connection." }
                   }
                   `;
@@ -321,13 +338,13 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                   "learningTargets": ["${iCan} analyze...", "${iCan} justify..."],
                   "successIndicators": ["3 distinct indicators."],
                   "inPersonActivity": { 
-                      "instructions": "Activity: [Name]\\nInstructions:\\n1. [Step]...\\n\\n**SCENARIO CARDS:**\\n<table class='inner-table'><thead><tr><th style='width:30%'>Card</th><th>Scenario</th></tr></thead><tbody><tr><td>Card 1</td><td>[Text]</td></tr></tbody></table>", 
+                      "instructions": "**Activity 2: [Creative Name]**\\n\\nInstructions:\\n1. [Step]...\\n\\n**SCENARIO CARDS:**\\n<table class='inner-table'><thead><tr><th style='width:30%'>Card</th><th>Scenario</th></tr></thead><tbody><tr><td><strong>Card 1</strong></td><td>[Text]</td></tr></tbody></table>", 
                       "materials": "List." 
                   },
                   "onlineActivity": { "instructions": "Instructions.", "materials": "Links..." },
                   "supportDiscussion": "**Detailed Summarization:**\\n[Text]\\n\\n**In-Depth Elaboration:**\\n* [Question 1]",
                   "assessment": { "type": "Case Analysis", "content": "Instructions." },
-                  "templates": "Worksheet structure.",
+                  "templates": "Worksheet structure. Keep titles GENERIC.",
                   "valuesIntegration": { "value": "Value Name", "integration": "Connection." }
                   }
                   `;
@@ -346,7 +363,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                   "learningTargets": ["${iCan} apply...", "${iCan} prepare..."],
                   "successIndicators": ["3 indicators."],
                   "inPersonActivity": { 
-                      "instructions": "Activity: [Name]\\nInstructions:\\n1. [Step]...\\n\\n**SELF-DIAGNOSIS WORKSHEET:**\\n<table class='inner-table'><thead><tr><th>Section</th><th>Prompt</th><th>Analysis</th></tr></thead><tbody><tr><td>1. Limitation</td><td>Describe...</td><td></td></tr></tbody></table>", 
+                      "instructions": "**Activity 3: [Creative Name]**\\n\\nInstructions:\\n1. [Step]...\\n\\n**SELF-DIAGNOSIS WORKSHEET:**\\n<table class='inner-table'><thead><tr><th>Section</th><th>Prompt</th><th>Analysis</th></tr></thead><tbody><tr><td><strong>1. Limitation</strong></td><td>Describe...</td><td></td></tr></tbody></table>", 
                       "materials": "List." 
                   },
                   "onlineActivity": { "instructions": "Digital equivalent.", "materials": "Tools..." },
@@ -375,7 +392,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                       "goal": "Goal.", "role": "Role.", "audience": "Audience.", 
                       "situation": "Situation.", "product": "Product.", "standards": "Standards."
                   },
-                  "rubric": "Generate the Rubric strictly as an HTML TABLE string: <table class='inner-table'><thead><tr><th>Criteria</th><th>Description</th><th>Points</th></tr></thead><tbody><tr><td>Content</td><td>Desc...</td><td>20</td></tr></tbody></table>"
+                  "rubric": "Generate the Rubric strictly as an HTML TABLE string: <table class='inner-table'><thead><tr><th>Criteria</th><th>Description</th><th>Points</th></tr></thead><tbody><tr><td><strong>Content</strong></td><td>Desc...</td><td>20</td></tr></tbody></table>"
                   }
                   `;
                 break;
@@ -413,17 +430,28 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
             const formatAIContent = (content) => {
                 if (!content) return '';
                 if (typeof content === 'string') return content;
+                
+                // Handle Arrays (Hooks, Rubrics, etc.)
                 if (Array.isArray(content)) {
                     return content.map(item => {
+                        // Simple string array
                         if (typeof item === 'string') return `• ${item}`;
+                        
+                        // Rubric Object
                         if (item.criteria && item.description) {
                              return `<tr><td><strong>${item.criteria}</strong></td><td>${item.description}</td><td>${item.points}</td></tr>`;
                         }
+                        
+                        // Activity/Hook Object (Title + Content + Instructions)
                         const title = item.title || item.name || 'Activity';
-                        const desc = item.description || item.content || '';
-                        return `### ${title}\n${desc}`;
+                        const body = item.content || item.description || ''; 
+                        const steps = item.instructions || '';
+                        
+                        // Render with Markdown support for the body content
+                        return `### ${title}\n\n${body ? `> ${body}\n\n` : ''}${steps}`;
                     }).join('\n\n');
                 }
+                
                 if (typeof content === 'object') {
                     if (content.instructions) {
                         return `${content.instructions}\n\n${content.materials ? `**Materials:** ${content.materials}` : ''}`;
@@ -453,7 +481,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                 return html.replace(/^<p>|<\/p>\n?$/g, ''); 
             };
 
-            // ... [Keep existing EXPLORE logic] ...
+            // ... [EXPLORE SECTION] ...
             const explore = components.find(c => c.type === 'explore');
             if (explore) {
                 const unitOverview = formatAIContent(explore.unitOverview);
@@ -470,7 +498,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                 </td></tr>`;
             }
 
-            // ... [Keep renderCompetencyRow Logic] ...
+            // ... [renderCompetencyRow] ...
             const renderCompetencyRow = (item) => {
                 const inPersonInstructions = formatAIContent(item.inPersonActivity?.instructions);
                 const onlineInstructions = formatAIContent(item.onlineActivity?.instructions);
@@ -507,7 +535,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                 </tr>`;
             };
 
-            // ... [Keep FIRM-UP, DEEPEN, TRANSFER logic same as original] ...
+            // ... [FIRM UP, DEEPEN, TRANSFER] ...
             const firmUpItems = components.filter(c => c.type === 'firmUp').sort((a,b) => a.code.localeCompare(b.code));
             if (firmUpItems.length > 0) {
                 tbody += `<tr><td colspan='2' style='background-color: #f0f0f0; font-weight: bold; padding: 10px; border: 1px solid black;'>FIRM-UP (ACQUISITION)</td></tr>`;
@@ -526,7 +554,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                 transferItems.forEach(item => tbody += renderCompetencyRow(item));
             }
 
-            // ... [Keep SYNTHESIS logic] ...
+            // ... [SYNTHESIS] ...
             const synthesis = components.find(c => c.type === 'synthesis');
             if (synthesis) {
                 tbody += `
@@ -534,12 +562,10 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                 <tr><td colspan='2' style='padding: 10px; border: 1px solid black;'>${renderMd(synthesis.summary)}</td></tr>`;
             }
 
-            // --- UPDATED PERFORMANCE TASK LOGIC ---
+            // ... [PERFORMANCE TASK] ...
             const performanceTask = components.find(c => c.type === 'performanceTask');
             if (performanceTask) {
                 const { graspsTask, rubric } = performanceTask;
-            
-                // Check if rubric is already an HTML string from AI, or an array needing conversion
                 let rubricHtml = '';
                 if (typeof rubric === 'string' && rubric.includes('<table')) {
                     rubricHtml = rubric;
@@ -564,13 +590,22 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                 </td></tr>`;
             }
         
-            // --- INJECT THE SPECIFIC CSS REQUESTED ---
+            // --- UPDATED CSS ---
             const globalStyle = `
             <style>
+                /* Main Structure */
                 table.main-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 1em; }
-                table.main-table th, table.main-table td { word-wrap: break-word; overflow-wrap: break-word; border: 1px solid black; padding: 8px; vertical-align: top; }
+                table.main-table th, table.main-table td { 
+                    word-wrap: break-word; 
+                    overflow-wrap: break-word; 
+                    word-break: break-word; /* Prevents overflow */
+                    hyphens: auto;          /* Smoother wrapping */
+                    border: 1px solid black; 
+                    padding: 8px; 
+                    vertical-align: top; 
+                }
             
-                /* Styles for inner content tables */
+                /* Inner Table Structure */
                 td table { 
                     width: 100% !important; 
                     table-layout: fixed !important; 
@@ -592,6 +627,17 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                     text-align: left !important;
                 }
 
+                /* MATH & EQUATION DISPLAY FIXES */
+                table.main-table td { line-height: 1.6 !important; }
+                
+                table.inner-table td, 
+                table.main-table td {
+                    padding-top: 10px !important;
+                    padding-bottom: 10px !important;
+                }
+
+                .katex, .MathJax { font-size: 1.1em !important; }
+
                 /* Styles specifically for 'inner-table' class */
                 .inner-table {
                     width: 100% !important;
@@ -602,7 +648,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                 }
                 .inner-table th, .inner-table td {
                     border: 1px solid #999 !important;
-                    padding: 6px 8px !important;
+                    padding: 8px !important;
                     background: white !important;
                     vertical-align: middle !important;
                     color: #000 !important;
