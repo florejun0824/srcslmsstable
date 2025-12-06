@@ -10,76 +10,14 @@ import ProgressIndicator from '../common/ProgressIndicator';
 import SourceContentSelector from '../../hooks/SourceContentSelector';
 import { marked } from 'marked';
 
-// --- ROBUST TABLE HEALER (ENHANCED V2) ---
-// Fixes indentation (code block issue) and wrapped lines
-function healBrokenMarkdownTables(text) {
-    if (!text || typeof text !== "string") return text;
+// --- CONSTANTS ---
+const PH_GRADE_LEVELS = [
+    "Kindergarten",
+    "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6",
+    "Grade 7", "Grade 8", "Grade 9", "Grade 10",
+    "Grade 11 (Senior High)", "Grade 12 (Senior High)"
+];
 
-    let lines = text.split('\n');
-    let healedLines = [];
-    let buffer = "";
-    let insideTable = false;
-
-    // Helper: Separator line |---| or |:---|
-    const isSeparator = (line) => /^\|?[\s:-]+\|[\s:-]+\|?$/.test(line.trim());
-    // Helper: Row start (starts with pipe)
-    const isRow = (line) => line.trim().startsWith('|');
-
-    for (let i = 0; i < lines.length; i++) {
-        let line = lines[i];
-        let trimmed = line.trim();
-
-        // 1. Detect Start of Table
-        // If we are not in a table, but the NEXT line is a separator, this line is the Header.
-        if (!insideTable && i + 1 < lines.length && isSeparator(lines[i + 1])) {
-            insideTable = true;
-            // Markdown requires a blank line before a table. Ensure we have one.
-            if (healedLines.length > 0 && healedLines[healedLines.length - 1].trim() !== '') {
-                healedLines.push(''); 
-            }
-        }
-
-        if (insideTable) {
-            // 2. End of Table Detection (Empty line)
-            if (trimmed === '') {
-                if (buffer) { healedLines.push(buffer); buffer = ""; }
-                insideTable = false;
-                healedLines.push(line);
-                continue;
-            }
-
-            // 3. Process Table Content
-            if (isRow(line) || isSeparator(line)) {
-                // If we have a buffer (previous row), push it now
-                if (buffer) {
-                    healedLines.push(buffer);
-                }
-                // Start buffering this row. 
-                // CRITICAL FIX: Use 'trimmed' to strip indentation so it doesn't render as a Code Block.
-                buffer = trimmed;
-            } else {
-                // Line does NOT start with pipe. It is likely a wrapped cell text.
-                // Append to buffer with a space.
-                if (buffer) {
-                    buffer += " " + trimmed;
-                } else {
-                    // Edge case: content inside table block that isn't a row and we have no buffer?
-                    // Treat as end of table/normal text to be safe.
-                    insideTable = false;
-                    healedLines.push(line);
-                }
-            }
-        } else {
-            healedLines.push(line);
-        }
-    }
-    // Flush lingering buffer
-    if (buffer) healedLines.push(buffer);
-
-    return healedLines.join('\n');
-}
-
-// --- SRCS Core Values Definition ---
 const SRCS_VALUES_CONTEXT = `
 **SRCS CORE VALUES (San Ramon Catholic School):**
 1. **Pro-God:** Recognizing God in ourselves/others; striving to manifest God's will.
@@ -148,7 +86,11 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
     const [allSubjects, setAllSubjects] = useState([]);
     const [unitsForSubject, setUnitsForSubject] = useState([]);
     const [lessonsForUnit, setLessonsForUnit] = useState([]);
+    
+    // Updated State Defaults
     const [selectedLanguage, setSelectedLanguage] = useState('English');
+    const [selectedGradeLevel, setSelectedGradeLevel] = useState('Grade 7'); // Default
+    
     const [selectedSubjectId, setSelectedSubjectId] = useState(subjectId || '');
     const [selectedUnitIds, setSelectedUnitIds] = useState(new Set(initialUnitId ? [initialUnitId] : []));
     const [isGenerating, setIsGenerating] = useState(false);
@@ -281,170 +223,165 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
       **OUTPUT FIELD:** "valuesIntegration": { "value": "Name", "integration": "Conversational paragraph..." }
       `;
 
+      // --- UPDATED COMMON RULES WITH GRADE LEVEL ALIGNMENT ---
       const commonRules = `
       **ROLE:** You are a Master Curriculum Developer and Theologian for San Ramon Catholic School (SRCS). 
-      **TONE:** Your "Support Discussions" must be deep, insightful, and pedagogical. Do not be superficial. Treat the teacher reading this as a professional who needs deep background knowledge.
+      **TONE:** Your "Support Discussions" must be deep, insightful, and pedagogical.
       
       **INPUTS:**
       - Standards: ${context.contentStandard} / ${context.performanceStandard}
       - Content Source: ${context.sourceLessonTitles}
       - Language: ${context.language}
+      - **GRADE LEVEL:** ${context.gradeLevel} (Philippines K-12 Context)
 
       ${contextInjection}
       ${verbosityRules}
       ${valuesRule}
 
+      **GRADE LEVEL ALIGNMENT INSTRUCTION (CRITICAL):**
+      You are writing for **${context.gradeLevel}** students in the Philippines.
+      - **Vocabulary:** Must be age-appropriate. (e.g., Simple for Grade 1, Academic for Grade 12).
+      - **Activity Complexity:** Ensure tasks are cognitively appropriate for this age group.
+      - **Examples:** Use local Filipino examples or context where relevant to the grade level.
+
       **STRICT TABLE RULE (CRITICAL):**
-      When generating Markdown tables in the JSON string:
-      1. Ensure EVERY row starts and ends with a pipe character (|).
-      2. **NEVER** use line breaks (\\n) inside a table row. Keep all content for a single row on ONE line.
-      3. Always insert a double newline (\\n\\n) before starting a table.
-      4. **DO NOT INDENT** the table. Start tables at the beginning of the line.
+      **DO NOT USE MARKDOWN TABLES (pipes |...|).** They break the layout.
+      For ANY tabular data (worksheets, rubrics, scenarios, charts), you **MUST** use valid HTML format with the class 'inner-table':
+      
+      Example:
+      <table class="inner-table">
+        <thead>
+          <tr><th>Header 1</th><th>Header 2</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Content A</td><td>Content B</td></tr>
+        </tbody>
+      </table>
 
       **TECHNICAL RULES:**
       1. **OUTPUT:** Valid JSON object ONLY.
       2. **ESCAPING:** Escape double quotes inside strings (\\").
-      3. **FORMATTING:** Use \\n for line breaks inside strings.
+      3. **FORMATTING:** Use \\n for line breaks inside text, but keep HTML tags clean.
       `;
-
+      
       switch (type) {
-        case 'explore':
-          prompt = `
-            ${commonRules}
-            **TASK:** Generate "Explore" (Diagnosis/Hook).
-            **JSON STRUCTURE:**
-            {
-            "type": "explore",
-            "lessonsList": "Bulleted list of lessons in this unit.",
-            "unitOverview": "2 paragraphs. First: engaging welcome. Second: summary of the journey.",
-            "hookedActivities": "Create 2 DISTINCT activities. For each: Title, Description, Detailed Step-by-Step Instructions (4+ steps), and Materials List.",
-            "mapOfConceptualChange": "Detailed instructions for a diagnostic activity (e.g., KWL, IRF). Include the exact column headers or questions students will answer.",
-            "essentialQuestions": ["EQ1 (Deep/Philosophical)", "EQ2", "EQ3"]
-            }
-            `;
-          break;
+              case 'explore':
+                prompt = `
+                  ${commonRules}
+                  **TASK:** Generate "Explore" (Diagnosis/Hook).
+                  **JSON STRUCTURE:**
+                  {
+                  "type": "explore",
+                  "lessonsList": "Bulleted list of lessons.",
+                  "unitOverview": "2 paragraphs welcome/summary tailored to ${context.gradeLevel}.",
+                  "hookedActivities": "2 DISTINCT activities. Title, Description, Steps.",
+                  "mapOfConceptualChange": "Instructions for diagnostic activity.",
+                  "essentialQuestions": ["EQ1", "EQ2", "EQ3"]
+                  }
+                  `;
+                break;
 
-        case 'firmUp':
-          prompt = `
-            ${commonRules}
-            **TASK:** Generate "Firm-Up" (Acquisition) for: "${context.competency}" (${context.code}).
-            **FOCUS:** Acquisition of facts and skills. Scaffolds towards Meaning-Making.
+              case 'firmUp':
+                prompt = `
+                  ${commonRules}
+                  **TASK:** Generate "Firm-Up" (Acquisition) for: "${context.competency}" (${context.code}).
+                  **FOCUS:** Acquisition of facts and skills appropriate for ${context.gradeLevel}.
             
-            **SUPPORT DISCUSSION REQUIREMENT:** 1. **Checking for Understanding Questions:** 4-5 specific questions.
-            2. **In-Depth Discussion:** 2-3 substantial paragraphs explaining significance and connecting to life values.
+                  **JSON STRUCTURE:**
+                  {
+                  "type": "firmUp",
+                  "code": "${context.code}",
+                  "competency": "${context.competency}",
+                  "learningTargets": ["${iCan} define...", "${iCan} identify..."],
+                  "successIndicators": ["3 distinct bullet points."],
+                  "inPersonActivity": { 
+                      "instructions": "Title: [Name]\\n1. [Step 1]...\\n\\n**CONTENT FOR WORKSHEET:**\\n<table class='inner-table'><thead><tr><th>Column 1</th><th>Column 2</th></tr></thead><tbody><tr><td>Item 1</td><td>Detail 1</td></tr></tbody></table>", 
+                      "materials": "List." 
+                  },
+                  "onlineActivity": { "instructions": "Digital equivalent.", "materials": "Tools..." },
+                  "supportDiscussion": "**Checking for Understanding:**\\n1. [Q1]...\\n\\n**In-Depth Discussion:**\\n[Paragraphs]",
+                  "assessment": { "type": "Quiz", "content": "Matching or Multiple Choice. Use <table class='inner-table'> for matching columns." },
+                  "templates": "Definitions or flashcard text.",
+                  "valuesIntegration": { "value": "Value Name", "integration": "Conversational connection." }
+                  }
+                  `;
+                break;
 
-            **JSON STRUCTURE:**
-            {
-            "type": "firmUp",
-            "code": "${context.code}",
-            "competency": "${context.competency}",
-            "learningTargets": ["${iCan} define...", "${iCan} identify...", "${iCan} describe..."],
-            "successIndicators": ["3 distinct bullet points."],
-            "inPersonActivity": { 
-                "instructions": "Title: [Name]\\n1. [Step 1]\\n2. [Step 2]...\\n\\n**CONTENT FOR WORKSHEET:**\\n\\n| Column 1 | Column 2 |\\n|---|---|\\n| Item 1 | Detail 1 |\\n| Item 2 | Detail 2 |", 
-                "materials": "Detailed list." 
-            },
-            "onlineActivity": { "instructions": "Digital equivalent.", "materials": "Tools..." },
-            "supportDiscussion": "**Checking for Understanding Questions:**\\n1. [Question]...\\n\\n**In-Depth Discussion:**\\n[Write a rich, detailed explanation.]",
-            "assessment": { "type": "Quiz/Matching/Graphic Organizer", "content": "Write the actual questions/items here. USE MARKDOWN TABLE if matching." },
-            "templates": "Text content for any definitions/flashcards needed.",
-            "valuesIntegration": { "value": "Name of SRCS Value", "integration": "Conversational connection paragraph." }
-            }
-            `;
-          break;
-
-        case 'deepen':
-          prompt = `
-            ${commonRules}
-            **TASK:** Generate "Deepen" (Meaning-Making) for: "${context.competency}" (${context.code}).
-            **FOCUS:** Making Meaning, Analysis, Generalization.
-            **CRITICAL:** Use **Guided Generalization**. Generate specific "Scenario Cards" or "Case Studies".
+              case 'deepen':
+                prompt = `
+                  ${commonRules}
+                  **TASK:** Generate "Deepen" (Meaning-Making) for: "${context.competency}" (${context.code}).
+                  **CRITICAL:** Generate specific "Scenario Cards" or "Case Studies" using HTML TABLES. Ensure scenarios are relatable to a ${context.gradeLevel} student.
             
-            **SUPPORT DISCUSSION REQUIREMENT:** 1. **Detailed Summarization of Key Concepts:** 2 substantial paragraphs.
-            2. **In-Depth Elaboration:** 3-4 probing questions with Teacher Notes.
+                  **JSON STRUCTURE:**
+                  {
+                  "type": "deepen",
+                  "code": "${context.code}",
+                  "competency": "${context.competency}",
+                  "learningTargets": ["${iCan} analyze...", "${iCan} justify..."],
+                  "successIndicators": ["3 distinct indicators."],
+                  "inPersonActivity": { 
+                      "instructions": "Activity: [Name]\\nInstructions:\\n1. [Step]...\\n\\n**SCENARIO CARDS:**\\n<table class='inner-table'><thead><tr><th style='width:30%'>Card</th><th>Scenario</th></tr></thead><tbody><tr><td>Card 1</td><td>[Text]</td></tr></tbody></table>", 
+                      "materials": "List." 
+                  },
+                  "onlineActivity": { "instructions": "Instructions.", "materials": "Links..." },
+                  "supportDiscussion": "**Detailed Summarization:**\\n[Text]\\n\\n**In-Depth Elaboration:**\\n* [Question 1]",
+                  "assessment": { "type": "Case Analysis", "content": "Instructions." },
+                  "templates": "Worksheet structure.",
+                  "valuesIntegration": { "value": "Value Name", "integration": "Connection." }
+                  }
+                  `;
+                break;
+
+              case 'transfer':
+                prompt = `
+                  ${commonRules}
+                  **TASK:** Generate "Transfer" (Application) for: "${context.competency}" (${context.code}).
             
-            **JSON STRUCTURE:**
-            {
-            "type": "deepen",
-            "code": "${context.code}",
-            "competency": "${context.competency}",
-            "learningTargets": ["${iCan} analyze...", "${iCan} justify...", "${iCan} generalize..."],
-            "successIndicators": ["3 distinct indicators."],
-            "inPersonActivity": { 
-                "instructions": "Activity: [Name]\\nInstructions:\\n1. [Step]...\\n\\n**SCENARIO CARDS CONTENT:**\\n\\n| Card | Scenario |\\n|---|---|\\n| Card 1 | [Full text] |\\n| Card 2 | [Full text] |", 
-                "materials": "Scenario Cards, C-E-R Worksheet." 
-            },
-            "onlineActivity": { "instructions": "Instructions for breakout rooms/shared docs.", "materials": "Links..." },
-            "supportDiscussion": "**Detailed Summarization:**\\n[Text]\\n\\n**In-Depth Elaboration:**\\n* [Question 1]",
-            "assessment": { "type": "Case Analysis/Analogy/Diagram", "content": "Instructions for the varied assessment task." },
-            "templates": "Structure of the worksheet.",
-            "valuesIntegration": { "value": "Name of SRCS Value", "integration": "Conversational connection paragraph." }
-            }
-            `;
-          break;
+                  **JSON STRUCTURE:**
+                  {
+                  "type": "transfer",
+                  "code": "${context.code}",
+                  "competency": "${context.competency}",
+                  "learningTargets": ["${iCan} apply...", "${iCan} prepare..."],
+                  "successIndicators": ["3 indicators."],
+                  "inPersonActivity": { 
+                      "instructions": "Activity: [Name]\\nInstructions:\\n1. [Step]...\\n\\n**SELF-DIAGNOSIS WORKSHEET:**\\n<table class='inner-table'><thead><tr><th>Section</th><th>Prompt</th><th>Analysis</th></tr></thead><tbody><tr><td>1. Limitation</td><td>Describe...</td><td></td></tr></tbody></table>", 
+                      "materials": "List." 
+                  },
+                  "onlineActivity": { "instructions": "Digital equivalent.", "materials": "Tools..." },
+                  "supportDiscussion": "**Core Principles:**\\n[Text]\\n\\n**Practical Application:**\\n[Text]",
+                  "valuesIntegration": { "value": "Value Name", "integration": "Connection." }
+                  }
+                  `;
+                break;
 
-        case 'transfer':
-          prompt = `
-            ${commonRules}
-            **TASK:** Generate "Transfer" (Application) for: "${context.competency}" (${context.code}).
-            **GOAL:** Application in real-world situations.
-            
-            **SUPPORT DISCUSSION REQUIREMENT:** 1. **Core Behavioral Principles:** Psychology/spirituality behind behavior.
-            2. **Practical Application & Nuance:** Building psychological safety/unity.
-            3. **Transition:** Connect to Performance Task.
+              case 'synthesis':
+                prompt = `
+                  ${commonRules}
+                  **TASK:** Final Synthesis.
+                  **JSON STRUCTURE:** { "type": "synthesis", "summary": "3 Paragraphs summarizing the journey suitable for ${context.gradeLevel} reading level." }
+                  `;
+                break;
 
-            **JSON STRUCTURE:**
-            {
-            "type": "transfer",
-            "code": "${context.code}",
-            "competency": "${context.competency}",
-            "learningTargets": ["${iCan} apply...", "${iCan} prepare..."],
-            "successIndicators": ["3 distinct indicators."],
-            "inPersonActivity": { 
-                "instructions": "Activity: [Scaffold to Performance Task]\\nInstructions:\\n1. [Step]...\\n\\n**SCENARIOS/PROMPTS:**\\n[Specific content]", 
-                "materials": "Specific list." 
-            },
-            "onlineActivity": { "instructions": "Digital equivalent.", "materials": "Tools..." },
-            "supportDiscussion": "**Core Behavioral Principles:**\\n[Text]\\n\\n**Practical Application:**\\n[Text]\\n\\n**Transition:**\\n[Text]",
-            "valuesIntegration": { "value": "Name of SRCS Value", "integration": "Conversational connection paragraph." }
-            }
-            `;
-          break;
-
-        case 'synthesis':
-          prompt = `
-            ${commonRules}
-            **TASK:** Final Synthesis.
-            **JSON STRUCTURE:** { "type": "synthesis", "summary": "3 Paragraphs. 1. Summarize Explore/Firm-Up. 2. Summarize Deepen. 3. Summarize Transfer. Be inspiring." }
-            `;
-          break;
-
-        case 'performanceTask':
-          prompt = `
-            ${commonRules}
-            **TASK:** Unit Performance Task (GRASPS). Be very specific.
-            **JSON STRUCTURE:**
-            {
-            "type": "performanceTask",
-            "graspsTask": {
-                "goal": "Detailed goal statement.", 
-                "role": "Creative role name.", 
-                "audience": "Specific audience.", 
-                "situation": "Detailed paragraph describing the challenge/context.", 
-                "product": "Specific output description.", 
-                "standards": "Criteria for success."
-            },
-            "rubric": [
-                { "criteria": "Content Integration", "description": "Detailed description.", "points": "20" },
-                { "criteria": "Practicality/Feasibility", "description": "Detailed description.", "points": "15" },
-                { "criteria": "Creativity & Presentation", "description": "Detailed description.", "points": "15" }
-            ]
-            }
-            `;
-          break;
+              case 'performanceTask':
+                prompt = `
+                  ${commonRules}
+                  **TASK:** Unit Performance Task (GRASPS).
+                  **JSON STRUCTURE:**
+                  {
+                  "type": "performanceTask",
+                  "graspsTask": {
+                      "goal": "Goal.", "role": "Role.", "audience": "Audience.", 
+                      "situation": "Situation.", "product": "Product.", "standards": "Standards."
+                  },
+                  "rubric": "Generate the Rubric strictly as an HTML TABLE string: <table class='inner-table'><thead><tr><th>Criteria</th><th>Description</th><th>Points</th></tr></thead><tbody><tr><td>Content</td><td>Desc...</td><td>20</td></tr></tbody></table>"
+                  }
+                  `;
+                break;
         
-        default: return Promise.resolve(null);
-      }
+              default: return Promise.resolve(null);
+            }
 
       let retries = 0;
       while (retries < maxRetries) {
@@ -465,243 +402,232 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
 
     // --- HTML Assembler ---
     const assembleUlpFromComponents = (components) => {
-        let tbody = '';
+            let tbody = '';
 
-        marked.setOptions({
-            breaks: true,
-            gfm: true,
-        });
+            marked.setOptions({
+                breaks: true,
+                gfm: true,
+            });
 
-        // 1. Helper: Handle AI returning Objects/Arrays
-        const formatAIContent = (content) => {
-            if (!content) return '';
-            if (typeof content === 'string') return content;
-            if (Array.isArray(content)) {
-                return content.map(item => {
-                    if (typeof item === 'string') return `• ${item}`;
-                    const title = item.title || item.name || 'Activity';
-                    const desc = item.description || item.content || '';
-                    const steps = item.steps || item.instructions || '';
-                    const mats = item.materials || '';
-                    return `### ${title}\n${desc}\n${steps}\n${mats ? `**Materials:** ${mats}` : ''}`;
-                }).join('\n\n---\n\n');
-            }
-            if (typeof content === 'object') {
-                if (content.instructions) {
-                    return `${content.instructions}\n\n${content.materials ? `**Materials:** ${content.materials}` : ''}`;
+            // Helper: Handle AI returning Objects/Arrays
+            const formatAIContent = (content) => {
+                if (!content) return '';
+                if (typeof content === 'string') return content;
+                if (Array.isArray(content)) {
+                    return content.map(item => {
+                        if (typeof item === 'string') return `• ${item}`;
+                        if (item.criteria && item.description) {
+                             return `<tr><td><strong>${item.criteria}</strong></td><td>${item.description}</td><td>${item.points}</td></tr>`;
+                        }
+                        const title = item.title || item.name || 'Activity';
+                        const desc = item.description || item.content || '';
+                        return `### ${title}\n${desc}`;
+                    }).join('\n\n');
                 }
-                return Object.values(content).filter(v => typeof v === 'string').join('\n\n');
+                if (typeof content === 'object') {
+                    if (content.instructions) {
+                        return `${content.instructions}\n\n${content.materials ? `**Materials:** ${content.materials}` : ''}`;
+                    }
+                    return Object.values(content).filter(v => typeof v === 'string').join('\n\n');
+                }
+                return String(content);
+            };
+
+            const esc = (text) => (text == null ? '' : String(text)).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+            const renderMd = (input) => {
+                let text = typeof input === 'string' ? input : formatAIContent(input);
+                if (!text) return '';
+                text = text.replace(/\r\n/g, '\n');
+                try {
+                    return marked.parse(text);
+                } catch (e) {
+                    console.error("Markdown parsing error:", e);
+                    return text;
+                }
+            };
+
+            const renderInlineMd = (text) => {
+                if (!text) return '';
+                const html = renderMd(text);
+                return html.replace(/^<p>|<\/p>\n?$/g, ''); 
+            };
+
+            // ... [Keep existing EXPLORE logic] ...
+            const explore = components.find(c => c.type === 'explore');
+            if (explore) {
+                const unitOverview = formatAIContent(explore.unitOverview);
+                const mapOfConceptualChange = formatAIContent(explore.mapOfConceptualChange);
+                const hookedActivities = formatAIContent(explore.hookedActivities);
+
+                tbody += `
+                <tr><td colspan='2' style='background-color: #f0f0f0; font-weight: bold; padding: 10px; border: 1px solid black;'>EXPLORE</td></tr>
+                <tr><td colspan='2' style='padding: 10px; border: 1px solid black; vertical-align: top;'>
+                    <strong>Unit Overview:</strong><br/>${renderMd(unitOverview)}<br/><br/>
+                    <strong>Essential Questions:</strong><ul>${(explore.essentialQuestions || []).map(q => `<li>${renderInlineMd(q)}</li>`).join('')}</ul>
+                    <strong>Map of Conceptual Change:</strong><br/>${renderMd(mapOfConceptualChange)}<br/><br/>
+                    <strong>Hook Activities:</strong><br/>${renderMd(hookedActivities)}
+                </td></tr>`;
             }
-            return String(content);
-        };
 
-        const esc = (text) => (text == null ? '' : String(text)).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            // ... [Keep renderCompetencyRow Logic] ...
+            const renderCompetencyRow = (item) => {
+                const inPersonInstructions = formatAIContent(item.inPersonActivity?.instructions);
+                const onlineInstructions = formatAIContent(item.onlineActivity?.instructions);
+                const processing = formatAIContent(item.supportDiscussion);
 
-        // 2. Enhanced Markdown Renderer with Table Healer
-        const renderMd = (input) => {
-            let text = typeof input === 'string' ? input : formatAIContent(input);
-            if (!text) return '';
-
-            // A. HEAL THE TABLES FIRST (Critical Step)
-            // This fixes wrapped lines, missing pipes, AND strips indentation
-            text = healBrokenMarkdownTables(text);
-
-            // B. Standardize newlines
-            let safeText = text.replace(/\r\n/g, '\n');
-
-            // C. Dedent (Global check)
-            const lines = safeText.split('\n');
-            const minIndent = lines.reduce((min, line) => {
-                if (line.trim().length === 0) return min;
-                const indent = line.match(/^\s*/)[0].length;
-                return Math.min(min, indent);
-            }, Infinity);
-            if (minIndent !== Infinity && minIndent > 0) {
-                safeText = lines.map(line => line.substring(minIndent)).join('\n');
-            }
-
-            // D. Table Protector (Double newline enforcement)
-            safeText = safeText.replace(/^([^|].*)\n(\|.*)$/gm, '$1\n\n$2');
-
-            try {
-                return marked.parse(safeText);
-            } catch (e) {
-                console.error("Markdown parsing error:", e);
-                return text;
-            }
-        };
-
-        const renderInlineMd = (text) => {
-            if (!text) return '';
-            const html = renderMd(text);
-            return html.replace(/^<p>|<\/p>\n?$/g, ''); 
-        };
-
-        // --- 1. EXPLORE ---
-        const explore = components.find(c => c.type === 'explore');
-        if (explore) {
-            const unitOverview = formatAIContent(explore.unitOverview);
-            const mapOfConceptualChange = formatAIContent(explore.mapOfConceptualChange);
-            const hookedActivities = formatAIContent(explore.hookedActivities);
-
-            tbody += `
-            <tr><td colspan='2' style='background-color: #f0f0f0; font-weight: bold; padding: 10px; border: 1px solid black;'>EXPLORE</td></tr>
-            <tr><td colspan='2' style='padding: 10px; border: 1px solid black; vertical-align: top;'>
-                <strong>Unit Overview:</strong><br/>${renderMd(unitOverview)}<br/><br/>
-                <strong>Essential Questions:</strong><ul>${(explore.essentialQuestions || []).map(q => `<li>${renderInlineMd(q)}</li>`).join('')}</ul>
-                <strong>Map of Conceptual Change:</strong><br/>${renderMd(mapOfConceptualChange)}<br/><br/>
-                <strong>Hook Activities:</strong><br/>${renderMd(hookedActivities)}
-            </td></tr>`;
-        }
-
-        // --- Helper for Competency Rows ---
-        const renderCompetencyRow = (item) => {
-            const inPersonInstructions = formatAIContent(item.inPersonActivity?.instructions);
-            const onlineInstructions = formatAIContent(item.onlineActivity?.instructions);
-            const processing = formatAIContent(item.supportDiscussion);
-
-            const learningFocus = `
-                <strong>${esc(item.code)}</strong><br/>
-                ${esc(item.competency)}<br/><br/>
-                <strong>Learning Targets:</strong><ul>${(item.learningTargets || []).map(t => `<li>${renderInlineMd(t)}</li>`).join('')}</ul>
-                <strong>Success Indicators:</strong><ul>${(item.successIndicators || []).map(i => `<li>${renderInlineMd(i)}</li>`).join('')}</ul>`;
+                const learningFocus = `
+                    <strong>${esc(item.code)}</strong><br/>
+                    ${esc(item.competency)}<br/><br/>
+                    <strong>Learning Targets:</strong><ul>${(item.learningTargets || []).map(t => `<li>${renderInlineMd(t)}</li>`).join('')}</ul>
+                    <strong>Success Indicators:</strong><ul>${(item.successIndicators || []).map(i => `<li>${renderInlineMd(i)}</li>`).join('')}</ul>`;
             
-            const learningExperience = `
-                <strong>In-Person Activity:</strong><br/>${renderMd(inPersonInstructions)}<br/>
-                <div style="margin-top: 8px; font-style: italic;">
-                    <strong>Materials:</strong> 
-                    <div style="display:inline-block; vertical-align:top;">${renderMd(item.inPersonActivity?.materials)}</div>
-                </div><br/>
+                const learningExperience = `
+                    <strong>In-Person Activity:</strong><br/>${renderMd(inPersonInstructions)}<br/>
+                    <div style="margin-top: 8px; font-style: italic;">
+                        <strong>Materials:</strong> 
+                        <div style="display:inline-block; vertical-align:top;">${renderMd(item.inPersonActivity?.materials)}</div>
+                    </div><br/>
                 
-                <strong>Online Activity:</strong><br/>${renderMd(onlineInstructions)}<br/><br/>
+                    <strong>Online Activity:</strong><br/>${renderMd(onlineInstructions)}<br/><br/>
                 
-                ${processing ? `<strong>Processing/Discussion:</strong><br/>${renderMd(processing)}<br/><br/>` : ''}
+                    ${processing ? `<strong>Processing/Discussion:</strong><br/>${renderMd(processing)}<br/><br/>` : ''}
                 
-                ${item.valuesIntegration ? `<div style='margin-top: 15px; padding: 15px; background-color: #f0fdf4 !important; color: #14532d !important; border-left: 4px solid #16a34a; border-radius: 6px;'>
-                    <strong style="display:block; margin-bottom:5px; font-size:1.1em;">🌿 SRCS Values Connection: ${esc(item.valuesIntegration.value)}</strong>
-                    <span style="font-style:italic; line-height:1.6;">${renderMd(item.valuesIntegration.integration)}</span>
-                </div><br/>` : ''}
+                    ${item.valuesIntegration ? `<div style='margin-top: 15px; padding: 15px; background-color: #f0fdf4 !important; color: #14532d !important; border-left: 4px solid #16a34a; border-radius: 6px;'>
+                        <strong style="display:block; margin-bottom:5px; font-size:1.1em;">🌿 SRCS Values Connection: ${esc(item.valuesIntegration.value)}</strong>
+                        <span style="font-style:italic; line-height:1.6;">${renderMd(item.valuesIntegration.integration)}</span>
+                    </div><br/>` : ''}
                 
-                ${item.assessment ? `<strong>Assessment (${esc(item.assessment.type)}):</strong><br/>${renderMd(item.assessment.content)}` : ''}
-                ${item.templates ? `<br/><strong>Templates/Resources:</strong><br/>${renderMd(item.templates)}` : ''}`;
+                    ${item.assessment ? `<strong>Assessment (${esc(item.assessment.type)}):</strong><br/>${renderMd(item.assessment.content)}` : ''}
+                    ${item.templates ? `<br/><strong>Templates/Resources:</strong><br/>${renderMd(item.templates)}` : ''}`;
 
-            return `<tr>
-                <td style='width: 35%; padding: 10px; border: 1px solid black; vertical-align: top;'>${learningFocus}</td>
-                <td style='width: 65%; padding: 10px; border: 1px solid black; vertical-align: top;'>${learningExperience}</td>
-            </tr>`;
-        };
+                return `<tr>
+                    <td style='width: 35%; padding: 10px; border: 1px solid black; vertical-align: top;'>${learningFocus}</td>
+                    <td style='width: 65%; padding: 10px; border: 1px solid black; vertical-align: top;'>${learningExperience}</td>
+                </tr>`;
+            };
 
-        // --- 2. FIRM-UP ---
-        const firmUpItems = components.filter(c => c.type === 'firmUp').sort((a,b) => a.code.localeCompare(b.code));
-        if (firmUpItems.length > 0) {
-            tbody += `<tr><td colspan='2' style='background-color: #f0f0f0; font-weight: bold; padding: 10px; border: 1px solid black;'>FIRM-UP (ACQUISITION)</td></tr>`;
-            firmUpItems.forEach(item => tbody += renderCompetencyRow(item));
-        }
+            // ... [Keep FIRM-UP, DEEPEN, TRANSFER logic same as original] ...
+            const firmUpItems = components.filter(c => c.type === 'firmUp').sort((a,b) => a.code.localeCompare(b.code));
+            if (firmUpItems.length > 0) {
+                tbody += `<tr><td colspan='2' style='background-color: #f0f0f0; font-weight: bold; padding: 10px; border: 1px solid black;'>FIRM-UP (ACQUISITION)</td></tr>`;
+                firmUpItems.forEach(item => tbody += renderCompetencyRow(item));
+            }
 
-        // --- 3. DEEPEN ---
-        const deepenItems = components.filter(c => c.type === 'deepen').sort((a,b) => a.code.localeCompare(b.code));
-        if (deepenItems.length > 0) {
-            tbody += `<tr><td colspan='2' style='background-color: #f0f0f0; font-weight: bold; padding: 10px; border: 1px solid black;'>DEEPEN (MEANING-MAKING)</td></tr>`;
-            deepenItems.forEach(item => tbody += renderCompetencyRow(item));
-        }
+            const deepenItems = components.filter(c => c.type === 'deepen').sort((a,b) => a.code.localeCompare(b.code));
+            if (deepenItems.length > 0) {
+                tbody += `<tr><td colspan='2' style='background-color: #f0f0f0; font-weight: bold; padding: 10px; border: 1px solid black;'>DEEPEN (MEANING-MAKING)</td></tr>`;
+                deepenItems.forEach(item => tbody += renderCompetencyRow(item));
+            }
 
-        // --- 4. TRANSFER ---
-        const transferItems = components.filter(c => c.type === 'transfer').sort((a,b) => a.code.localeCompare(b.code));
-        if (transferItems.length > 0) {
-            tbody += `<tr><td colspan='2' style='background-color: #f0f0f0; font-weight: bold; padding: 10px; border: 1px solid black;'>TRANSFER (APPLICATION)</td></tr>`;
-            transferItems.forEach(item => tbody += renderCompetencyRow(item));
-        }
+            const transferItems = components.filter(c => c.type === 'transfer').sort((a,b) => a.code.localeCompare(b.code));
+            if (transferItems.length > 0) {
+                tbody += `<tr><td colspan='2' style='background-color: #f0f0f0; font-weight: bold; padding: 10px; border: 1px solid black;'>TRANSFER (APPLICATION)</td></tr>`;
+                transferItems.forEach(item => tbody += renderCompetencyRow(item));
+            }
 
-        // --- 5. SYNTHESIS ---
-        const synthesis = components.find(c => c.type === 'synthesis');
-        if (synthesis) {
-            tbody += `
-            <tr><td colspan='2' style='background-color: #f0f0f0; font-weight: bold; padding: 10px; border: 1px solid black;'>FINAL SYNTHESIS</td></tr>
-            <tr><td colspan='2' style='padding: 10px; border: 1px solid black;'>${renderMd(synthesis.summary)}</td></tr>`;
-        }
+            // ... [Keep SYNTHESIS logic] ...
+            const synthesis = components.find(c => c.type === 'synthesis');
+            if (synthesis) {
+                tbody += `
+                <tr><td colspan='2' style='background-color: #f0f0f0; font-weight: bold; padding: 10px; border: 1px solid black;'>FINAL SYNTHESIS</td></tr>
+                <tr><td colspan='2' style='padding: 10px; border: 1px solid black;'>${renderMd(synthesis.summary)}</td></tr>`;
+            }
 
-        // --- 6. PERFORMANCE TASK ---
-        const performanceTask = components.find(c => c.type === 'performanceTask');
-        if (performanceTask) {
-            const { graspsTask, rubric } = performanceTask;
-            tbody += `
-            <tr><td colspan='2' style='background-color: #f0f0f0; font-weight: bold; padding: 10px; border: 1px solid black;'>PERFORMANCE TASK (GRASPS)</td></tr>
-            <tr><td colspan='2' style='padding: 10px; border: 1px solid black;'>
-                <p><strong>Goal:</strong> ${esc(graspsTask?.goal)}</p>
-                <p><strong>Role:</strong> ${esc(graspsTask?.role)}</p>
-                <p><strong>Audience:</strong> ${esc(graspsTask?.audience)}</p>
-                <p><strong>Situation:</strong> ${renderMd(graspsTask?.situation)}</p>
-                <p><strong>Product:</strong> ${esc(graspsTask?.product)}</p>
-                <p><strong>Standards:</strong> ${esc(graspsTask?.standards)}</p>
-                <hr/>
-                <strong>Rubric:</strong>
-                <ul>${(rubric || []).map(r => `<li><strong>${esc(r.criteria)} (${esc(String(r.points))}pts):</strong> ${renderInlineMd(r.description)}</li>`).join('')}</ul>
-            </td></tr>`;
-        }
+            // --- UPDATED PERFORMANCE TASK LOGIC ---
+            const performanceTask = components.find(c => c.type === 'performanceTask');
+            if (performanceTask) {
+                const { graspsTask, rubric } = performanceTask;
+            
+                // Check if rubric is already an HTML string from AI, or an array needing conversion
+                let rubricHtml = '';
+                if (typeof rubric === 'string' && rubric.includes('<table')) {
+                    rubricHtml = rubric;
+                } else if (Array.isArray(rubric)) {
+                     rubricHtml = `<table class='inner-table'><thead><tr><th>Criteria</th><th>Description</th><th>Points</th></tr></thead><tbody>
+                     ${rubric.map(r => `<tr><td><strong>${esc(r.criteria)}</strong></td><td>${renderInlineMd(r.description)}</td><td>${esc(String(r.points))}</td></tr>`).join('')}
+                     </tbody></table>`;
+                }
+
+                tbody += `
+                <tr><td colspan='2' style='background-color: #f0f0f0; font-weight: bold; padding: 10px; border: 1px solid black;'>PERFORMANCE TASK (GRASPS)</td></tr>
+                <tr><td colspan='2' style='padding: 10px; border: 1px solid black;'>
+                    <p><strong>Goal:</strong> ${esc(graspsTask?.goal)}</p>
+                    <p><strong>Role:</strong> ${esc(graspsTask?.role)}</p>
+                    <p><strong>Audience:</strong> ${esc(graspsTask?.audience)}</p>
+                    <p><strong>Situation:</strong> ${renderMd(graspsTask?.situation)}</p>
+                    <p><strong>Product:</strong> ${esc(graspsTask?.product)}</p>
+                    <p><strong>Standards:</strong> ${esc(graspsTask?.standards)}</p>
+                    <hr/>
+                    <strong>Rubric:</strong><br/>
+                    ${rubricHtml}
+                </td></tr>`;
+            }
         
-        const globalStyle = `
-        <style>
-            table.main-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 1em; }
-            table.main-table th, table.main-table td { word-wrap: break-word; overflow-wrap: break-word; border: 1px solid black; padding: 8px; vertical-align: top; }
+            // --- INJECT THE SPECIFIC CSS REQUESTED ---
+            const globalStyle = `
+            <style>
+                table.main-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 1em; }
+                table.main-table th, table.main-table td { word-wrap: break-word; overflow-wrap: break-word; border: 1px solid black; padding: 8px; vertical-align: top; }
             
-            /* Styles for inner content tables (from Markdown) */
-            td table { 
-                width: 100% !important; 
-                table-layout: fixed !important; /* Force fixed layout for inner tables */
-                word-wrap: break-word !important;
-                border-collapse: collapse !important; 
-                margin: 15px 0 !important; 
-                border: 1px solid #666 !important; 
-            }
-            td table th, td table td { 
-                border: 1px solid #999 !important; 
-                padding: 8px !important; 
-                background-color: #fff !important;
-                color: #000 !important;
-                vertical-align: middle !important;
-            }
-            td table th {
-                background-color: #f3f4f6 !important; 
-                font-weight: bold !important;
-                text-align: left !important;
-            }
+                /* Styles for inner content tables */
+                td table { 
+                    width: 100% !important; 
+                    table-layout: fixed !important; 
+                    word-wrap: break-word !important;
+                    border-collapse: collapse !important; 
+                    margin: 15px 0 !important; 
+                    border: 1px solid #666 !important; 
+                }
+                td table th, td table td { 
+                    border: 1px solid #999 !important; 
+                    padding: 8px !important; 
+                    background-color: #fff !important;
+                    color: #000 !important;
+                    vertical-align: middle !important;
+                }
+                td table th {
+                    background-color: #f3f4f6 !important; 
+                    font-weight: bold !important;
+                    text-align: left !important;
+                }
 
-            /* Styles specifically for 'inner-table' class if manually applied */
-            .inner-table {
-                width: 100% !important;
-                border-collapse: collapse !important;
-                table-layout: fixed !important;
-                margin: 12px 0 !important;
-                border: 1px solid #666 !important;
-            }
-            .inner-table th, .inner-table td {
-                border: 1px solid #999 !important;
-                padding: 6px 8px !important;
-                background: white !important;
-                vertical-align: middle !important;
-                color: #000 !important;
-            }
-            .inner-table th {
-                background: #f3f4f6 !important;
-                font-weight: bold !important;
-            }
+                /* Styles specifically for 'inner-table' class */
+                .inner-table {
+                    width: 100% !important;
+                    border-collapse: collapse !important;
+                    table-layout: fixed !important;
+                    margin: 12px 0 !important;
+                    border: 1px solid #666 !important;
+                }
+                .inner-table th, .inner-table td {
+                    border: 1px solid #999 !important;
+                    padding: 6px 8px !important;
+                    background: white !important;
+                    vertical-align: middle !important;
+                    color: #000 !important;
+                }
+                .inner-table th {
+                    background: #f3f4f6 !important;
+                    font-weight: bold !important;
+                }
 
-            ul, ol { margin-top: 0; margin-bottom: 8px; padding-left: 20px; }
-            li { margin-bottom: 4px; }
-            p { margin-top: 0; margin-bottom: 10px; }
-            img { max-width: 100%; height: auto; }
-            * { box-sizing: border-box; }
-        </style>`;
+                ul, ol { margin-top: 0; margin-bottom: 8px; padding-left: 20px; }
+                li { margin-bottom: 4px; }
+                p { margin-top: 0; margin-bottom: 10px; }
+                img { max-width: 100%; height: auto; }
+                * { box-sizing: border-box; }
+            </style>`;
 
-        return `${globalStyle}
-        <table class='main-table' style='width: 100%; table-layout: fixed; word-wrap: break-word; border-collapse: collapse; font-family: Arial, sans-serif; font-size: 14px; border: 1px solid black;'>
-            <thead><tr>
-                <th style='border: 1px solid black; background-color: #d0d0d0; padding: 10px; text-align: left; width: 35%;'>Learning Focus</th>
-                <th style='border: 1px solid black; background-color: #d0d0d0; padding: 10px; text-align: left; width: 65%;'>Learning Experience</th>
-            </tr></thead>
-            <tbody>${tbody}</tbody>
-        </table>`;
-    };
+            return `${globalStyle}
+            <table class='main-table' style='width: 100%; table-layout: fixed; word-wrap: break-word; border-collapse: collapse; font-family: Arial, sans-serif; font-size: 14px; border: 1px solid black;'>
+                <thead><tr>
+                    <th style='border: 1px solid black; background-color: #d0d0d0; padding: 10px; text-align: left; width: 35%;'>Learning Focus</th>
+                    <th style='border: 1px solid black; background-color: #d0d0d0; padding: 10px; text-align: left; width: 65%;'>Learning Experience</th>
+                </tr></thead>
+                <tbody>${tbody}</tbody>
+            </table>`;
+        };
 
     // --- Main Generation Handler (SEQUENTIAL FOR CONTEXT) ---
     const handleGenerate = async () => {
@@ -758,6 +684,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                 performanceStandard: inputs.performanceStandard,
                 sourceLessonTitles: sourceInfo.lessonTitles.join('\n'),
                 language: selectedLanguage,
+                gradeLevel: selectedGradeLevel, // PASS GRADE LEVEL TO GENERATOR
             };
 
             const sectionsQueue = [
@@ -891,15 +818,30 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                                                 <label className={iosLabel}>Learning Competencies</label>
                                                 <textarea name="learningCompetencies" value={inputs.learningCompetencies} onChange={handleInputChange} className={iosInput} rows={4} placeholder="Paste competencies here..." />
                                             </div>
-                                            <div>
-                                                <label className={iosLabel}>Language</label>
-                                                <div className="relative">
-                                                    <select value={selectedLanguage} onChange={(e) => setSelectedLanguage(e.target.value)} className={`${iosInput} appearance-none`}>
-                                                        <option>English</option>
-                                                        <option>Filipino</option>
-                                                    </select>
-                                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className={iosLabel}>Language</label>
+                                                    <div className="relative">
+                                                        <select value={selectedLanguage} onChange={(e) => setSelectedLanguage(e.target.value)} className={`${iosInput} appearance-none`}>
+                                                            <option>English</option>
+                                                            <option>Filipino</option>
+                                                        </select>
+                                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <label className={iosLabel}>Grade Level</label>
+                                                    <div className="relative">
+                                                        <select value={selectedGradeLevel} onChange={(e) => setSelectedGradeLevel(e.target.value)} className={`${iosInput} appearance-none`}>
+                                                            {PH_GRADE_LEVELS.map((grade) => (
+                                                                <option key={grade} value={grade}>{grade}</option>
+                                                            ))}
+                                                        </select>
+                                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
