@@ -260,14 +260,14 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
       **STRICT TABLE RULE (CRITICAL - READ CAREFULLY):**
       1. **NO MARKDOWN TABLES:** Do not use pipes (|).
       2. **USE HTML TABLES:** Use <table class='inner-table'>...</table>.
-      3. **NO MARKDOWN INSIDE HTML:** **DO NOT** use asterisks (**) for bolding inside the HTML table. It will not render.
-         - **CORRECT:** <td><strong>Seeking Wealth</strong></td>
-         - **WRONG:** <td>**Seeking Wealth**</td>
+      3. **HTML FORMATTING (REQUIRED):** - **Use <strong>text</strong>** for bolding inside tables. (Markdown **text** is IGNORED inside HTML tags).
+         - **Use <br>** for line breaks inside tables. (Markdown \\n is IGNORED inside HTML tags).
+         - **Example:** <td><strong>Key Concept</strong><br>Definition text.</td>
 
       **TECHNICAL RULES:**
       1. **OUTPUT:** Valid JSON object ONLY.
       2. **ESCAPING:** Escape double quotes inside strings (\\").
-      3. **FORMATTING:** Use \\n for line breaks inside text, but keep HTML tags clean.
+      3. **FORMATTING:** Use \\n for line breaks inside standard JSON text strings, but keep HTML tags clean.
       `;
       
       switch (type) {
@@ -578,12 +578,12 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                 tbody += `
                 <tr><td colspan='2' style='background-color: #f0f0f0; font-weight: bold; padding: 10px; border: 1px solid black;'>PERFORMANCE TASK (GRASPS)</td></tr>
                 <tr><td colspan='2' style='padding: 10px; border: 1px solid black;'>
-                    <p><strong>Goal:</strong> ${esc(graspsTask?.goal)}</p>
-                    <p><strong>Role:</strong> ${esc(graspsTask?.role)}</p>
-                    <p><strong>Audience:</strong> ${esc(graspsTask?.audience)}</p>
+                    <p><strong>Goal:</strong> ${renderInlineMd(graspsTask?.goal)}</p>
+                    <p><strong>Role:</strong> ${renderInlineMd(graspsTask?.role)}</p>
+                    <p><strong>Audience:</strong> ${renderInlineMd(graspsTask?.audience)}</p>
                     <p><strong>Situation:</strong> ${renderMd(graspsTask?.situation)}</p>
-                    <p><strong>Product:</strong> ${esc(graspsTask?.product)}</p>
-                    <p><strong>Standards:</strong> ${esc(graspsTask?.standards)}</p>
+                    <p><strong>Product:</strong> ${renderInlineMd(graspsTask?.product)}</p>
+                    <p><strong>Standards:</strong> ${renderInlineMd(graspsTask?.standards)}</p>
                     <hr/>
                     <strong>Rubric:</strong><br/>
                     ${rubricHtml}
