@@ -891,6 +891,13 @@
   will-change: opacity, transform;
 }
 
+.math-img {
+    display: inline-block;
+    background: #ffffff;
+    filter: none !important;
+    mix-blend-mode: normal !important;
+    image-rendering: auto;
+}
 
 
 /* ==========================================================================

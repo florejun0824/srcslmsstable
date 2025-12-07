@@ -22,8 +22,8 @@ import {
     CloudArrowUpIcon,
     ChevronRightIcon,
     FolderIcon,
-    XMarkIcon,       // Added
-    PlayCircleIcon   // Added
+    XMarkIcon,       
+    PlayCircleIcon   
 } from '@heroicons/react/24/solid';
 import {
     DndContext,
@@ -54,6 +54,7 @@ pdfMake.vfs = pdfFonts;
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { FileOpener } from '@capacitor-community/file-opener';
+
 
 // --- STYLES ---
 const performanceStyles = {
@@ -162,14 +163,36 @@ async function registerDejaVuFonts() {
 
 const processLatex = (text) => {
     if (!text) return '';
-    return text
+
+    let processed = text
         .replace(/\\degree/g, '°')
         .replace(/\\angle/g, '∠')
-        .replace(/\\vec\{(.*?)\}/g, (_, c) => c.split('').map(x => x + '\u20D7').join(''))
-        .replace(/\$\$(.*?)\$\$/g, '$1')
-        .replace(/\$(.*?)\$/g, '$1');
-};
+        .replace(/\\vec\{(.*?)\}/g, (_, c) => c.split('').map(x => x + '\u20D7').join(''));
 
+		const latexToImg = (match, code) => {
+		    const cleanCode = code.trim();
+
+		    // Render at exact final pixel size
+		    // 250 dpi visual sharpness ≈ 3× normal size
+		    const url = `https://latex.codecogs.com/png.latex?\\dpi{1080}\\bg_white\\color{black} ${encodeURIComponent(cleanCode)}`;
+
+		    return `<img src="${url}" class="math-img" />`;
+		};
+		
+
+
+    return processed
+        .replace(/\$\$(.*?)\$\$/g, latexToImg) 
+        .replace(/\$(.*?)\$/g, latexToImg);    
+};
+// --- NEW HELPER: Get Image Dimensions ---
+const getImageDimensions = (base64) => {
+    return new Promise((resolve) => {
+        const i = new Image();
+        i.onload = () => resolve({ w: i.naturalWidth, h: i.naturalHeight });
+        i.src = base64;
+    });
+};
 async function fetchImageAsBase64(url) {
   const res = await fetch(url);
   const blob = await res.blob();
@@ -219,7 +242,6 @@ const formatCellContent = (text) => {
 // --- HELPER: Smart Markdown Table Parser ---
 const forceParseMarkdownTable = (text) => {
     if (!text) return text;
-    // CRITICAL: Do not re-parse if it is already an HTML table
     if (text.includes('<table') && (text.includes('inner-table') || text.includes('border='))) return text;
 
     const lines = text.replace(/<br\s*\/?>/gi, '\n').split('\n');
@@ -229,7 +251,6 @@ const forceParseMarkdownTable = (text) => {
     const isRow = (line) => line.trim().startsWith('|') || (line.includes('|') && line.trim().length > 5);
     const isSeparator = (line) => /^\|?[\s:-]+\|[\s:-]+\|?$/.test(line.trim());
 
-    // Helper to render buffer
     const renderBuffer = (rows) => {
          if (!rows.length) return '';
          const normalizedRows = rows.map(r => {
@@ -245,7 +266,6 @@ const forceParseMarkdownTable = (text) => {
             return cells;
          });
 
-         // Force Explicit Border Attributes for HTML-to-DOCX
          let html = '<table border="1" cellpadding="5" cellspacing="0" style="width:100%; border-collapse: collapse; margin-bottom: 10px; border: 1px solid #000;"><tbody>';
          parsedRows.forEach(cells => {
             html += '<tr>';
@@ -280,13 +300,12 @@ const forceParseMarkdownTable = (text) => {
     return processedLines.join('\n');
 };
 
-// --- UPDATED HELPER: Pre-process HTML ---
+// --- HELPER: Pre-process HTML ---
 const preProcessHtmlForExport = (rawHtml, mode = 'pdf') => {
 
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = rawHtml;
 
-    // PHASE 1: Parse Markdown Tables
     const textNodes = document.createTreeWalker(tempDiv, NodeFilter.SHOW_TEXT, null, false);
     let node;
     const nodesToReplace = [];
@@ -306,7 +325,6 @@ const preProcessHtmlForExport = (rawHtml, mode = 'pdf') => {
         } catch (e) { console.warn("Markdown conversion error", e); }
     });
 
-    // PHASE 2: Clean Layouts & Images
     tempDiv.querySelectorAll('[style]').forEach(el => {
         let style = el.getAttribute('style') || '';
         style = style.replace(/(width|min-width|max-width):\s*[\d\.]+(px|pt|em|rem);?/gi, '');
@@ -321,11 +339,9 @@ const preProcessHtmlForExport = (rawHtml, mode = 'pdf') => {
         img.style.margin = '10px auto';
     });
 
-    // PHASE 3: AGGRESSIVE TABLE STYLING & HEADER RESTRUCTURING
     const tables = Array.from(tempDiv.querySelectorAll('table'));
 
     tables.forEach(table => {
-        // 1. Force attributes for DOCX
         table.setAttribute('border', '1');
         table.setAttribute('cellpadding', '5');
         table.setAttribute('cellspacing', '0');
@@ -336,7 +352,6 @@ const preProcessHtmlForExport = (rawHtml, mode = 'pdf') => {
         table.style.marginBottom = '10px';
         table.style.pageBreakInside = 'auto'; 
 
-        // --- NEW LOGIC: FORCE THEAD STRUCTURE ---
         const firstRow = table.querySelector('tr');
         const hasTh = firstRow && firstRow.querySelector('th');
         const hasThead = table.querySelector('thead');
@@ -358,7 +373,6 @@ const preProcessHtmlForExport = (rawHtml, mode = 'pdf') => {
             table.insertBefore(thead, table.firstChild);
         }
 
-        // 2. Process Headers (Apply the Magic Style)
         table.querySelectorAll("thead").forEach(thead => {
             thead.style.display = "table-header-group"; 
         });
@@ -372,14 +386,12 @@ const preProcessHtmlForExport = (rawHtml, mode = 'pdf') => {
             th.style.color = "#000";
         });
 
-        // 3. Process Cells & Nested Table Fixes
         table.querySelectorAll("td").forEach(td => {
             td.setAttribute('border', '1');
             td.style.border = "1px solid #000"; 
             td.style.padding = "5px";
             td.style.verticalAlign = "top";
             
-            // Nested Table Logic
             const hasNestedTable = td.querySelector('table');
             if (hasNestedTable) {
                 td.style.padding = "2px"; 
@@ -391,7 +403,6 @@ const preProcessHtmlForExport = (rawHtml, mode = 'pdf') => {
             }
         });
 
-        // 4. PDF ONLY: SPLITTING
         if (mode === 'ulp-pdf') { 
              const rows = Array.from(table.rows || []);
              const splitKeywords = [
@@ -454,7 +465,7 @@ const preProcessHtmlForExport = (rawHtml, mode = 'pdf') => {
     return tempDiv;
 };
 
-// --- HELPER: Sanitize PDF Structure (Fixes Crashes, Overflow & Whitespace) ---
+// --- HELPER: Sanitize PDF Structure ---
 const cleanUpPdfContent = (content, inTable = false, depth = 0) => {
     if (!content) return;
 
@@ -478,14 +489,28 @@ const cleanUpPdfContent = (content, inTable = false, depth = 0) => {
             }
             delete content.margin;
         }
-        if (content.image) {
-            const maxWidth = inTable ? 120 : 400; 
-            content.fit = [maxWidth, 600];
-            delete content.width; 
-            delete content.height;
-            content.alignment = 'center';
-            content.margin = [0, 5, 0, 5]; 
-        }
+		if (content.image) {
+			const isMath = content.style && (
+			                content.style === 'math-img' || 
+			                (Array.isArray(content.style) && content.style.includes('math-img'))
+			            );
+
+			            if (isMath) {
+			                if (!content.width || content.width === 'auto') {
+			                    content.width = 'auto'; 
+			                    content.fit = [100, 50]; 
+			                }
+			                content.margin = [0, 3, 0, 0]; 
+			                delete content.alignment;
+			            } else {
+			                const maxWidth = inTable ? 120 : 400; 
+			                content.fit = [maxWidth, 600];
+			                delete content.width; 
+			                delete content.height;
+			                content.alignment = 'center';
+			                content.margin = [0, 5, 0, 5]; 
+			            }
+					}
         else if (content.columns) {
             if (Array.isArray(content.columns)) {
                 content.columns = content.columns.filter(col => col);
@@ -691,7 +716,7 @@ const AddContentButton = ({ onAddLesson, onAddQuiz, monet, styles }) => {
     );
 };
 
-// --- NEW COMPONENT: EXPORT TUTORIAL MODAL ---
+// --- EXPORT TUTORIAL MODAL ---
 const ExportTutorialModal = ({ isOpen, onClose, onConfirm, monet }) => {
     if (!isOpen) return null;
 
@@ -702,7 +727,6 @@ const ExportTutorialModal = ({ isOpen, onClose, onConfirm, monet }) => {
                 flex flex-col
                 ${monet ? 'bg-[#1E212B] border border-white/10' : 'bg-white dark:bg-[#1E212B]'}
             `}>
-                {/* Modal Header */}
                 <div className="p-4 border-b border-gray-200 dark:border-white/10 flex justify-between items-center">
                     <h3 className={`text-lg font-bold flex items-center gap-2 ${monet ? 'text-white' : 'text-gray-900 dark:text-white'}`}>
                         <PlayCircleIcon className="w-6 h-6 text-blue-500" />
@@ -713,7 +737,6 @@ const ExportTutorialModal = ({ isOpen, onClose, onConfirm, monet }) => {
                     </button>
                 </div>
 
-                {/* Modal Body */}
                 <div className="p-6 overflow-y-auto max-h-[70vh]">
                     <div className="mb-4">
                         <p className={`text-sm mb-4 ${monet ? 'text-white/80' : 'text-gray-600 dark:text-gray-300'}`}>
@@ -722,7 +745,6 @@ const ExportTutorialModal = ({ isOpen, onClose, onConfirm, monet }) => {
                             <strong>Please watch this quick fix (10s)</strong> to enable "Repeat Header Rows".
                         </p>
                         
-                        {/* Video Player */}
                         <div className="relative w-full rounded-xl overflow-hidden bg-black aspect-video shadow-lg mb-4 ring-1 ring-white/10">
                             <video 
                                 src="/table tutorial.mp4" 
@@ -742,7 +764,6 @@ const ExportTutorialModal = ({ isOpen, onClose, onConfirm, monet }) => {
                     </div>
                 </div>
 
-                {/* Modal Footer */}
                 <div className="p-4 border-t border-gray-200 dark:border-white/10 flex justify-end gap-3 bg-gray-50 dark:bg-white/5">
                     <button 
                         onClick={onClose}
@@ -854,7 +875,7 @@ const SortableUnitListRow = memo(({ unit, onSelect, onAction, isReordering, inde
 
 
 // --- SORTABLE CONTENT (LESSON) ROW ---
-const SortableContentItem = memo(({ item, isReordering, onAction, exportingLessonId, isAiGenerating, monet, styles }) => {
+const SortableContentItem = memo(({ item, isReordering, onAction, exportingLessonId, isAiGenerating, monet, styles, isPdfDisabled }) => {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
         id: item.id, data: { type: item.type, unitId: item.unitId }, disabled: !isReordering,
     });
@@ -939,13 +960,15 @@ const SortableContentItem = memo(({ item, isReordering, onAction, exportingLesso
                             <MenuItem icon={PencilIcon} text="Edit" onClick={() => onAction('edit', item)} monet={monet} />
                             {isLesson && (
                                 <>
-                                    <MenuItem 
-                                        icon={exportingLessonId === item.id ? CloudArrowUpIcon : DocumentTextIcon} 
-                                        text={exportingLessonId === item.id ? "Exporting..." : "Export as PDF"} 
-                                        onClick={() => onAction('exportPdf', item)} 
-                                        loading={exportingLessonId === item.id} 
-                                        monet={monet} 
-                                    />
+                                    {!isPdfDisabled && (
+                                        <MenuItem 
+                                            icon={exportingLessonId === item.id ? CloudArrowUpIcon : DocumentTextIcon} 
+                                            text={exportingLessonId === item.id ? "Exporting..." : "Export as PDF"} 
+                                            onClick={() => onAction('exportPdf', item)} 
+                                            loading={exportingLessonId === item.id} 
+                                            monet={monet} 
+                                        />
+                                    )}
                                     <MenuItem 
                                         icon={exportingLessonId === item.id ? CloudArrowUpIcon : DocumentTextIcon} 
                                         text={exportingLessonId === item.id ? "Exporting..." : "Export as .docx"} 
@@ -972,7 +995,8 @@ const SortableContentItem = memo(({ item, isReordering, onAction, exportingLesso
     prev.item.subtitle === next.item.subtitle &&
     prev.isReordering === next.isReordering && 
     prev.exportingLessonId === next.exportingLessonId && 
-    prev.monet === next.monet
+    prev.monet === next.monet &&
+    prev.isPdfDisabled === next.isPdfDisabled
 );
 
 // --- MAIN COMPONENT ---
@@ -1016,6 +1040,24 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
     );
 
+    // --- CHECK FOR MATH 7-10 RESTRICTION ---
+    const isPdfRestricted = useMemo(() => {
+        if (!subject?.title) return false;
+        
+        const title = subject.title.toLowerCase();
+        
+        // 1. Check if it is a Mathematics subject
+        const isMath = title.includes('math'); 
+        
+        // 2. Check if it is Grade 7, 8, 9, or 10
+        // Matches "7", "8", "9", "10" as whole words (e.g., "Math 7", "Mathematics 10")
+        const isTargetGrade = /\b(7|8|9|10)\b/.test(title) || 
+                              (subject.gradeLevel && ['7','8','9','10'].includes(String(subject.gradeLevel)));
+
+        return isMath && isTargetGrade;
+    }, [subject]);
+    // ---------------------------------------
+
     useEffect(() => {
         if (!subject?.id) { setUnits([]); return; }
         if (onSetActiveUnit) { onSetActiveUnit(null); }
@@ -1041,29 +1083,28 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	        if (isExportingRef.current) return;
 	        isExportingRef.current = true;
 	        setExportingLessonId(lesson.id);
-    
+
 	        const isULP = lesson.contentType === 'teacherGuide';
 	        const isATG = lesson.contentType === 'teacherAtg';
 	        const isSpecialDoc = isULP || isATG;
 	        const docLabel = isULP ? "ULP" : (isATG ? "ATG" : "Lesson");
 	        const suffix = isULP ? "_ULP" : (isATG ? "_ATG" : "");
-            const pageSize = isSpecialDoc ? { width: 12240, height: 15840 } : 'A4'; // Approx 8.5x11 inches in twips (1440 twips/inch)
+	        const pageSize = isSpecialDoc ? { width: 12240, height: 15840 } : 'A4';
 
 	        showToast(`Generating ${docLabel} .docx...`, "info");
-    
+
 	        try {
 	            const lessonTitle = lesson.lessonTitle || lesson.title || 'document';
 	            const subjectTitle = subject?.title || "SRCS Learning Portal";
 	            const sanitizedFileName = (lessonTitle.replace(/[\\/:"*?<>|]+/g, '_') || 'document') + suffix + '.docx';
-            
-	            const headerBase64 = await fetchImageAsBase64("/header-port.png").catch(()=>null);
-	            const footerBase64 = await fetchImageAsBase64("/Footer.png").catch(()=>null);
+
+	            const headerBase64 = await fetchImageAsBase64("/header-port.png").catch(() => null);
+	            const footerBase64 = await fetchImageAsBase64("/Footer.png").catch(() => null);
 
 	            // -------------------------------------------------------------
-	            // ULP EXPORT LOGIC (html-docx-js-typescript)
+	            // ULP EXPORT LOGIC
 	            // -------------------------------------------------------------
 	            if (isULP || isATG) {
-	                // 1. Define Header/Footer Blocks
 	                const headerBlock = headerBase64 ? `
 	                    <div id="page-header" style="mso-element:header">
 	                        <p class=MsoHeader align=center style='text-align:center'>
@@ -1078,7 +1119,6 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	                        </p>
 	                    </div>` : '';
 
-	                // 2. Prepare Body Content
 	                const pages = Array.isArray(lesson.pages) && lesson.pages.length ? lesson.pages : [{ title: lesson.title || '', content: lesson.content || lesson.html || '' }];
 	                let mainContent = `
 	                    <div class="doc-meta" style="text-align: center; margin-bottom: 20px; font-family: 'Arial', sans-serif;">
@@ -1091,8 +1131,53 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 
 	                for (const page of pages) {
 	                    const cleanTitle = (page.title || '').replace(/^page\s*\d+\s*[:-]?\s*/i, '');
-	                    const processedContent = preProcessHtmlForExport(page.content || '', 'docx'); 
                     
+	                    // 1. Process LaTeX
+	                    const rawContent = processLatex(page.content || '');
+                    
+	                    // 2. Pre-process HTML
+	                    const processedContent = preProcessHtmlForExport(rawContent, 'docx');
+
+	// 3. FIX: SCALE MATH IMAGES DOWN & FIX INLINE DISPLAY
+	                    const mathImages = processedContent.querySelectorAll('img.math-img');
+	                    if (mathImages.length > 0) {
+	                        await Promise.all(Array.from(mathImages).map(async (img) => {
+	                            if (img.src && img.src.startsWith('http')) {
+	                                try {
+	                                    // 1. Force a lower DPI fetch to ensure Word doesn't see a huge bitmap
+	                                    // Replace 1080 dpi with 200 dpi in the URL
+	                                    let fetchUrl = img.src.replace(/dpi%7B1080%7D/g, 'dpi%7B200%7D')
+	                                                          .replace(/dpi\{1080\}/g, 'dpi{200}');
+                                    
+	                                    const base64 = await fetchImageAsBase64(fetchUrl);
+	                                    const { w, h } = await getImageDimensions(base64);
+
+	                                    // 2. CRITICAL: Wipe the styles added by preProcessHtmlForExport
+	                                    // This removes 'display: block', 'margin: 10px', and 'height: auto'
+	                                    img.removeAttribute('style');
+                                    
+	                                    // 3. Scale Factor (Since we fetched at 200 DPI, we only need small scaling)
+	                                    // 200 DPI / 96 DPI ≈ 2.1.  We use 2.5 to ensure it fits inline text.
+	                                    const scaleFactor = 2.5; 
+
+	                                    const scaledWidth = Math.max(1, Math.round(w / scaleFactor));
+	                                    const scaledHeight = Math.max(1, Math.round(h / scaleFactor));
+
+	                                    img.src = base64;
+                                    
+	                                    // 4. Set attributes AND inline styles for maximum compatibility
+	                                    img.setAttribute('width', scaledWidth);
+	                                    img.setAttribute('height', scaledHeight);
+                                    
+	                                    // Use 'vertical-align: middle' to keep math inline with text
+	                                    img.style.cssText = `width: ${scaledWidth}px; height: ${scaledHeight}px; vertical-align: -10%; display: inline-block;`;
+
+	                                } catch (err) { console.warn("Failed to download math image", err); }
+	                            }
+	                        }));
+	                    }
+
+	                    // 4. Handle SVGs
 	                    const svgElements = processedContent.querySelectorAll('svg');
 	                    if (svgElements.length > 0) {
 	                        await Promise.all(Array.from(svgElements).map(async (svg) => {
@@ -1100,7 +1185,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	                                const { dataUrl, width, height } = await convertSvgStringToPngDataUrl(svg.outerHTML);
 	                                const img = document.createElement('img');
 	                                img.src = dataUrl;
-	                                img.setAttribute('width', width); 
+	                                img.setAttribute('width', width);
 	                                img.setAttribute('height', height);
 	                                svg.parentNode.replaceChild(img, svg);
 	                            } catch (err) { }
@@ -1108,104 +1193,37 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	                    }
 
 	                    if (cleanTitle && !cleanTitle.includes('Unit Learning Plan') && !cleanTitle.includes('Adaptive Teaching Guide')) {
-	                         mainContent += `<h2 style="color: #2563EB; font-size: 16pt; margin-top: 30px; border-bottom: 1px solid #eee; padding-bottom: 5px;">${cleanTitle}</h2>`;
+	                        mainContent += `<h2 style="color: #2563EB; font-size: 16pt; margin-top: 30px; border-bottom: 1px solid #eee; padding-bottom: 5px;">${cleanTitle}</h2>`;
 	                    }
 	                    mainContent += `<div class="content-section" style="font-family: Arial, sans-serif; font-size: 11pt; line-height: 1.5;">${processedContent.innerHTML}</div><br/><br/>`;
 	                }
 
-	                // 3. Assemble Full HTML with CSS Fixes (UPDATED WITH TABLE HEADER LOGIC)
-                    const fullHtml = `
-                        <html xmlns:v="urn:schemas-microsoft-com:vml"
-                        xmlns:o="urn:schemas-microsoft-com:office:office"
-                        xmlns:w="urn:schemas-microsoft-com:office:word"
-                        xmlns:m="http://schemas.microsoft.com/office/2004/12/omml"
-                        xmlns="http://www.w3.org/TR/REC-html40">
-                        <head>
-                            <meta charset="utf-8">
-                            <title>${lessonTitle}</title>
-                            <style>
-                                /* PAGE SETUP */
-                                @page Section1 {
-                                    size: 8.5in 13in; 
-                                    margin: 1.0in 0.5in 0.5in 0.5in;
-                                    mso-header-margin: 0.5in;
-                                    mso-footer-margin: 0.5in;
-                                    mso-header: h1;
-                                    mso-footer: f1;
-                                }
-                                div.Section1 { page: Section1; }
-                                
-                                /* CONTENT STYLES */
-                                body { font-family: 'Arial', sans-serif; }
-                                
-                                /* --- TABLE LOGIC FOR REPEATING HEADERS --- */
-                                table { 
-                                    border-collapse: collapse; 
-                                    width: 100%; 
-                                    margin-bottom: 10px;
-                                    page-break-inside: auto; /* Allow table to split across pages */
-                                }
-                                
-                                td, th { 
-                                    border: 1px solid black; 
-                                    padding: 8px; 
-                                    vertical-align: top; 
-                                }
-                                
-                                th { 
-                                    background-color: #f0f0f0; 
-                                    font-weight: bold; 
-                                }
-
-                                /* KEY: FORCE HEADER REPETITION */
-                                thead { 
-                                    display: table-header-group; 
-                                } 
-                                
-                                /* Prevent header row itself from splitting in half */
-                                thead tr { 
-                                    page-break-inside: avoid; 
-                                    mso-yfti-tbllook: 1000; /* Force header look in Word */
-                                }
-
-                                /* NESTED TABLE FIXES */
-                                /* Ensure the cell containing the nested table allows breaking */
-                                td {
-                                    page-break-inside: auto;
-                                }
-
-                                /* Explicitly target nested tables */
-                                td table { 
-                                    width: 100%; 
-                                    margin: 0; 
-                                    border: none;
-                                    page-break-inside: auto; /* IMPORTANT: Allow nested table to break */
-                                }
-                                
-                                /* Ensure nested headers also repeat */
-                                td table thead {
-                                    display: table-header-group;
-                                }
-                                
-                                /* Content rows should generally stay together if possible, 
-                                   but allow breaking if content is massive */
-                                tr { 
-                                    page-break-inside: avoid; 
-                                }
-                            </style>
-                        </head>
-                        <body>
-                            <div style="display:none;">
-                                ${headerBlock}
-                                ${footerBlock}
-                            </div>
-
-                            <div class="Section1">
-                                ${mainContent}
-                            </div>
-                        </body>
-                        </html>
-                    `;
+	                const fullHtml = `
+	                    <html xmlns:v="urn:schemas-microsoft-com:vml"
+	                    xmlns:o="urn:schemas-microsoft-com:office:office"
+	                    xmlns:w="urn:schemas-microsoft-com:office:word"
+	                    xmlns:m="http://schemas.microsoft.com/office/2004/12/omml"
+	                    xmlns="http://www.w3.org/TR/REC-html40">
+	                    <head>
+	                        <meta charset="utf-8">
+	                        <title>${lessonTitle}</title>
+	                        <style>
+	                            @page Section1 { size: 8.5in 13in; margin: 1.0in 0.5in 0.5in 0.5in; mso-header-margin: 0.5in; mso-footer-margin: 0.5in; }
+	                            div.Section1 { page: Section1; }
+	                            body { font-family: 'Arial', sans-serif; }
+	                            table { border-collapse: collapse; width: 100%; margin-bottom: 10px; }
+	                            td, th { border: 1px solid black; padding: 8px; vertical-align: top; }
+	                            th { background-color: #f0f0f0; font-weight: bold; }
+	                            thead { display: table-header-group; }
+	                            img { max-width: 100%; } /* General safeguard */
+	                        </style>
+	                    </head>
+	                    <body>
+	                        <div style="display:none;">${headerBlock}${footerBlock}</div>
+	                        <div class="Section1">${mainContent}</div>
+	                    </body>
+	                    </html>
+	                `;
 
 	                const blob = await asBlob(fullHtml, {
 	                    orientation: 'portrait',
@@ -1245,12 +1263,11 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 
 	                for (const page of pages) {
 	                    const cleanTitle = (page.title || '').replace(/^page\s*\d+\s*[:-]?\s*/i, '');
-	                    
-                        const processedContent = processLatex(page.content || '');
+	                    const processedContent = processLatex(page.content || '');
 	                    const rawHtml = marked.parse(processedContent);
-                
+
 	                    if (cleanTitle && !cleanTitle.includes('Unit Learning Plan') && !cleanTitle.includes('Adaptive Teaching Guide')) {
-	                         legacyHtml += `<h2 style="color: #2563EB; font-size: 18pt; font-weight: bold; margin-top: 20px; margin-bottom: 10px; text-align: left;">${cleanTitle}</h2>`;
+	                        legacyHtml += `<h2 style="color: #2563EB; font-size: 18pt; font-weight: bold; margin-top: 20px; margin-bottom: 10px; text-align: left;">${cleanTitle}</h2>`;
 	                    }
 	                    legacyHtml += `<div style="font-size: 11pt; line-height: 1.5; text-align: justify;">${rawHtml}</div><br />`;
 	                }
@@ -1258,6 +1275,40 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 
 	                const processedDiv = preProcessHtmlForExport(legacyHtml, 'docx');
 
+	// FIX: SCALE MATH IMAGES DOWN (REGULAR EXPORT)
+	                const mathImages = processedDiv.querySelectorAll('img.math-img');
+	                if (mathImages.length > 0) {
+	                    await Promise.all(Array.from(mathImages).map(async (img) => {
+	                        if (img.src && img.src.startsWith('http')) {
+	                            try {
+	                                // 1. Force Lower DPI (200 instead of 1080)
+	                                let fetchUrl = img.src.replace(/dpi%7B1080%7D/g, 'dpi%7B200%7D')
+	                                                      .replace(/dpi\{1080\}/g, 'dpi{200}');
+
+	                                const base64 = await fetchImageAsBase64(fetchUrl);
+	                                const { w, h } = await getImageDimensions(base64);
+                                
+	                                // 2. CRITICAL: Wipe conflicting styles
+	                                img.removeAttribute('style');
+
+	                                // 3. Scale Factor for 200 DPI
+	                                const scaleFactor = 2.5; 
+	                                const scaledWidth = Math.max(1, Math.round(w / scaleFactor));
+	                                const scaledHeight = Math.max(1, Math.round(h / scaleFactor));
+
+	                                img.src = base64;
+	                                img.setAttribute('width', scaledWidth);
+	                                img.setAttribute('height', scaledHeight);
+                                
+	                                // 4. Inline display styles
+	                                img.style.cssText = `width: ${scaledWidth}px; height: ${scaledHeight}px; vertical-align: -10%; display: inline-block;`;
+                                
+	                            } catch (err) { console.warn("Failed to download math image", err); }
+	                        }
+	                    }));
+	                }
+
+	                // Handle SVGs
 	                const svgElements = processedDiv.querySelectorAll('svg');
 	                if (svgElements.length > 0) {
 	                    await Promise.all(Array.from(svgElements).map(async (svg) => {
@@ -1265,7 +1316,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	                            const { dataUrl, width, height } = await convertSvgStringToPngDataUrl(svg.outerHTML);
 	                            const img = document.createElement('img');
 	                            img.src = dataUrl;
-	                            img.setAttribute('width', width); 
+	                            img.setAttribute('width', width);
 	                            img.setAttribute('height', height);
 	                            svg.parentNode.replaceChild(img, svg);
 	                        } catch (err) { }
@@ -1273,11 +1324,11 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	                }
 
 	                const fileBlob = await htmlToDocx(
-	                    processedDiv.innerHTML, 
-	                    headerHtml, 
+	                    processedDiv.innerHTML,
+	                    headerHtml,
 	                    {
-	                        table: { row: { cantSplit: false } }, 
-	                        header: true, 
+	                        table: { row: { cantSplit: false } },
+	                        header: true,
 	                        footer: true,
 	                        pageNumber: true,
 	                        page: {
@@ -1287,7 +1338,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	                    },
 	                    footerHtml
 	                );
-            
+
 	                if (isNativePlatform()) {
 	                    await nativeSave(fileBlob, sanitizedFileName, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', showToast);
 	                } else {
@@ -1321,103 +1372,118 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
         // [Left, Top, Right, Bottom]
         const pageMargins = isSpecialDoc ? [36, 80, 36, 60] : [40, 80, 40, 60]; 
 
-        showToast(`Preparing ${docLabel} PDF...`, "info");
-        try {
-            await registerDejaVuFonts();
-            const headerBase64 = await fetchImageAsBase64("/header-port.png").catch(()=>null);
-            const footerBase64 = await fetchImageAsBase64("/Footer.png").catch(()=>null);
+		showToast(`Preparing ${docLabel} PDF...`, "info");
+		    try {
+		        await registerDejaVuFonts();
+		        const headerBase64 = await fetchImageAsBase64("/header-port.png").catch(()=>null);
+		        const footerBase64 = await fetchImageAsBase64("/Footer.png").catch(()=>null);
+    
+		        const pages = Array.isArray(lesson.pages) && lesson.pages.length ? lesson.pages : [{ title: lesson.title || '', content: lesson.content || lesson.html || '' }];
+
+		        let lessonContent = [];
+		        let collectedImages = {}; // 1. Initialize image container
+
+		        for (const page of pages) {
+		            const cleanTitle = (page.title || "").replace(/^page\s*\d+\s*[:-]?\s*/i, "");
         
-            const pages = Array.isArray(lesson.pages) && lesson.pages.length ? lesson.pages : [{ title: lesson.title || '', content: lesson.content || lesson.html || '' }];
+		            if (cleanTitle && !cleanTitle.includes('Unit Learning Plan') && !cleanTitle.includes('Adaptive Teaching Guide')) {
+		                lessonContent.push({ text: cleanTitle, fontSize: 16, bold: true, color: '#005a9c', margin: [0, 10, 0, 5] });
+		            }
+        
+		            // Ensure you use the UPDATED processLatex from Step 1 here
+		            let rawHtml;
+		            if (isSpecialDoc) {
+		                rawHtml = page.content || '';
+		            } else {
+		                rawHtml = marked.parse(processLatex(page.content || ''));
+		            }
 
-            let lessonContent = [];
+		            const processedDiv = preProcessHtmlForExport(rawHtml, isULP ? 'ulp' : (isATG ? 'atg' : 'pdf'));
+        
+		            // --- IMAGE PRE-FETCHING (Keep your Step 2 logic here if added) ---
+		            const mathImages = processedDiv.querySelectorAll('img');
+		            if (mathImages.length > 0) {
+		                await Promise.all(Array.from(mathImages).map(async (img) => {
+		                    if (img.src && img.src.startsWith('http')) {
+		                        try {
+		                            const base64 = await fetchImageAsBase64(img.src);
+		                            img.src = base64; 
+		                        } catch (err) { console.warn("Failed to load image:", img.src); }
+		                    }
+		                }));
+		            }
+		            // ---------------------------------------------------------------
+        
+		            const finalHtml = processedDiv.innerHTML;
+        
+		            // 2. Capture the full result object from htmlToPdfmake
+					const pdfResult = htmlToPdfmake(finalHtml, { 
+					    defaultStyles: { 
+					        fontSize: 9, 
+					        lineHeight: 1.1, 
+					        alignment: 'justify',
+					        margin: [0, 0, 0, 0] 
+					    },
+					    // NEW: Define the custom class style for pdfmake
+					    customStyles: {
+					        'math-img': {
+					            // This ensures pdfmake treats it as an inline element if possible
+					            margin: [0, 0, 0, 0] 
+					        }
+					    },
+					    tableAutoSize: true, 
+					    imagesByReference: true
+					});
 
-            for (const page of pages) {
-                const cleanTitle = (page.title || "").replace(/^page\s*\d+\s*[:-]?\s*/i, "");
-            
-                if (cleanTitle && !cleanTitle.includes('Unit Learning Plan') && !cleanTitle.includes('Adaptive Teaching Guide')) {
-                    // Title Styling: Keep bold, reduce margins slightly
-                    lessonContent.push({ text: cleanTitle, fontSize: 16, bold: true, color: '#005a9c', margin: [0, 10, 0, 5] });
-                }
-            
-                let rawHtml;
-                if (isSpecialDoc) {
-                    rawHtml = page.content || '';
-                } else {
-                    rawHtml = marked.parse(processLatex(page.content || ''));
-                }
+		            // 3. Extract content AND images
+		            let pageBody = pdfResult.content || pdfResult;
+		            if (pdfResult.images) {
+		                Object.assign(collectedImages, pdfResult.images); // Merge new images
+		            }
 
-                const processedDiv = preProcessHtmlForExport(rawHtml, isULP ? 'ulp' : (isATG ? 'atg' : 'pdf'));
-            
-                const svgs = processedDiv.querySelectorAll('svg');
-                if (svgs.length) {
-                    await Promise.all(Array.from(svgs).map(async (svg) => {
-                        try {
-                            const res = await convertSvgStringToPngDataUrl(svg.outerHTML);
-                            const img = document.createElement('img');
-                            img.src = res.dataUrl; img.width = res.width;
-                            svg.parentNode.replaceChild(img, svg);
-                        } catch (e) { }
-                    }));
-                }
-            
-                const finalHtml = processedDiv.innerHTML;
-            
-                let pdfBody = htmlToPdfmake(finalHtml, { 
-                    defaultStyles: { 
-                        fontSize: 9, 
-                        lineHeight: 1.1, 
-                        alignment: 'justify',
-                        margin: [0, 0, 0, 0] // Zero margin base, controlled by cleaner
-                    },
-                    tableAutoSize: true, 
-                    imagesByReference: true
-                });
+		            if (!Array.isArray(pageBody)) {
+		                pageBody = [pageBody];
+		            }
 
-                if (!Array.isArray(pdfBody)) {
-                    if (pdfBody.content && Array.isArray(pdfBody.content)) {
-                        pdfBody = pdfBody.content;
-                    } else {
-                        pdfBody = [pdfBody];
-                    }
-                }
+		            cleanUpPdfContent(pageBody, false, 0);
 
-                cleanUpPdfContent(pdfBody, false, 0);
+		            if (pageBody.length > 0) {
+		                lessonContent.push(...pageBody);
+		            }
+		        }
 
-                if (pdfBody.length > 0) {
-                    lessonContent.push(...pdfBody);
-                }
-            }
+		        const docDef = {
+		            pageSize: pageSize,
+		            pageMargins: pageMargins,
+		            header: headerBase64 ? { margin: [0, 10, 0, 0], stack: [{ image: "headerImg", width: 450, alignment: "center" }] } : undefined,
+		            footer: footerBase64 ? { margin: [0, 0, 0, 20], stack: [{ image: "footerImg", width: 450, alignment: "center" }] } : undefined,
+		            content: [
+		                { text: lesson.title || '', fontSize: 24, bold: true, alignment: "center", margin: [0, 0, 0, 5] },
+		                { text: subject?.title || "", fontSize: 12, italics: true, alignment: "center", color: '#555555', margin: [0, 0, 0, 10], pageBreak: "after" },
+		                ...lessonContent
+		            ],
+		            // 4. Pass the collected images to pdfMake
+		            images: {
+		                ...collectedImages, 
+		                ...(headerBase64 ? { headerImg: headerBase64 } : {}),
+		                ...(footerBase64 ? { footerImg: footerBase64 } : {})
+		            },
+		            defaultStyle: { font: 'DejaVu', fontSize: 12 }
+		        };
 
-            const docDef = {
-                pageSize: pageSize,
-                pageMargins: pageMargins,
-                header: headerBase64 ? { margin: [0, 10, 0, 0], stack: [{ image: "headerImg", width: 450, alignment: "center" }] } : undefined,
-                footer: footerBase64 ? { margin: [0, 0, 0, 20], stack: [{ image: "footerImg", width: 450, alignment: "center" }] } : undefined,
-                content: [
-                    { text: lesson.title || '', fontSize: 24, bold: true, alignment: "center", margin: [0, 0, 0, 5] },
-                    { text: subject?.title || "", fontSize: 12, italics: true, alignment: "center", color: '#555555', margin: [0, 0, 0, 10], pageBreak: "after" },
-                    ...lessonContent
-                ],
-                images: {},
-                defaultStyle: { font: 'DejaVu', fontSize: 9 }
-            };
-
-            if (headerBase64) docDef.images.headerImg = headerBase64;
-            if (footerBase64) docDef.images.footerImg = footerBase64;
-
-            const pdfDoc = pdfMake.createPdf(docDef);
-            if (isNativePlatform()) {
-                pdfDoc.getBlob(b => nativeSave(b, `${(lesson.title || 'export').replace(/[^a-z0-9]/gi, '_')}${suffix}.pdf`, 'application/pdf', showToast));
-            } else {
-                pdfDoc.download(`${(lesson.title || 'export').replace(/[^a-z0-9]/gi, '_')}${suffix}.pdf`);
-            }
-            
-        } catch (e) { 
-            console.error("PDF Export Error:", e);
-            showToast("PDF Error: " + (e.message || e), "error"); 
-        }
-        setExportingLessonId(null);
-    };
+		        const pdfDoc = pdfMake.createPdf(docDef);
+		        if (isNativePlatform()) {
+		            pdfDoc.getBlob(b => nativeSave(b, `${(lesson.title || 'export').replace(/[^a-z0-9]/gi, '_')}${suffix}.pdf`, 'application/pdf', showToast));
+		        } else {
+		            pdfDoc.download(`${(lesson.title || 'export').replace(/[^a-z0-9]/gi, '_')}${suffix}.pdf`);
+		        }
+        
+		    } catch (e) { 
+		        console.error("PDF Export Error:", e);
+		        showToast("PDF Error: " + (e.message || e), "error"); 
+		    }
+		    setExportingLessonId(null);
+		};
 	
     // --- CONFIRM EXPORT AFTER TUTORIAL ---
     const handleConfirmExport = () => {
@@ -1544,7 +1610,17 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                             {unifiedContent.length > 0 ? (
                                 <SortableContext items={unifiedContent.map(i => i.id)} strategy={verticalListSortingStrategy}>
                                     {unifiedContent.map(item => (
-                                        <SortableContentItem key={item.id} item={item} isReordering={isReordering} onAction={handleAction} exportingLessonId={exportingLessonId} isAiGenerating={isAiGenerating} monet={monet} styles={styles} />
+                                        <SortableContentItem 
+                                            key={item.id} 
+                                            item={item} 
+                                            isReordering={isReordering} 
+                                            onAction={handleAction} 
+                                            exportingLessonId={exportingLessonId} 
+                                            isAiGenerating={isAiGenerating} 
+                                            monet={monet} 
+                                            styles={styles}
+                                            isPdfDisabled={isPdfRestricted}
+                                        />
                                     ))}
                                 </SortableContext>
                             ) : (
