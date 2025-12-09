@@ -145,10 +145,12 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
             }
 
             // --- TABLE VS BODY LOGIC ---
+            // FIXED: Added stricter checks to ensure headers exist and have length > 0
             const hasTableData = data.tableData && 
-                                 data.tableData.rows && 
+                                 Array.isArray(data.tableData.rows) && 
                                  data.tableData.rows.length > 0 &&
-                                 data.tableData.headers;
+                                 Array.isArray(data.tableData.headers) &&
+                                 data.tableData.headers.length > 0;
 
             if (hasTableData && bodyShape) {
                 // A. HANDLE TABLE
@@ -163,7 +165,6 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
                 });
 
                 // 3. Create the Table in the exact same spot [FIXED TRANSFORM]
-                // We must use scaleX=1 and scaleY=1. We cannot use the placeholder's scale.
                 const safeTransform = {
                     scaleX: 1,
                     scaleY: 1,
@@ -177,8 +178,8 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
                         objectId: tableId,
                         elementProperties: {
                             pageObjectId: slide.objectId,
-                            transform: safeTransform,       // FIXED: Uses safe non-scaled transform
-                            size: bodyShape.size            // Use placeholder size
+                            transform: safeTransform,       
+                            size: bodyShape.size            
                         },
                         rows: rows,
                         columns: cols
@@ -187,7 +188,6 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
 
                 // 4. Helper to insert text into specific cells
                 const addCellText = (rIndex, cIndex, text, isHeader = false) => {
-                    // Insert Text
                     populateRequests.push({
                         insertText: {
                             objectId: tableId,
@@ -197,7 +197,6 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
                         }
                     });
                     
-                    // Optional: Make Header Bold
                     if (isHeader) {
                         populateRequests.push({
                             updateTextStyle: {
@@ -229,6 +228,7 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
 
             } else if (bodyShape) {
                 // B. HANDLE STANDARD TEXT BODY (Fallback)
+                // This block runs if there is NO table data, or if table data is invalid (0 columns)
                 const cleanedBodyText = cleanText(data.body).replace(/\n{2,}/g, '\n');
                 populateRequests.push({ deleteText: { objectId: bodyShape.objectId, textRange: { type: 'ALL' } } });
                 populateRequests.push({ insertText: { objectId: bodyShape.objectId, text: cleanedBodyText } });
@@ -248,66 +248,38 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
             }
             
             // --- SPEAKER NOTES LOGIC ---
-            
-            // This is the notes *string* from TeacherDashboard.jsx
             const formattedNotes = data.notes;
-            
-            // Access notesPage via slideProperties
             const notesPageId = slide.slideProperties?.notesPage?.objectId;
             let speakerNotesObjectId = slide.slideProperties?.notesPage?.notesProperties?.speakerNotesObjectId;
             
-            // Only proceed if there are notes to add AND the slide has a notes page
             if (formattedNotes && notesPageId) {
-                
-                // If the speaker notes *text box* doesn't exist, we must create it.
                 if (!speakerNotesObjectId) {
-                    speakerNotesObjectId = `notes_text_box_${slide.objectId}`; // Create a unique ID
-                    
-                    // 1. Create the shape
+                    speakerNotesObjectId = `notes_text_box_${slide.objectId}`;
                     populateRequests.push({
                         createShape: {
                             objectId: speakerNotesObjectId,
                             shapeType: 'TEXT_BOX',
                             elementProperties: {
                                 pageObjectId: notesPageId,
-                                // A standard size and position for a notes box
                                 size: { height: { magnitude: 400, unit: 'PT' }, width: { magnitude: 550, unit: 'PT' } },
                                 transform: { scaleX: 1, scaleY: 1, translateX: 35, translateY: 60, unit: 'PT' }
                             }
                         }
                     });
-                    
-                    // 2. Tell the API this shape is the *official* notes box ("BODY" placeholder)
                     populateRequests.push({
                        updateShapeProperties: {
                            objectId: speakerNotesObjectId,
-                           shapeProperties: {
-                               placeholder: { type: 'BODY' }
-                           },
+                           shapeProperties: { placeholder: { type: 'BODY' } },
                            fields: 'placeholder.type'
                        } 
                     });
                 }
-                
-                // 3. Clear old text and insert the new notes.
-                populateRequests.push({
-                    deleteText: {
-                        objectId: speakerNotesObjectId,
-                        textRange: { type: 'ALL' }
-                    }
-                });
-                populateRequests.push({
-                    insertText: {
-                        objectId: speakerNotesObjectId,
-                        text: formattedNotes,
-                        insertionIndex: 0
-                    }
-                });
+                populateRequests.push({ deleteText: { objectId: speakerNotesObjectId, textRange: { type: 'ALL' } } });
+                populateRequests.push({ insertText: { objectId: speakerNotesObjectId, text: formattedNotes, insertionIndex: 0 } });
             }
         }
 
         if (populateRequests.length > 0) {
-            // Reduced batch size to 100 to be safe with Table generation which creates many requests per slide
             const batchSize = 100;
             for (let i = 0; i < populateRequests.length; i += batchSize) {
                 const batch = populateRequests.slice(i, i + batchSize);
