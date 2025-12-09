@@ -162,13 +162,22 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
                     deleteObject: { objectId: bodyShape.objectId } 
                 });
 
-                // 3. Create the Table in the exact same spot
+                // 3. Create the Table in the exact same spot [FIXED TRANSFORM]
+                // We must use scaleX=1 and scaleY=1. We cannot use the placeholder's scale.
+                const safeTransform = {
+                    scaleX: 1,
+                    scaleY: 1,
+                    translateX: bodyShape.transform?.translateX || 0,
+                    translateY: bodyShape.transform?.translateY || 0,
+                    unit: 'PT'
+                };
+
                 populateRequests.push({
                     createTable: {
                         objectId: tableId,
                         elementProperties: {
                             pageObjectId: slide.objectId,
-                            transform: bodyShape.transform, // Use placeholder position
+                            transform: safeTransform,       // FIXED: Uses safe non-scaled transform
                             size: bodyShape.size            // Use placeholder size
                         },
                         rows: rows,
@@ -238,7 +247,7 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
                 }
             }
             
-            // --- MODIFIED SPEAKER NOTES LOGIC ---
+            // --- SPEAKER NOTES LOGIC ---
             
             // This is the notes *string* from TeacherDashboard.jsx
             const formattedNotes = data.notes;
