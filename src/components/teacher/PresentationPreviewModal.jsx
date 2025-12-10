@@ -47,7 +47,7 @@ export default function PresentationPreviewModal({ isOpen, onClose, previewData,
     const slides = previewData?.slides || [];
     const selectedSlide = slides[selectedSlideIndex];
 
-    // Helper to determine if we should show a table
+    // --- FIX: DETECT TABLE DATA ---
     const hasTableData = selectedSlide?.tableData && 
                          Array.isArray(selectedSlide.tableData.headers) && 
                          selectedSlide.tableData.headers.length > 0;
@@ -161,8 +161,8 @@ export default function PresentationPreviewModal({ isOpen, onClose, previewData,
                                                         </h1>
                                                         
                                                         <div className="flex-grow overflow-hidden">
+                                                            {/* --- FIX: RENDER TABLE IF PRESENT --- */}
                                                             {hasTableData ? (
-                                                                // --- TABLE RENDERER ---
                                                                 <div className="w-full h-full overflow-auto">
                                                                     <table className="min-w-full border-collapse text-left text-sm">
                                                                         <thead>
@@ -198,7 +198,6 @@ export default function PresentationPreviewModal({ isOpen, onClose, previewData,
                                                         </div>
                                                     </div>
                                                     
-                                                    {/* Branding / Footer Simulation */}
                                                     <div className="h-2 bg-gradient-to-r from-[#007AFF] to-blue-400 absolute bottom-0 left-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity" />
                                                 </div>
                                             ) : (

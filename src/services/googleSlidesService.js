@@ -57,33 +57,19 @@ export const handleAuthRedirect = async () => {
 };
 
 const findOrCreateFolder = async (folderName, parentFolderId = 'root') => {
-    // Apostrophes in folder names must be escaped in Drive queries.
     const escapedFolderName = folderName.replace(/'/g, "\\'");
 
     const response = await window.gapi.client.drive.files.list({
-        // Use the escapedFolderName here
         q: `mimeType='application/vnd.google-apps.folder' and name='${escapedFolderName}' and '${parentFolderId}' in parents and trashed=false`,
         fields: 'files(id, name)',
     });
     if (response.result.files && response.result.files.length > 0) {
         return response.result.files[0].id;
     } else {
-        // Use the *original* folderName when creating it
         const fileMetadata = { name: folderName, mimeType: 'application/vnd.google-apps.folder', parents: [parentFolderId] };
         const folder = await window.gapi.client.drive.files.create({ resource: fileMetadata, fields: 'id' });
         return folder.result.id;
     }
-};
-
-const formatNotesToString = (notesObject) => {
-    if (!notesObject || typeof notesObject !== 'object') return typeof notesObject === 'string' ? notesObject : '';
-    const { essentialQuestions, talkingPoints, interactiveElement, slideTiming } = notesObject;
-    const sections = [];
-    if (essentialQuestions) sections.push(`🔵 ESSENTIAL QUESTIONS:\n${essentialQuestions}`);
-    if (talkingPoints) sections.push(`🎙️ TALKING POINTS:\n${talkingPoints}`);
-    if (interactiveElement) sections.push(`🤝 INTERACTIVE ELEMENT:\n${interactiveElement}`);
-    if (slideTiming) sections.push(`⏱️ SUGGESTED TIMING: ${slideTiming}`);
-    return sections.join('\n\n- - -\n\n').trim();
 };
 
 const findShapeByTextTag = (pageElements, tag) => {
@@ -144,19 +130,23 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
                 populateRequests.push({ insertText: { objectId: titleShape.objectId, text: cleanText(data.title) } });
             }
 
-            // --- TABLE VS BODY LOGIC ---
-            // FIXED: Added stricter checks to ensure headers exist and have length > 0
-            const hasTableData = data.tableData && 
-                                 Array.isArray(data.tableData.rows) && 
-                                 data.tableData.rows.length > 0 &&
-                                 Array.isArray(data.tableData.headers) &&
-                                 data.tableData.headers.length > 0;
+            // --- IMPROVED TABLE DETECTION LOGIC ---
+            // Allows table creation even if headers are missing, as long as rows exist.
+            const hasTableRows = data.tableData && Array.isArray(data.tableData.rows) && data.tableData.rows.length > 0;
+            const hasHeaders = data.tableData && Array.isArray(data.tableData.headers) && data.tableData.headers.length > 0;
+            const hasTableData = hasTableRows; // Relaxed condition: as long as rows exist, we try.
 
             if (hasTableData && bodyShape) {
-                // A. HANDLE TABLE
+                console.log(`Creating table for slide ${index + 1}...`);
+                
                 // 1. Calculate dimensions
-                const rows = data.tableData.rows.length + 1; // +1 for header
-                const cols = data.tableData.headers.length;
+                const headers = hasHeaders ? data.tableData.headers : [];
+                // If no headers, we just have data rows. If headers exist, rows = data + 1
+                const rowsCount = data.tableData.rows.length + (hasHeaders ? 1 : 0);
+                
+                // Calculate columns based on headers OR the first row of data
+                const colsCount = hasHeaders ? headers.length : (data.tableData.rows[0]?.length || 1);
+                
                 const tableId = `table_${slide.objectId}`;
 
                 // 2. Delete the {{body}} text placeholder
@@ -164,7 +154,8 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
                     deleteObject: { objectId: bodyShape.objectId } 
                 });
 
-                // 3. Create the Table in the exact same spot [FIXED TRANSFORM]
+                // 3. Create the Table
+                // Safe Transform: Ensure we don't pass undefined values to the API
                 const safeTransform = {
                     scaleX: 1,
                     scaleY: 1,
@@ -179,14 +170,14 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
                         elementProperties: {
                             pageObjectId: slide.objectId,
                             transform: safeTransform,       
-                            size: bodyShape.size            
+                            size: bodyShape.size // This sets initial width/height roughly matching the text box
                         },
-                        rows: rows,
-                        columns: cols
+                        rows: rowsCount,
+                        columns: colsCount
                     }
                 });
 
-                // 4. Helper to insert text into specific cells
+                // 4. Helper to insert text
                 const addCellText = (rIndex, cIndex, text, isHeader = false) => {
                     populateRequests.push({
                         insertText: {
@@ -198,6 +189,7 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
                     });
                     
                     if (isHeader) {
+                        // Bold the header row
                         populateRequests.push({
                             updateTextStyle: {
                                 objectId: tableId,
@@ -207,20 +199,40 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
                                 fields: 'bold'
                             }
                         });
+                        // Add light gray background to header
+                         populateRequests.push({
+                            updateTableCellProperties: {
+                                objectId: tableId,
+                                tableRange: { location: { rowIndex: rIndex, columnIndex: cIndex }, rowSpan: 1, columnSpan: 1 },
+                                tableCellProperties: {
+                                    tableCellBackgroundFill: {
+                                        solidFill: { color: { rgbColor: { red: 0.95, green: 0.95, blue: 0.95 } } }
+                                    }
+                                },
+                                fields: 'tableCellBackgroundFill.solidFill.color'
+                            }
+                        });
                     }
                 };
 
                 // 5. Fill Header Row (Row 0)
-                data.tableData.headers.forEach((header, colIndex) => {
-                    addCellText(0, colIndex, header, true);
-                });
+                if (hasHeaders) {
+                    headers.forEach((header, colIndex) => {
+                        if (colIndex < colsCount) {
+                            addCellText(0, colIndex, header, true);
+                        }
+                    });
+                }
 
-                // 6. Fill Data Rows (Row 1+)
+                // 6. Fill Data Rows
+                // If headers exist, data starts at rowIndex 1. If no headers, data starts at rowIndex 0.
+                const rowOffset = hasHeaders ? 1 : 0;
+                
                 data.tableData.rows.forEach((row, rowIndex) => {
                     if (Array.isArray(row)) {
                          row.forEach((cellText, colIndex) => {
-                             if (colIndex < cols) {
-                                addCellText(rowIndex + 1, colIndex, cellText);
+                             if (colIndex < colsCount) {
+                                addCellText(rowIndex + rowOffset, colIndex, cellText);
                              }
                          });
                     }
@@ -228,7 +240,6 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
 
             } else if (bodyShape) {
                 // B. HANDLE STANDARD TEXT BODY (Fallback)
-                // This block runs if there is NO table data, or if table data is invalid (0 columns)
                 const cleanedBodyText = cleanText(data.body).replace(/\n{2,}/g, '\n');
                 populateRequests.push({ deleteText: { objectId: bodyShape.objectId, textRange: { type: 'ALL' } } });
                 populateRequests.push({ insertText: { objectId: bodyShape.objectId, text: cleanedBodyText } });
