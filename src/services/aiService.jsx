@@ -24,7 +24,7 @@ console.log("!!!!!!!!!! AISERVICE.JSX: API_BASE is:", API_BASE);
 // -------------------------------
 
 // --- Model & URL Definitions ---
-const GEMINI_MODEL = 'gemini-flash-latest'; 
+const GEMINI_MODEL = 'gemma-3-27b-it'; 
 
 // --- Unified API Configuration (UPDATED - Removed HuggingFace) ---
 const API_CONFIGS = [
