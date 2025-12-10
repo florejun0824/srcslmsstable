@@ -30,14 +30,31 @@ const initializeGisClient = () => {
     return new Promise((resolve, reject) => {
         if (!window.google?.accounts?.oauth2) return reject(new Error("Google Identity Services (GIS) script not loaded."));
         if (gisInited) return resolve();
-        tokenClient = window.google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: SCOPES, callback: () => {} });
+        
+        // --- FIX 1: Properly handle the token in the callback ---
+        // This ensures that when the popup closes, the new token is actually applied to GAPI.
+        tokenClient = window.google.accounts.oauth2.initTokenClient({ 
+            client_id: CLIENT_ID, 
+            scope: SCOPES, 
+            callback: (tokenResponse) => {
+                if (tokenResponse && tokenResponse.access_token) {
+                    // console.log("New access token received and set.");
+                    window.gapi.client.setToken(tokenResponse);
+                }
+            } 
+        });
+        
         gisInited = true;
         resolve();
     });
 };
 
 export const redirectToGoogleAuth = (slideData, presentationTitle, subjectName, unitName) => {
+    // We save data to session storage just in case, though popup flow usually doesn't reload page
     sessionStorage.setItem('googleSlidesData', JSON.stringify({ slideData, presentationTitle, subjectName, unitName }));
+    
+    // Request a new token (Skipping prompt if possible, but forcing if expired)
+    // prompt: '' allows auto-selection if already logged in, but will show popup if consent needed
     tokenClient.requestAccessToken({ prompt: '' });
 };
 
@@ -84,7 +101,6 @@ const findShapeByTextTag = (pageElements, tag) => {
     return null;
 };
 
-// Helper to generate a safe, unique ID
 const generateUniqueId = () => {
     return 'gen_' + Math.random().toString(36).substr(2, 9);
 };
@@ -94,6 +110,8 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
         if (!TEMPLATE_ID) throw new Error("Google Slides Template ID is not defined.");
         if (!gapiInited) await initializeGapiClient();
         if (!gisInited) await initializeGisClient();
+        
+        // Initial check for token existence
         if (!window.gapi.client.getToken()) {
             redirectToGoogleAuth(slideData, presentationTitle, subjectName, unitName);
             throw new Error("REDIRECTING_FOR_AUTH");
@@ -135,7 +153,7 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
                 populateRequests.push({ insertText: { objectId: titleShape.objectId, text: cleanText(data.title) } });
             }
 
-            // --- IMPROVED TABLE DETECTION LOGIC ---
+            // Table Detection
             const hasTableRows = data.tableData && Array.isArray(data.tableData.rows) && data.tableData.rows.length > 0;
             const hasHeaders = data.tableData && Array.isArray(data.tableData.headers) && data.tableData.headers.length > 0;
             const hasTableData = hasTableRows;
@@ -143,54 +161,42 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
             if (hasTableData && bodyShape) {
                 console.log(`Creating table for slide ${index + 1}...`);
                 
-                // 1. Calculate dimensions
-                const headers = hasHeaders ? data.tableData.headers : [];
-                const rowsCount = data.tableData.rows.length + (hasHeaders ? 1 : 0);
-                const colsCount = hasHeaders ? headers.length : (data.tableData.rows[0]?.length || 1);
-                
-                // Use a safe, unique ID for the table
-                const tableId = generateUniqueId();
-
-                // 2. Delete the {{body}} text placeholder
                 populateRequests.push({ 
                     deleteObject: { objectId: bodyShape.objectId } 
                 });
 
-                // 3. Create the Table
-                // FIX: Fallback values if bodyShape geometry is missing (common in Placeholders)
-                const fallbackWidth = { magnitude: 600, unit: 'PT' };
-                const fallbackHeight = { magnitude: 300, unit: 'PT' };
-                const fallbackTranslateX = 50;
-                const fallbackTranslateY = 100;
-
-                const safeTransform = {
-                    scaleX: 1,
-                    scaleY: 1,
-                    translateX: bodyShape.transform?.translateX || fallbackTranslateX,
-                    translateY: bodyShape.transform?.translateY || fallbackTranslateY,
-                    unit: 'PT'
-                };
-
-                // Ensure size is valid. If inherited (undefined), use fallback.
-                const safeSize = bodyShape.size || { width: fallbackWidth, height: fallbackHeight };
+                const headers = hasHeaders ? data.tableData.headers : [];
+                const rowsCount = data.tableData.rows.length + (hasHeaders ? 1 : 0);
+                const colsCount = hasHeaders ? headers.length : (data.tableData.rows[0]?.length || 1);
+                
+                const tableId = generateUniqueId();
+                const SAFE_WIDTH = { magnitude: 600, unit: 'PT' };
+                const SAFE_HEIGHT = { magnitude: 300, unit: 'PT' };
+                const SAFE_X = 50; 
+                const SAFE_Y = 100; 
 
                 populateRequests.push({
                     createTable: {
                         objectId: tableId,
                         elementProperties: {
                             pageObjectId: slide.objectId,
-                            transform: safeTransform,       
-                            size: safeSize 
+                            transform: {
+                                scaleX: 1,
+                                scaleY: 1,
+                                translateX: SAFE_X,
+                                translateY: SAFE_Y,
+                                unit: 'PT'
+                            },       
+                            size: { width: SAFE_WIDTH, height: SAFE_HEIGHT }
                         },
                         rows: rowsCount,
                         columns: colsCount
                     }
                 });
 
-                // 4. Helper to insert text (Only if text is not empty)
                 const addCellText = (rIndex, cIndex, text, isHeader = false) => {
                     const textStr = String(text || "").trim();
-                    if (textStr.length === 0) return; // Skip empty strings to prevent API errors
+                    if (textStr.length === 0) return;
 
                     populateRequests.push({
                         insertText: {
@@ -217,7 +223,7 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
                                 tableRange: { location: { rowIndex: rIndex, columnIndex: cIndex }, rowSpan: 1, columnSpan: 1 },
                                 tableCellProperties: {
                                     tableCellBackgroundFill: {
-                                        solidFill: { color: { rgbColor: { red: 0.95, green: 0.95, blue: 0.95 } } }
+                                        solidFill: { color: { rgbColor: { red: 0.9, green: 0.9, blue: 0.9 } } }
                                     }
                                 },
                                 fields: 'tableCellBackgroundFill.solidFill.color'
@@ -226,7 +232,6 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
                     }
                 };
 
-                // 5. Fill Header Row (Row 0)
                 if (hasHeaders) {
                     headers.forEach((header, colIndex) => {
                         if (colIndex < colsCount) {
@@ -235,9 +240,7 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
                     });
                 }
 
-                // 6. Fill Data Rows
                 const rowOffset = hasHeaders ? 1 : 0;
-                
                 data.tableData.rows.forEach((row, rowIndex) => {
                     if (Array.isArray(row)) {
                          row.forEach((cellText, colIndex) => {
@@ -249,7 +252,6 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
                 });
 
             } else if (bodyShape) {
-                // B. HANDLE STANDARD TEXT BODY (Fallback)
                 const cleanedBodyText = cleanText(data.body).replace(/\n{2,}/g, '\n');
                 populateRequests.push({ deleteText: { objectId: bodyShape.objectId, textRange: { type: 'ALL' } } });
                 populateRequests.push({ insertText: { objectId: bodyShape.objectId, text: cleanedBodyText } });
@@ -268,14 +270,13 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
                 }
             }
             
-            // --- SPEAKER NOTES LOGIC ---
             const formattedNotes = data.notes;
             const notesPageId = slide.slideProperties?.notesPage?.objectId;
             let speakerNotesObjectId = slide.slideProperties?.notesPage?.notesProperties?.speakerNotesObjectId;
             
             if (formattedNotes && notesPageId) {
                 if (!speakerNotesObjectId) {
-                    speakerNotesObjectId = `notes_text_box_${slide.objectId}`;
+                    speakerNotesObjectId = `notes_${generateUniqueId()}`;
                     populateRequests.push({
                         createShape: {
                             objectId: speakerNotesObjectId,
@@ -312,10 +313,17 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
         return `https://docs.google.com/presentation/d/${presentationId}/edit`;
 
     } catch (error) {
-        if (error.message === "REDIRECTING_FOR_AUTH") {
-            console.log("Redirecting to Google for authentication...");
-            return;
+        // --- FIX 2: Check for 401/403 Token Errors ---
+        // If the token is expired, we trigger the auth flow and let the user know.
+        const isTokenError = error.result?.error?.code === 401 || error.result?.error?.code === 403 || error.status === 401;
+        
+        if (isTokenError || error.message === "REDIRECTING_FOR_AUTH") {
+            console.log("Token expired or invalid. Triggering re-auth...");
+            redirectToGoogleAuth(slideData, presentationTitle, subjectName, unitName);
+            // We intentionally return nothing or throw a specific message so the UI can just stop the spinner or show "Please approve popup"
+            return; 
         }
+
         console.error("Error creating Google Slides presentation:", error);
         let message = "Failed to create Google Slides presentation.";
         if (error?.result?.error?.message) message = `Google API Error: ${error.result.error.message}`;
