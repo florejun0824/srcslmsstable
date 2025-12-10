@@ -72,7 +72,7 @@ export default async function handler(req, res) {
     const genAI = new GoogleGenerativeAI(apiKey);
     
     // Use the model requested by the frontend (or fallback to flash)
-    const model = genAI.getGenerativeModel({ model: requestedModel || 'gemini-flash-lite-latest' });
+    const model = genAI.getGenerativeModel({ model: requestedModel || 'gemini-flash-latest' });
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
