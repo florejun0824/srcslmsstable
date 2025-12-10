@@ -1,3 +1,4 @@
+// src/services/googleSlidesService.js
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY;
 const TEMPLATE_ID = import.meta.env.VITE_GOOGLE_SLIDES_TEMPLATE_ID;
@@ -9,7 +10,6 @@ const DISCOVERY_DOCS = [
 
 const SCOPES =
   "https://www.googleapis.com/auth/presentations https://www.googleapis.com/auth/drive";
-
 
 let gapiInited = false;
 let gisInited = false;
@@ -84,6 +84,11 @@ const findShapeByTextTag = (pageElements, tag) => {
     return null;
 };
 
+// Helper to generate a safe, unique ID
+const generateUniqueId = () => {
+    return 'gen_' + Math.random().toString(36).substr(2, 9);
+};
+
 export const createPresentationFromData = async (slideData, presentationTitle, subjectName, unitName) => {
     try {
         if (!TEMPLATE_ID) throw new Error("Google Slides Template ID is not defined.");
@@ -131,23 +136,20 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
             }
 
             // --- IMPROVED TABLE DETECTION LOGIC ---
-            // Allows table creation even if headers are missing, as long as rows exist.
             const hasTableRows = data.tableData && Array.isArray(data.tableData.rows) && data.tableData.rows.length > 0;
             const hasHeaders = data.tableData && Array.isArray(data.tableData.headers) && data.tableData.headers.length > 0;
-            const hasTableData = hasTableRows; // Relaxed condition: as long as rows exist, we try.
+            const hasTableData = hasTableRows;
 
             if (hasTableData && bodyShape) {
                 console.log(`Creating table for slide ${index + 1}...`);
                 
                 // 1. Calculate dimensions
                 const headers = hasHeaders ? data.tableData.headers : [];
-                // If no headers, we just have data rows. If headers exist, rows = data + 1
                 const rowsCount = data.tableData.rows.length + (hasHeaders ? 1 : 0);
-                
-                // Calculate columns based on headers OR the first row of data
                 const colsCount = hasHeaders ? headers.length : (data.tableData.rows[0]?.length || 1);
                 
-                const tableId = `table_${slide.objectId}`;
+                // Use a safe, unique ID for the table
+                const tableId = generateUniqueId();
 
                 // 2. Delete the {{body}} text placeholder
                 populateRequests.push({ 
@@ -155,14 +157,22 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
                 });
 
                 // 3. Create the Table
-                // Safe Transform: Ensure we don't pass undefined values to the API
+                // FIX: Fallback values if bodyShape geometry is missing (common in Placeholders)
+                const fallbackWidth = { magnitude: 600, unit: 'PT' };
+                const fallbackHeight = { magnitude: 300, unit: 'PT' };
+                const fallbackTranslateX = 50;
+                const fallbackTranslateY = 100;
+
                 const safeTransform = {
                     scaleX: 1,
                     scaleY: 1,
-                    translateX: bodyShape.transform?.translateX || 0,
-                    translateY: bodyShape.transform?.translateY || 0,
+                    translateX: bodyShape.transform?.translateX || fallbackTranslateX,
+                    translateY: bodyShape.transform?.translateY || fallbackTranslateY,
                     unit: 'PT'
                 };
+
+                // Ensure size is valid. If inherited (undefined), use fallback.
+                const safeSize = bodyShape.size || { width: fallbackWidth, height: fallbackHeight };
 
                 populateRequests.push({
                     createTable: {
@@ -170,26 +180,28 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
                         elementProperties: {
                             pageObjectId: slide.objectId,
                             transform: safeTransform,       
-                            size: bodyShape.size // This sets initial width/height roughly matching the text box
+                            size: safeSize 
                         },
                         rows: rowsCount,
                         columns: colsCount
                     }
                 });
 
-                // 4. Helper to insert text
+                // 4. Helper to insert text (Only if text is not empty)
                 const addCellText = (rIndex, cIndex, text, isHeader = false) => {
+                    const textStr = String(text || "").trim();
+                    if (textStr.length === 0) return; // Skip empty strings to prevent API errors
+
                     populateRequests.push({
                         insertText: {
                             objectId: tableId,
                             cellLocation: { rowIndex: rIndex, columnIndex: cIndex },
-                            text: String(text || ""),
+                            text: textStr,
                             insertionIndex: 0
                         }
                     });
                     
                     if (isHeader) {
-                        // Bold the header row
                         populateRequests.push({
                             updateTextStyle: {
                                 objectId: tableId,
@@ -199,7 +211,6 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
                                 fields: 'bold'
                             }
                         });
-                        // Add light gray background to header
                          populateRequests.push({
                             updateTableCellProperties: {
                                 objectId: tableId,
@@ -225,7 +236,6 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
                 }
 
                 // 6. Fill Data Rows
-                // If headers exist, data starts at rowIndex 1. If no headers, data starts at rowIndex 0.
                 const rowOffset = hasHeaders ? 1 : 0;
                 
                 data.tableData.rows.forEach((row, rowIndex) => {
