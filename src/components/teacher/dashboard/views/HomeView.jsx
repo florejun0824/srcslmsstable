@@ -28,50 +28,46 @@ const HomeView = ({
     const closeScheduleModal = () => setIsScheduleModalOpen(false);
     
     return (
-        <>
-            {/* REMOVED: AuroraBackground component to allow UniversalBackground to show through */}
-
-            <div 
-                className="w-full space-y-8 font-sans pb-32 lg:pb-8 relative z-10"
-                style={{ contentVisibility: 'auto' }} 
-            >
-                <div className="flex flex-col gap-6 sm:gap-8">
-                    <DashboardHeader
-                        userProfile={userProfile}
-                        showToast={showToast}
-                        onOpenScheduleModal={openScheduleModal}
-                    />
-                    
-                    <DashboardWidgets
-                        activeClasses={activeClasses}
-                        handleCreateAnnouncement={handleCreateAnnouncement}
-                        onOpenScheduleModal={openScheduleModal}
-                    />
-                    
-                    <ActivityFeed
-                        userProfile={userProfile}
-                        teacherAnnouncements={teacherAnnouncements}
-                        activeClasses={activeClasses}
-                        handleCreateAnnouncement={handleCreateAnnouncement}
-                        showToast={showToast}
-                    />
-                </div>
+        <div 
+            className="w-full space-y-8 font-sans pb-32 lg:pb-8 relative z-10"
+            style={{ contentVisibility: 'auto' }} 
+        >
+            <div className="flex flex-col gap-6 sm:gap-8">
+                <DashboardHeader
+                    userProfile={userProfile}
+                    showToast={showToast}
+                    onOpenScheduleModal={openScheduleModal}
+                />
                 
-                <Suspense fallback={null}>
-                    {isScheduleModalOpen && (
-                         <ScheduleModal
-                            isOpen={isScheduleModalOpen}
-                            onClose={closeScheduleModal}
-                            userRole={userProfile?.role}
-                            scheduleActivities={scheduleActivities}
-                            onAddActivity={onAddActivity}
-                            onUpdateActivity={onUpdateActivity}
-                            onDeleteActivity={onDeleteActivity}
-                        />
-                    )}
-                </Suspense>
+                <DashboardWidgets
+                    activeClasses={activeClasses}
+                    handleCreateAnnouncement={handleCreateAnnouncement}
+                    onOpenScheduleModal={openScheduleModal}
+                />
+                
+                <ActivityFeed
+                    userProfile={userProfile}
+                    teacherAnnouncements={teacherAnnouncements}
+                    activeClasses={activeClasses}
+                    handleCreateAnnouncement={handleCreateAnnouncement}
+                    showToast={showToast}
+                />
             </div>
-        </>
+            
+            <Suspense fallback={null}>
+                {isScheduleModalOpen && (
+                        <ScheduleModal
+                        isOpen={isScheduleModalOpen}
+                        onClose={closeScheduleModal}
+                        userRole={userProfile?.role}
+                        scheduleActivities={scheduleActivities}
+                        onAddActivity={onAddActivity}
+                        onUpdateActivity={onUpdateActivity}
+                        onDeleteActivity={onDeleteActivity}
+                    />
+                )}
+            </Suspense>
+        </div>
     );
 };
 

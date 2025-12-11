@@ -1,5 +1,5 @@
 // src/components/teacher/TeacherDashboardLayout.jsx
-import React, { useState, Suspense, lazy, Fragment, useEffect, useRef, useLayoutEffect, memo } from 'react';
+import React, { useState, Suspense, lazy, Fragment, useEffect, useRef, useLayoutEffect, memo, useMemo } from 'react';
 import { CSSTransition } from 'react-transition-group'; 
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { Menu, Transition } from '@headlessui/react';
@@ -17,8 +17,6 @@ import {
     IconMenu2,
     IconX,
     IconGridDots,
-    IconLayoutDashboard,
-    IconSettings,
     IconPalette
 } from '@tabler/icons-react'
 import { NavLink } from 'react-router-dom';
@@ -30,11 +28,10 @@ import { useToast } from '../../contexts/ToastContext';
 import { useTheme } from '../../contexts/ThemeContext';
 
 // CORE COMPONENTS
-import Spinner from '../common/Spinner'; 
-import UserInitialsAvatar from '../common/UserInitialsAvatar';
 import AnimatedRobot from './dashboard/widgets/AnimatedRobot';
 import UniversalBackground from '../common/UniversalBackground';
 import ThemeToggle from '../common/ThemeToggle';
+import UserInitialsAvatar from '../common/UserInitialsAvatar';
 
 // LAZY-LOADED VIEWS
 const AdminDashboard = lazy(() => import('../../pages/AdminDashboard'));
@@ -114,39 +111,6 @@ const macOsStyles = `
   }
 `;
 
-// --- HELPER: MONET EFFECT COLOR EXTRACTION (Dark Mode Only) ---
-const getHeaderStyle = (activeOverlay) => {
-    // 1. Christmas: Deep Midnight Blue
-    if (activeOverlay === 'christmas') {
-        return { background: 'rgba(15, 23, 66, 0.85)', borderColor: 'rgba(100, 116, 139, 0.2)' }; 
-    }
-    // 2. Valentines: Velvet Red
-    if (activeOverlay === 'valentines') {
-        return { background: 'rgba(60, 10, 20, 0.85)', borderColor: 'rgba(255, 100, 100, 0.15)' }; 
-    }
-    // 3. Graduation: Dark Gold
-    if (activeOverlay === 'graduation') {
-        return { background: 'rgba(30, 25, 10, 0.85)', borderColor: 'rgba(255, 215, 0, 0.15)' }; 
-    }
-    // 4. Rainy: Mossy Green (Updated)
-    if (activeOverlay === 'rainy') {
-        return { background: 'rgba(20, 35, 20, 0.85)', borderColor: 'rgba(100, 150, 100, 0.2)' };
-    }
-    // 5. Cyberpunk: Deep Neon Purple (Updated)
-    if (activeOverlay === 'cyberpunk') {
-        return { background: 'rgba(35, 5, 45, 0.85)', borderColor: 'rgba(180, 0, 255, 0.2)' };
-    }
-    // 6. Spring: Dark Cherry / Sakura (Updated)
-    if (activeOverlay === 'spring') {
-        return { background: 'rgba(50, 10, 20, 0.85)', borderColor: 'rgba(255, 150, 180, 0.2)' };
-    }
-    // 7. Space: Deep Void Black
-    if (activeOverlay === 'space') {
-        return { background: 'rgba(5, 5, 10, 0.85)', borderColor: 'rgba(100, 100, 255, 0.15)' };
-    }
-    return {}; 
-};
-
 // --- SKELETAL LOADING STATE ---
 const DashboardSkeleton = () => (
     <div className="w-full h-full p-6 space-y-8 animate-pulse">
@@ -165,7 +129,7 @@ const DashboardSkeleton = () => (
     </div>
 );
 
-// --- ThemeDropdown Component WITH TUTORIAL ---
+// --- ThemeDropdown Component ---
 const ThemeDropdown = ({ size = 'desktop', showTutorial = false, onTutorialComplete }) => {
   const buttonSize = size === 'desktop' ? 'w-11 h-11' : 'w-9 h-9';
   const iconSize = size === 'desktop' ? 20 : 18;
@@ -182,13 +146,11 @@ const ThemeDropdown = ({ size = 'desktop', showTutorial = false, onTutorialCompl
         >
           <IconPalette size={iconSize} stroke={1.5} />
           
-          {/* Pulse Effect when Tutorial is active */}
           {showTutorial && (
             <span className="absolute inset-0 rounded-full animate-ping bg-blue-400/30"></span>
           )}
         </Menu.Button>
 
-        {/* --- TUTORIAL TOOLTIP --- */}
         <AnimatePresence>
             {showTutorial && (
                 <motion.div
@@ -321,11 +283,9 @@ const ProfileDropdown = ({ userProfile, onLogout, size = 'desktop' }) => {
 };
 
 
-// --- DESKTOP HEADER (CANDY STYLE) ---
+// --- DESKTOP HEADER (Monet Powered) ---
 const DesktopHeader = ({ userProfile, setIsLogoutModalOpen, showTutorial, onTutorialComplete }) => {
-    // 1. Get Theme Context for Dynamic Styling
-    const { activeOverlay } = useTheme();
-    const dynamicStyle = getHeaderStyle(activeOverlay);
+    const { monetTheme } = useTheme();
 
     const navItems = [
         { view: 'home', text: 'Home', icon: IconHome },
@@ -345,9 +305,9 @@ const DesktopHeader = ({ userProfile, setIsLogoutModalOpen, showTutorial, onTuto
             initial={{ y: -20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.6, ease: [0.2, 0.8, 0.2, 1] }}
-            // Apply Dynamic Background Style Here
-            style={dynamicStyle} 
-            className="glass-panel mx-auto max-w-[1920px] rounded-[2rem] px-6 py-3 shadow-2xl flex items-center justify-between relative w-full z-50 transform-gpu transition-colors duration-500"
+            // 2. APPLY ONLY THE GLASS STYLES (Variables are already on Root)
+            style={monetTheme.glassStyle} 
+            className="glass-panel mx-auto max-w-[1920px] rounded-[2rem] px-6 py-3 flex items-center justify-between relative w-full z-50 transform-gpu transition-all duration-500"
         >
             {/* Left: Logo */}
             <div className="flex items-center gap-4 flex-shrink-0 z-20 group cursor-default">
@@ -380,7 +340,12 @@ const DesktopHeader = ({ userProfile, setIsLogoutModalOpen, showTutorial, onTuto
                                         {isActive && (
                                             <motion.div
                                                 layoutId="desktopNavPill"
-                                                className="absolute inset-0 bg-gradient-to-b from-white to-slate-50 dark:from-slate-700 dark:to-slate-800 rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.8)] dark:shadow-black/40 border border-black/5 dark:border-white/10"
+                                                className="absolute inset-0 rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.8)] dark:shadow-black/40 border border-black/5 dark:border-white/10"
+                                                // Use CSS variable for accent
+                                                style={{ 
+                                                    background: 'linear-gradient(to bottom, rgba(255,255,255,0.1), rgba(255,255,255,0.05))', 
+                                                    backgroundColor: 'var(--monet-accent)' 
+                                                }}
                                                 transition={{ type: "spring", stiffness: 400, damping: 30 }}
                                             />
                                         )}
@@ -390,13 +355,13 @@ const DesktopHeader = ({ userProfile, setIsLogoutModalOpen, showTutorial, onTuto
                                                 size={18}
                                                 className={`transition-all duration-300 ${
                                                     isActive 
-                                                    ? 'text-blue-600 dark:text-blue-400 drop-shadow-sm scale-105' 
+                                                    ? 'text-white drop-shadow-sm scale-105' 
                                                     : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200'
                                                 }`}
                                             />
                                             <span className={`text-[11px] font-bold uppercase tracking-wide transition-all duration-300 ${
                                                 isActive 
-                                                ? 'text-transparent bg-clip-text bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-200' 
+                                                ? 'text-white' 
                                                 : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200'
                                             }`}>
                                                 {item.text}
@@ -412,13 +377,11 @@ const DesktopHeader = ({ userProfile, setIsLogoutModalOpen, showTutorial, onTuto
 
             {/* Right: Actions */}
             <div className="flex items-center gap-4 flex-shrink-0 z-20">
-                {/* --- THEME DROPDOWN WITH TUTORIAL PROP --- */}
                 <ThemeDropdown 
                    size="desktop" 
                    showTutorial={showTutorial} 
                    onTutorialComplete={onTutorialComplete}
                 />
-
                 <div className="h-8 w-[1px] bg-gradient-to-b from-transparent via-slate-200 dark:via-slate-700 to-transparent mx-1"></div>
                 <ProfileDropdown 
                     userProfile={userProfile}
@@ -429,7 +392,6 @@ const DesktopHeader = ({ userProfile, setIsLogoutModalOpen, showTutorial, onTuto
         </motion.div>
     );
 };
-// --- END OF HEADER COMPONENT ---
 
 
 // Main Layout Component
@@ -484,9 +446,9 @@ const TeacherDashboardLayout = (props) => {
     
     // --- TUTORIAL STATE ---
     const [showAmbienceTutorial, setShowAmbienceTutorial] = useState(false);
-
     const robotRef = useRef(null);
     
+    // Inject Custom CSS
     useLayoutEffect(() => {
         const styleId = 'teacher-dashboard-styles';
         if (!document.getElementById(styleId)) {
@@ -497,21 +459,17 @@ const TeacherDashboardLayout = (props) => {
         }
     }, []);
 
-    // --- TUTORIAL LOGIC: Check LocalStorage on Mount/View Change ---
+    // Tutorial Logic
     useEffect(() => {
-        // Only run logic if we are on the 'home' view and data is loaded
         if (activeView === 'home' && !loading) {
             const hasSeenTutorial = localStorage.getItem('hasSeenAmbienceTutorial');
-            
             if (!hasSeenTutorial) {
-                // Delay slightly to ensure UI is stable and user is settled
                 const timer = setTimeout(() => {
                     setShowAmbienceTutorial(true);
-                }, 2000); // 2 second delay after load
+                }, 2000); 
                 return () => clearTimeout(timer);
             }
         } else {
-            // If changing views, ensure tutorial is hidden (optional)
             setShowAmbienceTutorial(false);
         }
     }, [activeView, loading]);
@@ -521,9 +479,8 @@ const TeacherDashboardLayout = (props) => {
         localStorage.setItem('hasSeenAmbienceTutorial', 'true');
     };
 
-    const { activeOverlay } = useTheme(); 
-    // Get Theme Context for Mobile Header as well
-    const dynamicStyle = getHeaderStyle(activeOverlay);
+    // --- MONET ENGINE INTEGRATION (via Context) ---
+    const { monetTheme } = useTheme(); 
 
     const handleRenameCategory = async (newName) => {
         const oldName = categoryToEdit?.name;
@@ -640,19 +597,23 @@ const TeacherDashboardLayout = (props) => {
     };
 
     return (
-        <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 font-sans antialiased text-slate-900 dark:text-slate-100 pb-24 lg:pb-0 relative overflow-hidden">
-            {/* ADDED UNIVERSAL BACKGROUND */}
+        <div 
+            className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 font-sans antialiased text-slate-900 dark:text-slate-100 pb-24 lg:pb-0 relative overflow-hidden"
+            // --- FIX: INJECT VARIABLES AT THE ROOT LEVEL ---
+            // This ensures `var(--monet-accent)` works everywhere, including Widgets
+            style={monetTheme.variables}
+        >
             <UniversalBackground />
             
-            {/* MOBILE HEADER */}
+            {/* MOBILE HEADER (Monet) */}
             <div className="fixed top-0 left-0 right-0 z-40 px-4 pt-2 pb-2 lg:hidden">
                 <motion.div 
                     initial={{ y: -50, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                    // Apply Dynamic Styles Here Too
-                    style={dynamicStyle}
-                    className="glass-panel relative flex items-center justify-between px-5 py-3 rounded-[1.5rem] shadow-lg transform-gpu transition-colors duration-500"
+                    // Apply ONLY glass styles
+                    style={monetTheme.glassStyle}
+                    className="glass-panel relative flex items-center justify-between px-5 py-3 rounded-[1.5rem] shadow-lg transform-gpu transition-all duration-500"
                 >
                     <div className="flex items-center flex-shrink-0 z-20">
                             <div className="w-10 h-10 rounded-[1rem] bg-gradient-to-tr from-white to-slate-100 dark:from-slate-800 dark:to-slate-900 shadow-sm flex items-center justify-center border border-slate-200 dark:border-slate-700">
@@ -665,7 +626,6 @@ const TeacherDashboardLayout = (props) => {
                         </span>
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0 z-20">
-                        {/* THEME DROPDOWN (MOBILE) */}
                         <ThemeDropdown 
                            size="mobile" 
                            showTutorial={showAmbienceTutorial}
@@ -676,7 +636,7 @@ const TeacherDashboardLayout = (props) => {
                 </motion.div>
             </div>
 
-            {/* DESKTOP HEADER - PASSING PROPS */}
+            {/* DESKTOP HEADER */}
             <div className="hidden lg:block fixed top-0 left-0 right-0 z-[50] px-4 md:px-6 lg:px-8 pt-0 pb-2 w-full max-w-[1920px] mx-auto transition-all duration-300">
                 <DesktopHeader 
                     userProfile={userProfile} 
@@ -694,13 +654,13 @@ const TeacherDashboardLayout = (props) => {
                 </div>
             </main>
 
-            {/* MOBILE DOCK */}
+            {/* MOBILE DOCK (Monet) */}
             <div className="fixed bottom-1 left-0 right-0 flex justify-center z-[49] lg:hidden pointer-events-none">
                 <motion.div 
                     initial={{ y: 100 }} animate={{ y: 0 }} transition={{ type: "spring", stiffness: 250, damping: 25, delay: 0.2 }} layout
-                    // ADDED DYNAMIC STYLE SUPPORT HERE
-                    style={dynamicStyle}
-                    className="macos-dock pointer-events-auto px-2 py-2 rounded-[2.5rem] flex items-center justify-between w-auto min-w-[90%] max-w-md sm:gap-2 shadow-2xl transform-gpu transition-colors duration-500"
+                    // Apply ONLY glass styles
+                    style={monetTheme.glassStyle}
+                    className="macos-dock pointer-events-auto px-2 py-2 rounded-[2.5rem] flex items-center justify-between w-auto min-w-[90%] max-w-md sm:gap-2 shadow-2xl transform-gpu transition-all duration-500"
                 >
                     {bottomNavItems.map(item => { 
                             const isActive = activeView === item.view;
