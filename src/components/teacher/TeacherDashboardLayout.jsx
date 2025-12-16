@@ -4,21 +4,25 @@ import { CSSTransition } from 'react-transition-group';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { Menu, Transition } from '@headlessui/react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-    IconHome,
-    IconUsers,
-    IconSchool,
-    IconCategory,
-    IconUserCircle,
-    IconShieldCog,
-    IconPower,
-    IconChartBar,
-    IconRocket,
-    IconMenu2,
-    IconX,
-    IconGridDots,
-    IconPalette
-} from '@tabler/icons-react'
+
+// --- NEW AESTHETIC ICONS (Lucide React) ---
+import { 
+    Home, 
+    Users, 
+    GraduationCap, // For Classes
+    BookOpen,      // For Subjects
+    UserCircle, 
+    Settings,      // For Admin
+    BarChart2,     // For Analytics
+    Rocket,        // For Lounge
+    Menu as MenuIcon,
+    X,
+    LayoutGrid,    // For Mobile Menu
+    Palette,
+    LogOut,
+    Power
+} from 'lucide-react';
+
 import { NavLink } from 'react-router-dom';
 
 // FIREBASE & SERVICES
@@ -144,7 +148,7 @@ const ThemeDropdown = ({ size = 'desktop', showTutorial = false, onTutorialCompl
              if (showTutorial && onTutorialComplete) onTutorialComplete();
           }}
         >
-          <IconPalette size={iconSize} stroke={1.5} />
+          <Palette size={iconSize} strokeWidth={1.5} />
           
           {showTutorial && (
             <span className="absolute inset-0 rounded-full animate-ping bg-blue-400/30"></span>
@@ -255,7 +259,7 @@ const ProfileDropdown = ({ userProfile, onLogout, size = 'desktop' }) => {
                     active ? 'bg-slate-100 dark:bg-slate-800 shadow-sm' : 'hover:bg-transparent'
                   } group flex w-full items-center rounded-xl p-3 text-xs font-bold text-slate-700 dark:text-slate-200 transition-all duration-200`}
                 >
-                  <IconUserCircle stroke={2} className="mr-3 h-5 w-5 text-blue-500 dark:text-blue-400" />
+                  <UserCircle strokeWidth={2} className="mr-3 h-5 w-5 text-blue-500 dark:text-blue-400" />
                   Profile
                 </NavLink>
               )}
@@ -270,7 +274,7 @@ const ProfileDropdown = ({ userProfile, onLogout, size = 'desktop' }) => {
                     active ? 'bg-red-50 dark:bg-red-900/20 shadow-sm' : 'hover:bg-transparent'
                   } group flex w-full items-center rounded-xl p-3 text-xs font-bold text-red-600 dark:text-red-400 transition-all duration-200`}
                 >
-                  <IconPower stroke={2} className="mr-3 h-5 w-5" />
+                  <LogOut strokeWidth={2} className="mr-3 h-5 w-5" />
                   Logout
                 </button>
               )}
@@ -287,17 +291,18 @@ const ProfileDropdown = ({ userProfile, onLogout, size = 'desktop' }) => {
 const DesktopHeader = ({ userProfile, setIsLogoutModalOpen, showTutorial, onTutorialComplete }) => {
     const { monetTheme } = useTheme();
 
+    // UPDATED NAV ITEMS WITH LUCIDE ICONS
     const navItems = [
-        { view: 'home', text: 'Home', icon: IconHome },
-        { view: 'lounge', text: 'Lounge', icon: IconRocket },
-        { view: 'studentManagement', text: 'Students', icon: IconUsers },
-        { view: 'classes', text: 'Classes', icon: IconSchool },
-        { view: 'courses', text: 'Subjects', icon: IconCategory },
-        { view: 'analytics', icon: IconChartBar, text: 'Analytics' },
-        { view: 'profile', text: 'Profile', icon: IconUserCircle },
+        { view: 'home', text: 'Home', icon: Home },
+        { view: 'lounge', text: 'Lounge', icon: Rocket },
+        { view: 'studentManagement', text: 'Students', icon: Users },
+        { view: 'classes', text: 'Classes', icon: GraduationCap },
+        { view: 'courses', text: 'Subjects', icon: BookOpen },
+        { view: 'analytics', icon: BarChart2, text: 'Analytics' },
+        { view: 'profile', text: 'Profile', icon: UserCircle },
     ];
     if (userProfile?.role === 'admin') {
-        navItems.push({ view: 'admin', text: 'Admin', icon: IconShieldCog });
+        navItems.push({ view: 'admin', text: 'Admin', icon: Settings });
     }
 
     return (
@@ -318,8 +323,8 @@ const DesktopHeader = ({ userProfile, setIsLogoutModalOpen, showTutorial, onTuto
                     <span className="font-black text-lg bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 tracking-tight leading-tight block">
                         SRCS
                     </span>
-                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                        Portal
+                    <span className="font-black text-lg bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 tracking-tight leading-tight block">
+                        LMS
                     </span>
                 </div>
             </div>
@@ -351,7 +356,7 @@ const DesktopHeader = ({ userProfile, setIsLogoutModalOpen, showTutorial, onTuto
                                         )}
                                         <span className="relative z-10 flex items-center gap-2">
                                             <item.icon
-                                                stroke={isActive ? 2.5 : 2}
+                                                strokeWidth={isActive ? 2.5 : 2}
                                                 size={18}
                                                 className={`transition-all duration-300 ${
                                                     isActive 
@@ -520,18 +525,20 @@ const TeacherDashboardLayout = (props) => {
         rest.setCreateCourseModalOpen(true);
     };
 
+    // UPDATED MOBILE DOCK ITEMS (Lucide)
     const bottomNavItems = [
-        { view: 'home', text: 'Home', icon: IconHome },
-        { view: 'classes', text: 'Classes', icon: IconSchool },
-        { view: 'courses', text: 'Subjects', icon: IconCategory },
-        { view: 'profile', text: 'Profile', icon: IconUserCircle },
+        { view: 'home', text: 'Home', icon: Home },
+        { view: 'classes', text: 'Classes', icon: GraduationCap },
+        { view: 'courses', text: 'Subjects', icon: BookOpen },
+        { view: 'profile', text: 'Profile', icon: UserCircle },
     ];
 
+    // UPDATED ACTION MENU ITEMS (Lucide)
     const actionMenuItems = [
-        { view: 'lounge', text: 'Lounge', icon: IconRocket },
-        { view: 'studentManagement', text: 'Students', icon: IconUsers },
-        { view: 'analytics', text: 'Analytics', icon: IconChartBar },
-        ...(userProfile?.role === 'admin' ? [{ view: 'admin', text: 'Admin', icon: IconShieldCog }] : [])
+        { view: 'lounge', text: 'Lounge', icon: Rocket },
+        { view: 'studentManagement', text: 'Students', icon: Users },
+        { view: 'analytics', text: 'Analytics', icon: BarChart2 },
+        ...(userProfile?.role === 'admin' ? [{ view: 'admin', text: 'Admin', icon: Settings }] : [])
     ];
 
     const handleStartOnlineClass = async (classId, meetingCode, meetLink) => {
@@ -622,7 +629,7 @@ const TeacherDashboardLayout = (props) => {
                     </div>
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
                         <span className="font-black text-xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-500 to-purple-600 dark:from-blue-400 dark:via-indigo-400 dark:to-purple-400">
-                            SRCS
+                            SRCS LMS
                         </span>
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0 z-20">
@@ -669,7 +676,7 @@ const TeacherDashboardLayout = (props) => {
                                 className={`relative group flex items-center justify-center gap-2 p-2.5 rounded-full transition-colors outline-none flex-1 ${isActive ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-lg' : 'text-slate-500 dark:text-slate-400 hover:bg-white/40 dark:hover:bg-white/10'}`}
                             >
                                 <motion.div className="relative" whileHover={{ scale: 1.1 }} transition={{ type: "spring", stiffness: 300 }}>
-                                    <item.icon stroke={isActive ? 2.5 : 1.5} className={`h-6 w-6 ${isActive ? 'scale-105' : 'opacity-80'}`} />
+                                    <item.icon strokeWidth={isActive ? 2.5 : 1.5} className={`h-6 w-6 ${isActive ? 'scale-105' : 'opacity-80'}`} />
                                 </motion.div>
                                 {isActive && (
                                     <motion.span initial={{ opacity: 0, width: 0 }} animate={{ opacity: 1, width: "auto" }} exit={{ opacity: 0, width: 0 }} transition={{ duration: 0.3, ease: "easeOut" }} className="text-[10px] font-bold tracking-wide whitespace-nowrap overflow-hidden">
@@ -682,7 +689,7 @@ const TeacherDashboardLayout = (props) => {
                     <div className="w-[1px] h-6 bg-slate-300 dark:bg-slate-700 mx-1 flex-shrink-0"></div>
                     <motion.button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} layout className={`relative group flex items-center justify-center gap-2 p-2.5 rounded-full transition-all outline-none flex-shrink-0 ${isMobileMenuOpen ? 'bg-slate-800 dark:bg-white text-white dark:text-slate-900 shadow-lg' : 'text-slate-500 dark:text-slate-400 hover:bg-white/40 dark:hover:bg-white/10'}`}>
                         <motion.div className="relative" whileHover={{ scale: 1.1 }} transition={{ type: "spring", stiffness: 300 }}>
-                            {isMobileMenuOpen ? <IconX stroke={2.5} className="h-6 w-6" /> : <IconGridDots stroke={2} className="h-6 w-6" />}
+                            {isMobileMenuOpen ? <X strokeWidth={2.5} className="h-6 w-6" /> : <LayoutGrid strokeWidth={2} className="h-6 w-6" />}
                         </motion.div>
                     </motion.button>
                 </motion.div>
@@ -708,7 +715,7 @@ const TeacherDashboardLayout = (props) => {
                                         className="flex flex-col items-center gap-2.5 group"
                                     >
                                         <div className={`w-16 h-16 rounded-[1.2rem] flex items-center justify-center shadow-sm transition-all duration-300 group-active:scale-95 ${isActive ? 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-blue-500/30' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>
-                                            <item.icon className="h-8 w-8" stroke={isActive ? 2 : 1.5} />
+                                            <item.icon className="h-8 w-8" strokeWidth={isActive ? 2 : 1.5} />
                                         </div>
                                         <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300 text-center leading-tight tracking-wide">
                                             {item.text}
@@ -761,7 +768,7 @@ const TeacherDashboardLayout = (props) => {
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
                     <div className="glass-panel rounded-[2.5rem] shadow-2xl p-8 w-full max-w-sm text-center transform transition-all bg-white dark:bg-[#1A1D24]">
                         <div className="w-14 h-14 rounded-full bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/30 dark:to-red-900/50 text-red-500 mx-auto mb-5 flex items-center justify-center shadow-inner ring-4 ring-slate-100 dark:ring-white/5">
-                            <IconPower size={28} stroke={2} />
+                            <Power size={28} strokeWidth={2} />
                         </div>
                         <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2 tracking-tight">Sign Out?</h2>
                         <p className="text-sm text-slate-500 dark:text-slate-400 mb-8 leading-relaxed font-medium">You are about to end your session. <br/> Are you sure you want to continue?</p>

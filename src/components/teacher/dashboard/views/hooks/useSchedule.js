@@ -20,13 +20,12 @@ export const useSchedule = (showToast) => {
         });
 
         return () => unsubscribe();
-    }, [showToast]); // showToast is a stable function, so this effect runs once
+    }, [showToast]);
 
-    // CRUD operations for the schedule
+    // CRUD operations
     const handleAddScheduleActivity = async (newActivity) => {
         try {
             await addDoc(scheduleCollectionRef, newActivity);
-            // The onSnapshot listener will automatically update the state
         } catch (error) {
             console.error("Error adding schedule activity:", error);
         }
@@ -52,32 +51,45 @@ export const useSchedule = (showToast) => {
         }
     };
 
-    // Memoized calculation to get activities for the modal (current and future months)
+    // --- FIXED: Memoized calculation to filter expired dates correctly ---
     const filteredScheduleActivitiesForDisplay = useMemo(() => {
-        const currentMonth = new Date().getMonth();
-        const currentYear = new Date().getFullYear();
+        // 1. Get "Today" at the very beginning of the day (00:00:00) based on system time (PH Time)
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
         return scheduleActivities.filter(activity => {
-            const activityEndDate = new Date(activity.endDate);
-            const activityEndMonth = activityEndDate.getMonth();
-            const activityEndYear = activityEndDate.getFullYear();
+            if (!activity.endDate) return false;
 
-            if (activityEndYear > currentYear) return true;
-            if (activityEndYear === currentYear && activityEndMonth >= currentMonth) return true;
+            // 2. Parse the HTML date string (YYYY-MM-DD) explicitly to Local Time
+            // Direct new Date("2025-12-15") often defaults to UTC, which causes timezone issues.
+            const [y, m, d] = activity.endDate.split('-').map(Number);
             
-            return false;
+            // Create a date object for the End Date (Month is 0-indexed in JS)
+            const activityEndDate = new Date(y, m - 1, d);
+            
+            // 3. Set the End Date to the very end of that day (23:59:59)
+            // This ensures if today is Dec 15, and end date is Dec 15, it is still shown.
+            activityEndDate.setHours(23, 59, 59, 999);
+
+            // 4. Compare: Check if the end date is in the future or is today
+            return activityEndDate >= today;
         });
     }, [scheduleActivities]);
 
     // Memoized calculation to get today's upcoming activities for the header
     const todayActivities = useMemo(() => {
         const now = new Date();
-        const todayFormatted = now.toISOString().split('T')[0];
+        // Format to YYYY-MM-DD using local time explicitly
+        const offset = now.getTimezoneOffset() * 60000;
+        const localISOTime = (new Date(now - offset)).toISOString().slice(0, -1);
+        const todayFormatted = localISOTime.split('T')[0];
 
         return scheduleActivities.filter(activity => {
+            // Check Date Range
             const isActivityActiveTodayByDate = todayFormatted >= activity.startDate && todayFormatted <= activity.endDate;
             if (!isActivityActiveTodayByDate) return false;
 
+            // Check Time (if applicable)
             if (activity.time && activity.time !== 'N/A') {
                 try {
                     let [timePart, ampm] = activity.time.split(' ');
@@ -89,21 +101,21 @@ export const useSchedule = (showToast) => {
                     const activityDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
                     return activityDateTime >= now;
                 } catch (e) {
-                    console.error("Error parsing activity time, defaulting to show:", activity.time, e);
+                    console.error("Error parsing activity time:", activity.time, e);
                     return true;
                 }
             }
             return true;
-        }).sort((a, b) => { // Sort by time
+        }).sort((a, b) => {
             if (a.time === 'N/A' || !a.time) return -1;
             if (b.time === 'N/A' || !b.time) return 1;
-            const timeA = new Date(`1970-01-01T${a.time.replace(' ', '')}`).getTime();
-            const timeB = new Date(`1970-01-01T${b.time.replace(' ', '')}`).getTime();
-            return timeA - timeB;
+            // Simple string sort for time is risky, but works if format is consistent HH:MM AM/PM
+            // Ideally convert to minutes for sorting, but keeping existing logic structure
+            return a.time.localeCompare(b.time);
         });
     }, [scheduleActivities]);
     
-    // Effect to cycle through today's activities every 5 seconds
+    // Cycle through today's activities
     useEffect(() => {
         if (todayActivities.length > 1) {
             const interval = setInterval(() => {

@@ -1,9 +1,4 @@
-/* ChatDialog.css */
-
-/* =========================================
-   MACOS 26 / SPATIAL DESIGN SYSTEM
-   Updated for Monet Effect & Reduced Blurring
-   ========================================= */
+/* src/components/teacher/ChatDialog.css */
 
 /* --- BASE DIALOG --- */
 .chat-dialog {
@@ -18,22 +13,16 @@
   overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   
-  /* Dynamic Background with fallback */
-  background: var(--chat-bg, rgba(255, 255, 255, 0.95));
-  /* Reduced blur for Monet themes, subtle for default */
-  backdrop-filter: blur(8px); 
-  -webkit-backdrop-filter: blur(8px);
+  /* Background and Border are now handled by Monet Glass Style in JSX */
   
-  /* Borders & Shadows */
-  border: 1px solid var(--chat-border, rgba(255, 255, 255, 0.5));
-  box-shadow: 
-    0 20px 40px rgba(0, 0, 0, 0.3), 
-    0 0 0 1px rgba(255, 255, 255, 0.1) inset;
-
   bottom: 24px;
   right: 24px;
-  transition: background-color 0.5s ease, border-color 0.5s ease;
+  border-radius: 24px; /* Matches dashboard aesthetics */
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   color: var(--text-color, #1d1d1f);
+  
+  /* Fallback Shadow if Monet doesn't provide one */
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
 }
 
 /* --- HEADER --- */
@@ -42,10 +31,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--header-bg, rgba(255, 255, 255, 0.5));
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  background: var(--header-bg);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   z-index: 10;
-  transition: background-color 0.5s ease;
 }
 
 .chat-info {
@@ -70,19 +58,19 @@
 .chat-title {
   font-weight: 700;
   font-size: 1rem;
-  color: var(--text-color, #1d1d1f);
+  color: var(--text-color);
   letter-spacing: -0.02em;
 }
 
 .chat-status {
   font-size: 0.75rem;
   font-weight: 500;
-  color: var(--text-color, #86868b);
-  opacity: 0.8;
+  color: var(--text-color);
+  opacity: 0.7;
 }
 
 .chat-close-btn {
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.1);
   border: none;
   cursor: pointer;
   width: 32px;
@@ -92,7 +80,7 @@
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
-  color: var(--text-color, #1d1d1f);
+  color: var(--text-color);
 }
 
 .chat-close-btn:hover {
@@ -112,11 +100,10 @@
   z-index: 5;
 }
 
-/* Scrollbar Styling */
-.chat-messages::-webkit-scrollbar { width: 6px; }
+.chat-messages::-webkit-scrollbar { width: 4px; }
 .chat-messages::-webkit-scrollbar-track { background: transparent; }
 .chat-messages::-webkit-scrollbar-thumb {
-  background: rgba(128, 128, 128, 0.2);
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 10px;
 }
 
@@ -150,46 +137,33 @@
   font-size: 0.95rem;
   line-height: 1.5;
   position: relative;
-}
-
-/* AI Bubble: Uses variable or fallback */
-.ai-message .message-content {
-  background: var(--ai-bubble-bg, rgba(255, 255, 255, 0.6));
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: var(--text-color, #1d1d1f);
-  border-bottom-left-radius: 4px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.03);
-}
-
-/* User Bubble: Gradient from variable or default */
-.user-message .message-content {
-  background: var(--user-bubble-bg, linear-gradient(135deg, #007AFF, #5856D6));
-  color: white; /* User text always white on colorful bubbles */
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-bottom-right-radius: 4px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(4px);
 }
 
-/* --- TYPING INDICATOR --- */
-.typing-bubble {
-  margin-bottom: 8px;
+/* AI Bubble */
+.ai-message .message-content {
+  background: var(--ai-bubble-bg);
+  color: var(--text-color);
+  border-bottom-left-radius: 4px;
 }
-.typing-indicator span {
-  background: var(--text-color, #86868b);
-  width: 5px;
-  height: 5px;
-  opacity: 0.7;
+
+/* User Bubble */
+.user-message .message-content {
+  background: var(--user-bubble-bg);
+  color: #fff; /* Always white text on primary color */
+  border-bottom-right-radius: 4px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
 }
 
 /* --- INPUT AREA --- */
 .chat-input-area {
   padding: 16px 20px;
-  background: var(--header-bg, rgba(255, 255, 255, 0.5)); /* Match header usually */
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--header-bg);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
   display: flex;
   align-items: flex-end;
   gap: 10px;
-  transition: background-color 0.5s ease;
 }
 
 .chat-input {
@@ -199,17 +173,22 @@
   padding: 12px 16px;
   border-radius: 22px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  background: var(--input-bg, rgba(255, 255, 255, 0.6));
+  background: var(--input-bg);
   font-size: 0.95rem;
   outline: none;
   transition: all 0.2s ease;
-  color: var(--text-color, #1d1d1f);
+  color: var(--text-color);
   box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
 }
 
+.chat-input::placeholder {
+    color: var(--text-color);
+    opacity: 0.5;
+}
+
 .chat-input:focus {
-  background: var(--chat-bg, rgba(255, 255, 255, 0.9));
-  box-shadow: 0 0 0 2px var(--chat-border, rgba(0, 122, 255, 0.3));
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 0 2px var(--monet-primary, rgba(255,255,255,0.3));
 }
 
 .send-btn {
@@ -217,8 +196,7 @@
   height: 44px;
   border-radius: 50%;
   border: none;
-  background: var(--user-bubble-bg, #007AFF); /* Match user bubble */
-  color: white;
+  /* background color set in JSX via monet-primary */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -230,34 +208,20 @@
 .send-btn:hover:not(:disabled) { transform: scale(1.1); }
 .send-btn:active:not(:disabled) { transform: scale(0.95); }
 .send-btn:disabled {
-  background: rgba(128, 128, 128, 0.3);
-  color: rgba(255, 255, 255, 0.5);
-  box-shadow: none;
+  background: rgba(128, 128, 128, 0.3) !important;
+  color: rgba(255, 255, 255, 0.5) !important;
   cursor: default;
+  box-shadow: none;
 }
 
-/* =========================================
-   DARK MODE FALLBACKS (Standard Theme)
-   ========================================= */
-/* When no inline theme variables are set (standard mode), 
-   these class-based variables take over if .dark is present */
-.dark .chat-dialog {
-  --chat-bg: rgba(30, 30, 30, 0.95);
-  --chat-border: rgba(255, 255, 255, 0.15);
-  --header-bg: rgba(255, 255, 255, 0.05);
-  --input-bg: rgba(0, 0, 0, 0.3);
-  --text-color: #f5f5f7;
-  --ai-bubble-bg: rgba(255, 255, 255, 0.1);
-  
-  /* Adjust shadow for dark mode depth */
-  box-shadow: 
-    0 25px 50px -12px rgba(0, 0, 0, 0.5), 
-    0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+.typing-indicator span {
+  background: var(--text-color);
+  width: 5px;
+  height: 5px;
+  opacity: 0.7;
 }
 
-/* =========================================
-   MOBILE RESPONSIVENESS
-   ========================================= */
+/* --- MOBILE --- */
 @media (max-width: 768px) {
   .chat-dialog {
     width: 100%;
@@ -270,15 +234,5 @@
     left: 0;
     top: 0;
     border: none;
-    background: var(--chat-bg, rgba(255, 255, 255, 0.98)); /* Higher opacity on mobile */
-  }
-
-  .chat-header {
-    padding: 16px;
-    padding-top: env(safe-area-inset-top, 20px);
-  }
-
-  .chat-input-area {
-    padding-bottom: max(16px, env(safe-area-inset-bottom, 20px));
   }
 }

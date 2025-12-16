@@ -28,13 +28,17 @@ const UniversalBackground = () => {
       {/* Note: The gradients are now handled by the parent div style above, 
           so these sections only need to render the specific images/particles. */}
 
-      {activeOverlay === 'christmas' && (
-        <div className="absolute inset-0 animate-fade-in">
-           <img src="/themes/christmas/manger.png" alt="Christmas" className="absolute inset-0 w-full h-full object-cover opacity-40 mix-blend-soft-light" />
-           <ul className="light-rope">{Array.from({ length: 35 }).map((_, i) => <li key={i}></li>)}</ul>
-           <div className="snowflakes" aria-hidden="true">{Array.from({ length: 20 }).map((_, i) => <div key={i} className="snowflake">❅</div>)}</div>
-        </div>
-      )}
+		  {activeOverlay === 'christmas' && (
+		          <div className="absolute inset-0 animate-fade-in">
+		             {/* Background Image */}
+		             <img src="/themes/christmas/manger.png" alt="Christmas" className="absolute inset-0 w-full h-full object-cover opacity-40 mix-blend-soft-light" />
+           
+		             {/* REMOVED: <ul className="light-rope">...</ul> */}
+           
+		             {/* Snowflakes (Keep these, they are optimized) */}
+		             <div className="snowflakes" aria-hidden="true">{Array.from({ length: 20 }).map((_, i) => <div key={i} className="snowflake">❅</div>)}</div>
+		          </div>
+		        )}
 
       {activeOverlay === 'valentines' && (
          <div className="absolute inset-0 animate-fade-in">

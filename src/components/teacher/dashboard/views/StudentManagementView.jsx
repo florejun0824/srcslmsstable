@@ -1,4 +1,4 @@
-// src/components/teacher/StudentManagementView.jsx
+// src/components/teacher/dashboard/views/StudentManagementView.jsx
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../../../../contexts/AuthContext'; 
@@ -13,7 +13,9 @@ import {
   ChevronsUpDown,
   CheckIcon,
   ListFilter,
-  Trash2
+  Trash2,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 // [ADDED] Import CheckCircleIcon for the custom radio-style checkbox
 import { CheckCircleIcon } from '@heroicons/react/24/solid'; 
@@ -195,7 +197,7 @@ const StudentDesktopRow = ({ user, enrolledClasses, onEdit, onSelect, isSelected
                 <div className="flex-shrink-0 w-9 h-9 rounded-full shadow-sm ring-2 ring-white dark:ring-slate-800 overflow-hidden bg-slate-100 dark:bg-slate-800">
                     <UserInitialsAvatar user={user} size="full" className="w-full h-full text-xs font-bold" />
                 </div>
-                <span className="font-bold text-slate-800 dark:text-white">{user.firstName} {user.lastName}</span>
+                <span className="font-bold text-slate-800 dark:text-white">{user.lastName}, {user.firstName}</span>
             </div>
         </td>
         <td className="px-6 py-4 whitespace-nowrap">
@@ -440,6 +442,10 @@ const StudentManagementView = () => {
   const [allClasses, setAllClasses] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 25;
+
   const [filters, setFilters] = useState({
     name: '',
     grade: 'All',
@@ -496,9 +502,10 @@ const StudentManagementView = () => {
     return map;
   }, [allStudents, allClasses]);
 
+  // Filter Logic (Runs before pagination)
   const filteredStudents = useMemo(() => {
     const lowerName = filters.name.toLowerCase();
-    return allStudents
+    const result = allStudents
       .filter(student => {
         if (filters.class) {
           const enrolled = enrolledClassesMap.get(student.id) || [];
@@ -509,9 +516,41 @@ const StudentManagementView = () => {
         }
         return `${student.firstName} ${student.lastName}`.toLowerCase().includes(lowerName);
       })
-      .sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''));
+      // --- FIX: UPDATED SORT LOGIC (Strict Alphabetical: Last Name -> First Name) ---
+      .sort((a, b) => {
+          const nameA = (a.lastName || '').toLowerCase();
+          const nameB = (b.lastName || '').toLowerCase();
+          
+          if (nameA < nameB) return -1;
+          if (nameA > nameB) return 1;
+          
+          // Tie-breaker: First Name
+          const firstA = (a.firstName || '').toLowerCase();
+          const firstB = (b.firstName || '').toLowerCase();
+          
+          if (firstA < firstB) return -1;
+          if (firstA > firstB) return 1;
+          
+          return 0;
+      });
+      
+      return result;
   }, [allStudents, filters, enrolledClassesMap]);
   
+  // Effect to reset pagination when filtered results change length
+  useEffect(() => {
+      setCurrentPage(1);
+  }, [filters, filteredStudents.length]);
+
+  // Pagination Logic (Slices the filtered list)
+  const paginatedStudents = useMemo(() => {
+      const startIndex = (currentPage - 1) * itemsPerPage;
+      const endIndex = startIndex + itemsPerPage;
+      return filteredStudents.slice(startIndex, endIndex);
+  }, [filteredStudents, currentPage]);
+
+  const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
+
   const handleFilterChange = (key, value) => {
     setFilters(prev => {
       const newFilters = { ...prev, [key]: value };
@@ -546,13 +585,33 @@ const StudentManagementView = () => {
     });
   };
 
+  // Select all visible on current page vs Select all filtered
+  // Let's stick to selecting all *visible* on the current page for simplicity, 
+  // or all *filtered* if user expects bulk actions across pages. 
+  // Standard UX usually selects current page first.
   const handleSelectAll = () => {
-    if (selectedStudentIds.size === filteredStudents.length) {
-      setSelectedStudentIds(new Set());
+    // Check if all displayed items are selected
+    const allDisplayedSelected = paginatedStudents.every(s => selectedStudentIds.has(s.id));
+    
+    if (allDisplayedSelected) {
+        // Deselect all on current page
+        setSelectedStudentIds(prev => {
+            const newSet = new Set(prev);
+            paginatedStudents.forEach(s => newSet.delete(s.id));
+            return newSet;
+        });
     } else {
-      setSelectedStudentIds(new Set(filteredStudents.map(s => s.id)));
+        // Select all on current page
+        setSelectedStudentIds(prev => {
+            const newSet = new Set(prev);
+            paginatedStudents.forEach(s => newSet.add(s.id));
+            return newSet;
+        });
     }
   };
+  
+  // Helper to check if "Select All" checkbox should be checked
+  const isAllPageSelected = paginatedStudents.length > 0 && paginatedStudents.every(s => selectedStudentIds.has(s.id));
 
   const handleEditClick = (user) => {
     setSelectedUser(user);
@@ -589,8 +648,6 @@ const StudentManagementView = () => {
     setSelectedStudentIds(new Set());
     setIsImportModalOpen(false);
   };
-  
-  const allVisibleSelected = filteredStudents.length > 0 && selectedStudentIds.size === filteredStudents.length;
 
   return (
     <div className="flex flex-col h-full font-sans space-y-6 p-1 lg:p-0 relative z-10">
@@ -606,7 +663,7 @@ const StudentManagementView = () => {
                 Students
               </h1>
               <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">
-                Manage enrollment and student profiles.
+                Manage enrollment and student profiles. <span className="text-slate-400 dark:text-slate-600">({filteredStudents.length} total)</span>
               </p>
             </div>
         </motion.header>
@@ -696,9 +753,9 @@ const StudentManagementView = () => {
                             <div className="relative flex items-center justify-center w-5 h-5 mx-auto">
                                 <input
                                     type="checkbox"
-                                    checked={allVisibleSelected}
+                                    checked={isAllPageSelected}
                                     onChange={handleSelectAll}
-                                    disabled={filteredStudents.length === 0}
+                                    disabled={paginatedStudents.length === 0}
                                     className={`peer appearance-none w-5 h-5 rounded-full border-2 transition-all cursor-pointer 
                                         ${activeOverlay !== 'none' 
                                             ? 'border-white/40 checked:bg-white checked:border-white' 
@@ -717,8 +774,8 @@ const StudentManagementView = () => {
                     </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-[#1A1D24]">
-                    {filteredStudents.length > 0 ? (
-                        filteredStudents.map(user => (
+                    {paginatedStudents.length > 0 ? (
+                        paginatedStudents.map(user => (
                         <StudentDesktopRow 
                             key={user.id} 
                             user={user} 
@@ -741,13 +798,13 @@ const StudentManagementView = () => {
 
                 {/* Mobile List */}
                 <div className="block md:hidden flex-1 overflow-y-auto p-4 custom-scrollbar">
-                {filteredStudents.length > 0 && (
+                {paginatedStudents.length > 0 && (
                     <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl mb-4 border border-slate-200 dark:border-slate-700">
                         {/* [UPDATED] Mobile Select All Checkbox (Radio Style) */}
                         <div className="relative flex items-center justify-center w-5 h-5">
                             <input
                                 type="checkbox"
-                                checked={allVisibleSelected}
+                                checked={isAllPageSelected}
                                 onChange={handleSelectAll}
                                 className={`peer appearance-none w-5 h-5 rounded-full border-2 transition-all cursor-pointer 
                                     ${activeOverlay !== 'none' 
@@ -763,14 +820,14 @@ const StudentManagementView = () => {
                             className="font-bold text-slate-700 dark:text-slate-200 text-sm"
                             onClick={handleSelectAll}
                         >
-                            Select All ({filteredStudents.length})
+                            Select Page ({paginatedStudents.length})
                         </label>
                     </div>
                 )}
                 
-                {filteredStudents.length > 0 ? (
+                {paginatedStudents.length > 0 ? (
                     <div className="space-y-2">
-                        {filteredStudents.map(user => (
+                        {paginatedStudents.map(user => (
                         <StudentMobileCard 
                             key={user.id} 
                             user={user} 
@@ -787,6 +844,59 @@ const StudentManagementView = () => {
                     </div>
                 )}
                 </div>
+
+                {/* --- PAGINATION FOOTER --- */}
+                {totalPages > 1 && (
+                    <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex flex-col sm:flex-row justify-between items-center gap-4">
+                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                            Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredStudents.length)} of {filteredStudents.length} students
+                        </span>
+                        
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                disabled={currentPage === 1}
+                                className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                                <ChevronLeft size={16} />
+                            </button>
+                            
+                            {/* Simple Page Numbers */}
+                            <div className="flex items-center gap-1">
+                                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                    // Logic to show generic window of pages centered on current
+                                    let pageNum = i + 1;
+                                    if (totalPages > 5) {
+                                        if (currentPage > 3) pageNum = currentPage - 2 + i;
+                                        if (pageNum > totalPages) pageNum = i + 1; // Fallback, though clamp logic usually better
+                                    }
+                                    
+                                    // Better simple logic for small window:
+                                    // Just show 1..N if N <= 5.
+                                    // If N > 5, show: 1, ... curr-1, curr, curr+1, ... N (Too complex for simple snippet)
+                                    // Let's stick to a simple slice for now or just current/total text on mobile.
+                                    
+                                    // Adjusted Simple Logic:
+                                    // Always show current page button highlighted
+                                    // If total pages is huge, we might just show Prev [Page X of Y] Next
+                                    return null; 
+                                })}
+                                
+                                <span className="text-xs font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-lg">
+                                    Page {currentPage} of {totalPages}
+                                </span>
+                            </div>
+
+                            <button
+                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                disabled={currentPage === totalPages}
+                                className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                                <ChevronRight size={16} />
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
             )}
 		</div>

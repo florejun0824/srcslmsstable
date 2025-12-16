@@ -19,6 +19,7 @@ import {
   Settings,
   AlertTriangle,
   Info,
+  Check, // [ADDED] Imported Check icon
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Dialog, Transition } from '@headlessui/react';
@@ -285,14 +286,22 @@ const CollapsibleUserTable = memo(({
           <table className="min-w-full text-sm text-left">
             <thead className="bg-gray-50/50 dark:bg-black/20 text-xs uppercase font-semibold text-gray-400">
               <tr>
-                <th className="px-6 py-3 w-12">
-                  <input
-                    type="checkbox"
-                    onChange={() => handleSelectAll(userIdsInTable)}
-                    checked={allInTableSelected}
-                    disabled={userIdsInTable.length === 0}
-                    className="h-4 w-4 rounded-[4px] border-gray-300 dark:border-gray-600 text-[#007AFF] focus:ring-[#007AFF] dark:bg-gray-700 cursor-pointer"
-                  />
+                <th className="px-6 py-3 w-14"> {/* Increased width slightly */}
+                  {/* [UPDATED] iOS-Style Select All Checkbox */}
+                  <div className="relative flex items-center justify-center">
+                    <input
+                      type="checkbox"
+                      onChange={() => handleSelectAll(userIdsInTable)}
+                      checked={allInTableSelected}
+                      disabled={userIdsInTable.length === 0}
+                      className="peer h-5 w-5 rounded-full border-2 border-gray-300 dark:border-gray-500 bg-transparent checked:bg-[#007AFF] checked:border-[#007AFF] focus:ring-0 focus:ring-offset-0 transition-all duration-200 ease-out cursor-pointer disabled:opacity-50 appearance-none"
+                    />
+                    <Check 
+                        size={12} 
+                        strokeWidth={4} 
+                        className="absolute text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-all duration-200 transform scale-50 peer-checked:scale-100" 
+                    />
+                  </div>
                 </th>
                 <th className="px-4 py-3 tracking-wider">Name</th>
                 <th className="px-4 py-3 tracking-wider">Email</th>
@@ -309,12 +318,20 @@ const CollapsibleUserTable = memo(({
                       }`}
                   >
                     <td className="px-6 py-3.5">
-                      <input
-                        type="checkbox"
-                        onChange={() => handleSelectUser(user.id)}
-                        checked={selectedUserIds.has(user.id)}
-                        className="h-4 w-4 rounded-[4px] border-gray-300 dark:border-gray-600 text-[#007AFF] focus:ring-[#007AFF] dark:bg-gray-700 cursor-pointer"
-                      />
+                      {/* [UPDATED] iOS-Style Row Checkbox */}
+                      <div className="relative flex items-center justify-center">
+                        <input
+                          type="checkbox"
+                          onChange={() => handleSelectUser(user.id)}
+                          checked={selectedUserIds.has(user.id)}
+                          className="peer h-5 w-5 rounded-full border-2 border-gray-300 dark:border-gray-500 bg-transparent checked:bg-[#007AFF] checked:border-[#007AFF] focus:ring-0 focus:ring-offset-0 transition-all duration-200 ease-out cursor-pointer appearance-none"
+                        />
+                        <Check 
+                            size={12} 
+                            strokeWidth={4} 
+                            className="absolute text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-all duration-200 transform scale-50 peer-checked:scale-100" 
+                        />
+                      </div>
                     </td>
                     <td className="px-4 py-3.5 whitespace-nowrap">
                         <span className="font-medium text-gray-900 dark:text-gray-100">{user.firstName} {user.lastName}</span>
@@ -433,9 +450,10 @@ const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('active');
   const [studentsByGrade, setStudentsByGrade] = useState({});
   const [openSections, setOpenSections] = useState({
-    admins: true,
+    // --- UPDATED: ALL SECTIONS COLLAPSED BY DEFAULT ---
+    admins: false,
     teachers: false,
-    studentsContainer: true,
+    studentsContainer: false,
     'Grade 7': false,
     'Grade 8': false,
     'Grade 9': false,
@@ -443,7 +461,7 @@ const AdminDashboard = () => {
     'Grade 11': false,
     'Grade 12': false,
     Unassigned: false,
-    restricted: true,
+    restricted: false,
   });
 
   // Modal states
