@@ -6,6 +6,26 @@ import { ArrowUturnLeftIcon } from '@heroicons/react/24/outline';
 // We need the *big* sanitizer for the Planner call
 import { sanitizeLessonsJson as sanitizeJsonBlock } from './sanitizeLessonText'; // Corrected path
 
+// --- CONFIGURATION ---
+// Set to 20 seconds to safely allow for long/complex prompts without hitting the limit.
+const GEMMA_SAFETY_DELAY_MS = 31000; 
+
+/**
+ * --- Helper: Smart Delay ---
+ * Delays execution but can be aborted if the user closes the modal
+ */
+const smartDelay = async (ms, signal) => {
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(resolve, ms);
+        if (signal) {
+            signal.addEventListener('abort', () => {
+                clearTimeout(timer);
+                reject(new Error("Aborted delay"));
+            });
+        }
+    });
+};
+
 /**
  * --- Micro-Worker Sanitizer (Robust Version) ---
  * This function can find the true, complete JSON object even if
@@ -604,6 +624,9 @@ export default function GenerationScreen({
                 const baseContext = getBasePromptContext(guideData, existingSubjectContext);
                 const plannerPrompt = getPlannerPrompt(guideData, baseContext);
 
+                // --- ADDED SAFETY DELAY BEFORE PLANNER ---
+                await smartDelay(GEMMA_SAFETY_DELAY_MS, signal);
+
                 // Pass signal to the planner call
                 const plannerResponse = await callGeminiWithLimitCheck(plannerPrompt, { signal });
                 
@@ -654,17 +677,25 @@ export default function GenerationScreen({
                     assignedCompetencies: []
                 };
 
+                // --- ADDED SAFETY DELAY BEFORE OBJECTIVES ---
+                await smartDelay(GEMMA_SAFETY_DELAY_MS, signal);
                 const objectivesData = await generateLessonComponent(guideData, baseContext, plan, 'objectives', isMounted, masterInstructions, styleRules, {}, 3, signal);
                 newLesson.learningObjectives = objectivesData.objectives;
 
+                // --- ADDED SAFETY DELAY BEFORE COMPETENCIES ---
+                await smartDelay(GEMMA_SAFETY_DELAY_MS, signal);
                 const competenciesData = await generateLessonComponent(guideData, baseContext, plan, 'competencies', isMounted, masterInstructions, styleRules, {}, 3, signal);
                 newLesson.assignedCompetencies = competenciesData.competencies;
                 
+                // --- ADDED SAFETY DELAY BEFORE INTRO ---
+                await smartDelay(GEMMA_SAFETY_DELAY_MS, signal);
                 const introData = await generateLessonComponent(guideData, baseContext, plan, 'Introduction', isMounted, masterInstructions, styleRules, {}, 3, signal);
                 newLesson.pages.push(introData.page);
                 
                 const introContent = introData.page.content;
 
+                // --- ADDED SAFETY DELAY BEFORE ACTIVITY ---
+                await smartDelay(GEMMA_SAFETY_DELAY_MS, signal);
                 const activityData = await generateLessonComponent(
                     guideData, 
                     baseContext, 
@@ -681,6 +712,8 @@ export default function GenerationScreen({
                 
                 const activityContent = activityData.page.content;
 
+                // --- ADDED SAFETY DELAY BEFORE CONTENT PLANNER ---
+                await smartDelay(GEMMA_SAFETY_DELAY_MS, signal);
                 const contentPlannerData = await generateLessonComponent(guideData, baseContext, plan, 'CoreContentPlanner', isMounted, masterInstructions, styleRules, {}, 3, signal);
                 const contentPlanTitles = contentPlannerData.coreContentTitles || [];
                 
@@ -708,6 +741,8 @@ export default function GenerationScreen({
                         extraContext.previousPageContent = previousPageContent;
                     }
 
+                    // --- ADDED SAFETY DELAY BEFORE CORE CONTENT PAGE (The big one!) ---
+                    await smartDelay(GEMMA_SAFETY_DELAY_MS, signal);
                     const contentPageData = await generateLessonComponent(
                         guideData, 
                         baseContext, 
@@ -730,7 +765,9 @@ export default function GenerationScreen({
                 const standardPages = ['CheckForUnderstanding', 'LessonSummary', 'WrapUp', 'EndofLessonAssessment', 'AnswerKey', 'References'];
                 for (const pageType of standardPages) {
                     if (!isMounted.current || signal.aborted) return;
-
+                    
+                    // --- ADDED SAFETY DELAY BEFORE EACH STANDARD PAGE ---
+                    await smartDelay(GEMMA_SAFETY_DELAY_MS, signal);
                     const pageData = await generateLessonComponent(guideData, baseContext, plan, pageType, isMounted, masterInstructions, styleRules, {}, 3, signal);
                     if (pageData && pageData.page) {
                         newLesson.pages.push(pageData.page);
