@@ -108,33 +108,36 @@ const callProxyApiInternal = async (prompt, jsonMode = false, config, maxOutputT
             prompt: prompt,
             jsonMode: jsonMode,
             maxOutputTokens: maxOutputTokens,
-            model: config.model // <-- This tells the proxy which model to use
+            model: config.model 
         }),
     });
 
     if (!response.ok) {
+        // If error, it might still be a JSON error object
         const errorText = await response.text();
         console.error(`Proxy Function Failed (${config.url}): ${response.status}. Response: ${errorText}`);
         const error = new Error(`Proxy failed: ${response.status}. ${errorText.substring(0, 200)}`);
-        error.status = response.status; // Pass status for retry logic
+        error.status = response.status;
         throw error;
     }
 
-    let data;
-    try {
-        data = await response.json();
-    } catch (jsonError) {
-        const errorText = await response.text();
-        console.error(`Failed to parse JSON response from proxy (${config.url}). Raw text: ${errorText}`);
-        throw new Error(`Failed to parse JSON response from proxy.`);
+    // --- FIX FOR 504 TIMEOUTS: HANDLE STREAMED TEXT ---
+    // The backend now streams raw text. We wait for the stream to finish downloading.
+    // The "First Byte" arrives instantly, satisfying Vercel.
+    const fullText = await response.text();
+
+    if (!fullText) {
+        throw new Error("Proxy response was empty.");
     }
 
-    // Standard Gemini/Proxy response check
-    const fullText = data.text || data.response?.[0]?.generated_text; 
-    
-    if (fullText === undefined || fullText === null) {
-        console.error(`Invalid response structure from Proxy (${config.url}):`, JSON.stringify(data, null, 2));
-        throw new Error("Proxy response was not in the expected format (missing 'text' field).");
+    // Edge case: If the backend errored mid-stream and sent a JSON error
+    if (fullText.trim().startsWith('{"error"')) {
+        try {
+            const errorJson = JSON.parse(fullText);
+            throw new Error(errorJson.error || "Unknown proxy error");
+        } catch (e) {
+            // It was probably just text that looked like JSON, ignore
+        }
     }
 
     return fullText;

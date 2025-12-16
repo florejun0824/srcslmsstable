@@ -1,12 +1,10 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// 1. ENABLE EDGE RUNTIME
-// This is the magic line. It switches from Node.js (10s limit) to Edge (longer wait times allowed).
+// 1. ENABLE EDGE RUNTIME (Critical for streaming)
 export const config = {
   runtime: 'edge', 
 };
 
-// --- KEY POOL BUILDER ---
 const getApiKeyPool = () => {
   const keys = new Set();
   if (process.env.GEMINI_API_KEY) keys.add(process.env.GEMINI_API_KEY);
@@ -24,10 +22,6 @@ const getRandomKey = () => {
 };
 
 export default async function handler(req) {
-  // 2. EDGE FUNCTIONS USE STANDARD WEB REQUEST/RESPONSE OBJECTS
-  // We cannot use 'res.status().json()'. We must return a 'new Response()'.
-  
-  // CORS Headers
   const corsHeaders = {
     'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Allow-Origin': '*',
@@ -58,16 +52,38 @@ export default async function handler(req) {
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: requestedModel || 'gemma-3-27b-it' });
 
-    // 3. GENERATE CONTENT
-    // Edge runtime can wait longer for this fetch than the standard Node runtime.
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-
-    return new Response(JSON.stringify({ text: text }), { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    // --- STREAMING LOGIC START ---
+    // Instead of waiting for full response, we stream it chunk by chunk.
+    const result = await model.generateContentStream(prompt);
+    
+    // Create a ReadableStream to pipe the data to the client immediately
+    const stream = new ReadableStream({
+        async start(controller) {
+            const encoder = new TextEncoder();
+            try {
+                for await (const chunk of result.stream) {
+                    const chunkText = chunk.text();
+                    if (chunkText) {
+                        controller.enqueue(encoder.encode(chunkText));
+                    }
+                }
+            } catch (err) {
+                console.error("Stream Error:", err);
+                controller.error(err);
+            } finally {
+                controller.close();
+            }
+        }
     });
+
+    return new Response(stream, { 
+        status: 200, 
+        headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'text/plain; charset=utf-8' // Return raw text, not JSON
+        } 
+    });
+    // --- STREAMING LOGIC END ---
 
   } catch (error) {
     console.error("Vercel Gemini Error:", error);
