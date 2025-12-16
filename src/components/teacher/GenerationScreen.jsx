@@ -4,10 +4,10 @@ import { useToast } from '../../contexts/ToastContext';
 import InteractiveLoadingScreen from '../common/InteractiveLoadingScreen';
 import { ArrowUturnLeftIcon } from '@heroicons/react/24/outline';
 // We need the *big* sanitizer for the Planner call
-import { sanitizeLessonsJson as sanitizeJsonBlock } from './sanitizeLessonText'; // Corrected path
+import { sanitizeLessonsJson as sanitizeJsonBlock } from './sanitizeLessonText'; 
 
 // --- CONFIGURATION ---
-// Set to 20 seconds to safely allow for long/complex prompts without hitting the limit.
+// Set to 31 seconds as per your tuning to stay under Gemma 3's TPM limit.
 const GEMMA_SAFETY_DELAY_MS = 31000; 
 
 /**
@@ -27,100 +27,104 @@ const smartDelay = async (ms, signal) => {
 };
 
 /**
- * --- Micro-Worker Sanitizer (Robust Version) ---
- * This function can find the true, complete JSON object even if
- * the AI response is truncated or includes other text.
+ * --- Micro-Worker Sanitizer (Bulletproof Version) ---
+ * This version aggressively fixes common AI JSON errors (bad escapes, LaTeX)
+ * and falls back to regex extraction if parsing fails.
  */
 const sanitizeJsonComponent = (aiResponse) => {
-    try {
-        let jsonString = aiResponse;
+    let jsonString = aiResponse;
 
-        // 1. Try to find a JSON block wrapped in markdown backticks (common AI error)
+    try {
+        // 1. Try to find a JSON block wrapped in markdown backticks
         const markdownMatch = aiResponse.match(/```(json)?\s*(\{[\s\S]*\})\s*```/);
         if (markdownMatch && markdownMatch[2]) {
             jsonString = markdownMatch[2];
+        } else {
+            // 2. If no markdown, find the first opening and last closing brace
+            const startIndex = jsonString.indexOf('{');
+            const endIndex = jsonString.lastIndexOf('}');
+            if (startIndex !== -1 && endIndex !== -1) {
+                jsonString = jsonString.substring(startIndex, endIndex + 1);
+            }
         }
 
-        // 2. Find the first opening brace
-        const startIndex = jsonString.indexOf('{');
-        if (startIndex === -1) {
-            throw new Error('No valid JSON object ({...}) found in AI response.');
-        }
+        // --- ATTEMPT 1: Clean and Parse ---
+        // Fix common AI JSON errors:
+        // 1. Fix unescaped newlines inside strings (lookbehind for colon/quote, lookahead for quote)
+        let cleanString = jsonString.replace(/(?<=:\s*"[^"]*)\n(?=[^"]*")/g, "\\n");
+        
+        // 2. Fix invalid backslashes (e.g. \textbf -> \\textbf, \t -> \\t if not a real tab)
+        // This Regex finds backslashes that are NOT followed by valid JSON escape chars (", \, /, b, f, n, r, t, u)
+        // This specifically fixes the "Bad escaped character" error.
+        cleanString = cleanString.replace(/\\(?![/u"\\bfnrt])/g, "\\\\");
 
-        let depth = 0;
-        let inString = false;
-        let escape = false;
-        let endIndex = -1;
+        return JSON.parse(cleanString);
 
-        // 3. Iterate from the first brace to find its matching closer
-        for (let i = startIndex; i < jsonString.length; i++) {
-            const char = jsonString[i];
+    } catch (parseError) {
+        console.warn("JSON.parse failed, attempting Manual Regex Extraction:", parseError.message);
 
-            if (escape) {
-                // This character is escaped, skip it
-                escape = false;
-                continue;
-            }
+        // --- ATTEMPT 2: Manual Regex Extraction (The Safety Net) ---
+        // If the JSON is broken (e.g. bad quotes), we just grab the text content directly.
+        try {
+            // Extract Title
+            const titleMatch = aiResponse.match(/"title"\s*:\s*"([^"]*?)"/);
+            const title = titleMatch ? titleMatch[1] : "Generated Page";
 
-            if (char === '\\') {
-                // Next character is escaped
-                escape = true;
-                continue;
-            }
-
-            if (char === '"') {
-                // Toggle in/out of string, but only if not escaped
-                inString = !inString;
-            }
-
-            if (inString) {
-                // We are inside a string, ignore braces
-                continue;
-            }
-
-            // We are not in a string, so process braces
-            if (char === '{') {
-                depth++;
-            } else if (char === '}') {
-                depth--;
-
-                if (depth === 0) {
-                    // We found the matching closing brace
-                    endIndex = i;
-                    break;
+            // Extract Content (Greedy match for content to handle nested quotes issues)
+            // We look for "content": " ... " 
+            const contentMatch = aiResponse.match(/"content"\s*:\s*"([\s\S]*?)"(?=\s*\}|\s*,)/);
+            
+            let content = "";
+            if (contentMatch) {
+                content = contentMatch[1];
+            } else {
+                // Last ditch: just grab everything after "content":
+                const parts = aiResponse.split(/"content"\s*:\s*"/);
+                if (parts.length > 1) {
+                    // Try to find the closing quote by looking from the end
+                    const roughContent = parts[1];
+                    const lastQuote = roughContent.lastIndexOf('"');
+                    if (lastQuote !== -1) {
+                        content = roughContent.substring(0, lastQuote);
+                    } else {
+                        content = roughContent;
+                    }
                 }
             }
+
+            // Manually unescape standard JSON escapes since we didn't run JSON.parse
+            content = content
+                .replace(/\\n/g, '\n')
+                .replace(/\\"/g, '"')
+                .replace(/\\\\/g, '\\');
+
+            if (!content || content.length < 5) {
+                throw new Error("Could not extract meaningful content via regex.");
+            }
+
+            return {
+                page: {
+                    title: title,
+                    content: content
+                }
+            };
+
+        } catch (extractError) {
+            console.error("Critical: Failed to sanitize JSON.", aiResponse.substring(0, 200));
+            // Return a dummy object so the app doesn't crash, allowing the user to at least see something
+            return {
+                page: {
+                    title: "Generation Error",
+                    content: `The AI generated content that could not be processed. \n\nRaw Output Preview:\n${aiResponse.substring(0, 500)}...`
+                }
+            };
         }
-
-        if (endIndex === -1) {
-            // We never found the matching brace, the JSON is incomplete
-            throw new Error('JSON object is incomplete or truncated.');
-        }
-
-        // 4. Extract the valid JSON block and parse it
-        // --- ADDED: Newline escaping fix ---
-        const validJsonString = jsonString.substring(startIndex, endIndex + 1)
-            // This regex fixes common newline issues in JSON strings by escaping them
-            .replace(/(?<=:\s*"[^"]*)\n(?=[^"]*")/g, "\\n");
-
-        return JSON.parse(validJsonString);
-
-    } catch (error) {
-        // Log more info for better debugging
-        console.error(
-            "sanitizeJsonComponent error:", 
-            error.message, 
-            "Preview of raw AI response (first 500 chars):", 
-            aiResponse.substring(0, 500)
-        );
-        throw new Error(`The AI component response was not valid JSON. Preview: ${aiResponse.substring(0, 150)}`);
     }
 };
 
 
 /**
  * --- Base Context Builder ---
- * (This function is unchanged)
  */
 const getBasePromptContext = (guideData, existingSubjectContext) => {
     const languageAndGradeInstruction = `
@@ -174,7 +178,6 @@ const getBasePromptContext = (guideData, existingSubjectContext) => {
 
 /**
  * --- Planner Prompt Generator ---
- * (This function is unchanged)
  */
 const getPlannerPrompt = (guideData, baseContext) => {
     const { languageAndGradeInstruction, perspectiveInstruction, scaffoldingInstruction, standardsInstruction } = baseContext;
@@ -221,7 +224,6 @@ const getPlannerPrompt = (guideData, baseContext) => {
 
 /**
  * --- Micro-Worker Prompt Generator ---
- * (This function is MODIFIED)
  */
 const getComponentPrompt = (guideData, baseContext, lessonPlan, componentType, styleRules, extraData = {}) => {
     const { languageAndGradeInstruction, perspectiveInstruction, scaffoldingInstruction, standardsInstruction } = baseContext;
@@ -290,25 +292,21 @@ const getComponentPrompt = (guideData, baseContext, lessonPlan, componentType, s
             break;
 
         case 'CoreContentPlanner':
-            // --- MODIFICATION FOR TOKEN LIMITS ---
             taskInstruction = `Analyze the focus for this lesson: "${lessonPlan.summary}".
             **CRITICAL TASK (NON-NEGOTIABLE):** Your task is to break down this lesson's topic into a series of **page-sized sub-topics**. Each sub-topic you list will become *one single page*.
             - If the lesson's topic is simple, you might only return 1 or 2 titles.
             - If the lesson's topic is complex (e.g., "The Light-Dependent Reactions"), you MUST return as many titles as needed (e.g., "Page 1: Capturing Light," "Page 2: The Electron Transport Chain," "Page 3: Creating ATP and NADPH") to cover it fully.
             - Do **NOT** include titles for "Introduction," "Warm-Up," "Summary," etc. Just the main, teachable content topics.`;
-            // --- END MODIFICATION ---
             
             jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "coreContentTitles": [\n    "First Sub-Topic Title",\n    "Second Sub-Topic Title"\n    // ... (as many as necessary)
       ]\n}`;
             break;
 
         case 'CoreContentPage':
-            // --- MODIFICATION START ---
             const allTitles = extraData.allContentTitles || [extraData.contentTitle];
             const currentIndex = extraData.currentIndex !== undefined ? extraData.currentIndex : 0;
             const currentTitle = extraData.contentTitle;
 
-            // --- NEW DYNAMIC CONTEXT BLOCK ---
             let previousContentInstruction = '';
             if (currentIndex === 0) {
                 // This is the FIRST core content page
@@ -338,7 +336,6 @@ const getComponentPrompt = (guideData, baseContext, lessonPlan, componentType, s
                 4.  You are **strictly forbidden** from discussing topics belonging to other page titles (especially the one you just saw).
                 `;
             }
-            // --- END DYNAMIC CONTEXT BLOCK ---
 
             const contentContextInstruction = `
             **CRITICAL CONTENT BOUNDARIES (NON-NEGOTIABLE):**
@@ -349,7 +346,6 @@ const getComponentPrompt = (guideData, baseContext, lessonPlan, componentType, s
 
             ${previousContentInstruction}
             `;
-            // --- MODIFICATION END ---
 
             taskInstruction = `Generate *one* core content page for this lesson.
             - **Page Title:** It MUST be exactly: "${currentTitle}"
@@ -415,7 +411,7 @@ const getComponentPrompt = (guideData, baseContext, lessonPlan, componentType, s
 
 /**
  * --- Micro-Worker Function with Retries ---
- * (This function is MODIFIED to support AbortSignal)
+ * (This function is unchanged, it uses the new sanitizeJsonComponent)
  */
 const generateLessonComponent = async (
     guideData, 
@@ -427,7 +423,7 @@ const generateLessonComponent = async (
     styleRules,
     extraData = {}, 
     maxRetries = 3,
-    signal // Added signal argument
+    signal
 ) => {
     
     const prompt = getComponentPrompt(
@@ -439,7 +435,6 @@ const generateLessonComponent = async (
         extraData
     );
     
-    // Combine master instructions for the component worker
     const finalPrompt = `
     ${prompt}
 
@@ -453,7 +448,6 @@ const generateLessonComponent = async (
         if (!isMounted.current || (signal && signal.aborted)) throw new Error("Generation aborted by user.");
 
         try {
-            // Pass signal to the AI service call
             const aiResponse = await callGeminiWithLimitCheck(finalPrompt, { signal });
 
             if (!isMounted.current || (signal && signal.aborted)) throw new Error("Generation aborted by user.");
@@ -467,7 +461,6 @@ const generateLessonComponent = async (
             return jsonData;
 
         } catch (error) {
-            // Check for abort error specifically
             if (error.name === 'AbortError' || (signal && signal.aborted)) {
                 throw new Error("Generation aborted by user.");
             }
@@ -490,7 +483,7 @@ const generateLessonComponent = async (
 
 /**
  * --- Master Instructions Function ---
- * (This function is unchanged)
+ * (Updated to handle LaTeX/JSON Escaping)
  */
 const getMasterInstructions = async (guideData) => {
     const objectivesLabel = guideData.language === 'Filipino' ? 'Mga Layunin sa Pagkatuto' : 'Learning Objectives';
@@ -537,6 +530,12 @@ const getMasterInstructions = async (guideData) => {
 
     const styleRules = `
         **CRITICAL FORMATTING RULE (NON-NEGOTIABLE):** You MUST NOT use Markdown code block formatting (like indenting with four spaces or using triple backticks \\\`\\\`\\\`) for regular content like bulleted lists or standard paragraphs.
+        
+        **CRITICAL JSON & LATEX SAFETY (ABSOLUTE PRIORITY):**
+        - You are writing a JSON string. ALL backslashes must be escaped.
+        - **CORRECT:** "content": "Use \\\\textbf{bold}." (Result: Use \\textbf{bold})
+        - **INCORRECT:** "content": "Use \\textbf{bold}." (Result: Invalid JSON)
+        - Do not use fancy formatting commands if standard Markdown works. Use **bold** instead of \\\\textbf{bold}.
         
         **CRITICAL JSON STRING RULE (NON-NEGOTIABLE):** When writing text content inside the JSON, do NOT escape standard quotation marks.
         - **Correct:** \\\`"title": "The Art of \\"How Much?\\""\\\`
@@ -599,12 +598,9 @@ export default function GenerationScreen({
 
     /**
      * --- Orchestrator Loop ---
-     * (This function is MODIFIED with AbortController logic)
      */
     const runGenerationLoop = useCallback(async () => {
-        // Initialize AbortController
         const controller = new AbortController();
-        // Abort any previous controller if it exists
         if (abortControllerRef.current) {
             abortControllerRef.current.abort();
         }
@@ -615,7 +611,7 @@ export default function GenerationScreen({
         let lessonsSoFar = [...currentLessons];
 
         try {
-            // --- STEP 1: Planner (Only run if no plan exists) ---
+            // --- STEP 1: Planner ---
             if (!plans) {
                 showToast("Generating lesson plan...", "info");
                 setLessonProgress({ current: 0, total: guideData.lessonCount });
@@ -624,12 +620,9 @@ export default function GenerationScreen({
                 const baseContext = getBasePromptContext(guideData, existingSubjectContext);
                 const plannerPrompt = getPlannerPrompt(guideData, baseContext);
 
-                // --- ADDED SAFETY DELAY BEFORE PLANNER ---
                 await smartDelay(GEMMA_SAFETY_DELAY_MS, signal);
 
-                // Pass signal to the planner call
                 const plannerResponse = await callGeminiWithLimitCheck(plannerPrompt, { signal });
-                
                 if (!isMounted.current || signal.aborted) return; 
 
                 const parsedPlan = sanitizeJsonBlock(plannerResponse); 
@@ -645,7 +638,7 @@ export default function GenerationScreen({
             const { masterInstructions, styleRules } = await getMasterInstructions(guideData);
             if (!isMounted.current || signal.aborted) return;
 
-            // --- STEP 2: Orchestrator (Loop through the plan) ---
+            // --- STEP 2: Orchestrator ---
             const lessonsToProcess = plans.slice(startLessonNumber - 1);
             setLessonProgress({ current: startLessonNumber - 1, total: plans.length });
 
@@ -677,24 +670,23 @@ export default function GenerationScreen({
                     assignedCompetencies: []
                 };
 
-                // --- ADDED SAFETY DELAY BEFORE OBJECTIVES ---
+                // --- 1. Objectives ---
                 await smartDelay(GEMMA_SAFETY_DELAY_MS, signal);
                 const objectivesData = await generateLessonComponent(guideData, baseContext, plan, 'objectives', isMounted, masterInstructions, styleRules, {}, 3, signal);
                 newLesson.learningObjectives = objectivesData.objectives;
 
-                // --- ADDED SAFETY DELAY BEFORE COMPETENCIES ---
+                // --- 2. Competencies ---
                 await smartDelay(GEMMA_SAFETY_DELAY_MS, signal);
                 const competenciesData = await generateLessonComponent(guideData, baseContext, plan, 'competencies', isMounted, masterInstructions, styleRules, {}, 3, signal);
                 newLesson.assignedCompetencies = competenciesData.competencies;
                 
-                // --- ADDED SAFETY DELAY BEFORE INTRO ---
+                // --- 3. Intro ---
                 await smartDelay(GEMMA_SAFETY_DELAY_MS, signal);
                 const introData = await generateLessonComponent(guideData, baseContext, plan, 'Introduction', isMounted, masterInstructions, styleRules, {}, 3, signal);
                 newLesson.pages.push(introData.page);
-                
                 const introContent = introData.page.content;
 
-                // --- ADDED SAFETY DELAY BEFORE ACTIVITY ---
+                // --- 4. Activity ---
                 await smartDelay(GEMMA_SAFETY_DELAY_MS, signal);
                 const activityData = await generateLessonComponent(
                     guideData, 
@@ -709,23 +701,19 @@ export default function GenerationScreen({
                     signal
                 );
                 newLesson.pages.push(activityData.page);
-                
                 const activityContent = activityData.page.content;
 
-                // --- ADDED SAFETY DELAY BEFORE CONTENT PLANNER ---
+                // --- 5. Content Planner ---
                 await smartDelay(GEMMA_SAFETY_DELAY_MS, signal);
                 const contentPlannerData = await generateLessonComponent(guideData, baseContext, plan, 'CoreContentPlanner', isMounted, masterInstructions, styleRules, {}, 3, signal);
                 const contentPlanTitles = contentPlannerData.coreContentTitles || [];
                 
-                // --- MODIFICATION START (Context Chaining) ---
-                // This variable will hold the content of the *previous* core content page
-                // to chain them together.
+                // --- 6. Core Content Pages ---
                 let previousPageContent = null; 
 
                 for (const [contentIndex, contentTitle] of contentPlanTitles.entries()) {
                     if (!isMounted.current || signal.aborted) return;
                     
-                    // Build the context for this specific page
                     let extraContext = { 
                         contentTitle: contentTitle,
                         allContentTitles: contentPlanTitles,
@@ -733,15 +721,12 @@ export default function GenerationScreen({
                     };
 
                     if (contentIndex === 0) {
-                        // The FIRST page needs context from the Intro and Warm-up
                         extraContext.introContent = introContent;
                         extraContext.activityContent = activityContent;
                     } else {
-                        // SUBSEQUENT pages need context from the PREVIOUS content page
                         extraContext.previousPageContent = previousPageContent;
                     }
 
-                    // --- ADDED SAFETY DELAY BEFORE CORE CONTENT PAGE (The big one!) ---
                     await smartDelay(GEMMA_SAFETY_DELAY_MS, signal);
                     const contentPageData = await generateLessonComponent(
                         guideData, 
@@ -751,22 +736,18 @@ export default function GenerationScreen({
                         isMounted, 
                         masterInstructions, 
                         styleRules, 
-                        extraContext, // Pass the dynamically built context
+                        extraContext,
                         3,
                         signal
                     );
                     newLesson.pages.push(contentPageData.page);
-                    
-                    // Store this page's content to be used as context for the NEXT page in the loop
                     previousPageContent = contentPageData.page.content;
                 }
-                // --- MODIFICATION END ---
                 
+                // --- 7. Standard Pages ---
                 const standardPages = ['CheckForUnderstanding', 'LessonSummary', 'WrapUp', 'EndofLessonAssessment', 'AnswerKey', 'References'];
                 for (const pageType of standardPages) {
                     if (!isMounted.current || signal.aborted) return;
-                    
-                    // --- ADDED SAFETY DELAY BEFORE EACH STANDARD PAGE ---
                     await smartDelay(GEMMA_SAFETY_DELAY_MS, signal);
                     const pageData = await generateLessonComponent(guideData, baseContext, plan, pageType, isMounted, masterInstructions, styleRules, {}, 3, signal);
                     if (pageData && pageData.page) {
@@ -784,7 +765,6 @@ export default function GenerationScreen({
             showToast("All lessons generated successfully!", "success");
 
         } catch (err) {
-            // Check for abort error
             if (!isMounted.current || err.name === 'AbortError' || (err.message && err.message.includes("aborted"))) {
                 console.log("Generation loop aborted by user.");
                 return;
@@ -805,14 +785,11 @@ export default function GenerationScreen({
         
         return () => {
             isMounted.current = false;
-            // Abort any active requests when the component unmounts
             if (abortControllerRef.current) {
                 abortControllerRef.current.abort();
             }
         };
-        
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [runGenerationLoop]);
 
     return (
         <div className="flex flex-col h-full bg-slate-200 dark:bg-neumorphic-base-dark rounded-2xl">
