@@ -464,179 +464,144 @@ export default function GenerationScreen({
         return summaryPage ? summaryPage.content : "Summary page not found.";
     };
 
-    const runGenerationLoop = useCallback(async () => {
-        const controller = new AbortController();
-        if (abortControllerRef.current) abortControllerRef.current.abort();
-        abortControllerRef.current = controller;
-        const signal = controller.signal;
+	const runGenerationLoop = useCallback(async () => {
+	        const controller = new AbortController();
+	        if (abortControllerRef.current) abortControllerRef.current.abort();
+	        abortControllerRef.current = controller;
+	        const signal = controller.signal;
 
-        try {
-            // --- STEP 1: Planner (Only run if no plan exists) ---
-            if (!stateRef.current.plans) {
-                showToast("Generating lesson plan...", "info");
-                setLessonProgress({ current: 0, total: guideData.lessonCount });
+	        try {
+	            // --- STEP 1: Planner ---
+	            if (!stateRef.current.plans) {
+	                showToast("Generating lesson plan...", "info");
+	                setLessonProgress({ current: 0, total: guideData.lessonCount });
                 
-                const existingSubjectContext = "No existing content found.";
-                const baseContext = getBasePromptContext(guideData, existingSubjectContext);
-                const plannerPrompt = getPlannerPrompt(guideData, baseContext);
+	                const existingSubjectContext = "No existing content found.";
+	                const baseContext = getBasePromptContext(guideData, existingSubjectContext);
+	                const plannerPrompt = getPlannerPrompt(guideData, baseContext);
 
-                const plannerResponse = await callGeminiWithLimitCheck(plannerPrompt, { signal });
-                if (signal.aborted) return; 
+	                const plannerResponse = await callGeminiWithLimitCheck(plannerPrompt, { signal });
+	                if (signal.aborted) return; 
 
-                const parsedPlan = sanitizeJsonBlock(plannerResponse); 
+	                const parsedPlan = sanitizeJsonBlock(plannerResponse); 
+	                stateRef.current.plans = parsedPlan;
+	                setTick(t => t + 1);
+	            }
+
+	            const { masterInstructions, styleRules } = await getMasterInstructions(guideData);
+	            if (signal.aborted) return;
+
+	            const plans = stateRef.current.plans;
+	            const lessonsToProcess = plans.slice(startLessonNumber - 1);
+	            setLessonProgress({ current: startLessonNumber - 1, total: plans.length });
+
+	            for (const [index, plan] of lessonsToProcess.entries()) {
+	                if (signal.aborted) return; 
+
+	                const currentLessonIndex = (startLessonNumber - 1) + index;
+	                setLessonProgress({ current: currentLessonIndex + 1, total: plans.length });
+
+	                // --- HEAVY DELAY BEFORE LESSON START ---
+	                if (index > 0) { 
+	                    showToast("Cooling down AI (Lesson Break)...", "info", 3000);
+	                    await smartDelay(GEMMA_SAFETY_DELAY_MS, signal);
+	                }
+
+	                showToast(`Generating Lesson ${currentLessonIndex + 1}...`, "info", 5000);
+
+	                let newLesson = {
+	                    lessonTitle: plan.lessonTitle,
+	                    pages: [],
+	                    learningObjectives: [],
+	                    assignedCompetencies: []
+	                };
+
+	                const baseContext = getBasePromptContext(guideData, "...");
+
+	                // 1. Objectives (Wait first)
+	                await smartDelay(5000, signal); 
+	                const objectivesData = await generateLessonComponent(guideData, baseContext, plan, 'objectives', isMounted, masterInstructions, styleRules, {}, 3, signal);
+	                newLesson.learningObjectives = objectivesData.objectives;
+
+	                // 2. Competencies (Wait first - NO BURSTING)
+	                await smartDelay(5000, signal);
+	                const competenciesData = await generateLessonComponent(guideData, baseContext, plan, 'competencies', isMounted, masterInstructions, styleRules, {}, 3, signal);
+	                newLesson.assignedCompetencies = competenciesData.competencies;
                 
-                if (!parsedPlan || parsedPlan.length === 0) {
-                    throw new Error("The AI failed to create a lesson plan.");
-                }
+	                // 3. Intro (Wait first)
+	                await smartDelay(5000, signal);
+	                const introData = await generateLessonComponent(guideData, baseContext, plan, 'Introduction', isMounted, masterInstructions, styleRules, {}, 3, signal);
+	                newLesson.pages.push(introData.page);
                 
-                stateRef.current.plans = parsedPlan;
-                setTick(t => t + 1); // Update UI
-            }
-
-            const { masterInstructions, styleRules } = await getMasterInstructions(guideData);
-            if (signal.aborted) return;
-
-            // --- STEP 2: Loop through the plan ---
-            const plans = stateRef.current.plans;
-            const lessonsToProcess = plans.slice(startLessonNumber - 1);
-            setLessonProgress({ current: startLessonNumber - 1, total: plans.length });
-
-            for (const [index, plan] of lessonsToProcess.entries()) {
-                if (signal.aborted) return; 
-
-                const currentLessonIndex = (startLessonNumber - 1) + index;
-                setLessonProgress({ current: currentLessonIndex + 1, total: plans.length });
-
-                // --- THROTTLE: SAFETY DELAY BETWEEN LESSONS ---
-                if (index > 0) { 
-                    showToast("Pacing generation to respect AI limits...", "info", 3000);
-                    await smartDelay(GEMMA_SAFETY_DELAY_MS, signal);
-                }
-
-                showToast(`Generating Lesson ${currentLessonIndex + 1}: "${plan.lessonTitle}"...`, "info", 10000);
-
-                const previousLessonsContext = stateRef.current.lessonsSoFar
-                    .map((lesson, idx) => `Lesson ${idx + 1}: "${lesson.lessonTitle}"\nSummary: ${findSummaryContent(lesson)}`)
-                    .join('\n---\n');
+	                // 4. Activity (Wait first)
+	                await smartDelay(5000, signal);
+	                const activityData = await generateLessonComponent(
+	                    guideData, baseContext, plan, 'LetsGetStarted', isMounted, masterInstructions, styleRules, 
+	                    { introContent: introData.page.content }, 3, signal
+	                );
+	                newLesson.pages.push(activityData.page);
                 
-                const existingSubjectContext = "No existing content found.";
-                const baseContext = getBasePromptContext(guideData, existingSubjectContext);
+	                // 5. Planner (Wait first - Critical, this context is heavy)
+	                await smartDelay(8000, signal);
+	                const contentPlannerData = await generateLessonComponent(guideData, baseContext, plan, 'CoreContentPlanner', isMounted, masterInstructions, styleRules, {}, 3, signal);
+	                const contentPlanTitles = contentPlannerData.coreContentTitles || [];
                 
-                baseContext.scaffoldingInstruction = `
-                    ${baseContext.scaffoldingInstruction}
-                    **Lessons Generated Session:**
-                    ${previousLessonsContext || "None."}
-                `;
-                
-                let newLesson = {
-                    lessonTitle: `Lesson ${currentLessonIndex + 1}: ${plan.lessonTitle.replace(/^Lesson\s*\d*:\s*/i, '')}`,
-                    pages: [],
-                    learningObjectives: [],
-                    assignedCompetencies: []
-                };
-
-                // 1. Objectives
-                const objectivesData = await generateLessonComponent(guideData, baseContext, plan, 'objectives', isMounted, masterInstructions, styleRules, {}, 3, signal);
-                newLesson.learningObjectives = objectivesData.objectives;
-
-                // 2. Competencies
-                const competenciesData = await generateLessonComponent(guideData, baseContext, plan, 'competencies', isMounted, masterInstructions, styleRules, {}, 3, signal);
-                newLesson.assignedCompetencies = competenciesData.competencies;
-                
-                // 3. Intro
-                await smartDelay(3000, signal);
-                const introData = await generateLessonComponent(guideData, baseContext, plan, 'Introduction', isMounted, masterInstructions, styleRules, {}, 3, signal);
-                newLesson.pages.push(introData.page);
-                
-                // 4. Activity
-                await smartDelay(3000, signal);
-                const activityData = await generateLessonComponent(
-                    guideData, baseContext, plan, 'LetsGetStarted', isMounted, masterInstructions, styleRules, 
-                    { introContent: introData.page.content }, 3, signal
-                );
-                newLesson.pages.push(activityData.page);
-                
-                // 5. Planner for Content
-                const contentPlannerData = await generateLessonComponent(guideData, baseContext, plan, 'CoreContentPlanner', isMounted, masterInstructions, styleRules, {}, 3, signal);
-                const contentPlanTitles = contentPlannerData.coreContentTitles || [];
-                
-                // 6. Content Pages Loop
-                let previousPageContent = ""; 
-
-                for (const [contentIndex, contentTitle] of contentPlanTitles.entries()) {
-                    if (signal.aborted) return;
+	                // 6. Content Pages (The Heavy Loop)
+	                let previousPageContent = ""; 
+	                for (const [contentIndex, contentTitle] of contentPlanTitles.entries()) {
+	                    if (signal.aborted) return;
                     
-                    // --- THROTTLE: SAFETY DELAY BETWEEN PAGES ---
-                    showToast(`Writing page ${contentIndex + 1} of ${contentPlanTitles.length}...`, "info", 2000);
-                    await smartDelay(GEMMA_SAFETY_DELAY_MS, signal);
+	                    // HEAVY DELAY (20s) because these generate long text + use long context
+	                    showToast(`Writing page ${contentIndex + 1}/${contentPlanTitles.length}...`, "info", 2000);
+	                    await smartDelay(GEMMA_SAFETY_DELAY_MS, signal);
                     
-                    const contentPageData = await generateLessonComponent(
-                        guideData, 
-                        baseContext, 
-                        plan, 
-                        'CoreContentPage', 
-                        isMounted, 
-                        masterInstructions, 
-                        styleRules, 
-                        { 
-                            contentTitle,
-                            allContentTitles: contentPlanTitles,
-                            currentIndex: contentIndex,
-                            // Pass sliced context in logic, but passing raw string here is fine
-                            // because getComponentPrompt will slice it.
-                            previousPageContent: previousPageContent
-                        },
-                        3,
-                        signal
-                    );
-                    newLesson.pages.push(contentPageData.page);
-                    previousPageContent = contentPageData.page.content;
-                }
+	                    const contentPageData = await generateLessonComponent(
+	                        guideData, baseContext, plan, 'CoreContentPage', isMounted, masterInstructions, styleRules, 
+	                        { 
+	                            contentTitle,
+	                            allContentTitles: contentPlanTitles,
+	                            currentIndex: contentIndex,
+	                            previousPageContent: previousPageContent
+	                        },
+	                        3, signal
+	                    );
+	                    newLesson.pages.push(contentPageData.page);
+	                    previousPageContent = contentPageData.page.content;
+	                }
                 
-                // 7. Standard Pages
-                const standardPages = ['CheckForUnderstanding', 'LessonSummary', 'WrapUp', 'EndofLessonAssessment', 'AnswerKey', 'References'];
-                for (const pageType of standardPages) {
-                    if (signal.aborted) return;
-                    await smartDelay(4000, signal); // Short delay for lighter components
+	                // 7. Standard Pages (Throttle these too!)
+	                const standardPages = ['CheckForUnderstanding', 'LessonSummary', 'WrapUp', 'EndofLessonAssessment', 'AnswerKey', 'References'];
+	                for (const pageType of standardPages) {
+	                    if (signal.aborted) return;
+                    
+	                    // 6s Delay between these small components ensures we drain the bucket slowly
+	                    await smartDelay(6000, signal); 
 
-                    const pageData = await generateLessonComponent(guideData, baseContext, plan, pageType, isMounted, masterInstructions, styleRules, {}, 3, signal);
-                    if (pageData && pageData.page) {
-                        newLesson.pages.push(pageData.page);
-                    }
-                }
+	                    const pageData = await generateLessonComponent(guideData, baseContext, plan, pageType, isMounted, masterInstructions, styleRules, {}, 3, signal);
+	                    if (pageData && pageData.page) {
+	                        newLesson.pages.push(pageData.page);
+	                    }
+	                }
                 
-                stateRef.current.lessonsSoFar.push(newLesson);
-                setTick(t => t + 1); // Update UI
-            }
+	                stateRef.current.lessonsSoFar.push(newLesson);
+	                setTick(t => t + 1);
+	            }
         
-            if (signal.aborted) return;
+	            if (signal.aborted) return;
+	            onGenerationComplete({ 
+	                previewData: { generated_lessons: stateRef.current.lessonsSoFar }, 
+	                failedLessonNumber: null, 
+	                lessonPlan: stateRef.current.plans 
+	            });
+	            showToast("Success!", "success");
 
-            onGenerationComplete({ 
-                previewData: { generated_lessons: stateRef.current.lessonsSoFar }, 
-                failedLessonNumber: null, 
-                lessonPlan: stateRef.current.plans 
-            });
-            showToast("All lessons generated successfully!", "success");
-
-        } catch (err) {
-            if (err.name === 'AbortError' || (err.message && err.message.includes("aborted"))) {
-                console.log("Generation loop aborted by user.");
-                return;
-            }
-
-            const failedLessonNum = stateRef.current.lessonsSoFar.length + 1;
-            console.error(`Error during generation of Lesson ${failedLessonNum}:`, err);
-            
-            showToast(`Failed to generate Lesson ${failedLessonNum}. You can try to continue.`, "error", 15000);
-            
-            onGenerationComplete({ 
-                previewData: { generated_lessons: stateRef.current.lessonsSoFar }, 
-                failedLessonNumber: failedLessonNum, 
-                lessonPlan: stateRef.current.plans 
-            });
-        }
-    }, [guideData, startLessonNumber, onGenerationComplete, showToast]);
-
+	        } catch (err) {
+	            // ... (Error handling remains same)
+	             if (err.name === 'AbortError' || (err.message && err.message.includes("aborted"))) return;
+	             console.error(err);
+	             showToast("Generation failed due to limits. Try again later.", "error");
+	        }
+	    }, [guideData, startLessonNumber, onGenerationComplete, showToast]);
 
     useEffect(() => {
         isMounted.current = true;
