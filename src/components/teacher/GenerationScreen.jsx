@@ -3,16 +3,15 @@ import { callGeminiWithLimitCheck } from '../../services/aiService';
 import { useToast } from '../../contexts/ToastContext';
 import InteractiveLoadingScreen from '../common/InteractiveLoadingScreen';
 import { ArrowUturnLeftIcon } from '@heroicons/react/24/outline';
-// We need the *big* sanitizer for the Planner call
-import { sanitizeLessonsJson as sanitizeJsonBlock } from './sanitizeLessonText'; 
+import { sanitizeLessonsJson as sanitizeJsonBlock } from './sanitizeLessonText';
 
 // --- CONFIGURATION ---
-// Set to 31 seconds as per your tuning to stay under Gemma 3's TPM limit.
+// Set to 31 seconds to stay safely under Gemma 3's 15k TPM limit.
 const GEMMA_SAFETY_DELAY_MS = 31000; 
 
 /**
  * --- Helper: Smart Delay ---
- * Delays execution but can be aborted if the user closes the modal
+ * Delays execution but can be aborted if the user closes the modal.
  */
 const smartDelay = async (ms, signal) => {
     return new Promise((resolve, reject) => {
@@ -20,7 +19,10 @@ const smartDelay = async (ms, signal) => {
         if (signal) {
             signal.addEventListener('abort', () => {
                 clearTimeout(timer);
-                reject(new Error("Aborted delay"));
+                // We use a specific error name to identify this logic later
+                const abortError = new Error("Aborted delay");
+                abortError.name = "AbortError";
+                reject(abortError);
             });
         }
     });
@@ -28,7 +30,7 @@ const smartDelay = async (ms, signal) => {
 
 /**
  * --- Micro-Worker Sanitizer (Bulletproof Version) ---
- * This version aggressively fixes common AI JSON errors (bad escapes, LaTeX)
+ * Aggressively fixes common AI JSON errors (bad escapes, LaTeX)
  * and falls back to regex extraction if parsing fails.
  */
 const sanitizeJsonComponent = (aiResponse) => {
@@ -50,12 +52,11 @@ const sanitizeJsonComponent = (aiResponse) => {
 
         // --- ATTEMPT 1: Clean and Parse ---
         // Fix common AI JSON errors:
-        // 1. Fix unescaped newlines inside strings (lookbehind for colon/quote, lookahead for quote)
+        // 1. Fix unescaped newlines inside strings
         let cleanString = jsonString.replace(/(?<=:\s*"[^"]*)\n(?=[^"]*")/g, "\\n");
         
-        // 2. Fix invalid backslashes (e.g. \textbf -> \\textbf, \t -> \\t if not a real tab)
-        // This Regex finds backslashes that are NOT followed by valid JSON escape chars (", \, /, b, f, n, r, t, u)
-        // This specifically fixes the "Bad escaped character" error.
+        // 2. Fix invalid backslashes (e.g. \textbf -> \\textbf)
+        // This Regex finds backslashes that are NOT followed by valid JSON escape chars
         cleanString = cleanString.replace(/\\(?![/u"\\bfnrt])/g, "\\\\");
 
         return JSON.parse(cleanString);
@@ -64,13 +65,12 @@ const sanitizeJsonComponent = (aiResponse) => {
         console.warn("JSON.parse failed, attempting Manual Regex Extraction:", parseError.message);
 
         // --- ATTEMPT 2: Manual Regex Extraction (The Safety Net) ---
-        // If the JSON is broken (e.g. bad quotes), we just grab the text content directly.
         try {
             // Extract Title
             const titleMatch = aiResponse.match(/"title"\s*:\s*"([^"]*?)"/);
             const title = titleMatch ? titleMatch[1] : "Generated Page";
 
-            // Extract Content (Greedy match for content to handle nested quotes issues)
+            // Extract Content
             // We look for "content": " ... " 
             const contentMatch = aiResponse.match(/"content"\s*:\s*"([\s\S]*?)"(?=\s*\}|\s*,)/);
             
@@ -81,7 +81,6 @@ const sanitizeJsonComponent = (aiResponse) => {
                 // Last ditch: just grab everything after "content":
                 const parts = aiResponse.split(/"content"\s*:\s*"/);
                 if (parts.length > 1) {
-                    // Try to find the closing quote by looking from the end
                     const roughContent = parts[1];
                     const lastQuote = roughContent.lastIndexOf('"');
                     if (lastQuote !== -1) {
@@ -111,7 +110,7 @@ const sanitizeJsonComponent = (aiResponse) => {
 
         } catch (extractError) {
             console.error("Critical: Failed to sanitize JSON.", aiResponse.substring(0, 200));
-            // Return a dummy object so the app doesn't crash, allowing the user to at least see something
+            // Return a dummy object so the app doesn't crash
             return {
                 page: {
                     title: "Generation Error",
@@ -121,7 +120,6 @@ const sanitizeJsonComponent = (aiResponse) => {
         }
     }
 };
-
 
 /**
  * --- Base Context Builder ---
@@ -152,7 +150,7 @@ const getBasePromptContext = (guideData, existingSubjectContext) => {
         **YOUR SCAFFOLDING TASK (NON-NEGOTIABLE):**
         1.  **DO NOT RE-TEACH:** You are strictly forbidden from re-teaching the specific concepts, keywords, or learning objectives listed below.
         2.  **BUILD UPON:** Your new lesson MUST act as a logical "next step." It must **actively build upon this previous knowledge**.
-        3.  **CREATE A BRIDGE:** Where appropriate, the introduction of your new lesson should briefly reference a concept from the prerequisite lessons to create a smooth transition, but it must immediately move into new, more advanced material.
+        3.  **CREATE A BRIDGE:** Where appropriate, the introduction of your new lesson should briefly reference a concept from the prerequisite lessons to create a smooth transition.
 
         ---
         **PREVIOUSLY COVERED MATERIAL (DO NOT RE-TEACH):**
@@ -197,10 +195,10 @@ const getPlannerPrompt = (guideData, baseContext) => {
 
     **YOUR RULES:**
     1.  **Respect the Count:** You MUST generate **exactly ${guideData.lessonCount}** lesson(s).
-    2.  **Logical Flow:** The lessons MUST be in a logical, scaffolded order. Lesson 2 must build on Lesson 1.
+    2.  **Logical Flow:** The lessons MUST be in a logical, scaffolded order.
     3.  **Scaffolding:** Your plan MUST obey the "SCAFFOLDING TASK" and not repeat any topics from the "PREVIOUSLY COVERED MATERIAL."
     4.  **Titles:** Lesson titles must be formal, academic, and descriptive.
-    5.  **Summaries:** Provide a 1-2 sentence summary for *each* lesson you plan, explaining what that specific part of the topic will cover.
+    5.  **Summaries:** Provide a 1-2 sentence summary for *each* lesson you plan.
 
     **CRITICAL QUOTE ESCAPING:** All double quotes (") inside string values MUST be escaped (\\").
 
@@ -212,10 +210,6 @@ const getPlannerPrompt = (guideData, baseContext) => {
         {
           "lessonTitle": "Lesson 1: [Proposed Title for Lesson 1]",
           "summary": "A 1-2 sentence summary of what this specific lesson will cover."
-        },
-        {
-          "lessonTitle": "Lesson 2: [Proposed Title for Lesson 2]",
-          "summary": "A 1-2 sentence summary for the next lesson, building on the first."
         }
       ]
     }
@@ -228,7 +222,6 @@ const getPlannerPrompt = (guideData, baseContext) => {
 const getComponentPrompt = (guideData, baseContext, lessonPlan, componentType, styleRules, extraData = {}) => {
     const { languageAndGradeInstruction, perspectiveInstruction, scaffoldingInstruction, standardsInstruction } = baseContext;
     
-    // Labels
     const objectivesLabel = guideData.language === 'Filipino' ? 'Mga Layunin sa Pagkatuto' : 'Learning Objectives';
     const letsGetStartedLabel = guideData.language === 'Filipino' ? 'Simulan Natin!' : "Let's Get Started!";
     const checkUnderstandingLabel = guideData.language === 'Filipino' ? 'Suriin ang Pag-unawa' : "Check for Understanding";
@@ -254,52 +247,39 @@ const getComponentPrompt = (guideData, baseContext, lessonPlan, componentType, s
     - **Current Lesson Focus:** ${lessonPlan.summary}
     `;
 
-    // styleRules is now passed in directly.
-
     switch (componentType) {
         case 'objectives':
-            taskInstruction = `Generate 3-5 specific, measurable, and student-friendly learning objectives for this lesson. They must be based *only* on the lesson's focus: "${lessonPlan.summary}"`;
+            taskInstruction = `Generate 3-5 specific, measurable, and student-friendly learning objectives based on: "${lessonPlan.summary}"`;
             jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "objectives": [\n    "Objective 1...",\n    "Objective 2..."\n  ]\n}`;
             break;
         
         case 'competencies':
-            taskInstruction = `Analyze the "Learning Competencies (Master List)" from the context and select 1-3 competencies that are *directly* addressed by this specific lesson: "${lessonPlan.lessonTitle} - ${lessonPlan.summary}"`;
-            jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "competencies": [\n    "Competency 1 from master list...",\n    "Competency 2 from master list..."\n  ]\n}`;
+            taskInstruction = `Select 1-3 competencies from the Master List that are addressed by: "${lessonPlan.lessonTitle} - ${lessonPlan.summary}"`;
+            jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "competencies": [\n    "Competency 1...",\n    "Competency 2..."\n  ]\n}`;
             break;
 
         case 'Introduction':
-            taskInstruction = 'Generate the "Engaging Introduction" page. It MUST have a thematic, captivating subheader title. The content must hook attention for this specific lesson.';
-            jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "A Captivating Thematic Title (NOT 'Introduction')",\n    "content": "Engaging intro markdown..."\n  }\n}`;
+            taskInstruction = 'Generate the "Engaging Introduction" page. It MUST have a thematic, captivating subheader title.';
+            jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "A Captivating Thematic Title",\n    "content": "Engaging intro markdown..."\n  }\n}`;
             break;
         
         case 'LetsGetStarted':
             const introContext = extraData.introContent
-                ? `
-                **PREVIOUS PAGE CONTEXT (NON-NEGOTIABLE):**
-                The user was just shown this "Engaging Introduction":
-                ---
-                ${extraData.introContent}
-                ---
-                
-                **YOUR TASK:**
-                Generate the "${letsGetStartedLabel}" page. This page MUST act as a *direct follow-up* to the introduction. It must be a short, simple, interactive warm-up activity that logically flows from what the user just read.
-                `
-                : `Generate the "${letsGetStartedLabel}" page. This must be a short, simple, interactive warm-up activity relevant to this lesson.`;
+                ? `**PREVIOUS PAGE CONTEXT:** The user was just shown this Introduction:\n"${extraData.introContent}"\n\n**TASK:** Generate the "${letsGetStartedLabel}" page. It must act as a *direct follow-up* to the introduction.`
+                : `Generate the "${letsGetStartedLabel}" page.`;
             
             taskInstruction = introContext;
-            
             jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${letsGetStartedLabel}",\n    "content": "Warm-up activity instructions..."\n  }\n}`;
             break;
 
         case 'CoreContentPlanner':
             taskInstruction = `Analyze the focus for this lesson: "${lessonPlan.summary}".
             **CRITICAL TASK (NON-NEGOTIABLE):** Your task is to break down this lesson's topic into a series of **page-sized sub-topics**. Each sub-topic you list will become *one single page*.
-            - If the lesson's topic is simple, you might only return 1 or 2 titles.
-            - If the lesson's topic is complex (e.g., "The Light-Dependent Reactions"), you MUST return as many titles as needed (e.g., "Page 1: Capturing Light," "Page 2: The Electron Transport Chain," "Page 3: Creating ATP and NADPH") to cover it fully.
-            - Do **NOT** include titles for "Introduction," "Warm-Up," "Summary," etc. Just the main, teachable content topics.`;
+            - If simple, return 1-2 titles.
+            - If complex, return 3-5 titles as needed.
+            - Do **NOT** include titles for "Introduction," "Warm-Up," "Summary," etc.`;
             
-            jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "coreContentTitles": [\n    "First Sub-Topic Title",\n    "Second Sub-Topic Title"\n    // ... (as many as necessary)
-      ]\n}`;
+            jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "coreContentTitles": [\n    "First Sub-Topic Title",\n    "Second Sub-Topic Title"\n  ]\n}`;
             break;
 
         case 'CoreContentPage':
@@ -309,83 +289,54 @@ const getComponentPrompt = (guideData, baseContext, lessonPlan, componentType, s
 
             let previousContentInstruction = '';
             if (currentIndex === 0) {
-                // This is the FIRST core content page
-                previousContentInstruction = `
-                **PREVIOUSLY COVERED (DO NOT REPEAT):**
-                You are strictly forbidden from repeating the content from the "Introduction" or the "${letsGetStartedLabel}" (Warm-up) activity. The user has *already completed* these.
-                - **Introduction Content (DO NOT REPEAT):** ${extraData.introContent || 'N/A'}
-                - **Warm-Up Content (DO NOT REPEAT):** ${extraData.activityContent || 'N/A'}
-    
-                **YOUR TASK (Page 1 of ${allTitles.length}):**
-                1.  You MUST start teaching the new material for "**${currentTitle}**" immediately.
-                2.  Do NOT add a new introduction, greeting, or "welcome back." Dive directly into the topic.
-                `;
+                previousContentInstruction = `**START:** Start teaching the new material for "**${currentTitle}**" immediately. Do NOT add a new introduction.`;
             } else {
-                // This is a SUBSEQUENT (2nd, 3rd, etc.) core content page
-                previousContentInstruction = `
-                **PREVIOUS PAGE CONTEXT (DO NOT REPEAT):**
-                The user just finished reading the *previous* core content page, which covered:
-                ---
-                ${extraData.previousPageContent || 'N/A'}
-                ---
-    
-                **YOUR TASK (Page ${currentIndex + 1} of ${allTitles.length}):**
-                1.  You MUST create a seamless continuation from the previous page.
-                2.  Do NOT add a new introduction, greeting, or "welcome back."
-                3.  Your content MUST focus *exclusively* on the material for *your* assigned title: "**${currentTitle}**".
-                4.  You are **strictly forbidden** from discussing topics belonging to other page titles (especially the one you just saw).
-                `;
+                previousContentInstruction = `**CONTINUE:** Create a seamless continuation from the previous page content: "${extraData.previousPageContent || 'N/A'}". Focus ONLY on "**${currentTitle}**".`;
             }
 
             const contentContextInstruction = `
-            **CRITICAL CONTENT BOUNDARIES (NON-NEGOTIABLE):**
-            This lesson's core content is divided into ${allTitles.length} main page(s).
-            
-            - **Your Page Title:** "${currentTitle}"
-            - **All Page Titles (in order):** ${allTitles.map((t, i) => `\n  ${i + 1}. ${t} ${i === currentIndex ? "(THIS IS YOUR PAGE)" : ""}`).join('')}
-
+            **PAGING CONTEXT:** Page ${currentIndex + 1} of ${allTitles.length}.
+            - **Current Title:** "${currentTitle}"
             ${previousContentInstruction}
             `;
 
             taskInstruction = `Generate *one* core content page for this lesson.
             - **Page Title:** It MUST be exactly: "${currentTitle}"
-
             ${contentContextInstruction}
-
-            - **Content:** The content MUST be detail-rich, narrative-driven, and relevant *only* to this page title, adhering to all Master Instructions.
-            - **CRITICAL LENGTH CONSTRAINT:** Be thorough but concise. Your *entire* JSON response must be under 8000 characters. Do not write excessively long paragraphs.`;
+            - **Content:** Detail-rich, narrative-driven, relevant *only* to this page title.
+            - **CRITICAL LENGTH CONSTRAINT:** Be thorough but concise. Max 8000 chars JSON.`;
             
-            jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${currentTitle}",\n    "content": "Detailed markdown content for **this specific page only**, including interactive blockquotes..."\n  }\n}`;
+            jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${currentTitle}",\n    "content": "Detailed markdown content..."\n  }\n}`;
             break;
         
         case 'CheckForUnderstanding':
-            taskInstruction = `Generate the "${checkUnderstandingLabel}" page. This must be a short, formative activity with 3-4 concept questions based on the lesson's core content.`;
+            taskInstruction = `Generate the "${checkUnderstandingLabel}" page. 3-4 concept questions based on the lesson.`;
             jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${checkUnderstandingLabel}",\n    "content": "1. Question 1...\n2. Question 2..."\n  }\n}`;
             break;
 
         case 'LessonSummary':
-            taskInstruction = `Generate the "${lessonSummaryLabel}" page. This must be a concise recap of the most important points from *this lesson only*.`;
-            jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${lessonSummaryLabel}",\n    "content": "Concise recap in markdown..."\n  }\n}`;
+            taskInstruction = `Generate the "${lessonSummaryLabel}" page. Concise recap of this lesson only.`;
+            jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${lessonSummaryLabel}",\n    "content": "Concise recap..."\n  }\n}`;
             break;
         
         case 'WrapUp':
-            taskInstruction = `Generate the "${wrapUpLabel}" page. This must be a motivational, inspiring closure that ties *this lesson* back to the big picture.`;
-            jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${wrapUpLabel}",\n    "content": "Motivational closure in markdown..."\n  }\n}`;
+            taskInstruction = `Generate the "${wrapUpLabel}" page. Motivational closure.`;
+            jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${wrapUpLabel}",\n    "content": "Closure..."\n  }\n}`;
             break;
 
         case 'EndofLessonAssessment':
-            taskInstruction = `Generate the "${endOfLessonAssessmentLabel}" page. This must be 5-8 questions (mix of multiple-choice, short-answer) that align with *this lesson's* objectives.`;
-            jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${endOfLessonAssessmentLabel}",\n    "content": "### Multiple Choice\n1. Question...\n\n### Short Answer\n4. Question..."\n  }\n}`;
+            taskInstruction = `Generate the "${endOfLessonAssessmentLabel}" page. 5-8 questions (mix of multiple-choice, short-answer).`;
+            jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${endOfLessonAssessmentLabel}",\n    "content": "### Multiple Choice\n1. Question..."\n  }\n}`;
             break;
 
         case 'AnswerKey':
-            taskInstruction = `Generate the "${answerKeyLabel}" page. Provide clear answers to all questions from the "End of Lesson Assessment".`;
-            jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${answerKeyLabel}",\n    "content": "1. Answer...\n4. Answer..."\n  }\n}`;
+            taskInstruction = `Generate the "${answerKeyLabel}" page. Answers to the assessment.`;
+            jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${answerKeyLabel}",\n    "content": "1. Answer..."\n  }\n}`;
             break;
 
         case 'References':
-            taskInstruction = `Generate the "${referencesLabel}" page. This must be an academic-style reference list for *this lesson*.`;
-            jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${referencesLabel}",\n    "content": "- Source 1...\n- Source 2..."\n  }\n}`;
+            taskInstruction = `Generate the "${referencesLabel}" page. Academic-style reference list.`;
+            jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${referencesLabel}",\n    "content": "- Source 1..."\n  }\n}`;
             break;
 
         default:
@@ -394,14 +345,11 @@ const getComponentPrompt = (guideData, baseContext, lessonPlan, componentType, s
 
     return `
     ${commonHeader}
-
     =============================
     YOUR SPECIFIC TASK
     =============================
     ${taskInstruction}
-
     ${styleRules}
-
     =============================
     JSON OUTPUT FORMAT
     =============================
@@ -411,7 +359,6 @@ const getComponentPrompt = (guideData, baseContext, lessonPlan, componentType, s
 
 /**
  * --- Micro-Worker Function with Retries ---
- * (This function is unchanged, it uses the new sanitizeJsonComponent)
  */
 const generateLessonComponent = async (
     guideData, 
@@ -425,7 +372,6 @@ const generateLessonComponent = async (
     maxRetries = 3,
     signal
 ) => {
-    
     const prompt = getComponentPrompt(
         guideData, 
         baseContext, 
@@ -437,7 +383,6 @@ const generateLessonComponent = async (
     
     const finalPrompt = `
     ${prompt}
-
     =============================
     MASTER INSTRUCTION SET (Apply these to your task)
     =============================
@@ -461,9 +406,11 @@ const generateLessonComponent = async (
             return jsonData;
 
         } catch (error) {
-            if (error.name === 'AbortError' || (signal && signal.aborted)) {
+            // FIX: Robust check for abort errors (case insensitive)
+            if (error.name === 'AbortError' || (signal && signal.aborted) || error.message.toLowerCase().includes("aborted")) {
                 throw new Error("Generation aborted by user.");
             }
+            
             if (!isMounted.current) throw new Error("Generation aborted by user.");
 
             console.warn(
@@ -483,7 +430,6 @@ const generateLessonComponent = async (
 
 /**
  * --- Master Instructions Function ---
- * (Updated to handle LaTeX/JSON Escaping)
  */
 const getMasterInstructions = async (guideData) => {
     const objectivesLabel = guideData.language === 'Filipino' ? 'Mga Layunin sa Pagkatuto' : 'Learning Objectives';
@@ -498,8 +444,8 @@ const getMasterInstructions = async (guideData) => {
     let perspectiveInstruction = '';
     if (catholicSubjects.includes(guideData.subjectName)) {
         perspectiveInstruction = `
-            **CRITICAL PERSPECTIVE INSTRUCTION:** The content MUST be written from a **Catholic perspective**. This is non-negotiable. All explanations, examples, and interpretations must align with Catholic teachings, doctrines, and values. You must integrate principles from the Catechism of the Catholic Church, relevant encyclicals, and Sacred Scripture where appropriate.
-            **CRITICAL SOURCE REQUIREMENT (NON-NEGOTIABLE):** For all content and for the "${referencesLabel}" section, you MUST prioritize citing and referencing official Catholic sources. This includes, but is not limited to: the **Catechism of the Catholic Church (CCC)**, the **Youth Catechism (Youcat)**, relevant **Apostolic Letters**, **Encyclical Letters**, and documents from Vatican II. Secular sources may be used sparingly, but the core foundation must be these official Church documents.
+            **CRITICAL PERSPECTIVE INSTRUCTION:** The content MUST be written from a **Catholic perspective**. This is non-negotiable. All explanations, examples, and interpretations must align with Catholic teachings, doctrines, and values.
+            **CRITICAL SOURCE REQUIREMENT (NON-NEGOTIABLE):** Prioritize citing and referencing official Catholic sources (CCC, Youcat, Encyclicals, etc.).
         `;
     }
 
@@ -515,7 +461,7 @@ const getMasterInstructions = async (guideData) => {
             - **> Think About It:** If gravity suddenly disappeared, what's the first thing that would happen?
             - **> Quick Poll:** Raise your hand if you think plants breathe.
 
-        **Textbook Chapter Structure (NON-NEGOTIABLE):** You MUST generate the lesson pages in this exact sequence. The 'title' field for each special section MUST be exactly as specified.
+        **Textbook Chapter Structure (NON-NEGOTIABLE):** You MUST generate the lesson pages in this exact sequence.
         1. **${objectivesLabel}:** (Handled by 'objectives' call)
         2. **Engaging Introduction:** (Handled by 'Introduction' call)
         3. **Introductory Activity ("${letsGetStartedLabel}"):** (Handled by 'LetsGetStarted' call)
@@ -535,7 +481,6 @@ const getMasterInstructions = async (guideData) => {
         - You are writing a JSON string. ALL backslashes must be escaped.
         - **CORRECT:** "content": "Use \\\\textbf{bold}." (Result: Use \\textbf{bold})
         - **INCORRECT:** "content": "Use \\textbf{bold}." (Result: Invalid JSON)
-        - Do not use fancy formatting commands if standard Markdown works. Use **bold** instead of \\\\textbf{bold}.
         
         **CRITICAL JSON STRING RULE (NON-NEGOTIABLE):** When writing text content inside the JSON, do NOT escape standard quotation marks.
         - **Correct:** \\\`"title": "The Art of \\"How Much?\\""\\\`
@@ -544,27 +489,20 @@ const getMasterInstructions = async (guideData) => {
         **CRITICAL TEXT FORMATTING RULE (NON-NEGOTIABLE):**
         - To make text bold, you MUST use Markdown's double asterisks (**).
         - You are STRICTLY FORBIDDEN from using LaTeX commands like \\textbf{} or \\textit{}.
-        - **✅ NEW (ABSOLUTE RULE):** You are **STRICTLY FORBIDDEN** from bolding the introductory phrase or "title" of a bullet point.
-            - **Correct:** \`* Handle with Care: Carry glassware with two hands if it's large.\`
-            - **INCORRECT:** \`* **Handle with Care**: Carry glassware with two hands if it's large.\`
+        - **ABSOLUTE RULE:** You are **STRICTLY FORBIDDEN** from bolding the introductory phrase or "title" of a bullet point.
 
         **CRITICAL INSTRUCTION FOR SCIENTIFIC NOTATION (NON-NEGOTIABLE):**
         You MUST use LaTeX for all mathematical equations, variables, and chemical formulas.
         - **For INLINE formulas**, use single dollar signs: $H_2O$.
         - **For BLOCK formulas**, use double dollar signs: $$...$$
         - **CRITICAL LATEX ESCAPING IN JSON:** Every single backslash \`\\\` in your LaTeX code MUST be escaped with a second backslash (\`\\\\\`).
-        - **CORRECT EXAMPLE:** \`"content": "$$% \\\\text{ by Mass} = \\\\frac{\\\\text{Mass of Solute}}{\\\\text{Mass of Solution}} \\\\times 100\\%%$$"\`
         
         **ABSOLUTE RULE FOR CONTENT CONTINUATION (NON-NEGOTIABLE):** When a single topic or section is too long for one page and its discussion must continue onto the next page, a heading for that topic (the 'title' in the JSON) MUST ONLY appear on the very first page. ALL subsequent pages for that topic MUST have an empty string for their title: \\\`"title": ""\\\`.
         
-        **CRITICAL INSTRUCTION FOR REFERENCES (NON-NEGOTIABLE):** All sources cited in the "${referencesLabel}" section MUST be as up-to-date as possible.
-
         **ABSOLUTE RULE FOR SVG DIAGRAMS (NON-NEGOTIABLE):**
-        When a visual aid is necessary, you MUST generate valid, self-contained SVG code.
         - The page 'type' MUST be **"svg"**.
         - The 'content' MUST be a string containing the SVG code.
-        - All styles MUST be inline attributes (e.g., \`stroke="#212121"\`). DO NOT use \`<style>\` tags.
-        - Use a clean, educational textbook style.
+        - All styles MUST be inline attributes.
     `;
 
     return { masterInstructions, styleRules };
@@ -620,6 +558,7 @@ export default function GenerationScreen({
                 const baseContext = getBasePromptContext(guideData, existingSubjectContext);
                 const plannerPrompt = getPlannerPrompt(guideData, baseContext);
 
+                // Initial safety delay
                 await smartDelay(GEMMA_SAFETY_DELAY_MS, signal);
 
                 const plannerResponse = await callGeminiWithLimitCheck(plannerPrompt, { signal });
@@ -765,7 +704,8 @@ export default function GenerationScreen({
             showToast("All lessons generated successfully!", "success");
 
         } catch (err) {
-            if (!isMounted.current || err.name === 'AbortError' || (err.message && err.message.includes("aborted"))) {
+            // FIX: Robust check for abort errors (case insensitive)
+            if (!isMounted.current || err.name === 'AbortError' || (err.message && err.message.toLowerCase().includes("aborted"))) {
                 console.log("Generation loop aborted by user.");
                 return;
             }
@@ -785,11 +725,14 @@ export default function GenerationScreen({
         
         return () => {
             isMounted.current = false;
+            // Abort any active requests when the component unmounts
             if (abortControllerRef.current) {
                 abortControllerRef.current.abort();
             }
         };
-    }, [runGenerationLoop]);
+        
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     return (
         <div className="flex flex-col h-full bg-slate-200 dark:bg-neumorphic-base-dark rounded-2xl">
