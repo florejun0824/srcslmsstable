@@ -269,18 +269,25 @@ const getComponentPrompt = (guideData, baseContext, lessonPlan, componentType, s
             jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${letsGetStartedLabel}",\n    "content": "Warm-up activity instructions..."\n  }\n}`;
             break;
 
-        case 'CoreContentPlanner':
-            // --- MODIFICATION FOR TOKEN LIMITS ---
-            taskInstruction = `Analyze the focus for this lesson: "${lessonPlan.summary}".
-            **CRITICAL TASK (NON-NEGOTIABLE):** Your task is to break down this lesson's topic into a series of **page-sized sub-topics**. Each sub-topic you list will become *one single page*.
-            - If the lesson's topic is simple, you might only return 1 or 2 titles.
-            - If the lesson's topic is complex (e.g., "The Light-Dependent Reactions"), you MUST return as many titles as needed (e.g., "Page 1: Capturing Light," "Page 2: The Electron Transport Chain," "Page 3: Creating ATP and NADPH") to cover it fully.
-            - Do **NOT** include titles for "Introduction," "Warm-Up," "Summary," etc. Just the main, teachable content topics.`;
-            // --- END MODIFICATION ---
+		case 'CoreContentPlanner':
+		            // --- MODIFIED FOR SMALLER CHUNKS ---
+		            taskInstruction = `Analyze the focus for this lesson: "${lessonPlan.summary}".
             
-            jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "coreContentTitles": [\n    "First Sub-Topic Title",\n    "Second Sub-Topic Title"\n    // ... (as many as necessary)
-      ]\n}`;
-            break;
+		            **CRITICAL: SPLIT CONTENT INTO SMALL CHUNKS**
+		            You must break this lesson down into small, digestible **page-sized sub-topics**.
+            
+		            **RULES:**
+		            1. **Scope:** Each title you generate represents ONE page of content.
+		            2. **Granularity:** If a sub-topic is complex, you MUST split it. 
+		               - BAD: "Photosynthesis" (Too big, will get cut off)
+		               - GOOD: "Page 1: The Reactants of Photosynthesis", "Page 2: The Light-Dependent Reaction", "Page 3: The Calvin Cycle"
+		            3. **Quantity:** Do not be afraid to generate 5, 6, or 7 pages if the topic is deep.
+		            4. Do **NOT** include titles for "Introduction," "Warm-Up," "Summary," etc. Just the core teaching pages.`;
+		            // --- END MODIFICATION ---
+            
+		            jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "coreContentTitles": [\n    "First Sub-Topic Title",\n    "Second Sub-Topic Title"\n    // ... (as many as necessary)
+		      ]\n}`;
+		            break;
 
         case 'CoreContentPage':
             // --- MODIFICATION START ---
@@ -331,15 +338,17 @@ const getComponentPrompt = (guideData, baseContext, lessonPlan, componentType, s
             `;
             // --- MODIFICATION END ---
 
-            taskInstruction = `Generate *one* core content page for this lesson.
+taskInstruction = `Generate *one* core content page for this lesson.
             - **Page Title:** It MUST be exactly: "${currentTitle}"
 
             ${contentContextInstruction}
 
-            - **Content:** The content MUST be detail-rich, narrative-driven, and relevant *only* to this page title, adhering to all Master Instructions.
-            - **CRITICAL LENGTH CONSTRAINT:** Be thorough but concise. Your *entire* JSON response must be under 8000 characters. Do not write excessively long paragraphs.`;
+            - **Content:** The content MUST be detail-rich but **strictly limited in length**.
+            - **CRITICAL LENGTH CONSTRAINT:** You MUST write less than **4000 characters** (approx 600 words) for this page.
+            - **Formatting:** Use short paragraphs, bullet points, and the required interactive blockquotes to break up text. 
+            - **Stopping:** You must finish your thought and close the JSON object properly. Do not leave sentences hanging.`;
             
-            jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${currentTitle}",\n    "content": "Detailed markdown content for **this specific page only**, including interactive blockquotes..."\n  }\n}`;
+            jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${currentTitle}",\n    "content": "Markdown content..."\n  }\n}`;
             break;
         
         case 'CheckForUnderstanding':
@@ -699,14 +708,20 @@ export default function GenerationScreen({
                         currentIndex: contentIndex
                     };
 
-                    if (contentIndex === 0) {
-                        // The FIRST page needs context from the Intro and Warm-up
-                        extraContext.introContent = introContent;
-                        extraContext.activityContent = activityContent;
-                    } else {
-                        // SUBSEQUENT pages need context from the PREVIOUS content page
-                        extraContext.previousPageContent = previousPageContent;
-                    }
+					if (contentIndex === 0) {
+					        // The FIRST page needs context from the Intro and Warm-up
+					        // KEEP THIS AS IS, usually fine
+					        extraContext.introContent = introContent;
+					        extraContext.activityContent = activityContent;
+					    } else {
+					        // SUBSEQUENT pages need context from the PREVIOUS content page
+					        // --- FIX: Truncate previous content to just the last 1000 characters ---
+					        // This gives the AI the "flow" without eating your token budget.
+					        const prevText = previousPageContent || "";
+					        extraContext.previousPageContent = prevText.length > 1000 
+					            ? "..." + prevText.slice(-1000) 
+					            : prevText;
+					    }
 
                     const contentPageData = await generateLessonComponent(
                         guideData, 
