@@ -4,7 +4,7 @@ module.exports = {
   content: [
     "./index.html",
     "./src/**/*.{js,jsx,ts,tsx}",
-    "./node_modules/@tremor/**/*.{js,ts,jsx,tsx}", // Tremor components
+    "./node_modules/@tremor/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
     extend: {
@@ -65,20 +65,26 @@ module.exports = {
           900: '#7F1D1D',
           950: '#450A0A',
         },
-        // --- Neumorphic UI Colors ---
+        // --- Neumorphic UI Colors (Legacy) ---
         'neumorphic-base': '#F0F2F5',
         'neumorphic-shadow-dark': '#C8CDD3',
         'neumorphic-shadow-light': '#FFFFFF',
-
-        // --- ADDED: Dark Mode Neumorphic Colors ---
-        'neumorphic-base-dark': '#1e293b', // slate-800
-        'neumorphic-shadow-dark-dark': '#0f172a', // slate-900 (the dark shadow in dark mode)
-        'neumorphic-shadow-light-dark': '#334155', // slate-700 (the light shadow in dark mode)
+        'neumorphic-base-dark': '#1e293b',
+        'neumorphic-shadow-dark-dark': '#0f172a',
+        'neumorphic-shadow-light-dark': '#334155',
+      },
+      // --- NEW: Holographic Backgrounds ---
+      backgroundImage: {
+        'glass-shine': 'linear-gradient(rgba(255,255,255,0.05), rgba(255,255,255,0))',
+        'gradient-border': 'linear-gradient(var(--monet-accent), var(--monet-accent-dark))', 
       },
       animation: {
         'spin-slow': 'spin 4s linear infinite',
         blob: "blob 7s infinite",
         "scale-in": "scaleIn 0.3s ease-out forwards",
+        // --- NEW: Holographic Animations ---
+        'border-flow': 'borderFlow 3s ease infinite',
+        'aurora': 'aurora 10s ease infinite',
       },
       keyframes: {
         blob: {
@@ -91,8 +97,18 @@ module.exports = {
           "0%": { opacity: 0, transform: "scale(0.95) translateY(-5px)" },
           "100%": { opacity: 1, transform: "scale(1) translateY(0px)" },
         },
+        // --- NEW: Holographic Keyframes ---
+        borderFlow: {
+          '0%, 100%': { backgroundPosition: '0% 50%' },
+          '50%': { backgroundPosition: '100% 50%' },
+        },
+        aurora: {
+          '0%': { backgroundPosition: '50% 50%', filter: 'hue-rotate(0deg)' },
+          '100%': { backgroundPosition: '350% 50%', filter: 'hue-rotate(360deg)' },
+        },
       },
       boxShadow: {
+        // Existing Shadows
         'sm-floating-xs': '0 2px 8px rgba(0, 0, 0, 0.05), 0 0 1px rgba(0, 0, 0, 0.05)',
         'md-floating-xs': '0 4px 12px rgba(0, 0, 0, 0.08), 0 0 1px rgba(0, 0, 0, 0.05)',
         'lg-floating-sm': '0 8px 20px rgba(0, 0, 0, 0.1), 0 0 2px rgba(0, 0, 0, 0.08)',
@@ -102,14 +118,20 @@ module.exports = {
         'tremor-input': '0 1px 2px 0 rgb(0 0 0 / 0.05)',
         'tremor-card': '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)',
         'tremor-dropdown': '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+        
+        // Legacy Neumorphic (Keep for backward compatibility)
         'neumorphic': '6px 6px 12px #C8CDD3, -6px -6px 12px #FFFFFF',
         'neumorphic-inset': 'inset 6px 6px 12px #C8CDD3, inset -6px -6px 12px #FFFFFF',
         'neumorphic-flat-inset': 'inset 2px 2px 4px #C8CDD3, inset -2px -2px 4px #FFFFFF',
-
-        // --- ADDED: Dark Mode Neumorphic Shadows ---
         'neumorphic-dark': '6px 6px 12px #0f172a, -6px -6px 12px #334155',
         'neumorphic-inset-dark': 'inset 6px 6px 12px #0f172a, inset -6px -6px 12px #334155',
         'neumorphic-flat-inset-dark': 'inset 2px 2px 4px #0f172a, inset -2px -2px 4px #334155',
+
+        // --- NEW: Holographic Glass Shadows (Use these instead of Neumorphic) ---
+        'glass-sm': '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03), inset 0 0 0 1px rgba(255, 255, 255, 0.1)',
+        'glass-md': '0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025), inset 0 0 0 1px rgba(255, 255, 255, 0.1)',
+        'glass-lg': '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04), inset 0 0 0 1px rgba(255, 255, 255, 0.1)',
+        'glow-accent': '0 0 20px -5px var(--monet-accent)',
       },
       fontFamily: {
         sans: ['"Inter var"', "system-ui", "sans-serif"],
@@ -120,7 +142,6 @@ module.exports = {
         "tremor-title": ['1.125rem', { lineHeight: '1.75rem' }],
         "tremor-metric": ['1.875rem', { lineHeight: '2.25rem' }],
       },
-      // Typography plugin customization
       typography: (theme) => ({
         DEFAULT: {
           css: {
@@ -147,7 +168,6 @@ module.exports = {
             },
           },
         },
-        // --- THIS IS THE FIX: Changed 'dark' to 'invert' ---
         invert: {
           css: {
             blockquote: {
