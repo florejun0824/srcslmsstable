@@ -3,7 +3,7 @@ import { db } from './firebase';
 import { doc, getDoc, updateDoc, setDoc, increment } from 'firebase/firestore';
 
 // --- ADD THESE NEW DEBUG LINES ---
-console.log("!!!!!!!!!! AISERVICE.JSX: Build 125 (String Safety Fix) IS RUNNING !!!!!!!!!!");
+console.log("!!!!!!!!!! AISERVICE.JSX: Build 126 (Fallback 3 Added) IS RUNNING !!!!!!!!!!");
 // ---------------------------------
 
 // --- THIS IS THE FIX ---
@@ -26,16 +26,19 @@ console.log("!!!!!!!!!! AISERVICE.JSX: API_BASE is:", API_BASE);
 // --- Model & URL Definitions ---
 const GEMINI_MODEL = 'gemini-3-flash-preview'; 
 
-// --- Unified API Configuration (UPDATED - Removed HuggingFace) ---
+// --- Unified API Configuration (UPDATED - Added Fallback 3) ---
 const API_CONFIGS = [
     // We point all URLs to the same Vercel endpoint. 
     // The 'model' field stays exactly as you defined it (GEMINI_MODEL).
     { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Primary' },
     { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Fallback 1' },
     { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Fallback 2' },
+    // ADDED FALLBACK 3 HERE
+    { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Fallback 3' },
+	{ service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Fallback 4' },
 ];
 
-// This will now be 3
+// This will now be 4
 const NUM_CONFIGS = API_CONFIGS.length;
 let currentApiIndex = 0;
 

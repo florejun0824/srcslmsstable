@@ -33,9 +33,9 @@ import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 // --- CONFIGURATION ---
-// STRICT SAFETY DELAY: 20 seconds to stay safely under Gemma 3's 15k TPM limit.
-// The error requested a retry in ~18s, so 20s is a safe buffer.
-const GEMMA_SAFETY_DELAY_MS = 20000; 
+// STRICT SAFETY DELAY: 15 seconds to align with 5 RPM limit.
+// 60 seconds / 5 requests = 12 seconds minimum. 15s provides a safe buffer.
+const GEMMA_SAFETY_DELAY_MS = 15000; 
 
 /**
  * --- Helper: Smart Delay ---
@@ -140,7 +140,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                     highlight: 'bg-pink-900/40 border-pink-500/30',
                     inputBg: 'bg-black/30'
                 };
-            // ... (Other themes can remain the same or default to standard) ...
             default: // Standard
                 return {
                     bgGradient: 'bg-[#f5f5f7] dark:bg-[#121212]',
@@ -403,6 +402,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         `;
     };
     
+    // --- UPDATED: Accepts "accumulatedLessonContext" to prevent redundancy ---
     const getComponentPrompt = (sourceText, baseContext, lessonPlan, componentType, extraData = {}) => {
         const { languageAndGradeInstruction, perspectiveInstruction, scaffoldingInstruction, standardsInstruction } = baseContext;
         let taskInstruction, jsonFormat;
@@ -420,6 +420,17 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         1. **NO OBJECTIVES IN CONTENT:** Do NOT list Learning Objectives, Competencies, or Standards inside the page content. These are already displayed in the UI header.
         2. **NO METADATA:** Do not include "Teacher Notes", "Lesson Plan ID", or "Copyright" footers.
         `;
+        
+        // --- KEY FEATURE: Context Accumulation ---
+        const redundancyCheck = extraData.accumulatedLessonContext ? `
+        **CONTEXT - CONTENT GENERATED SO FAR:**
+        Below is the content you have already written for this lesson. 
+        **CRITICAL RULE:** Do NOT repeat introductions, definitions, or activities that are already present in the content below. Build UPON this content.
+        
+        --- START OF EXISTING CONTENT ---
+        ${extraData.accumulatedLessonContext}
+        --- END OF EXISTING CONTENT ---
+        ` : '';
 
         const styleRules = `
         **STYLE & FORMATTING:**
@@ -469,7 +480,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                 break;
             
             case 'LetsGetStarted':
-                taskInstruction = 'Generate a "Let\'s Get Started" warm-up activity page.';
+                taskInstruction = 'Generate a "Let\'s Get Started" warm-up activity page. It should act as a bridge from the Introduction.';
                 jsonFormat = `{"page": {"title": "Let's Get Started", "content": "Activity instructions..."}}`;
                 break;
 
@@ -493,9 +504,9 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                 - **All Page Titles (in order):** ${allTitles.map((t, i) => `\n  ${i + 1}. ${t} ${i === currentIndex ? "(THIS IS YOUR PAGE)" : ""}`).join('')}
 
                 **YOUR TASK:**
-                1.  You are **strictly forbidden** from discussing topics belonging to the *other* page titles.
-                2.  Your content MUST focus *exclusively* on the material from the source text that is relevant *only* to your assigned title: "**${currentTitle}**".
-                3.  Do NOT repeat content from previous pages. Do NOT summarize the entire document.
+                1.  Your content MUST focus *exclusively* on the material from the source text that is relevant *only* to your assigned title: "**${currentTitle}**".
+                2.  **REDUNDANCY CHECK:** Read the "CONTENT GENERATED SO FAR". Do NOT re-explain concepts generated in previous pages. Assume the student has just read those pages.
+                3.  **CONTINUITY:** Start your text as if continuing the narrative from the previous page.
                 `;
 
                 taskInstruction = `Generate *one* core content page for this lesson.
@@ -513,12 +524,12 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                 break;
             
             case 'CheckForUnderstanding':
-                taskInstruction = 'Generate a "Check for Understanding" page with 3-4 questions.';
+                taskInstruction = 'Generate a "Check for Understanding" page with 3-4 questions based on the accumulated lesson content.';
                 jsonFormat = `{"page": {"title": "Check for Understanding", "content": "Questions..."}}`;
                 break;
 
             case 'LessonSummary':
-                taskInstruction = 'Generate a "Lesson Summary" page (concise recap).';
+                taskInstruction = 'Generate a "Lesson Summary" page (concise recap of the accumulated content).';
                 jsonFormat = `{"page": {"title": "Lesson Summary", "content": "Recap..."}}`;
                 break;
             
@@ -528,7 +539,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                 break;
 
             case 'EndofLessonAssessment':
-                taskInstruction = 'Generate an "End of Lesson Assessment" with 5-8 questions.';
+                taskInstruction = 'Generate an "End of Lesson Assessment" with 5-8 questions based strictly on the accumulated lesson content.';
                 jsonFormat = `{"page": {"title": "End of Lesson Assessment", "content": "Questions..."}}`;
                 break;
 
@@ -546,7 +557,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                 throw new Error(`Unknown component type: ${componentType}`);
         }
 
-        return `${commonHeader}\n\n**TASK:** ${taskInstruction}\n${styleRules}\n\n**JSON FORMAT:**\n${jsonFormat}\n\n**SOURCE TEXT:**\n${sourceText}`;
+        return `${commonHeader}\n\n${redundancyCheck}\n\n**TASK:** ${taskInstruction}\n${styleRules}\n\n**JSON FORMAT:**\n${jsonFormat}\n\n**SOURCE TEXT:**\n${sourceText}`;
     };
 
     const generateLessonComponent = async (sourceText, baseContext, lessonPlan, componentType, isMountedRef, extraData = {}, maxRetries = 3, signal) => {
@@ -557,6 +568,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
 
             try {
                // Passing maxOutputTokens and signal to handle cancellation
+               // High limit because we are sending large context
                const aiResponse = await callGeminiWithLimitCheck(prompt, { maxOutputTokens: 8192, signal });
                 
                 if (!isMountedRef.current || signal?.aborted) throw new Error("Aborted");
@@ -568,7 +580,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                 if (error.name === 'AbortError' || signal?.aborted) throw new Error("Aborted");
                 
                 if (attempt === maxRetries - 1) throw error;
-                // Retry delay (not the safety delay, just a glitch retry)
+                // Retry delay
                 await new Promise(res => setTimeout(res, 2000));
             }
         }
@@ -595,7 +607,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
             let extractedText = await extractTextFromFile(file);
             if (!isMounted.current || signal.aborted) return;
 
-            // Pre-process common currency symbol for better AI recognition
             extractedText = extractedText.replace(/₱/g, 'PHP ');
             const sourceText = extractedText;
             
@@ -616,6 +627,9 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
             for (const [index, plan] of lessonPlans.entries()) {
                 if (!isMounted.current || signal.aborted) return;
                 
+                // --- NEW: Accumulate context to prevent redundancy ---
+                let accumulatedLessonContext = "";
+                
                 const isUnitOverview = plan.lessonTitle.toLowerCase().includes('unit overview');
                 if (!isUnitOverview) lessonCounter++;
                 
@@ -634,26 +648,45 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                     assignedCompetencies: []
                 };
 
-                // --- HELPER: WRAPPER FOR GENERATION WITH THROTTLING ---
+                // --- HELPER: WRAPPER FOR GENERATION WITH THROTTLING AND CONTEXT ---
                 const safeGenerate = async (type, extra = {}) => {
                     if (!isMounted.current || signal.aborted) throw new Error("Aborted");
                     
-                    // Throttling: Wait before EVERY component generation to reset token buckets
-                    // We use the safety delay constant.
-                    setProgressMessage(`Building "${numberedPlan.lessonTitle}": ${type}... (Throttling for safety)`);
+                    setProgressMessage(`Building "${numberedPlan.lessonTitle}": ${type}...`);
                     
                     try {
+                        // Throttling for safety (5 RPM)
                         await smartDelay(GEMMA_SAFETY_DELAY_MS, signal);
-                        const result = await generateLessonComponent(sourceText, baseContext, numberedPlan, type, isMounted, extra, 3, signal);
+                        
+                        // Pass accumulated context
+                        const result = await generateLessonComponent(
+                            sourceText, 
+                            baseContext, 
+                            numberedPlan, 
+                            type, 
+                            isMounted, 
+                            { ...extra, accumulatedLessonContext }, // INJECT CONTEXT
+                            3, 
+                            signal
+                        );
+
+                        // If it's a content page, append to context
+                        if (result && result.page && result.page.content) {
+                            accumulatedLessonContext += `\n\n--- [${type.toUpperCase()}]: ${result.page.title} ---\n${result.page.content}`;
+                        }
+                        // Also append objectives/competencies if generated
+                        if (result && result.objectives) {
+                             accumulatedLessonContext += `\n\n--- OBJECTIVES ---\n${result.objectives.join('\n')}`;
+                        }
+
                         return result;
                     } catch (e) {
-                        if (e.name === 'AbortError' || e.message === 'Aborted') throw e; // Rethrow aborts
+                        if (e.name === 'AbortError' || e.message === 'Aborted') throw e; 
                         console.warn(`Skipping ${type} due to error:`, e);
-                        return null; // Skip non-critical errors
+                        return null; 
                     }
                 };
 
-                // UPDATED: Added type: 'text' to all page pushes
                 if (isUnitOverview) {
                     const overview = await safeGenerate('UnitOverview_Overview');
                     if(overview) newLesson.pages.push({ ...overview.page, type: 'text' });
@@ -673,6 +706,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                     const activity = await safeGenerate('LetsGetStarted');
                     if(activity) newLesson.pages.push({ ...activity.page, type: 'text' });
 
+                    // Planner doesn't add text, so we don't need context accumulation here
                     const planner = await safeGenerate('CoreContentPlanner');
                     const contentTitles = planner ? planner.coreContentTitles : [];
                     
@@ -704,7 +738,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
             if (!isMounted.current) return;
             
             console.error('Generation error:', err);
-            // Specifically check for Quota Error in the message to give better feedback
             if (err.message && err.message.includes("429")) {
                  setError('AI quota exceeded. Please try again in a few moments with a smaller file.');
             } else {
@@ -715,7 +748,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         }
     };
     
-    // ... (rest of the component: handleSaveLesson, UI rendering) ...
+    // ... (handleSaveLesson, UI rendering - Unchanged) ...
     
     const handleSaveLesson = async () => {
         if (previewLessons.length === 0) return;
@@ -824,9 +857,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                         )}
                                     </div>
 
-                                    {/* ... Rest of the inputs (Language, Grade, Standards, Scaffolding) ... */}
-                                    {/* (Keeping the UI identical to the previous version, just ensuring the logic above wraps the rendering) */}
-                                    
                                     <div className={`h-px bg-gradient-to-r from-transparent via-current to-transparent opacity-10`} />
 
                                     {/* Filters */}

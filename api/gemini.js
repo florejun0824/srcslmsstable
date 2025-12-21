@@ -10,6 +10,8 @@ const getApiKeyPool = () => {
   if (process.env.GEMINI_API_KEY) keys.add(process.env.GEMINI_API_KEY);
   if (process.env.GEMINI_FALLBACK_API_KEY) keys.add(process.env.GEMINI_FALLBACK_API_KEY);
   if (process.env.GEMINI_FALLBACK_API_KEY_2) keys.add(process.env.GEMINI_FALLBACK_API_KEY_2);
+  if (process.env.GEMINI_FALLBACK_API_KEY_3) keys.add(process.env.GEMINI_FALLBACK_API_KEY_3);
+  if (process.env.GEMINI_FALLBACK_API_KEY_4) keys.add(process.env.GEMINI_FALLBACK_API_KEY_4);
   if (process.env.VITE_GEMINI_API_KEY) keys.add(process.env.VITE_GEMINI_API_KEY);
   return Array.from(keys).filter(k => k && k.length > 10);
 };
