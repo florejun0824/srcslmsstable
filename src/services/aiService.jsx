@@ -2,59 +2,40 @@ import { Capacitor } from '@capacitor/core';
 import { db } from './firebase';
 import { doc, getDoc, updateDoc, setDoc, increment } from 'firebase/firestore';
 
-// --- ADD THESE NEW DEBUG LINES ---
-console.log("!!!!!!!!!! AISERVICE.JSX: Build 126 (Fallback 3 Added) IS RUNNING !!!!!!!!!!");
-// ---------------------------------
+// --- KEY HIDING UTILITY ---
+// This function removes any API key patterns (AIza...) from error text
+const sanitizeError = (text) => {
+    if (!text || typeof text !== 'string') return text;
+    // Regex to find Google API Keys and replace them with [HIDDEN]
+    return text.replace(/api_key:[a-zA-Z0-9_\-]{35,}/g, 'api_key:[HIDDEN]');
+};
 
-// --- THIS IS THE FIX ---
-// 1. Get the production URL from environment variables
+// --- ENVIRONMENT SETUP ---
 const PROD_API_URL = import.meta.env.VITE_API_BASE_URL;
-
-// 2. Check if running in a native container (like an APK)
 const isNative = Capacitor.isNativePlatform();
-
-// 3. Determine the base URL
-//    If it's native, use the full production URL.
-//    If it's web, use a relative path (empty string).
 const API_BASE = isNative ? PROD_API_URL : '';
-// --- END OF FIX ---
 
-// --- ADD THIS NEW DEBUG LINE ---
-console.log("!!!!!!!!!! AISERVICE.JSX: API_BASE is:", API_BASE);
-// -------------------------------
-
-// --- Model & URL Definitions ---
+// --- CONFIGURATION ---
 const GEMINI_MODEL = 'gemini-3-flash-preview'; 
 
-// --- Unified API Configuration (UPDATED - Added Fallback 3) ---
 const API_CONFIGS = [
-    // We point all URLs to the same Vercel endpoint. 
-    // The 'model' field stays exactly as you defined it (GEMINI_MODEL).
     { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Primary' },
     { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Fallback 1' },
     { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Fallback 2' },
-    // ADDED FALLBACK 3 HERE
     { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Fallback 3' },
-	{ service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Fallback 4' },
-	{ service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Fallback 5' },
+    { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Fallback 4' },
+    { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Fallback 5' },
 ];
 
-// This will now be 4
 const NUM_CONFIGS = API_CONFIGS.length;
 let currentApiIndex = 0;
-
 const FREE_API_CALL_LIMIT_PER_MONTH = 500000;
-
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-let usageCache = {
-    callCount: 0,
-    resetMonth: 0,
-    lastChecked: 0,
-};
+let usageCache = { callCount: 0, resetMonth: 0, lastChecked: 0 };
 const CACHE_DURATION_MS = 60000;
 
-// --- Usage Tracking (Unchanged) ---
+// --- USAGE TRACKING ---
 const checkAiLimitReached = async () => {
     const usageDocRef = doc(db, 'usage_trackers', 'ai_usage');
     const currentTime = Date.now();
@@ -73,18 +54,15 @@ const checkAiLimitReached = async () => {
 
         if (usageSnap.exists()) {
             const { callCount, resetMonth } = usageSnap.data();
-
             if (resetMonth !== currentMonth) {
                 usageCache = { callCount: 0, resetMonth: currentMonth, lastChecked: currentTime };
                 await updateDoc(usageDocRef, { callCount: 0, resetMonth: currentMonth });
-                console.log("AI usage counter reset for new month.");
             } else {
                 usageCache = { callCount, resetMonth, lastChecked: currentTime };
             }
         } else {
             usageCache = { callCount: 0, resetMonth: currentMonth, lastChecked: currentTime };
             await setDoc(usageDocRef, { callCount: 0, resetMonth: currentMonth });
-            console.log("AI usage tracker initialized.");
         }
 
         if (usageCache.callCount >= FREE_API_CALL_LIMIT_PER_MONTH) {
@@ -94,132 +72,119 @@ const checkAiLimitReached = async () => {
         return false;
 
     } catch (error) {
-        console.error("Error checking or initializing AI usage tracker:", error);
-        throw new Error(`Failed to verify AI usage limit: ${error.message}`);
+        // Sanitize error just in case
+        console.error("Error checking AI usage:", sanitizeError(error.message));
+        return false; // Fail open if tracker is down
     }
 };
 
-// --- Internal Proxy API Caller (UPDATED) ---
-// This function now sends the model name to the proxy
+// --- CORE API CALLER (SECURE) ---
 const callProxyApiInternal = async (prompt, jsonMode = false, config, maxOutputTokens = undefined) => {
-    
-    const response = await fetch(config.url, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-            prompt: prompt,
-            jsonMode: jsonMode,
-            maxOutputTokens: maxOutputTokens,
-            model: config.model 
-        }),
-    });
+    try {
+        const response = await fetch(config.url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                prompt: prompt,
+                jsonMode: jsonMode,
+                maxOutputTokens: maxOutputTokens,
+                model: config.model 
+            }),
+        });
 
-    if (!response.ok) {
-        // If error, it might still be a JSON error object
-        const errorText = await response.text();
-        console.error(`Proxy Function Failed (${config.url}): ${response.status}. Response: ${errorText}`);
-        const error = new Error(`Proxy failed: ${response.status}. ${errorText.substring(0, 200)}`);
-        error.status = response.status;
+        // 1. Get raw text first
+        const rawText = await response.text();
+
+        if (!response.ok) {
+            // 2. SANITIZE ERROR BEFORE LOGGING
+            const safeErrorText = sanitizeError(rawText);
+            console.error(`Proxy Failed (${config.url}): ${response.status}. Response: ${safeErrorText}`);
+            
+            const error = new Error(safeErrorText.substring(0, 200)); 
+            error.status = response.status;
+            throw error;
+        }
+
+        if (!rawText) throw new Error("Proxy response was empty.");
+
+        // 3. Handle JSON Errors that come as 200 OK (Edge case)
+        if (rawText.trim().startsWith('{"error"')) {
+            try {
+                const errorJson = JSON.parse(rawText);
+                const safeMessage = sanitizeError(errorJson.error || "Unknown error");
+                throw new Error(safeMessage);
+            } catch (e) {
+                if (e.message !== "Unknown error") throw e; // Re-throw real parsing errors if needed
+            }
+        }
+
+        return rawText;
+
+    } catch (error) {
+        // Ensure even network errors are sanitized if they somehow contain sensitive info
+        error.message = sanitizeError(error.message);
         throw error;
     }
-
-    // --- FIX FOR 504 TIMEOUTS: HANDLE STREAMED TEXT ---
-    // The backend now streams raw text. We wait for the stream to finish downloading.
-    // The "First Byte" arrives instantly, satisfying Vercel.
-    const fullText = await response.text();
-
-    if (!fullText) {
-        throw new Error("Proxy response was empty.");
-    }
-
-    // Edge case: If the backend errored mid-stream and sent a JSON error
-    if (fullText.trim().startsWith('{"error"')) {
-        try {
-            const errorJson = JSON.parse(fullText);
-            throw new Error(errorJson.error || "Unknown proxy error");
-        } catch (e) {
-            // It was probably just text that looked like JSON, ignore
-        }
-    }
-
-    return fullText;
 }
 
-// --- Load Balancer (UPDATED) ---
+// --- LOAD BALANCER ---
 const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTokens = undefined) => {
     const startIndex = currentApiIndex;
-    
     currentApiIndex = (currentApiIndex + 1) % NUM_CONFIGS;
-
     const errors = {};
 
     for (let i = 0; i < NUM_CONFIGS; i++) {
         const keyIndex = (startIndex + i) % NUM_CONFIGS;
         const config = API_CONFIGS[keyIndex];
-        const keyName = config.name;
 
-		try {
-		    console.log(`Attempting AI API with ${keyName} (Index ${keyIndex})...`);
-            let response;
-            
-            // Simplified: All services now use the proxy caller
-            if (config.service === 'gemini') {
-                response = await callProxyApiInternal(prompt, jsonMode, config, maxOutputTokens);
-            } else {
-                throw new Error(`Unknown service type: ${config.service}`);
-            }
-					
-            console.log(`AI API call with ${keyName} successful.`);
+        try {
+            // Simplified: Direct call to proxy
+            const response = await callProxyApiInternal(prompt, jsonMode, config, maxOutputTokens);
             return response;
 
         } catch (error) {
-            errors[keyName] = error.message;
+            errors[config.name] = sanitizeError(error.message);
 
-            if (error.status === 429 || error.status === 503 || error.status === 500 || error.status === 504) {
-                console.warn(`AI API ${keyName} failed with retryable status ${error.status}: ${error.message}. Waiting 2 seconds before retry...`);
+            if ([429, 503, 500, 504].includes(error.status)) {
+                console.warn(`Retryable error on ${config.name}. Waiting...`);
                 await delay(2000); 
             } else {
-                console.error(`AI API ${keyName} failed with non-retryable error.`, error);
+                console.error(`Non-retryable error on ${config.name}:`, errors[config.name]);
             }
         }
     }
-
-    console.error("All AI keys failed.", errors);
-    throw new Error(`All AI keys failed: ${JSON.stringify(errors)}`);
+    
+    throw new Error(`All AI services failed. Details: ${JSON.stringify(errors)}`);
 };
 
-// --- Exported Functions (UPDATED FOR SAFETY) ---
+// --- EXPORTED HELPERS ---
+
 export const callGeminiWithLimitCheck = async (prompt, options = {}) => {
     const limitReached = await checkAiLimitReached();
-    if (limitReached) {
-        throw new Error("LIMIT_REACHED");
-    }
+    if (limitReached) throw new Error("LIMIT_REACHED");
 
     usageCache.callCount += 1;
     usageCache.lastChecked = Date.now();
 
     try {
-        // Pass the new maxOutputTokens option if present
         const rawResponse = await callGeminiWithLoadBalancing(prompt, false, options.maxOutputTokens);
-        
-        const usageDocRef = doc(db, 'usage_trackers', 'ai_usage');
-        await updateDoc(usageDocRef, { callCount: increment(1) });
+        await updateDoc(doc(db, 'usage_trackers', 'ai_usage'), { callCount: increment(1) });
 
-        // FIX: Ensure rawResponse is a string before replacing
-        // This prevents "TypeError: rawResponse.replace is not a function" if API returns a number/object
-        const safeResponse = rawResponse !== null && rawResponse !== undefined ? String(rawResponse) : '';
-        
+        const safeResponse = rawResponse ? String(rawResponse) : '';
         return safeResponse.replace(/^```json\s*|```$/g, '').trim();
 
     } catch (error) {
         usageCache.callCount -= 1; 
-        console.error("callGeminiWithLimitCheck failed:", error);
+        console.error("callGeminiWithLimitCheck failed:", sanitizeError(error.message));
         throw error;
     }
 };
 
+export const callChatbotAi = async (prompt) => {
+    return await callGeminiWithLimitCheck(prompt);
+};
+
+// --- FULLY RESTORED ESSAY GRADING FUNCTION ---
 export const gradeEssayWithAI = async (promptText, rubric, studentAnswer) => {
     const limitReached = await checkAiLimitReached();
     if (limitReached) {
@@ -299,11 +264,13 @@ export const gradeEssayWithAI = async (promptText, rubric, studentAnswer) => {
 
     } catch (error) { 
         usageCache.callCount -= 1;
-        console.error("gradeEssayWithAI failed:", error);
+        // Wrapped in sanitizeError
+        console.error("gradeEssayWithAI failed:", sanitizeError(error.message));
         throw error;
     } 
 };
 
+// --- FULLY RESTORED CLEANING FUNCTION ---
 function validateAndCleanGradingResponse(data, validRubric, source = "AI") {
      if (!data || !Array.isArray(data.scores) || typeof data.totalScore !== 'number' || data.scores.length === 0) {
         console.error(`Invalid grading JSON structure from ${source}:`, JSON.stringify(data, null, 2));
@@ -353,13 +320,3 @@ function validateAndCleanGradingResponse(data, validRubric, source = "AI") {
         overallFeedback: data.overallFeedback || "No overall feedback provided."
     };
 }
-
-export const callChatbotAi = async (prompt) => {
-    try {
-        const response = await callGeminiWithLimitCheck(prompt);
-        return response;
-    } catch (error) {
-        console.error("Error in callChatbotAi:", error);
-        throw error;
-    }
-};
