@@ -748,7 +748,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
             // Planner Prompt
             const plannerPrompt = getPlannerPrompt(sourceText, baseContext);
             
-            await smartDelay(2000, signal);
+            await smartDelay(32000, signal);
             const plannerResponse = await callGeminiWithLimitCheck(plannerPrompt, { maxOutputTokens: 2048, signal });
             if (!isMounted.current || signal.aborted) return;
             
