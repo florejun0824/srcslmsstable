@@ -20,7 +20,7 @@ import {
     ArrowPathIcon,
     ExclamationTriangleIcon,
     FunnelIcon,
-    ChevronDownIcon
+    ChevronDownIcon,
 } from '@heroicons/react/24/outline'; 
 import Spinner from '../common/Spinner';
 import LessonPage from './LessonPage';
@@ -32,10 +32,9 @@ import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 // --- CONFIGURATION ---
-// 15k TPM / ~4k tokens per request = ~3.75 requests per minute max.
-// We set a base delay of 20 seconds to stay safely around 3 RPM.
-const BASE_DELAY_MS = 20000; 
-const RATE_LIMIT_COOLDOWN_MS = 61000; // 61s wait if we hit a 429
+// STRICT SAFETY DELAY: 35 seconds to align with strict 15k TPM limit.
+// We prioritize quality (long prompts) over speed.
+const GEMMA_SAFETY_DELAY_MS = 35000; 
 
 /**
  * --- Helper: Smart Delay ---
@@ -43,9 +42,8 @@ const RATE_LIMIT_COOLDOWN_MS = 61000; // 61s wait if we hit a 429
  */
 const smartDelay = async (ms, signal) => {
     return new Promise((resolve, reject) => {
-        if (signal?.aborted) {
-            return reject(new Error("Aborted delay"));
-        }
+        if (signal?.aborted) return reject(new Error("Aborted delay"));
+        
         const timer = setTimeout(resolve, ms);
         if (signal) {
             signal.addEventListener('abort', () => {
@@ -58,25 +56,92 @@ const smartDelay = async (ms, signal) => {
     });
 };
 
+/**
+ * --- Micro-Worker Sanitizer (Bulletproof Version) ---
+ * Aggressively fixes common AI JSON errors (bad escapes, LaTeX)
+ * and falls back to regex extraction if parsing fails.
+ */
 const sanitizeJsonComponent = (aiResponse) => {
+    let jsonString = aiResponse;
+
     try {
-        const startIndex = aiResponse.indexOf('{');
-        const endIndex = aiResponse.lastIndexOf('}');
-        
-        if (startIndex === -1 || endIndex === -1 || endIndex < startIndex) {
-            throw new Error('No valid JSON object ({...}) found in AI response.');
+        // 1. Try to find a JSON block wrapped in markdown backticks
+        const markdownMatch = aiResponse.match(/```(json)?\s*(\{[\s\S]*\})\s*```/);
+        if (markdownMatch && markdownMatch[2]) {
+            jsonString = markdownMatch[2];
+        } else {
+            // 2. If no markdown, find the first opening and last closing brace
+            const startIndex = jsonString.indexOf('{');
+            const endIndex = jsonString.lastIndexOf('}');
+            if (startIndex !== -1 && endIndex !== -1) {
+                jsonString = jsonString.substring(startIndex, endIndex + 1);
+            }
         }
 
-        let jsonString = aiResponse.substring(startIndex, endIndex + 1);
-        
-        // Safety Net: Revert double-escaped newlines for clean JSON parsing
-        jsonString = jsonString.replace(/\\\\n/g, '\\n');
+        // Fix unescaped newlines inside strings
+        let cleanString = jsonString.replace(/(?<=:\s*"[^"]*)\n(?=[^"]*")/g, "\\n");
+        // Fix invalid backslashes (e.g. \textbf -> \\textbf) - simple heuristic
+        cleanString = cleanString.replace(/\\(?![/u"\\bfnrt])/g, "\\\\");
 
-        return JSON.parse(jsonString);
+        return JSON.parse(cleanString);
 
-    } catch (error) {
-        console.error("sanitizeJsonComponent error:", error.message, "Preview:", aiResponse.substring(0, 300));
-        throw new Error(`The AI component response was not valid JSON.`);
+    } catch (parseError) {
+        console.warn("JSON.parse failed, attempting Manual Regex Extraction:", parseError.message);
+
+        // --- ATTEMPT 2: Manual Regex Extraction (The Safety Net) ---
+        try {
+            // Extract Title
+            const titleMatch = aiResponse.match(/"title"\s*:\s*"([^"]*?)"/);
+            const title = titleMatch ? titleMatch[1] : "Generated Page";
+
+            // Extract Content
+            // We look for "content": " ... " 
+            const contentMatch = aiResponse.match(/"content"\s*:\s*"([\s\S]*?)"(?=\s*\}|\s*,)/);
+            
+            let content = "";
+            if (contentMatch) {
+                content = contentMatch[1];
+            } else {
+                // Last ditch: just grab everything after "content":
+                const parts = aiResponse.split(/"content"\s*:\s*"/);
+                if (parts.length > 1) {
+                    const roughContent = parts[1];
+                    const lastQuote = roughContent.lastIndexOf('"');
+                    if (lastQuote !== -1) {
+                        content = roughContent.substring(0, lastQuote);
+                    } else {
+                        content = roughContent;
+                    }
+                }
+            }
+
+            // Manually unescape standard JSON escapes since we didn't run JSON.parse
+            content = content
+                .replace(/\\n/g, '\n')
+                .replace(/\\"/g, '"')
+                .replace(/\\\\/g, '\\');
+
+            if (!content || content.length < 5) {
+                throw new Error("Could not extract meaningful content via regex.");
+            }
+
+            return {
+                page: {
+                    title: title,
+                    content: content
+                }
+            };
+
+        } catch (extractError) {
+            console.error("Critical: Failed to sanitize JSON.", aiResponse.substring(0, 200));
+            // Return a dummy object so the app doesn't crash
+            return {
+                page: {
+                    title: "Generation Error",
+                    content: `The AI generated content that could not be processed. \n\nRaw Output Preview:\n${aiResponse.substring(0, 500)}...`
+                }
+            };
+        }
     }
 };
 
@@ -161,6 +226,35 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
             (a.title || '').localeCompare((b.title || ''), undefined, { numeric: true, sensitivity: 'base' })
         );
     }, [subjects]);
+
+    // --- PERFORMANCE OPTIMIZATIONS (FIX LAG) ---
+    // 1. Sort units only when units change, not on every render
+    const sortedUnits = useMemo(() => {
+        if (!subjectContext?.units) return [];
+        return [...subjectContext.units].sort((a, b) => 
+            a.title.localeCompare(b.title, undefined, { numeric: true })
+        );
+    }, [subjectContext]);
+
+    // 2. Pre-group lessons by unit ID so we don't filter inside the loop
+    const lessonsByUnit = useMemo(() => {
+        if (!subjectContext?.lessons) return {};
+        
+        const grouped = {};
+        subjectContext.lessons.forEach(lesson => {
+            if (!grouped[lesson.unitId]) {
+                grouped[lesson.unitId] = [];
+            }
+            grouped[lesson.unitId].push(lesson);
+        });
+        
+        // Optional: Sort lessons within the group here if needed
+        Object.keys(grouped).forEach(unitId => {
+            grouped[unitId].sort((a, b) => (a.order || 0) - (b.order || 0));
+        });
+
+        return grouped;
+    }, [subjectContext]);
 
     useEffect(() => {
         isMounted.current = true;
@@ -294,21 +388,9 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         }
     };
 
+    // --- PROMPTS AND INSTRUCTIONS (FULL VERSION) ---
+
     const getBasePromptContext = () => {
-        let existingSubjectContextString = "No other lessons exist yet.";
-        if (subjectContext && subjectContext.lessons.length > 0) {
-            existingSubjectContextString = subjectContext.units
-                .sort((a, b) => (a.order || 0) - (b.order || 0))
-                .map(unit => {
-                    const lessonsInUnit = subjectContext.lessons
-                        .filter(lesson => lesson.unitId === unit.id)
-                        .sort((a, b) => (a.order || 0) - (b.order || 0))
-                        .map(lesson => `  - Lesson: ${lesson.title}`)
-                        .join('\n');
-                    return `Unit: ${unit.title}\n${lessonsInUnit}`;
-                }).join('\n\n');
-        }
-        
         const languageAndGradeInstruction = `
         **TARGET AUDIENCE (NON-NEGOTIABLE):**
         - **Grade Level:** The entire output MUST be tailored for **${gradeLevel}** students.
@@ -336,7 +418,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         ---
         **PREVIOUSLY COVERED MATERIAL:**
         - **User-Selected Prerequisites:** ${scaffoldInfo.summary || "N/A"}
-        - **Other Existing Lessons:** ${existingSubjectContextString}
         ---
         `;
 
@@ -398,227 +479,241 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         }
 
         **SOURCE TEXT:**
-        ${sourceText.substring(0, 25000)} 
+        ${sourceText} 
         `;
     };
-    
-    // --- UPDATED: Accepts "accumulatedLessonContext" to prevent redundancy ---
-    const getComponentPrompt = (sourceText, baseContext, lessonPlan, componentType, extraData = {}) => {
+
+    // --- MASTERS AND STYLE RULES (Unified) ---
+    const getMasterInstructions = (baseContext) => {
+        const styleRules = `
+        **CRITICAL FORMATTING RULE (NON-NEGOTIABLE):** You MUST NOT use Markdown code block formatting (like indenting with four spaces or using triple backticks \\\`\\\`\\\`) for regular content like bulleted lists or standard paragraphs.
+        
+        **CRITICAL JSON & LATEX SAFETY (ABSOLUTE PRIORITY):**
+        - You are writing a JSON string. ALL backslashes must be escaped.
+        - **CORRECT:** "content": "Use \\\\textbf{bold}." (Result: Use \\textbf{bold})
+        - **INCORRECT:** "content": "Use \\textbf{bold}." (Result: Invalid JSON)
+        
+        **CRITICAL JSON STRING RULE (NON-NEGOTIABLE):** When writing text content inside the JSON, do NOT escape standard quotation marks.
+        - **Correct:** \\\`"title": "The Art of \\"How Much?\\""\\\`
+        - **Incorrect:** \\\`"title": "The Art of \\\\\\"How Much?\\\\\\""\\\`
+        
+        **CRITICAL TEXT FORMATTING RULE (NON-NEGOTIABLE):**
+        - To make text bold, you MUST use Markdown's double asterisks (**).
+        - You are STRICTLY FORBIDDEN from using LaTeX commands like \\textbf{} or \\textit{}.
+        - **ABSOLUTE RULE:** You are **STRICTLY FORBIDDEN** from bolding the introductory phrase or "title" of a bullet point.
+
+        **CRITICAL INSTRUCTION FOR SCIENTIFIC NOTATION (NON-NEGOTIABLE):**
+        You MUST use LaTeX for all mathematical equations, variables, and chemical formulas.
+        - **For INLINE formulas**, use single dollar signs: $H_2O$.
+        - **For BLOCK formulas**, use double dollar signs: $$...$$
+        - **CRITICAL LATEX ESCAPING IN JSON:** Every single backslash \`\\\` in your LaTeX code MUST be escaped with a second backslash (\`\\\\\`).
+        
+        **ABSOLUTE RULE FOR CONTENT CONTINUATION (NON-NEGOTIABLE):** When a single topic or section is too long for one page and its discussion must continue onto the next page, a heading for that topic (the 'title' in the JSON) MUST ONLY appear on the very first page. ALL subsequent pages for that topic MUST have an empty string for their title: \\\`"title": ""\\\`.
+        `;
+
+        const masterInstructions = `
+        **Persona and Tone:** Adopt the persona of a **brilliant university professor who is also a bestselling popular book author**. Your writing should have the authority, accuracy, and depth of a subject matter expert, but the narrative flair and engaging storytelling of a great writer.
+        ${baseContext.perspectiveInstruction}
+        **CRITICAL INSTRUCTION FOR CORE CONTENT:** Instead of just listing facts, **weave them into a compelling narrative**. Tell the story *behind* the concept. Explain the "why" and "how". Use vivid analogies.
+        
+        **CRITICAL INSTRUCTION FOR INTERACTIVITY (NON-NEGOTIABLE):** You MUST embed small, interactive elements directly within the core content pages.
+        - Use Markdown blockquotes (\`>\`) to format these.
+        - **Examples:**
+            - **> Think About It:** If gravity suddenly disappeared, what's the first thing that would happen?
+            - **> Quick Poll:** Raise your hand if you think plants breathe.
+        `;
+        return { styleRules, masterInstructions };
+    };
+
+    const getComponentPrompt = (sourceText, baseContext, lessonPlan, componentType, styleRules, extraData = {}) => {
         const { languageAndGradeInstruction, perspectiveInstruction, scaffoldingInstruction, standardsInstruction } = baseContext;
+        
+        // --- CONTEXT ACCUMULATION ---
+        const redundancyCheck = extraData.accumulatedLessonContext ? `
+        **CONTEXT - CONTENT GENERATED SO FAR:**
+        Below is the content you have already written for this lesson. 
+        **CRITICAL RULE:** Do NOT repeat introductions, definitions, or activities that are already present in the content below. Build UPON this content.
+        
+        --- START OF EXISTING CONTENT ---
+        ${extraData.accumulatedLessonContext}
+        --- END OF EXISTING CONTENT ---
+        ` : '';
+
         let taskInstruction, jsonFormat;
 
         const commonHeader = `
-        You are an expert curriculum designer.
+        You are an expert curriculum designer. Your task is to generate *only* the specific component requested.
+        
         ${languageAndGradeInstruction}
         ${perspectiveInstruction}
-        
+        ${scaffoldingInstruction}
+        ${standardsInstruction}
+
         **LESSON CONTEXT:**
         - **Lesson Title:** ${lessonPlan.lessonTitle}
         - **Lesson Summary:** ${lessonPlan.summary}
-
-        **NEGATIVE CONSTRAINTS (CRITICAL):**
-        1. **NO OBJECTIVES IN CONTENT:** Do NOT list Learning Objectives, Competencies, or Standards inside the page content. These are already displayed in the UI header.
-        2. **NO METADATA:** Do not include "Teacher Notes", "Lesson Plan ID", or "Copyright" footers.
-        `;
-        
-        // --- CONTEXT PRUNING STRATEGY ---
-        // Instead of sending ALL generated text, we construct a "Smart Context"
-        // 1. Lesson Objectives (Anchor)
-        // 2. The Last 1-2 Pages (Continuity)
-        let optimizedContext = '';
-        
-        if (extraData.lessonContextArray && extraData.lessonContextArray.length > 0) {
-            const ctx = extraData.lessonContextArray;
-            
-            // Always include Objectives if available
-            const objectives = ctx.find(item => item.type === 'objectives');
-            if (objectives) optimizedContext += `\n[LESSON OBJECTIVES]:\n${objectives.content}\n`;
-            
-            // Include only the last 2 content pages for continuity
-            // Filter for 'content' pages (exclude objectives/metadata)
-            const contentPages = ctx.filter(item => item.type === 'page');
-            const recentPages = contentPages.slice(-2); // Take last 2
-            
-            if (recentPages.length > 0) {
-                optimizedContext += `\n[RECENTLY GENERATED CONTENT (For Continuity Only - Do Not Repeat)]:`;
-                recentPages.forEach(p => {
-                    optimizedContext += `\n--- Page: ${p.title} ---\n${p.content.substring(0, 500)}... (truncated)\n`;
-                });
-            }
-        }
-        
-        const redundancyCheck = optimizedContext ? `
-        **CONTEXT - CONTENT GENERATED SO FAR:**
-        Below is relevant context from the lesson you are currently building.
-        **CRITICAL RULE:** Do NOT repeat introductions, definitions, or activities that are already present in the content below. Build UPON this content to ensure narrative continuity.
-        
-        --- START OF RECENT CONTENT ---
-        ${optimizedContext}
-        --- END OF RECENT CONTENT ---
-        ` : '';
-
-        const styleRules = `
-        **STYLE & FORMATTING:**
-        - **Markdown:** Use Pure Markdown. No HTML. Use \`###\` for headings and \`**bold**\` for emphasis.
-        
-        **MATH & SCIENCE RULES (CRITICAL):**
-        1. **LaTeX Enforcement:** You MUST use LaTeX formatting for ALL mathematical equations, variables, and formulas. 
-           - **Inline Math:** Wrap in single dollar signs, e.g., $E=mc^2$.
-           - **Block Math:** Wrap in double dollar signs, e.g., $$x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$.
-        2. **OCR Correction (SMART):**
-           - Fix common OCR errors in math contexts:
-           - "x 2" or "x2" should become "$x^2$"
-           - "1/2" should become "$\\frac{1}{2}$"
-           - "*" should become "$\\times$" or "$\\cdot$"
-
-        **JSON FORMATTING RULES (STRICT):**
-        1. **Newlines:** Use standard \`\\n\` for line breaks. **DO NOT** double-escape newlines (i.e., do NOT use \`\\\\n\`).
-        2. **LaTeX Escaping:** - You MUST double-escape backslashes **ONLY** for LaTeX commands within the JSON string.
-           - *Correct JSON:* "Equation: $\\\\frac{x}{y}$"
-           - *Incorrect JSON:* "Equation: $\\frac{x}{y}$" (This breaks the JSON parser)
         `;
 
         switch (componentType) {
             case 'objectives':
-                taskInstruction = 'Generate 3-5 specific, measurable, and student-friendly learning objectives.';
-                jsonFormat = `{"objectives": ["Objective 1...", "Objective 2..."]}`;
+                taskInstruction = `Generate 3-5 specific, measurable, and student-friendly learning objectives based on: "${lessonPlan.summary}"`;
+                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "objectives": [\n    "Objective 1...",\n    "Objective 2..."\n  ]\n}`;
                 break;
             
             case 'competencies':
-                taskInstruction = `Select 1-3 competencies from the provided Master List that are addressed by this lesson.`;
-                jsonFormat = `{"competencies": ["Competency 1...", "Competency 2..."]}`;
-                break;
-
-            case 'UnitOverview_Overview':
-                taskInstruction = 'Generate the "Overview" page content (1-2 paragraphs).';
-                jsonFormat = `{"page": {"title": "Overview", "content": "Markdown content..."}}`;
-                break;
-
-            case 'UnitOverview_Targets':
-                taskInstruction = 'Generate the "Learning Targets" page content (bullet points).';
-                jsonFormat = `{"page": {"title": "Learning Targets", "content": "Markdown content..."}}`;
+                taskInstruction = `Select 1-3 competencies from the Master List that are addressed by: "${lessonPlan.lessonTitle} - ${lessonPlan.summary}"`;
+                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "competencies": [\n    "Competency 1...",\n    "Competency 2..."\n  ]\n}`;
                 break;
 
             case 'Introduction':
-                taskInstruction = 'Generate an "Engaging Introduction" page. Use a thematic subheader title. Do NOT list objectives here.';
-                jsonFormat = `{"page": {"title": "Thematic Title", "content": "Markdown content..."}}`;
+                taskInstruction = 'Generate the "Engaging Introduction" page. It MUST have a thematic, captivating subheader title.';
+                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "A Captivating Thematic Title",\n    "content": "Engaging intro markdown..."\n  }\n}`;
                 break;
             
             case 'LetsGetStarted':
                 taskInstruction = 'Generate a "Let\'s Get Started" warm-up activity page. It should act as a bridge from the Introduction.';
-                jsonFormat = `{"page": {"title": "Let's Get Started", "content": "Activity instructions..."}}`;
+                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "Let's Get Started",\n    "content": "Warm-up activity instructions..."\n  }\n}`;
                 break;
 
             case 'CoreContentPlanner':
-                taskInstruction = `Identify the main sub-topics required to cover the content for this lesson found in the source text. Return a list of titles.`;
-                jsonFormat = `{"coreContentTitles": ["Sub-Topic 1", "Sub-Topic 2"]}`;
+                taskInstruction = `Analyze the focus for this lesson: "${lessonPlan.summary}" and the source text.
+                **CRITICAL TASK (NON-NEGOTIABLE):** Your task is to break down this lesson's topic into a series of **page-sized sub-topics**. Each sub-topic you list will become *one single page*.
+                - If simple, return 1-2 titles.
+                - If complex, return 3-5 titles as needed.
+                - Do **NOT** include titles for "Introduction," "Warm-Up," "Summary," etc.`;
+                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "coreContentTitles": [\n    "First Sub-Topic Title",\n    "Second Sub-Topic Title"\n  ]\n}`;
                 break;
 
             case 'CoreContentPage':
                 const allTitles = extraData.allContentTitles || [extraData.contentTitle];
                 const currentIndex = extraData.currentIndex !== undefined ? extraData.currentIndex : 0;
                 const currentTitle = extraData.contentTitle;
-
+                
                 const contentContextInstruction = `
-                **CRITICAL CONTENT BOUNDARIES (NON-NEGOTIABLE):**
-                This lesson's core content is divided into ${allTitles.length} main page(s).
-                
-                **This is Page ${currentIndex + 1} of ${allTitles.length}.**
-                
-                - **Your Page Title:** "${currentTitle}"
-                - **All Page Titles (in order):** ${allTitles.map((t, i) => `\n  ${i + 1}. ${t} ${i === currentIndex ? "(THIS IS YOUR PAGE)" : ""}`).join('')}
-
-                **YOUR TASK:**
-                1.  Your content MUST focus *exclusively* on the material from the source text that is relevant *only* to your assigned title: "**${currentTitle}**".
-                2.  **REDUNDANCY CHECK:** Read the "CONTENT GENERATED SO FAR". Do NOT re-explain concepts generated in previous pages. Assume the student has just read those pages.
-                3.  **CONTINUITY:** Start your text as if continuing the narrative from the previous page.
+                **PAGING CONTEXT:** Page ${currentIndex + 1} of ${allTitles.length}.
+                - **Current Title:** "${currentTitle}"
                 `;
 
                 taskInstruction = `Generate *one* core content page for this lesson.
                 - **Page Title:** It MUST be exactly: "${currentTitle}"
-
                 ${contentContextInstruction}
-
-                **CRITICAL CONTENT GENERATION RULES (NON-NEGOTIABLE):**
-                1.  **Information Fidelity:** The generated content must be detail-rich and **100% faithful** to all information, facts, and concepts from the source text.
-                2.  **Paraphrasing (Copyright):** You are **strictly forbidden** from copying the source text verbatim. You MUST **paraphrase and rewrite** all content.
-                3.  **Academic Tone & Audience:** The language MUST be **academic, clear, and informative** for Grade ${gradeLevel}.
-                `;
-
-                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${currentTitle}",\n    "content": "Detailed, *paraphrased*, and academic markdown content for **this specific page only**..."\n  }\n}`;
+                - **Content:** Detail-rich, narrative-driven, relevant *only* to this page title.
+                - **CRITICAL LENGTH CONSTRAINT:** Be thorough but concise. Max 8000 chars JSON.`;
+                
+                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${currentTitle}",\n    "content": "Detailed markdown content..."\n  }\n}`;
                 break;
             
             case 'CheckForUnderstanding':
-                taskInstruction = 'Generate a "Check for Understanding" page with 3-4 questions based on the accumulated lesson content.';
-                jsonFormat = `{"page": {"title": "Check for Understanding", "content": "Questions..."}}`;
+                taskInstruction = `Generate the "Check for Understanding" page. 3-4 concept questions based on the lesson.`;
+                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "Check for Understanding",\n    "content": "1. Question 1...\n2. Question 2..."\n  }\n}`;
                 break;
 
             case 'LessonSummary':
-                taskInstruction = 'Generate a "Lesson Summary" page (concise recap of the accumulated content).';
-                jsonFormat = `{"page": {"title": "Lesson Summary", "content": "Recap..."}}`;
+                taskInstruction = `Generate the "Lesson Summary" page. Concise recap of this lesson only.`;
+                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "Lesson Summary",\n    "content": "Concise recap..."\n  }\n}`;
                 break;
             
             case 'WrapUp':
-                taskInstruction = 'Generate a motivational "Wrap Up" page.';
-                jsonFormat = `{"page": {"title": "Wrap Up", "content": "Closure..."}}`;
+                taskInstruction = `Generate the "Wrap-Up" page. Motivational closure.`;
+                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "Wrap-Up",\n    "content": "Closure..."\n  }\n}`;
                 break;
 
             case 'EndofLessonAssessment':
-                taskInstruction = 'Generate an "End of Lesson Assessment" with 5-8 questions based strictly on the accumulated lesson content.';
-                jsonFormat = `{"page": {"title": "End of Lesson Assessment", "content": "Questions..."}}`;
+                taskInstruction = `Generate the "End-of-Lesson Assessment" page. 5-8 questions (mix of multiple-choice, short-answer).`;
+                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "End-of-Lesson Assessment",\n    "content": "### Multiple Choice\n1. Question..."\n  }\n}`;
                 break;
 
             case 'AnswerKey':
-                taskInstruction = 'Generate the "Answer Key" for the assessment.';
-                jsonFormat = `{"page": {"title": "Answer Key", "content": "Answers..."}}`;
+                taskInstruction = `Generate the "Answer Key" page. Answers to the assessment.`;
+                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "Answer Key",\n    "content": "1. Answer..."\n  }\n}`;
                 break;
 
             case 'References':
-                taskInstruction = 'Generate a "References" page.';
-                jsonFormat = `{"page": {"title": "References", "content": "Sources..."}}`;
+                taskInstruction = `Generate the "References" page. Academic-style reference list.`;
+                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "References",\n    "content": "- Source 1..."\n  }\n}`;
+                break;
+            
+            case 'UnitOverview_Overview':
+                taskInstruction = 'Generate the "Overview" page content (1-2 paragraphs) for this Unit.';
+                jsonFormat = `{"page": {"title": "Overview", "content": "Markdown content..."}}`;
+                break;
+
+            case 'UnitOverview_Targets':
+                taskInstruction = 'Generate the "Learning Targets" page content (bullet points) for this Unit.';
+                jsonFormat = `{"page": {"title": "Learning Targets", "content": "Markdown content..."}}`;
                 break;
 
             default:
                 throw new Error(`Unknown component type: ${componentType}`);
         }
 
-        return `${commonHeader}\n\n${redundancyCheck}\n\n**TASK:** ${taskInstruction}\n${styleRules}\n\n**JSON FORMAT:**\n${jsonFormat}\n\n**SOURCE TEXT:**\n${sourceText}`;
+        return `
+        ${commonHeader}
+        ${redundancyCheck}
+        =============================
+        YOUR SPECIFIC TASK
+        =============================
+        ${taskInstruction}
+        ${styleRules}
+        
+        **SOURCE TEXT:**
+        ${sourceText}
+
+        =============================
+        JSON OUTPUT FORMAT
+        =============================
+        ${jsonFormat}
+        `;
     };
 
     const generateLessonComponent = async (sourceText, baseContext, lessonPlan, componentType, isMountedRef, extraData = {}, maxRetries = 3, signal) => {
-        const prompt = getComponentPrompt(sourceText, baseContext, lessonPlan, componentType, extraData);
+        // Retrieve master instructions/rules
+        const { styleRules, masterInstructions } = getMasterInstructions(baseContext);
+
+        const prompt = getComponentPrompt(
+            sourceText,
+            baseContext, 
+            lessonPlan, 
+            componentType, 
+            styleRules, 
+            extraData
+        );
+        
+        // Combine prompt with master instructions
+        const finalPrompt = `
+        ${prompt}
+        =============================
+        MASTER INSTRUCTION SET (Apply these to your task)
+        =============================
+        ${masterInstructions}
+        `;
 
         for (let attempt = 0; attempt < maxRetries; attempt++) {
             if (!isMountedRef.current || signal?.aborted) throw new Error("Aborted");
 
             try {
-               // Passing maxOutputTokens and signal to handle cancellation
-               // Lowered maxOutputTokens to 2048 to respect the strict 15k TPM limit for Gemma
-               const aiResponse = await callGeminiWithLimitCheck(prompt, { maxOutputTokens: 2048, signal });
+                // Lower max output tokens to save TPM
+                const aiResponse = await callGeminiWithLimitCheck(finalPrompt, { maxOutputTokens: 2048, signal });
                 
                 if (!isMountedRef.current || signal?.aborted) throw new Error("Aborted");
-
-                const jsonData = sanitizeJsonComponent(aiResponse);
-                return jsonData; 
+                return sanitizeJsonComponent(aiResponse); 
 
             } catch (error) {
                 if (error.name === 'AbortError' || signal?.aborted) throw new Error("Aborted");
-                
-                // --- SMART 429 HANDLING ---
-                // If we hit a Rate Limit, we MUST wait for the bucket to reset (usually 1 minute)
+
+                // --- 429 HANDLING ---
                 const isRateLimit = error.message?.includes('429') || error.message?.includes('Quota') || error.status === 429;
                 
                 if (isRateLimit) {
                     if (attempt < maxRetries - 1) {
-                        setProgressMessage(`Rate limit hit. Cooling down for ${RATE_LIMIT_COOLDOWN_MS/1000}s...`);
-                        await smartDelay(RATE_LIMIT_COOLDOWN_MS, signal); // Wait 61 seconds
-                        continue; // Retry
+                        setProgressMessage(`Rate limit hit. Cooling down for 65s...`);
+                        await smartDelay(65000, signal); // Wait 65s (Full refresh)
+                        continue; 
                     }
                 }
                 
                 if (attempt === maxRetries - 1) throw error;
-                // Standard retry delay
-                await new Promise(res => setTimeout(res, 2000));
+                await smartDelay(2000, signal);
             }
         }
     };
@@ -626,10 +721,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
     const handleGenerateLesson = async () => {
         if (!file) { setError('Please upload a file first.'); return; }
         
-        // --- 1. SETUP ABORT CONTROLLER ---
-        if (abortControllerRef.current) {
-            abortControllerRef.current.abort();
-        }
+        if (abortControllerRef.current) abortControllerRef.current.abort();
         const controller = new AbortController();
         abortControllerRef.current = controller;
         const signal = controller.signal;
@@ -640,37 +732,37 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         const allGeneratedLessons = [];
 
         try {
-            setProgressMessage('Step 1/3: Extracting text...');
+            setProgressMessage('Step 1/3: Reading file...');
             let extractedText = await extractTextFromFile(file);
             if (!isMounted.current || signal.aborted) return;
-
             extractedText = extractedText.replace(/₱/g, 'PHP ');
             
-            // --- INPUT SAFETY CHECK ---
-            // Truncate to ~40k characters to prevent context window overflow
-            const sourceText = extractedText.substring(0, 40000);
+            // --- STRICT TRUNCATION FOR TPM ---
+            // Limit to 25k characters to keep input tokens low (~6k tokens)
+            // This prevents the 15k limit from being hit immediately on the first large request
+            const sourceText = extractedText.substring(0, 25000); 
             
-            setProgressMessage('Step 2/3: Planning curriculum...');
+            setProgressMessage('Step 2/3: Creating outline...');
             const baseContext = getBasePromptContext();
+            
+            // Planner Prompt
             const plannerPrompt = getPlannerPrompt(sourceText, baseContext);
             
-            // Initial Safety Delay before Planner
             await smartDelay(2000, signal);
-            
             const plannerResponse = await callGeminiWithLimitCheck(plannerPrompt, { maxOutputTokens: 2048, signal });
             if (!isMounted.current || signal.aborted) return;
+            
             const lessonPlans = sanitizeJsonBlock(plannerResponse); 
 
-            setProgressMessage(`Step 3/3: Building ${lessonPlans.length} lessons...`);
+            setProgressMessage(`Step 3/3: Generating ${lessonPlans.length} lessons...`);
             let lessonCounter = existingLessonCount;
 
             for (const [index, plan] of lessonPlans.entries()) {
                 if (!isMounted.current || signal.aborted) return;
                 
-                // --- NEW: Structured Context Array ---
-                // We keep an array of metadata objects instead of a huge accumulated string
-                let lessonContextArray = [];
-                
+                // --- NEW: Accumulate context to prevent redundancy ---
+                let accumulatedLessonContext = "";
+
                 const isUnitOverview = plan.lessonTitle.toLowerCase().includes('unit overview');
                 if (!isUnitOverview) lessonCounter++;
                 
@@ -689,41 +781,39 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                     assignedCompetencies: []
                 };
 
-                // --- HELPER: WRAPPER FOR GENERATION WITH THROTTLING AND CONTEXT ---
                 const safeGenerate = async (type, extra = {}) => {
                     if (!isMounted.current || signal.aborted) throw new Error("Aborted");
                     
-                    setProgressMessage(`Building "${numberedPlan.lessonTitle}": ${type}...`);
+                    setProgressMessage(`Writing "${numberedPlan.lessonTitle}": ${type}...`);
                     
                     try {
-                        // Throttling for safety (3 RPM max)
-                        await smartDelay(BASE_DELAY_MS, signal);
+                        // --- SAFETY DELAY ---
+                        // Wait BEFORE the call. 35s ensures bucket drains.
+                        await smartDelay(GEMMA_SAFETY_DELAY_MS, signal);
                         
-                        // Pass accumulated context array
                         const result = await generateLessonComponent(
                             sourceText, 
                             baseContext, 
                             numberedPlan, 
                             type, 
                             isMounted, 
-                            { ...extra, lessonContextArray }, // INJECT CONTEXT ARRAY
+                            { ...extra, accumulatedLessonContext }, 
                             3, 
                             signal
                         );
 
-                        // If it's a content page, append to context array
-                        if (result && result.page && result.page.content) {
-                            lessonContextArray.push({ type: 'page', title: result.page.title, content: result.page.content });
+                        // Push to context
+                        if (result?.page?.content) {
+                            accumulatedLessonContext += `\n\n--- [${type.toUpperCase()}]: ${result.page.title} ---\n${result.page.content}`;
                         }
-                        // Also append objectives if generated
-                        if (result && result.objectives) {
-                             lessonContextArray.push({ type: 'objectives', content: result.objectives.join('\n') });
+                        if (result?.objectives) {
+                             accumulatedLessonContext += `\n\n--- OBJECTIVES ---\n${result.objectives.join('\n')}`;
                         }
 
                         return result;
                     } catch (e) {
                         if (e.name === 'AbortError' || e.message === 'Aborted') throw e; 
-                        console.warn(`Skipping ${type} due to error:`, e);
+                        console.warn(`Skipping ${type}:`, e);
                         return null; 
                     }
                 };
@@ -731,7 +821,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                 if (isUnitOverview) {
                     const overview = await safeGenerate('UnitOverview_Overview');
                     if(overview) newLesson.pages.push({ ...overview.page, type: 'text' });
-                    
                     const targets = await safeGenerate('UnitOverview_Targets');
                     if(targets) newLesson.pages.push({ ...targets.page, type: 'text' });
                 } else {
@@ -747,12 +836,11 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                     const activity = await safeGenerate('LetsGetStarted');
                     if(activity) newLesson.pages.push({ ...activity.page, type: 'text' });
 
-                    // Planner doesn't add text, so we don't need context accumulation here
                     const planner = await safeGenerate('CoreContentPlanner');
                     const contentTitles = planner ? planner.coreContentTitles : [];
                     
                     for (const [cIdx, title] of contentTitles.entries()) {
-                        const pageData = await safeGenerate('CoreContentPage', { contentTitle: title, allContentTitles: contentTitles, currentIndex: cIdx });
+                        const pageData = await safeGenerate('CoreContentPage', { contentTitle: title, currentIndex: cIdx, allContentTitles: contentTitles });
                         if (pageData) newLesson.pages.push({ ...pageData.page, type: 'text' });
                     }
                     
@@ -772,17 +860,14 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
 
         } catch (err) {
             if (err.name === 'AbortError' || err.message === 'Aborted') {
-                console.log("Generation aborted by user.");
                 setProgressMessage('Generation cancelled.');
                 return;
             }
-            if (!isMounted.current) return;
-            
             console.error('Generation error:', err);
-            if (err.message && err.message.includes("429")) {
-                 setError('AI quota exceeded. Please try again in a few moments with a smaller file.');
+            if (err.message.includes('Quota') || err.message.includes('429')) {
+                 setError('AI quota exceeded. Please wait 1 minute and try again with a smaller file.');
             } else {
-                 setError('An error occurred. Parts of the lesson may be missing.');
+                 setError('An error occurred. Partial results may be saved.');
             }
         } finally {
             if (isMounted.current) setIsProcessing(false);
@@ -824,16 +909,13 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
     const objectivesAsMarkdown = useMemo(() => selectedLesson?.learningObjectives?.map(obj => `* ${obj}`).join('\n'), [selectedLesson]);
 
     const gradeLevels = ["Kindergarten", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6", "Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12"];
-
-    // --- UI CONSTANTS (Monet Adaptive) ---
     const panelClass = `${themeStyles.panelBg} border ${themeStyles.borderColor} rounded-[24px] shadow-2xl shadow-black/5 transition-colors duration-500`;
     const inputClass = `w-full ${themeStyles.inputBg} border ${themeStyles.borderColor} rounded-[14px] px-4 py-3 text-[15px] ${themeStyles.textColor} placeholder-slate-400 focus:ring-2 focus:ring-blue-500/50 outline-none transition-all shadow-inner appearance-none`;
     const labelClass = `text-[11px] font-bold ${themeStyles.subText} mb-2 block tracking-wide uppercase ml-1`;
 
     return (
         <div className={`flex flex-col h-[100dvh] font-sans ${themeStyles.bgGradient} ${themeStyles.textColor} overflow-hidden transition-colors duration-500`}>
-            {/* Header */}
-            <div className={`flex-shrink-0 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between ${themeStyles.panelBg} border-b ${themeStyles.borderColor} z-20 sticky top-0 transition-colors duration-500`}>
+             <div className={`flex-shrink-0 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between ${themeStyles.panelBg} border-b ${themeStyles.borderColor} z-20 sticky top-0 transition-colors duration-500`}>
                 <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-[14px] flex items-center justify-center shadow-lg ${activeOverlay !== 'none' ? themeStyles.buttonGradient : 'bg-gradient-to-br from-blue-500 to-indigo-600'}`}>
                         <SparklesIcon className="w-5 h-5 text-white stroke-[2]" />
@@ -848,15 +930,10 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                 </button>
             </div>
 
-            {/* Content Area */}
             <div className="flex-grow overflow-y-auto lg:overflow-hidden">
                 <div className="flex flex-col lg:flex-row lg:h-full p-3 sm:p-4 gap-4 max-w-[1920px] mx-auto">
-                    
-                    {/* Left Panel: Inputs */}
                     <div className={`w-full lg:w-[380px] flex flex-col flex-shrink-0 ${panelClass} lg:h-full lg:overflow-hidden`}>
                         <div className="flex-grow lg:overflow-y-auto custom-scrollbar p-5 space-y-6">
-                            
-                            {/* Processing State */}
                             {isProcessing ? (
                                 <div className="flex flex-col items-center justify-center py-12 space-y-4 animate-in fade-in duration-500">
                                     <div className="relative">
@@ -866,11 +943,10 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                     <p className={`text-[15px] font-medium text-center max-w-[240px] leading-relaxed ${themeStyles.textColor}`}>
                                         {progressMessage}
                                     </p>
-                                    <p className="text-xs text-center opacity-60">We are throttling requests (15k TPM limit) to ensure continuity.</p>
+                                    <p className="text-xs text-center opacity-60">Throttling requests (15k TPM limit) to prevent errors.</p>
                                 </div>
                             ) : (
                                 <>
-                                    {/* File Upload */}
                                     <div>
                                         <label className={labelClass}>Source Material</label>
                                         {!file ? (
@@ -895,10 +971,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                             </div>
                                         )}
                                     </div>
-
                                     <div className={`h-px bg-gradient-to-r from-transparent via-current to-transparent opacity-10`} />
-
-                                    {/* Filters */}
                                     <div className="grid grid-cols-2 gap-3">
                                         <div>
                                             <label htmlFor="language" className={labelClass}>Language</label>
@@ -920,7 +993,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                             </div>
                                         </div>
                                     </div>
-
                                     <div>
                                         <label htmlFor="subject" className={labelClass}>Subject</label>
                                         <div className="relative w-full min-w-0">
@@ -931,7 +1003,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                             <FunnelIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 opacity-50 pointer-events-none" />
                                         </div>
                                     </div>
-
                                     <div className="space-y-4">
                                         <div>
                                             <label className={labelClass}>Learning Competencies</label>
@@ -948,14 +1019,12 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                             </div>
                                         </div>
                                     </div>
-
-                                    {/* Scaffolding Section */}
                                     <div>
                                         <label className={labelClass}>Prerequisites (Scaffolding)</label>
                                         <div className={`${inputClass} p-2 max-h-[220px] overflow-y-auto custom-scrollbar`}>
-                                            {subjectContext && subjectContext.units.length > 0 ? (
-                                                subjectContext.units.slice().sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true })).map(unit => {
-                                                    const lessonsInUnit = subjectContext.lessons.filter(l => l.unitId === unit.id);
+                                            {sortedUnits.length > 0 ? (
+                                                sortedUnits.map(unit => {
+                                                    const lessonsInUnit = lessonsByUnit[unit.id] || [];
                                                     if (lessonsInUnit.length === 0) return null;
                                                     const isExpanded = expandedScaffoldUnits.has(unit.id);
                                                     const selectedCount = lessonsInUnit.filter(l => scaffoldLessonIds.has(l.id)).length;
@@ -971,22 +1040,17 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                                                 <div className="p-1 opacity-50">
                                                                     <ChevronRightIcon className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} strokeWidth={3} />
                                                                 </div>
-                                                                
                                                                 <div 
                                                                     onClick={(e) => { e.stopPropagation(); handleUnitCheckboxChange(lessonsInUnit); }}
                                                                     className={`w-5 h-5 mx-2 rounded-[6px] flex items-center justify-center transition-all duration-300 shadow-sm border ${
-                                                                        isAll || isPartial 
-                                                                        ? `bg-blue-500 border-transparent scale-105` 
-                                                                        : `${themeStyles.borderColor} bg-transparent`
+                                                                        isAll || isPartial ? `bg-blue-500 border-transparent scale-105` : `${themeStyles.borderColor} bg-transparent`
                                                                     }`}
                                                                 >
                                                                     {isAll && <CheckIcon className="w-3.5 h-3.5 text-white stroke-[3.5]" />}
                                                                     {isPartial && <div className="w-2.5 h-0.5 bg-white rounded-full" />}
                                                                 </div>
-                                                                
                                                                 <span className={`text-[13px] font-bold truncate ${themeStyles.textColor}`}>{unit.title}</span>
                                                             </div>
-                                                            
                                                             {isExpanded && (
                                                                 <div className={`ml-9 pl-2 border-l-2 space-y-1 mt-1 ${themeStyles.borderColor}`}>
                                                                     {lessonsInUnit.map(lesson => {
@@ -1002,11 +1066,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                                                                     setScaffoldLessonIds(newSet);
                                                                                 }}
                                                                             >
-                                                                                <div className={`w-4 h-4 rounded-[5px] flex items-center justify-center transition-all duration-200 border ${
-                                                                                    isSelected 
-                                                                                    ? 'bg-blue-500 border-transparent' 
-                                                                                    : `bg-transparent ${themeStyles.borderColor} opacity-50 group-hover:opacity-100`
-                                                                                }`}>
+                                                                                <div className={`w-4 h-4 rounded-[5px] flex items-center justify-center transition-all duration-200 border ${isSelected ? 'bg-blue-500 border-transparent' : `bg-transparent ${themeStyles.borderColor} opacity-50 group-hover:opacity-100`}`}>
                                                                                     {isSelected && <CheckIcon className="w-3 h-3 text-white stroke-[3]" />}
                                                                                 </div>
                                                                                 <span className={`text-[12px] font-medium truncate transition-colors ${isSelected ? themeStyles.accentColor : themeStyles.subText}`}>{lesson.title}</span>
@@ -1026,16 +1086,12 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                 </>
                             )}
                         </div>
-
-                        {/* Action Button */}
                         <div className={`p-4 border-t sticky bottom-0 z-10 rounded-b-[24px] ${themeStyles.panelBg} ${themeStyles.borderColor}`}>
                             <button 
                                 onClick={handleGenerateLesson} 
                                 disabled={!file || isProcessing}
                                 className={`w-full h-12 rounded-[16px] font-bold text-[15px] text-white shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-2
-                                    ${!file || isProcessing 
-                                        ? 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed shadow-none opacity-70' 
-                                        : `${activeOverlay !== 'none' ? `bg-gradient-to-r ${themeStyles.buttonGradient}` : 'bg-[#007AFF] hover:bg-[#0062CC]'} shadow-blue-500/25 hover:shadow-blue-500/40`}`}
+                                    ${!file || isProcessing ? 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed shadow-none opacity-70' : `${activeOverlay !== 'none' ? `bg-gradient-to-r ${themeStyles.buttonGradient}` : 'bg-[#007AFF] hover:bg-[#0062CC]'} shadow-blue-500/25 hover:shadow-blue-500/40`}`}
                             >
                                 {isProcessing ? <Spinner size="sm" color="border-white" /> : <SparklesIcon className="w-5 h-5 stroke-[2]" />}
                                 {previewLessons.length > 0 ? 'Regenerate Content' : 'Generate Lessons'}
@@ -1043,7 +1099,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                         </div>
                     </div>
 
-                    {/* Right Panel: Preview */}
                     <div className={`flex-grow flex flex-col relative overflow-hidden rounded-[24px] min-h-[500px] lg:min-h-0 lg:h-full ${panelClass}`}>
                         {isProcessing || previewLessons.length === 0 ? (
                             <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8">
@@ -1070,7 +1125,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                             </div>
                         ) : (
                              <div className="flex flex-col lg:flex-row h-full gap-4">
-                                {/* Navigation Sidebar */}
                                 <div className={`w-full lg:w-[280px] flex-shrink-0 border-b lg:border-b-0 lg:border-r flex flex-col ${themeStyles.borderColor} ${themeStyles.inputBg}`}>
                                     <div className="p-4">
                                         <h4 className={labelClass}>GENERATED LESSONS</h4>
@@ -1080,11 +1134,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                             <button
                                                 key={idx}
                                                 onClick={() => { setSelectedLessonIndex(idx); setSelectedPageIndex(0); }}
-                                                className={`w-full text-left px-4 py-3 rounded-[14px] transition-all flex items-start gap-3 group border ${
-                                                    selectedLessonIndex === idx 
-                                                    ? `${themeStyles.highlight} shadow-md` 
-                                                    : 'border-transparent hover:bg-black/5 dark:hover:bg-white/5 opacity-70 hover:opacity-100'
-                                                }`}
+                                                className={`w-full text-left px-4 py-3 rounded-[14px] transition-all flex items-start gap-3 group border ${selectedLessonIndex === idx ? `${themeStyles.highlight} shadow-md` : 'border-transparent hover:bg-black/5 dark:hover:bg-white/5 opacity-70 hover:opacity-100'}`}
                                             >
                                                 <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 transition-colors ${selectedLessonIndex === idx ? 'bg-blue-500 shadow-[0_0_8px_rgba(0,122,255,0.5)]' : 'bg-slate-400'}`} />
                                                 <div>
@@ -1095,12 +1145,9 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                         ))}
                                     </div>
                                 </div>
-
-                                {/* Main Content View */}
                                 <div className="flex-grow flex flex-col overflow-hidden">
                                     {selectedLesson && (
                                         <>
-                                            {/* Content Header */}
                                             <div className={`flex-shrink-0 p-6 border-b z-10 ${themeStyles.panelBg} ${themeStyles.borderColor}`}>
                                                 <h2 className={`text-2xl font-bold mb-4 tracking-tight leading-tight ${themeStyles.textColor}`}>{selectedLesson.lessonTitle}</h2>
                                                 
@@ -1115,17 +1162,12 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                                     </div>
                                                 )}
 
-                                                {/* Page Tabs */}
                                                 <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
                                                     {selectedLesson.pages?.map((page, idx) => (
                                                         <button
                                                             key={idx}
                                                             onClick={() => setSelectedPageIndex(idx)}
-                                                            className={`flex-shrink-0 px-4 py-1.5 rounded-full text-[12px] font-bold transition-all whitespace-nowrap border ${
-                                                                selectedPageIndex === idx 
-                                                                ? `${themeStyles.textColor} ${activeOverlay !== 'none' ? 'bg-white/20' : 'bg-slate-900 text-white dark:bg-white dark:text-black'} border-transparent shadow-md` 
-                                                                : `${themeStyles.borderColor} ${themeStyles.subText} hover:bg-white/10`
-                                                            }`}
+                                                            className={`flex-shrink-0 px-4 py-1.5 rounded-full text-[12px] font-bold transition-all whitespace-nowrap border ${selectedPageIndex === idx ? `${themeStyles.textColor} ${activeOverlay !== 'none' ? 'bg-white/20' : 'bg-slate-900 text-white dark:bg-white dark:text-black'} border-transparent shadow-md` : `${themeStyles.borderColor} ${themeStyles.subText} hover:bg-white/10`}`}
                                                         >
                                                             {page.title}
                                                         </button>
@@ -1133,7 +1175,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                                 </div>
                                             </div>
 
-                                            {/* Content Body */}
                                             <div className={`flex-grow min-h-0 overflow-y-auto custom-scrollbar p-6 md:p-8 ${activeOverlay !== 'none' ? 'bg-black/20' : 'bg-slate-50 dark:bg-[#1c1c1e]/40'}`}>
                                                 <div className="max-w-3xl mx-auto min-h-[300px]">
                                                     {selectedPage ? (
@@ -1157,7 +1198,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                 </div>
             </div>
 
-            {/* Footer */}
             <div className={`flex-shrink-0 px-4 sm:px-6 py-4 border-t flex flex-col sm:flex-row items-center justify-between gap-4 z-20 ${themeStyles.panelBg} ${themeStyles.borderColor}`}>
                 <div className="flex items-center gap-3 order-2 sm:order-1 w-full sm:w-auto justify-center sm:justify-start">
                     {error && (
