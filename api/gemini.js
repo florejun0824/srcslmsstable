@@ -53,7 +53,7 @@ export default async function handler(req) {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: requestedModel || 'gemini-3-flash-preview' });
+    const model = genAI.getGenerativeModel({ model: requestedModel || 'gemma-3-27b-it' });
 
     // --- STREAMING LOGIC START ---
     // Instead of waiting for full response, we stream it chunk by chunk.

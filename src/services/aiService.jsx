@@ -16,7 +16,7 @@ const isNative = Capacitor.isNativePlatform();
 const API_BASE = isNative ? PROD_API_URL : '';
 
 // --- CONFIGURATION ---
-const GEMINI_MODEL = 'gemini-3-flash-preview'; 
+const GEMINI_MODEL = 'gemma-3-27b-it'; 
 
 const API_CONFIGS = [
     { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Primary' },

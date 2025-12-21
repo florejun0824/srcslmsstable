@@ -20,8 +20,7 @@ import {
     ArrowPathIcon,
     ExclamationTriangleIcon,
     FunnelIcon,
-    ChevronDownIcon,
-    CalculatorIcon 
+    ChevronDownIcon
 } from '@heroicons/react/24/outline'; 
 import Spinner from '../common/Spinner';
 import LessonPage from './LessonPage';
@@ -33,9 +32,10 @@ import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 // --- CONFIGURATION ---
-// STRICT SAFETY DELAY: 15 seconds to align with 5 RPM limit.
-// 60 seconds / 5 requests = 12 seconds minimum. 15s provides a safe buffer.
-const GEMMA_SAFETY_DELAY_MS = 31000; 
+// 15k TPM / ~4k tokens per request = ~3.75 requests per minute max.
+// We set a base delay of 20 seconds to stay safely around 3 RPM.
+const BASE_DELAY_MS = 20000; 
+const RATE_LIMIT_COOLDOWN_MS = 61000; // 61s wait if we hit a 429
 
 /**
  * --- Helper: Smart Delay ---
@@ -398,7 +398,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         }
 
         **SOURCE TEXT:**
-        ${sourceText.substring(0, 30000)} 
+        ${sourceText.substring(0, 25000)} 
         `;
     };
     
@@ -421,15 +421,40 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         2. **NO METADATA:** Do not include "Teacher Notes", "Lesson Plan ID", or "Copyright" footers.
         `;
         
-        // --- KEY FEATURE: Context Accumulation ---
-        const redundancyCheck = extraData.accumulatedLessonContext ? `
-        **CONTEXT - CONTENT GENERATED SO FAR:**
-        Below is the content you have already written for this lesson. 
-        **CRITICAL RULE:** Do NOT repeat introductions, definitions, or activities that are already present in the content below. Build UPON this content.
+        // --- CONTEXT PRUNING STRATEGY ---
+        // Instead of sending ALL generated text, we construct a "Smart Context"
+        // 1. Lesson Objectives (Anchor)
+        // 2. The Last 1-2 Pages (Continuity)
+        let optimizedContext = '';
         
-        --- START OF EXISTING CONTENT ---
-        ${extraData.accumulatedLessonContext}
-        --- END OF EXISTING CONTENT ---
+        if (extraData.lessonContextArray && extraData.lessonContextArray.length > 0) {
+            const ctx = extraData.lessonContextArray;
+            
+            // Always include Objectives if available
+            const objectives = ctx.find(item => item.type === 'objectives');
+            if (objectives) optimizedContext += `\n[LESSON OBJECTIVES]:\n${objectives.content}\n`;
+            
+            // Include only the last 2 content pages for continuity
+            // Filter for 'content' pages (exclude objectives/metadata)
+            const contentPages = ctx.filter(item => item.type === 'page');
+            const recentPages = contentPages.slice(-2); // Take last 2
+            
+            if (recentPages.length > 0) {
+                optimizedContext += `\n[RECENTLY GENERATED CONTENT (For Continuity Only - Do Not Repeat)]:`;
+                recentPages.forEach(p => {
+                    optimizedContext += `\n--- Page: ${p.title} ---\n${p.content.substring(0, 500)}... (truncated)\n`;
+                });
+            }
+        }
+        
+        const redundancyCheck = optimizedContext ? `
+        **CONTEXT - CONTENT GENERATED SO FAR:**
+        Below is relevant context from the lesson you are currently building.
+        **CRITICAL RULE:** Do NOT repeat introductions, definitions, or activities that are already present in the content below. Build UPON this content to ensure narrative continuity.
+        
+        --- START OF RECENT CONTENT ---
+        ${optimizedContext}
+        --- END OF RECENT CONTENT ---
         ` : '';
 
         const styleRules = `
@@ -568,8 +593,8 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
 
             try {
                // Passing maxOutputTokens and signal to handle cancellation
-               // High limit because we are sending large context
-               const aiResponse = await callGeminiWithLimitCheck(prompt, { maxOutputTokens: 8192, signal });
+               // Lowered maxOutputTokens to 2048 to respect the strict 15k TPM limit for Gemma
+               const aiResponse = await callGeminiWithLimitCheck(prompt, { maxOutputTokens: 2048, signal });
                 
                 if (!isMountedRef.current || signal?.aborted) throw new Error("Aborted");
 
@@ -579,8 +604,20 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
             } catch (error) {
                 if (error.name === 'AbortError' || signal?.aborted) throw new Error("Aborted");
                 
+                // --- SMART 429 HANDLING ---
+                // If we hit a Rate Limit, we MUST wait for the bucket to reset (usually 1 minute)
+                const isRateLimit = error.message?.includes('429') || error.message?.includes('Quota') || error.status === 429;
+                
+                if (isRateLimit) {
+                    if (attempt < maxRetries - 1) {
+                        setProgressMessage(`Rate limit hit. Cooling down for ${RATE_LIMIT_COOLDOWN_MS/1000}s...`);
+                        await smartDelay(RATE_LIMIT_COOLDOWN_MS, signal); // Wait 61 seconds
+                        continue; // Retry
+                    }
+                }
+                
                 if (attempt === maxRetries - 1) throw error;
-                // Retry delay
+                // Standard retry delay
                 await new Promise(res => setTimeout(res, 2000));
             }
         }
@@ -608,7 +645,10 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
             if (!isMounted.current || signal.aborted) return;
 
             extractedText = extractedText.replace(/₱/g, 'PHP ');
-            const sourceText = extractedText;
+            
+            // --- INPUT SAFETY CHECK ---
+            // Truncate to ~40k characters to prevent context window overflow
+            const sourceText = extractedText.substring(0, 40000);
             
             setProgressMessage('Step 2/3: Planning curriculum...');
             const baseContext = getBasePromptContext();
@@ -617,7 +657,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
             // Initial Safety Delay before Planner
             await smartDelay(2000, signal);
             
-            const plannerResponse = await callGeminiWithLimitCheck(plannerPrompt, { maxOutputTokens: 8192, signal });
+            const plannerResponse = await callGeminiWithLimitCheck(plannerPrompt, { maxOutputTokens: 2048, signal });
             if (!isMounted.current || signal.aborted) return;
             const lessonPlans = sanitizeJsonBlock(plannerResponse); 
 
@@ -627,8 +667,9 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
             for (const [index, plan] of lessonPlans.entries()) {
                 if (!isMounted.current || signal.aborted) return;
                 
-                // --- NEW: Accumulate context to prevent redundancy ---
-                let accumulatedLessonContext = "";
+                // --- NEW: Structured Context Array ---
+                // We keep an array of metadata objects instead of a huge accumulated string
+                let lessonContextArray = [];
                 
                 const isUnitOverview = plan.lessonTitle.toLowerCase().includes('unit overview');
                 if (!isUnitOverview) lessonCounter++;
@@ -655,28 +696,28 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                     setProgressMessage(`Building "${numberedPlan.lessonTitle}": ${type}...`);
                     
                     try {
-                        // Throttling for safety (5 RPM)
-                        await smartDelay(GEMMA_SAFETY_DELAY_MS, signal);
+                        // Throttling for safety (3 RPM max)
+                        await smartDelay(BASE_DELAY_MS, signal);
                         
-                        // Pass accumulated context
+                        // Pass accumulated context array
                         const result = await generateLessonComponent(
                             sourceText, 
                             baseContext, 
                             numberedPlan, 
                             type, 
                             isMounted, 
-                            { ...extra, accumulatedLessonContext }, // INJECT CONTEXT
+                            { ...extra, lessonContextArray }, // INJECT CONTEXT ARRAY
                             3, 
                             signal
                         );
 
-                        // If it's a content page, append to context
+                        // If it's a content page, append to context array
                         if (result && result.page && result.page.content) {
-                            accumulatedLessonContext += `\n\n--- [${type.toUpperCase()}]: ${result.page.title} ---\n${result.page.content}`;
+                            lessonContextArray.push({ type: 'page', title: result.page.title, content: result.page.content });
                         }
-                        // Also append objectives/competencies if generated
+                        // Also append objectives if generated
                         if (result && result.objectives) {
-                             accumulatedLessonContext += `\n\n--- OBJECTIVES ---\n${result.objectives.join('\n')}`;
+                             lessonContextArray.push({ type: 'objectives', content: result.objectives.join('\n') });
                         }
 
                         return result;
@@ -747,8 +788,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
             if (isMounted.current) setIsProcessing(false);
         }
     };
-    
-    // ... (handleSaveLesson, UI rendering - Unchanged) ...
     
     const handleSaveLesson = async () => {
         if (previewLessons.length === 0) return;
@@ -827,7 +866,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                     <p className={`text-[15px] font-medium text-center max-w-[240px] leading-relaxed ${themeStyles.textColor}`}>
                                         {progressMessage}
                                     </p>
-                                    <p className="text-xs text-center opacity-60">Please wait. We are throttling requests to ensure quality and prevent errors.</p>
+                                    <p className="text-xs text-center opacity-60">We are throttling requests (15k TPM limit) to ensure continuity.</p>
                                 </div>
                             ) : (
                                 <>
@@ -1030,7 +1069,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                 )}
                             </div>
                         ) : (
-                            // ... (Existing Preview UI Logic) ...
                              <div className="flex flex-col lg:flex-row h-full gap-4">
                                 {/* Navigation Sidebar */}
                                 <div className={`w-full lg:w-[280px] flex-shrink-0 border-b lg:border-b-0 lg:border-r flex flex-col ${themeStyles.borderColor} ${themeStyles.inputBg}`}>
