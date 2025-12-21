@@ -35,7 +35,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 // --- CONFIGURATION ---
 // STRICT SAFETY DELAY: 15 seconds to align with 5 RPM limit.
 // 60 seconds / 5 requests = 12 seconds minimum. 15s provides a safe buffer.
-const GEMMA_SAFETY_DELAY_MS = 15000; 
+const GEMMA_SAFETY_DELAY_MS = 31000; 
 
 /**
  * --- Helper: Smart Delay ---
