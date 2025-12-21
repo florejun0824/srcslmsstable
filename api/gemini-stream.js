@@ -31,8 +31,12 @@ const getApiKeyPool = () => {
     // 5. Fallback 3 (Matches your "GEMINI_FALLBACK_API_KEY_2")
     if (process.env.GEMINI_FALLBACK_API_KEY_4) {
       keys.add(process.env.GEMINI_FALLBACK_API_KEY_4);
+	  
+      // 6. Fallback 5 (Matches your "GEMINI_FALLBACK_API_KEY_2")
+      if (process.env.GEMINI_FALLBACK_API_KEY_5) {
+        keys.add(process.env.GEMINI_FALLBACK_API_KEY_5);
 
-  // 6. Legacy/Frontend check (Just in case you use VITE_ prefix locally)
+  // 7. Legacy/Frontend check (Just in case you use VITE_ prefix locally)
   if (process.env.VITE_GEMINI_API_KEY) {
     keys.add(process.env.VITE_GEMINI_API_KEY);
   }

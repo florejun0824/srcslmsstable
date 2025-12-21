@@ -36,6 +36,7 @@ const API_CONFIGS = [
     // ADDED FALLBACK 3 HERE
     { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Fallback 3' },
 	{ service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Fallback 4' },
+	{ service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Fallback 5' },
 ];
 
 // This will now be 4
