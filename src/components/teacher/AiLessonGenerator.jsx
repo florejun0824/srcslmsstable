@@ -32,9 +32,8 @@ import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 // --- CONFIGURATION ---
-// STRICT SAFETY DELAY: 35 seconds to align with strict 15k TPM limit.
-// We prioritize quality (long prompts) over speed.
-const GEMMA_SAFETY_DELAY_MS = 35000; 
+// INCREASED SAFETY DELAY: 40 seconds to strictly align with 15k TPM limit and prevent 429s.
+const GEMMA_SAFETY_DELAY_MS = 40000; 
 
 /**
  * --- Helper: Smart Delay ---
@@ -154,7 +153,12 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
+    
+    // Progress States
     const [progressMessage, setProgressMessage] = useState('');
+    const [generationProgress, setGenerationProgress] = useState(0); 
+    const [currentAction, setCurrentAction] = useState('');
+
     const [selectedLessonIndex, setSelectedLessonIndex] = useState(0);
     const [selectedPageIndex, setSelectedPageIndex] = useState(0);
     
@@ -227,8 +231,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         );
     }, [subjects]);
 
-    // --- PERFORMANCE OPTIMIZATIONS (FIX LAG) ---
-    // 1. Sort units only when units change, not on every render
+    // --- PERFORMANCE OPTIMIZATIONS ---
     const sortedUnits = useMemo(() => {
         if (!subjectContext?.units) return [];
         return [...subjectContext.units].sort((a, b) => 
@@ -236,7 +239,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         );
     }, [subjectContext]);
 
-    // 2. Pre-group lessons by unit ID so we don't filter inside the loop
     const lessonsByUnit = useMemo(() => {
         if (!subjectContext?.lessons) return {};
         
@@ -248,7 +250,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
             grouped[lesson.unitId].push(lesson);
         });
         
-        // Optional: Sort lessons within the group here if needed
         Object.keys(grouped).forEach(unitId => {
             grouped[unitId].sort((a, b) => (a.order || 0) - (b.order || 0));
         });
@@ -269,7 +270,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         fetchSubjects();
         return () => {
             isMounted.current = false;
-            // Abort any running generation on unmount
             if (abortControllerRef.current) {
                 abortControllerRef.current.abort();
             }
@@ -328,6 +328,8 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         setSaving(false);
         setIsProcessing(false);
         setProgressMessage('');
+        setGenerationProgress(0);
+        setCurrentAction('');
         setSelectedLessonIndex(0);
         setSelectedPageIndex(0);
         setLearningCompetencies('');
@@ -667,7 +669,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
     };
 
     const generateLessonComponent = async (sourceText, baseContext, lessonPlan, componentType, isMountedRef, extraData = {}, maxRetries = 3, signal) => {
-        // Retrieve master instructions/rules
         const { styleRules, masterInstructions } = getMasterInstructions(baseContext);
 
         const prompt = getComponentPrompt(
@@ -679,7 +680,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
             extraData
         );
         
-        // Combine prompt with master instructions
         const finalPrompt = `
         ${prompt}
         =============================
@@ -701,13 +701,12 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
             } catch (error) {
                 if (error.name === 'AbortError' || signal?.aborted) throw new Error("Aborted");
 
-                // --- 429 HANDLING ---
                 const isRateLimit = error.message?.includes('429') || error.message?.includes('Quota') || error.status === 429;
                 
                 if (isRateLimit) {
                     if (attempt < maxRetries - 1) {
-                        setProgressMessage(`Rate limit hit. Cooling down for 65s...`);
-                        await smartDelay(65000, signal); // Wait 65s (Full refresh)
+                        setCurrentAction(`Rate limit hit. Cooling down for 65s...`); // Live feedback
+                        await smartDelay(65000, signal);
                         continue; 
                     }
                 }
@@ -729,38 +728,54 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         setIsProcessing(true);
         setError('');
         setPreviewLessons([]);
+        setGenerationProgress(0); // Start at 0%
         const allGeneratedLessons = [];
 
         try {
-            setProgressMessage('Step 1/3: Reading file...');
+            // --- PHASE 1: ANALYSIS (0% -> 5%) ---
+            setCurrentAction('Reading and analyzing file structure...');
+            setGenerationProgress(5);
+
             let extractedText = await extractTextFromFile(file);
             if (!isMounted.current || signal.aborted) return;
             extractedText = extractedText.replace(/₱/g, 'PHP ');
             
-            // --- STRICT TRUNCATION FOR TPM ---
-            // Limit to 25k characters to keep input tokens low (~6k tokens)
-            // This prevents the 15k limit from being hit immediately on the first large request
-            const sourceText = extractedText.substring(0, 25000); 
+            // --- STRICT TRUNCATION FOR TPM SAFETY ---
+            // Reduced to 12,000 characters (approx 3,500 tokens).
+            // This leaves room for the prompt overhead + context history.
+            // Prevents 15k limit crash on first request.
+            const sourceText = extractedText.substring(0, 12000); 
             
-            setProgressMessage('Step 2/3: Creating outline...');
+            // --- PHASE 2: PLANNING (5% -> 15%) ---
+            setCurrentAction('Creating curriculum outline and lesson map...');
+            setGenerationProgress(10);
+
             const baseContext = getBasePromptContext();
-            
-            // Planner Prompt
             const plannerPrompt = getPlannerPrompt(sourceText, baseContext);
             
+            // Initial safety delay
             await smartDelay(32000, signal);
             const plannerResponse = await callGeminiWithLimitCheck(plannerPrompt, { maxOutputTokens: 2048, signal });
             if (!isMounted.current || signal.aborted) return;
             
             const lessonPlans = sanitizeJsonBlock(plannerResponse); 
 
-            setProgressMessage(`Step 3/3: Generating ${lessonPlans.length} lessons...`);
+            // Calculate progress chunks
+            const totalLessons = lessonPlans.length;
+            const progressPerLesson = 85 / totalLessons; 
+            setGenerationProgress(15);
+
+            // --- PHASE 3: GENERATION LOOP ---
             let lessonCounter = existingLessonCount;
 
             for (const [index, plan] of lessonPlans.entries()) {
                 if (!isMounted.current || signal.aborted) return;
                 
-                // --- NEW: Accumulate context to prevent redundancy ---
+                // Calculate base progress for this lesson
+                const currentBaseProgress = 15 + (index * progressPerLesson);
+                setGenerationProgress(Math.floor(currentBaseProgress));
+
+                // --- NEW: Accumulate context with SLIDING WINDOW ---
                 let accumulatedLessonContext = "";
 
                 const isUnitOverview = plan.lessonTitle.toLowerCase().includes('unit overview');
@@ -784,11 +799,13 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                 const safeGenerate = async (type, extra = {}) => {
                     if (!isMounted.current || signal.aborted) throw new Error("Aborted");
                     
-                    setProgressMessage(`Writing "${numberedPlan.lessonTitle}": ${type}...`);
+                    // UPDATE UI TEXT REAL-TIME
+                    const readableType = type.replace(/([A-Z])/g, ' $1').trim(); 
+                    setCurrentAction(`Generating ${numberedPlan.lessonTitle}:\n${readableType}...`);
                     
                     try {
                         // --- SAFETY DELAY ---
-                        // Wait BEFORE the call. 35s ensures bucket drains.
+                        // 40s wait guarantees 15k quota bucket refills significantly.
                         await smartDelay(GEMMA_SAFETY_DELAY_MS, signal);
                         
                         const result = await generateLessonComponent(
@@ -802,13 +819,20 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                             signal
                         );
 
-                        // Push to context
+                        // --- FIX: SLIDING WINDOW CONTEXT ---
+                        // Prevent "Snowball Effect" by capping context at 4000 chars.
                         if (result?.page?.content) {
-                            accumulatedLessonContext += `\n\n--- [${type.toUpperCase()}]: ${result.page.title} ---\n${result.page.content}`;
+                            const newEntry = `\n\n--- [${type.toUpperCase()}]: ${result.page.title} ---\n${result.page.content}`;
+                            let fullContext = accumulatedLessonContext + newEntry;
+                            if (fullContext.length > 4000) {
+                                fullContext = "..." + fullContext.slice(-4000); 
+                            }
+                            accumulatedLessonContext = fullContext;
                         }
-                        if (result?.objectives) {
-                             accumulatedLessonContext += `\n\n--- OBJECTIVES ---\n${result.objectives.join('\n')}`;
-                        }
+                        
+                        // Objectives don't need sliding window, just append for reference if needed, 
+                        // but usually better to leave out of context to save tokens unless critical.
+                        // We will omit adding objectives to context to save tokens.
 
                         return result;
                     } catch (e) {
@@ -821,6 +845,10 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                 if (isUnitOverview) {
                     const overview = await safeGenerate('UnitOverview_Overview');
                     if(overview) newLesson.pages.push({ ...overview.page, type: 'text' });
+                    
+                    // Update progress mid-lesson
+                    setGenerationProgress(Math.floor(currentBaseProgress + (progressPerLesson * 0.5))); 
+
                     const targets = await safeGenerate('UnitOverview_Targets');
                     if(targets) newLesson.pages.push({ ...targets.page, type: 'text' });
                 } else {
@@ -833,17 +861,26 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                     const intro = await safeGenerate('Introduction');
                     if(intro) newLesson.pages.push({ ...intro.page, type: 'text' });
                     
+                    // 25% through lesson
+                    setGenerationProgress(Math.floor(currentBaseProgress + (progressPerLesson * 0.25))); 
+
                     const activity = await safeGenerate('LetsGetStarted');
                     if(activity) newLesson.pages.push({ ...activity.page, type: 'text' });
 
                     const planner = await safeGenerate('CoreContentPlanner');
                     const contentTitles = planner ? planner.coreContentTitles : [];
                     
+                    // 50% through lesson
+                    setGenerationProgress(Math.floor(currentBaseProgress + (progressPerLesson * 0.5)));
+
                     for (const [cIdx, title] of contentTitles.entries()) {
                         const pageData = await safeGenerate('CoreContentPage', { contentTitle: title, currentIndex: cIdx, allContentTitles: contentTitles });
                         if (pageData) newLesson.pages.push({ ...pageData.page, type: 'text' });
                     }
                     
+                    // 75% through lesson
+                    setGenerationProgress(Math.floor(currentBaseProgress + (progressPerLesson * 0.75)));
+
                     const standardPages = ['CheckForUnderstanding', 'LessonSummary', 'WrapUp', 'EndofLessonAssessment', 'AnswerKey', 'References'];
                     for (const pageType of standardPages) {
                         const pData = await safeGenerate(pageType);
@@ -856,6 +893,9 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                 setSelectedLessonIndex(allGeneratedLessons.length - 1);
                 setSelectedPageIndex(0);
             }
+            
+            setGenerationProgress(100);
+            setCurrentAction('Finalizing...');
             setProgressMessage('Done!');
 
         } catch (err) {
@@ -941,9 +981,11 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                         <Spinner size="lg" />
                                     </div>
                                     <p className={`text-[15px] font-medium text-center max-w-[240px] leading-relaxed ${themeStyles.textColor}`}>
-                                        {progressMessage}
+                                        Thinking...
                                     </p>
-                                    <p className="text-xs text-center opacity-60">Throttling requests (15k TPM limit) to prevent errors.</p>
+                                    <p className="text-xs text-center opacity-60">
+                                        Please keep this open.
+                                    </p>
                                 </div>
                             ) : (
                                 <>
@@ -1103,13 +1145,45 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                         {isProcessing || previewLessons.length === 0 ? (
                             <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8">
                                 {isProcessing ? (
-                                    <div className="flex flex-col items-center animate-in fade-in zoom-in duration-500">
-                                        <div className="relative mb-6">
-                                            <div className={`absolute inset-0 blur-2xl rounded-full animate-pulse ${themeStyles.iconBg}`} />
-                                            <Spinner size="xl" />
+                                    <div className="flex flex-col items-center w-full max-w-md animate-in fade-in zoom-in duration-500 p-6">
+                                        
+                                        {/* Animated Icon */}
+                                        <div className="relative mb-8">
+                                            <div className={`absolute inset-0 rounded-full blur-2xl animate-pulse opacity-50 ${themeStyles.iconBg}`} />
+                                            <div className={`w-20 h-20 rounded-[24px] flex items-center justify-center shadow-2xl border bg-white dark:bg-black ${themeStyles.borderColor}`}>
+                                                <Spinner size="lg" />
+                                            </div>
                                         </div>
-                                        <h4 className={`text-xl font-bold mb-2 tracking-tight ${themeStyles.textColor}`}>Generating Content</h4>
-                                        <p className={`text-sm max-w-xs leading-relaxed ${themeStyles.subText}`}>{progressMessage}</p>
+
+                                        {/* Progress Percentage */}
+                                        <h4 className={`text-4xl font-black mb-2 tracking-tighter ${themeStyles.textColor}`}>
+                                            {generationProgress}%
+                                        </h4>
+                                        <p className={`text-sm font-medium uppercase tracking-widest opacity-60 mb-6 ${themeStyles.textColor}`}>
+                                            Processing
+                                        </p>
+
+                                        {/* Progress Bar Container */}
+                                        <div className="w-full h-3 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden mb-6 relative">
+                                            {/* The Moving Bar */}
+                                            <div 
+                                                className={`h-full transition-all duration-500 ease-out ${activeOverlay !== 'none' ? `bg-gradient-to-r ${themeStyles.buttonGradient}` : 'bg-blue-600'}`}
+                                                style={{ width: `${generationProgress}%` }}
+                                            />
+                                            {/* Shimmer Effect on Bar */}
+                                            <div className="absolute inset-0 bg-white/20 animate-[shimmer_2s_infinite] skew-x-12" />
+                                        </div>
+
+                                        {/* Console / Status Text */}
+                                        <div className={`w-full bg-black/5 dark:bg-white/5 rounded-xl p-4 border ${themeStyles.borderColor} backdrop-blur-sm text-center`}>
+                                            <p className={`text-sm font-mono whitespace-pre-wrap leading-relaxed animate-pulse ${themeStyles.accentColor}`}>
+                                                {currentAction || "Initializing AI..."}
+                                            </p>
+                                        </div>
+
+                                        <p className="mt-8 text-xs text-center opacity-40 max-w-xs">
+                                            Please keep this window open. Large files may take 2-3 minutes due to quality safeguards.
+                                        </p>
                                     </div>
                                 ) : (
                                     <>
