@@ -1141,64 +1141,85 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                         </div>
                     </div>
 
+                    {/* --- RIGHT PANEL: LIVE CONSOLE & PREVIEW --- */}
                     <div className={`flex-grow flex flex-col relative overflow-hidden rounded-[24px] min-h-[500px] lg:min-h-0 lg:h-full ${panelClass}`}>
-                        {isProcessing || previewLessons.length === 0 ? (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8">
-                                {isProcessing ? (
-                                    <div className="flex flex-col items-center w-full max-w-md animate-in fade-in zoom-in duration-500 p-6">
-                                        
-                                        {/* Animated Icon */}
-                                        <div className="relative mb-8">
-                                            <div className={`absolute inset-0 rounded-full blur-2xl animate-pulse opacity-50 ${themeStyles.iconBg}`} />
-                                            <div className={`w-20 h-20 rounded-[24px] flex items-center justify-center shadow-2xl border bg-white dark:bg-black ${themeStyles.borderColor}`}>
-                                                <Spinner size="lg" />
+                        
+                        {/* 1. PROCESSING STATE (The Live Console) */}
+                        {isProcessing ? (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center p-8 bg-white/90 dark:bg-[#1c1c1e]/90 backdrop-blur-md z-50 animate-in fade-in duration-500">
+                                <div className="flex flex-col items-center w-full max-w-lg">
+                                    
+                                    {/* Visual Pulse */}
+                                    <div className="relative mb-8">
+                                        <div className={`absolute inset-0 rounded-full blur-2xl animate-pulse opacity-40 ${themeStyles.iconBg}`} />
+                                        <div className={`w-24 h-24 rounded-[32px] flex items-center justify-center shadow-2xl border bg-white dark:bg-black ${themeStyles.borderColor}`}>
+                                            <Spinner size="lg" />
+                                        </div>
+                                    </div>
+
+                                    {/* Percentage & Status */}
+                                    <h4 className={`text-6xl font-black mb-1 tracking-tighter ${themeStyles.textColor}`}>
+                                        {generationProgress}%
+                                    </h4>
+                                    <p className={`text-xs font-bold uppercase tracking-widest opacity-50 mb-8 ${themeStyles.textColor}`}>
+                                        Building Curriculum
+                                    </p>
+
+                                    {/* TERMINAL: Shows Real-Time Actions */}
+                                    <div className="w-full bg-[#1e1e1e] rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10 mb-8">
+                                        {/* Terminal Header */}
+                                        <div className="bg-[#2d2d2d] px-4 py-2 flex items-center gap-2 border-b border-white/5">
+                                            <div className="flex gap-1.5">
+                                                <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f56]" />
+                                                <div className="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]" />
+                                                <div className="w-2.5 h-2.5 rounded-full bg-[#27c93f]" />
                                             </div>
+                                            <span className="text-[10px] font-mono text-white/40 ml-2">ai_agent_logs</span>
                                         </div>
-
-                                        {/* Progress Percentage */}
-                                        <h4 className={`text-4xl font-black mb-2 tracking-tighter ${themeStyles.textColor}`}>
-                                            {generationProgress}%
-                                        </h4>
-                                        <p className={`text-sm font-medium uppercase tracking-widest opacity-60 mb-6 ${themeStyles.textColor}`}>
-                                            Processing
-                                        </p>
-
-                                        {/* Progress Bar Container */}
-                                        <div className="w-full h-3 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden mb-6 relative">
-                                            {/* The Moving Bar */}
-                                            <div 
-                                                className={`h-full transition-all duration-500 ease-out ${activeOverlay !== 'none' ? `bg-gradient-to-r ${themeStyles.buttonGradient}` : 'bg-blue-600'}`}
-                                                style={{ width: `${generationProgress}%` }}
-                                            />
-                                            {/* Shimmer Effect on Bar */}
-                                            <div className="absolute inset-0 bg-white/20 animate-[shimmer_2s_infinite] skew-x-12" />
-                                        </div>
-
-                                        {/* Console / Status Text */}
-                                        <div className={`w-full bg-black/5 dark:bg-white/5 rounded-xl p-4 border ${themeStyles.borderColor} backdrop-blur-sm text-center`}>
-                                            <p className={`text-sm font-mono whitespace-pre-wrap leading-relaxed animate-pulse ${themeStyles.accentColor}`}>
-                                                {currentAction || "Initializing AI..."}
+                                        
+                                        {/* Terminal Body */}
+                                        <div className="p-5 font-mono text-sm min-h-[140px] flex flex-col justify-end">
+                                            <div className="text-blue-400/60 text-xs mb-2">
+                                                {new Date().toLocaleTimeString()} [info] Connected to model...
+                                            </div>
+                                            <p className="text-green-400 font-bold whitespace-pre-wrap leading-relaxed">
+                                                <span className="opacity-50 mr-2">$</span>
+                                                {currentAction || "Initializing..."}
+                                                <span className="inline-block w-2 h-4 ml-1 bg-green-400/50 animate-pulse align-middle" />
                                             </p>
                                         </div>
-
-                                        <p className="mt-8 text-xs text-center opacity-40 max-w-xs">
-                                            Please keep this window open. Large files may take 2-3 minutes due to quality safeguards.
-                                        </p>
                                     </div>
-                                ) : (
-                                    <>
-                                        <div className={`w-24 h-24 rounded-[28px] flex items-center justify-center mb-6 shadow-inner border ${themeStyles.inputBg} ${themeStyles.borderColor}`}>
-                                            <SparklesIcon className={`w-10 h-10 opacity-50 ${themeStyles.textColor}`} />
-                                        </div>
-                                        <h3 className={`text-2xl font-bold mb-2 tracking-tight ${themeStyles.textColor}`}>Ready to Create</h3>
-                                        <p className={`max-w-sm leading-relaxed ${themeStyles.subText}`}>
-                                            AI will analyze your document and generate a structured lesson plan with objectives, activities, and assessments.
-                                        </p>
-                                    </>
-                                )}
+
+                                    {/* Progress Bar */}
+                                    <div className="w-full h-1.5 bg-slate-200 dark:bg-white/10 rounded-full overflow-hidden">
+                                        <div 
+                                            className={`h-full transition-all duration-500 ease-out ${activeOverlay !== 'none' ? `bg-gradient-to-r ${themeStyles.buttonGradient}` : 'bg-blue-600'}`}
+                                            style={{ width: `${generationProgress}%` }}
+                                        />
+                                    </div>
+                                    
+                                    <p className="mt-4 text-[11px] text-center opacity-40 max-w-xs leading-relaxed font-medium">
+                                        Generating detailed lesson plans, quizzes, and objectives. Complex files may take 1-2 minutes.
+                                    </p>
+                                </div>
                             </div>
+                        ) : previewLessons.length === 0 ? (
+                            
+                            /* 2. READY STATE (Empty) */
+                            <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8">
+                                <div className={`w-24 h-24 rounded-[28px] flex items-center justify-center mb-6 shadow-inner border ${themeStyles.inputBg} ${themeStyles.borderColor}`}>
+                                    <SparklesIcon className={`w-10 h-10 opacity-50 ${themeStyles.textColor}`} />
+                                </div>
+                                <h3 className={`text-2xl font-bold mb-2 tracking-tight ${themeStyles.textColor}`}>Ready to Create</h3>
+                                <p className={`max-w-sm leading-relaxed ${themeStyles.subText}`}>
+                                    AI will analyze your document and generate a structured lesson plan with objectives, activities, and assessments.
+                                </p>
+                            </div>
+
                         ) : (
-                             <div className="flex flex-col lg:flex-row h-full gap-4">
+                            
+                            /* 3. PREVIEW STATE (Results) */
+                            <div className="flex flex-col lg:flex-row h-full gap-4">
                                 <div className={`w-full lg:w-[280px] flex-shrink-0 border-b lg:border-b-0 lg:border-r flex flex-col ${themeStyles.borderColor} ${themeStyles.inputBg}`}>
                                     <div className="p-4">
                                         <h4 className={labelClass}>GENERATED LESSONS</h4>
