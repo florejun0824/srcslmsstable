@@ -22,7 +22,6 @@ import {
     FunnelIcon,
     ChevronDownIcon,
 } from '@heroicons/react/24/outline'; 
-import Spinner from '../common/Spinner';
 import LessonPage from './LessonPage';
 import mammoth from 'mammoth';
 
@@ -977,8 +976,12 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                             {isProcessing ? (
                                 <div className="flex flex-col items-center justify-center py-12 space-y-4 animate-in fade-in duration-500">
                                     <div className="relative">
+                                        {/* INLINE SPINNER REPLACEMENT 1 */}
                                         <div className={`absolute inset-0 rounded-full blur-xl animate-pulse ${themeStyles.iconBg}`} />
-                                        <Spinner size="lg" />
+                                        <svg className={`animate-spin h-10 w-10 ${themeStyles.accentColor}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
                                     </div>
                                     <p className={`text-[15px] font-medium text-center max-w-[240px] leading-relaxed ${themeStyles.textColor}`}>
                                         Thinking...
@@ -1135,7 +1138,14 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                 className={`w-full h-12 rounded-[16px] font-bold text-[15px] text-white shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-2
                                     ${!file || isProcessing ? 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed shadow-none opacity-70' : `${activeOverlay !== 'none' ? `bg-gradient-to-r ${themeStyles.buttonGradient}` : 'bg-[#007AFF] hover:bg-[#0062CC]'} shadow-blue-500/25 hover:shadow-blue-500/40`}`}
                             >
-                                {isProcessing ? <Spinner size="sm" color="border-white" /> : <SparklesIcon className="w-5 h-5 stroke-[2]" />}
+                                {isProcessing ? (
+                                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                ) : (
+                                    <SparklesIcon className="w-5 h-5 stroke-[2]" />
+                                )}
                                 {previewLessons.length > 0 ? 'Regenerate Content' : 'Generate Lessons'}
                             </button>
                         </div>
@@ -1151,9 +1161,13 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                     
                                     {/* Visual Pulse */}
                                     <div className="relative mb-8">
+                                        {/* INLINE SPINNER REPLACEMENT 2 */}
                                         <div className={`absolute inset-0 rounded-full blur-2xl animate-pulse opacity-40 ${themeStyles.iconBg}`} />
                                         <div className={`w-24 h-24 rounded-[32px] flex items-center justify-center shadow-2xl border bg-white dark:bg-black ${themeStyles.borderColor}`}>
-                                            <Spinner size="lg" />
+                                            <svg className={`animate-spin h-10 w-10 ${themeStyles.accentColor}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
                                         </div>
                                     </div>
 
