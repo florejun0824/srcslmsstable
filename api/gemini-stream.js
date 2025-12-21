@@ -9,34 +9,37 @@ export const config = {
 const getApiKeyPool = () => {
   const keys = new Set();
 
-  // 1. Primary Key (Matches your "GEMINI_API_KEY")
+  // 1. Primary Key
   if (process.env.GEMINI_API_KEY) {
     keys.add(process.env.GEMINI_API_KEY);
   }
 
-  // 2. Fallback 1 (Matches your "GEMINI_FALLBACK_API_KEY")
+  // 2. Fallback 1
   if (process.env.GEMINI_FALLBACK_API_KEY) {
     keys.add(process.env.GEMINI_FALLBACK_API_KEY);
   }
 
-  // 3. Fallback 2 (Matches your "GEMINI_FALLBACK_API_KEY_2")
+  // 3. Fallback 2
   if (process.env.GEMINI_FALLBACK_API_KEY_2) {
     keys.add(process.env.GEMINI_FALLBACK_API_KEY_2);
   }
   
-  // 4. Fallback 3 (Matches your "GEMINI_FALLBACK_API_KEY_2")
+  // 4. Fallback 3
   if (process.env.GEMINI_FALLBACK_API_KEY_3) {
     keys.add(process.env.GEMINI_FALLBACK_API_KEY_3);
-	
-    // 5. Fallback 3 (Matches your "GEMINI_FALLBACK_API_KEY_2")
-    if (process.env.GEMINI_FALLBACK_API_KEY_4) {
-      keys.add(process.env.GEMINI_FALLBACK_API_KEY_4);
-	  
-      // 6. Fallback 5 (Matches your "GEMINI_FALLBACK_API_KEY_2")
-      if (process.env.GEMINI_FALLBACK_API_KEY_5) {
-        keys.add(process.env.GEMINI_FALLBACK_API_KEY_5);
+  } // <--- Added closing brace
 
-  // 7. Legacy/Frontend check (Just in case you use VITE_ prefix locally)
+  // 5. Fallback 4
+  if (process.env.GEMINI_FALLBACK_API_KEY_4) {
+    keys.add(process.env.GEMINI_FALLBACK_API_KEY_4);
+  } // <--- Added closing brace
+  
+  // 6. Fallback 5
+  if (process.env.GEMINI_FALLBACK_API_KEY_5) {
+    keys.add(process.env.GEMINI_FALLBACK_API_KEY_5);
+  } // <--- Added closing brace
+
+  // 7. Legacy/Frontend check
   if (process.env.VITE_GEMINI_API_KEY) {
     keys.add(process.env.VITE_GEMINI_API_KEY);
   }
