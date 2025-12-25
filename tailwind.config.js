@@ -1,6 +1,6 @@
 /** @type {import('tailwindcss').Config} */
-module.exports = {
-  darkMode: 'selector',
+export default {
+  darkMode: 'selector', // Modern 'selector' strategy
   content: [
     "./index.html",
     "./src/**/*.{js,jsx,ts,tsx}",
@@ -73,7 +73,7 @@ module.exports = {
         'neumorphic-shadow-dark-dark': '#0f172a',
         'neumorphic-shadow-light-dark': '#334155',
       },
-      // --- NEW: Holographic Backgrounds ---
+      // --- Holographic Backgrounds ---
       backgroundImage: {
         'glass-shine': 'linear-gradient(rgba(255,255,255,0.05), rgba(255,255,255,0))',
         'gradient-border': 'linear-gradient(var(--monet-accent), var(--monet-accent-dark))', 
@@ -82,7 +82,6 @@ module.exports = {
         'spin-slow': 'spin 4s linear infinite',
         blob: "blob 7s infinite",
         "scale-in": "scaleIn 0.3s ease-out forwards",
-        // --- NEW: Holographic Animations ---
         'border-flow': 'borderFlow 3s ease infinite',
         'aurora': 'aurora 10s ease infinite',
       },
@@ -97,7 +96,6 @@ module.exports = {
           "0%": { opacity: 0, transform: "scale(0.95) translateY(-5px)" },
           "100%": { opacity: 1, transform: "scale(1) translateY(0px)" },
         },
-        // --- NEW: Holographic Keyframes ---
         borderFlow: {
           '0%, 100%': { backgroundPosition: '0% 50%' },
           '50%': { backgroundPosition: '100% 50%' },
@@ -108,7 +106,6 @@ module.exports = {
         },
       },
       boxShadow: {
-        // Existing Shadows
         'sm-floating-xs': '0 2px 8px rgba(0, 0, 0, 0.05), 0 0 1px rgba(0, 0, 0, 0.05)',
         'md-floating-xs': '0 4px 12px rgba(0, 0, 0, 0.08), 0 0 1px rgba(0, 0, 0, 0.05)',
         'lg-floating-sm': '0 8px 20px rgba(0, 0, 0, 0.1), 0 0 2px rgba(0, 0, 0, 0.08)',
@@ -119,7 +116,7 @@ module.exports = {
         'tremor-card': '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)',
         'tremor-dropdown': '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
         
-        // Legacy Neumorphic (Keep for backward compatibility)
+        // Legacy Neumorphic
         'neumorphic': '6px 6px 12px #C8CDD3, -6px -6px 12px #FFFFFF',
         'neumorphic-inset': 'inset 6px 6px 12px #C8CDD3, inset -6px -6px 12px #FFFFFF',
         'neumorphic-flat-inset': 'inset 2px 2px 4px #C8CDD3, inset -2px -2px 4px #FFFFFF',
@@ -127,7 +124,7 @@ module.exports = {
         'neumorphic-inset-dark': 'inset 6px 6px 12px #0f172a, inset -6px -6px 12px #334155',
         'neumorphic-flat-inset-dark': 'inset 2px 2px 4px #0f172a, inset -2px -2px 4px #334155',
 
-        // --- NEW: Holographic Glass Shadows (Use these instead of Neumorphic) ---
+        // Holographic Glass Shadows
         'glass-sm': '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03), inset 0 0 0 1px rgba(255, 255, 255, 0.1)',
         'glass-md': '0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025), inset 0 0 0 1px rgba(255, 255, 255, 0.1)',
         'glass-lg': '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04), inset 0 0 0 1px rgba(255, 255, 255, 0.1)',
@@ -160,12 +157,8 @@ module.exports = {
               borderRadius: theme('borderRadius.lg'),
               boxShadow: theme('boxShadow.neumorphic-flat-inset'),
             },
-            'blockquote p:first-of-type::before': {
-              content: '',
-            },
-            'blockquote p:last-of-type::after': {
-              content: '',
-            },
+            'blockquote p:first-of-type::before': { content: '' },
+            'blockquote p:last-of-type::after': { content: '' },
           },
         },
         invert: {
@@ -180,6 +173,8 @@ module.exports = {
       }),
     },
   },
+  // NOTE: This safelist generates a very large CSS file.
+  // If you notice slow builds, try removing this section and strictly defining your colors in code.
   safelist: [
     'to-blue-50',
     'to-green-50',
@@ -203,6 +198,6 @@ module.exports = {
   ],
   plugins: [
     require('@tailwindcss/typography'),
-    require('@tailwindcss/line-clamp'),
+    // Line-clamp is now built-in to Tailwind v3.3+, no plugin needed
   ],
 };

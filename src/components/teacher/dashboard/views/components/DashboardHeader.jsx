@@ -40,8 +40,10 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal }) => {
                                 <span className="relative flex h-2 w-2 md:h-2.5 md:w-2.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-full w-full bg-emerald-500"></span></span>
                                 <span className="text-[10px] md:text-[11px] font-bold uppercase tracking-widest">Live Dashboard</span>
                             </div>
-                            <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tighter leading-[1.1] drop-shadow-sm text-white">{greeting}, <br className="hidden md:block" /><span className="text-white">{userProfile?.firstName}</span></h1>
-                            <p className="text-xs sm:text-sm md:text-base font-medium leading-relaxed max-w-sm mx-auto md:mx-0 text-slate-200">You have full control today. Check your schedule or manage classes below.</p>
+<h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tighter leading-[1.1] drop-shadow-sm text-white">{greeting}, <br className="hidden md:block" /><span className="text-white">{userProfile?.firstName}</span></h1>
+<p className="text-xs sm:text-sm md:text-base font-medium leading-relaxed max-w-sm mx-auto md:mx-0 text-slate-200">
+  You have full control today. Check your schedule or manage classes on the <span className="font-bold text-white">Classes Tab</span>.
+</p>
                         </div>
                          <div className="col-span-1 flex items-center justify-center h-full w-full order-first md:order-none" onClick={handleBannerClick} style={{ cursor: userProfile?.role === 'admin' ? 'pointer' : 'default' }}>
                             <div className="relative group w-full max-w-[280px] md:max-w-xs aspect-[3/2] transition-transform duration-500 hover:scale-[1.02] perspective-1000">

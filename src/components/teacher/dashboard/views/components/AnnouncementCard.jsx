@@ -1,30 +1,85 @@
-// src/components/teacher/dashboard/components/AnnouncementCard.jsx
+// src/components/teacher/dashboard/views/components/AnnouncementCard.jsx
 import React, { useState, useRef, memo, forwardRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Pencil, Trash2, Pin, MessageCircle, ThumbsUp } from 'lucide-react';
 import UserInitialsAvatar from '../../../../../components/common/UserInitialsAvatar';
 import Linkify from 'react-linkify'; 
-import { useTheme } from '../../../../../contexts/ThemeContext'; // 1. Import Theme Context
+import { useTheme } from '../../../../../contexts/ThemeContext';
 
-// --- Reaction Constants ---
+// --- 1. CONFIGURATION: STATIC & ANIMATED PATHS ---
 const reactionIconsHomeView = {
-  like: { component: (props) => (<span {...props}>👍</span>), label: 'Like', color: 'text-blue-600 dark:text-blue-400' },
-  heart: { component: (props) => (<span {...props}>❤️</span>), label: 'Love', color: 'text-red-600 dark:text-red-400' },
-  haha: { component: (props) => (<span {...props}>😂</span>), label: 'Haha', color: 'text-yellow-600 dark:text-yellow-400' },
-  wow: { component: (props) => (<span {...props}>😮</span>), label: 'Wow', color: 'text-amber-600 dark:text-amber-400' },
-  sad: { component: (props) => (<span {...props}>😢</span>), label: 'Sad', color: 'text-slate-600 dark:text-slate-400' },
-  angry: { component: (props) => (<span {...props}>😡</span>), label: 'Angry', color: 'text-red-700 dark:text-red-500' },
-  care: { component: (props) => (<span {...props}>🤗</span>), label: 'Care', color: 'text-pink-600 dark:text-pink-400' },
-};
-
-const themedReactionIcons = {
-  like: { emoji: '👍', label: 'Like' },
-  heart: { emoji: '❤️', label: 'Love' },
-  haha: { emoji: '😂', label: 'Haha' },
-  wow: { emoji: '😮', label: 'Wow' },
-  sad: { emoji: '😢', label: 'Sad' },
-  angry: { emoji: '😡', label: 'Angry' },
-  care: { emoji: '🤗', label: 'Care' },
+  like: { 
+      static: '/emojis/like.png', // <--- You need to add this static file
+      animated: '/emojis/like.gif',
+      label: 'Like', 
+      color: 'text-blue-600',
+      animation: { 
+          rotate: [0, -15, 0, -15, 0], 
+          scale: [1, 1.2, 1, 1.2, 1],
+          transition: { duration: 1.5, repeat: Infinity, ease: "easeInOut" } 
+      }
+  },
+  heart: { 
+      static: '/emojis/love.png', // <--- You need to add this static file
+      animated: '/emojis/love.gif',
+      label: 'Love', 
+      color: 'text-red-600',
+      animation: { 
+          scale: [1, 1.2, 1], 
+          transition: { duration: 0.8, repeat: Infinity, ease: "easeInOut", repeatDelay: 0.5 } 
+      }
+  },
+  haha: { 
+      static: '/emojis/haha.png', // <--- You need to add this static file
+      animated: '/emojis/haha.gif',
+      label: 'Haha', 
+      color: 'text-yellow-500',
+      animation: { 
+          rotate: [0, -5, 5, -5, 5, 0],
+          y: [0, -3, 3, -3, 0],
+          transition: { duration: 0.6, repeat: Infinity, ease: "linear" } 
+      }
+  },
+  wow: { 
+      static: '/emojis/wow.png', // <--- You need to add this static file
+      animated: '/emojis/wow.gif',
+      label: 'Wow', 
+      color: 'text-amber-500',
+      animation: { 
+          scale: [1, 1.1, 1],
+          transition: { duration: 1.5, repeat: Infinity, ease: "easeInOut" } 
+      }
+  },
+  sad: { 
+      static: '/emojis/sad.png', // <--- You need to add this static file
+      animated: '/emojis/sad.gif',
+      label: 'Sad', 
+      color: 'text-blue-400',
+      animation: { 
+          y: [0, 2, -2, 0],
+          transition: { duration: 2, repeat: Infinity, ease: "easeInOut" } 
+      }
+  },
+  angry: { 
+      static: '/emojis/angry.png', // <--- You need to add this static file
+      animated: '/emojis/angry.gif',
+      label: 'Angry', 
+      color: 'text-red-700',
+      animation: { 
+          x: [0, 1, -1, 1, -1, 0], 
+          transition: { duration: 0.2, repeat: Infinity, ease: "linear" } 
+      }
+  },
+  care: { 
+      static: '/emojis/care.png', // <--- You need to add this static file
+      animated: '/emojis/care.gif',
+      label: 'Care', 
+      color: 'text-pink-500',
+      animation: { 
+          scale: [1, 1.1, 1],
+          transition: { duration: 1.5, repeat: Infinity, ease: "easeInOut" } 
+      }
+  },
 };
 
 const ANNOUNCEMENT_TRUNCATE_LENGTH = 300;
@@ -33,7 +88,6 @@ const ANNOUNCEMENT_TRUNCATE_LENGTH = 300;
 const getMonetCardStyle = (activeOverlay) => {
     if (!activeOverlay) return null;
 
-    // Base glass style for all monet themes (Forces dark mode aesthetic for contrast against backgrounds)
     const base = {
         card: "backdrop-blur-xl shadow-lg border text-white",
         textTitle: "text-white",
@@ -42,26 +96,17 @@ const getMonetCardStyle = (activeOverlay) => {
         divider: "border-white/10",
         button: "bg-white/10 hover:bg-white/20 text-white",
         pinned: "bg-white/20 border-white/20 text-white",
-        input: "bg-black/30 border-white/10 text-white placeholder:text-white/40",
     };
 
     switch (activeOverlay) {
-        case 'christmas':
-            return { ...base, card: `${base.card} bg-[#0f172a]/80 border-emerald-500/30 shadow-emerald-900/10` };
-        case 'valentines':
-            return { ...base, card: `${base.card} bg-[#2c0b0e]/80 border-rose-500/30 shadow-rose-900/10` };
-        case 'graduation':
-            return { ...base, card: `${base.card} bg-[#1a1400]/80 border-amber-500/30 shadow-amber-900/10` };
-        case 'rainy':
-            return { ...base, card: `${base.card} bg-[#061816]/80 border-teal-500/30 shadow-teal-900/10` };
-        case 'cyberpunk':
-            return { ...base, card: `${base.card} bg-[#180a20]/80 border-fuchsia-500/30 shadow-fuchsia-900/10` };
-        case 'spring':
-            return { ...base, card: `${base.card} bg-[#1f0f15]/80 border-pink-500/30 shadow-pink-900/10` };
-        case 'space':
-            return { ...base, card: `${base.card} bg-[#020617]/80 border-indigo-500/30 shadow-indigo-900/10` };
-        default:
-            return null;
+        case 'christmas': return { ...base, card: `${base.card} bg-[#0f172a]/80 border-emerald-500/30 shadow-emerald-900/10` };
+        case 'valentines': return { ...base, card: `${base.card} bg-[#2c0b0e]/80 border-rose-500/30 shadow-rose-900/10` };
+        case 'graduation': return { ...base, card: `${base.card} bg-[#1a1400]/80 border-amber-500/30 shadow-amber-900/10` };
+        case 'rainy': return { ...base, card: `${base.card} bg-[#061816]/80 border-teal-500/30 shadow-teal-900/10` };
+        case 'cyberpunk': return { ...base, card: `${base.card} bg-[#180a20]/80 border-fuchsia-500/30 shadow-fuchsia-900/10` };
+        case 'spring': return { ...base, card: `${base.card} bg-[#1f0f15]/80 border-pink-500/30 shadow-pink-900/10` };
+        case 'space': return { ...base, card: `${base.card} bg-[#020617]/80 border-indigo-500/30 shadow-indigo-900/10` };
+        default: return null;
     }
 };
 
@@ -69,7 +114,7 @@ const AnnouncementCard = forwardRef(({
     post,
     userProfile,
     authorProfile,
-    postReactions,
+    postReactions = {},
     usersMap,
     isEditing,
     editingText,
@@ -86,10 +131,10 @@ const AnnouncementCard = forwardRef(({
     onViewReactions,
 }, ref) => {
     const [isReactionOptionsVisible, setReactionOptionsVisible] = useState(false);
+    const [hoveredReaction, setHoveredReaction] = useState(null);
     const hoverTimeoutRef = useRef(null);
     const longPressTimerRef = useRef(null);
 
-    // Theme Context
     const { activeOverlay } = useTheme();
     const monet = getMonetCardStyle(activeOverlay);
 
@@ -97,13 +142,9 @@ const AnnouncementCard = forwardRef(({
     const currentUserReaction = postReactions[userProfile?.id];
     const isTruncated = post.content && post.content.length > ANNOUNCEMENT_TRUNCATE_LENGTH;
 
-    const {
-        component: ReactionButtonIcon,
-        label: reactionLabel,
-        color: reactionColor
-    } = currentUserReaction && reactionIconsHomeView[currentUserReaction]
-        ? reactionIconsHomeView[currentUserReaction]
-        : { component: ThumbsUp, label: 'Like', color: monet ? 'text-slate-300' : 'text-slate-600 dark:text-slate-400' };
+    const currentReactionConfig = currentUserReaction ? reactionIconsHomeView[currentUserReaction] : null;
+    const reactionLabel = currentReactionConfig ? currentReactionConfig.label : 'Like';
+    const reactionColor = currentReactionConfig ? currentReactionConfig.color : (monet ? 'text-slate-300' : 'text-slate-500');
 
     // Handlers
     const handleReactionOptionsMouseEnter = () => { clearTimeout(hoverTimeoutRef.current); setReactionOptionsVisible(true); };
@@ -111,9 +152,13 @@ const AnnouncementCard = forwardRef(({
     const handleTouchStart = () => { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = setTimeout(() => { setReactionOptionsVisible(true); }, 500); };
     const handleTouchEnd = () => { clearTimeout(longPressTimerRef.current); setTimeout(() => setReactionOptionsVisible(false), 2000); };
     const handleTouchMove = () => { clearTimeout(longPressTimerRef.current); };
-    const handleReactionOptionClick = (reactionType) => { onToggleReaction(post.id, reactionType); setReactionOptionsVisible(false); };
+    
+    const handleReactionOptionClick = (reactionType) => { 
+        onToggleReaction(post.id, reactionType); 
+        setReactionOptionsVisible(false); 
+        setHoveredReaction(null);
+    };
 
-    // Custom Link Decorator (Dynamic Color)
     const componentDecorator = (href, text, key) => (
         <a 
             href={href} 
@@ -127,25 +172,62 @@ const AnnouncementCard = forwardRef(({
         </a>
     );
 
-    // Reaction Count UI
+    // --- REACTION GROUPING LOGIC (Using Static Images) ---
     const formatReactionCount = () => {
-        const totalReactions = Object.keys(postReactions).length;
+        const reactionsValues = Object.values(postReactions);
+        const totalReactions = reactionsValues.length;
+        
         if (totalReactions === 0) return null;
-        return (
-            <div className="flex items-center gap-2 cursor-pointer group" onClick={(e) => { e.stopPropagation(); onViewReactions(postReactions, usersMap); }}>
-                <div className="flex items-center -space-x-2">
-                    {Object.values(postReactions).slice(0, 3).map((reactionType, index) => {
-                        const reaction = reactionIconsHomeView[reactionType];
-                        if (!reaction) return null;
-                        const { component: Icon } = reaction;
-                        return (
-                            <div key={index} className={`relative w-6 h-6 flex items-center justify-center rounded-full ring-2 z-10 ${monet ? 'bg-slate-800 ring-slate-700' : 'bg-slate-50 dark:bg-slate-800 ring-white dark:ring-slate-900'}`}>
-                                <Icon className="text-sm" />
-                            </div>
-                        );
-                    })}
+
+        const counts = {};
+        reactionsValues.forEach(r => { counts[r] = (counts[r] || 0) + 1; });
+        const sortedTypes = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+        const isUniform = sortedTypes.length === 1; 
+        
+        // MIXED: Stacked Images (Use Static)
+        if (!isUniform) {
+            const typesToShow = sortedTypes.slice(0, 3);
+            return (
+                <div className="flex items-center gap-2 cursor-pointer group" onClick={(e) => { e.stopPropagation(); onViewReactions(postReactions, usersMap); }}>
+                    <div className="flex items-center -space-x-2">
+                        {typesToShow.map((type) => {
+                            const conf = reactionIconsHomeView[type];
+                            if (!conf) return null;
+                            return (
+                                <div key={type} className={`
+                                    relative w-6 h-6 flex items-center justify-center rounded-full ring-[2px] z-10 shadow-sm overflow-hidden
+                                    ${monet ? 'bg-slate-800 ring-slate-700' : 'bg-white dark:bg-slate-800 ring-white dark:ring-slate-900'}
+                                `}>
+                                    {/* ALWAYS STATIC IN COUNT */}
+                                    <img 
+                                        src={conf.static} 
+                                        alt={conf.label}
+                                        className="w-full h-full object-contain p-0.5" 
+                                    />
+                                </div>
+                            );
+                        })}
+                    </div>
+                    <span className={`text-xs font-bold transition-colors ml-1 ${monet ? 'text-slate-300 group-hover:text-white' : 'text-slate-500 dark:text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400'}`}>
+                        {totalReactions}
+                    </span>
                 </div>
-                <span className={`text-xs font-bold transition-colors ${monet ? 'text-slate-300 group-hover:text-white' : 'text-slate-500 dark:text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400'}`}>
+            );
+        }
+
+        // UNIFORM: Single Large Image (Use Static)
+        const singleType = sortedTypes[0];
+        const conf = reactionIconsHomeView[singleType];
+        
+        return (
+            <div className="flex items-center gap-1.5 cursor-pointer group" onClick={(e) => { e.stopPropagation(); onViewReactions(postReactions, usersMap); }}>
+                {conf ? (
+                    // ALWAYS STATIC IN COUNT
+                    <img src={conf.static} alt={conf.label} className="w-5 h-5 object-contain" />
+                ) : (
+                    <ThumbsUp className="w-4 h-4" />
+                )}
+                <span className={`text-xs font-bold ${conf?.color || (monet ? 'text-slate-300' : 'text-slate-600 dark:text-slate-400')}`}>
                     {totalReactions}
                 </span>
             </div>
@@ -182,7 +264,6 @@ const AnnouncementCard = forwardRef(({
                     </p>
                 </div>
                 
-                {/* Action Buttons (Edit/Delete) */}
                 {canModify && (
                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                          {userProfile?.role === 'admin' && (
@@ -209,7 +290,6 @@ const AnnouncementCard = forwardRef(({
                 )}
             </div>
 
-            {/* Content Area */}
             <div className="pl-0 md:pl-16">
                 {isEditing ? (
                     <div className={`p-4 rounded-3xl border mb-4 ${monet ? 'bg-black/20 border-white/10' : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800'}`}>
@@ -279,7 +359,7 @@ const AnnouncementCard = forwardRef(({
 
                 {/* Engagement Stats */}
                 <div className={`flex justify-between items-center mt-6 pt-4 border-t ${monet ? monet.divider : 'border-slate-100 dark:border-slate-800'}`}>
-                    {formatReactionCount() || <div />} {/* Spacer if empty */}
+                    {formatReactionCount() || <div />} 
                     <button 
                         className={`text-xs font-bold transition-colors ${monet ? 'text-slate-300 hover:text-white' : 'text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400'}`}
                         onClick={() => onViewComments(post)}
@@ -288,7 +368,7 @@ const AnnouncementCard = forwardRef(({
                     </button>
                 </div>
 
-                {/* Reaction Actions (Solid Buttons) */}
+                {/* Reaction Actions */}
                 <div className="grid grid-cols-2 gap-3 mt-4">
                     <div
                         className="relative"
@@ -308,7 +388,14 @@ const AnnouncementCard = forwardRef(({
                         >
                             {currentUserReaction ? (
                                 <>
-                                    <ReactionButtonIcon className="text-lg" />
+                                    {/* Active State with Static Sticker (resting state) */}
+                                    {currentReactionConfig && (
+                                        <img 
+                                            src={currentReactionConfig.static} 
+                                            alt={currentReactionConfig.label} 
+                                            className="w-5 h-5 object-contain" 
+                                        />
+                                    )}
                                     <span className={`text-xs font-bold ${monet ? 'text-white' : reactionColor}`}>{reactionLabel}</span>
                                 </>
                             ) : (
@@ -319,28 +406,56 @@ const AnnouncementCard = forwardRef(({
                             )}
                         </button>
 
-                        {/* Floating Reaction Bar */}
+                        {/* --- ANIMATED STICKER DOCK --- */}
                         <AnimatePresence>
                             {isReactionOptionsVisible && (
                                 <motion.div
                                     initial={{ opacity: 0, y: 10, scale: 0.9 }}
                                     animate={{ opacity: 1, y: 0, scale: 1 }}
                                     exit={{ opacity: 0, y: 10, scale: 0.9 }}
-                                    transition={{ duration: 0.2 }}
-                                    className={`absolute bottom-full mb-2 left-0 rounded-full shadow-xl border p-2 flex gap-1 z-50 
-                                        ${monet ? 'bg-[#1e1e1e] border-white/10' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'}`}
+                                    transition={{ duration: 0.2, type: "spring", stiffness: 300, damping: 20 }}
+                                    className={`absolute bottom-full mb-3 left-0 rounded-full shadow-2xl px-2 py-1.5 flex gap-1 z-50 
+                                        ${monet ? 'bg-[#1e1e1e] border border-white/20' : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 ring-1 ring-black/5'}`}
                                     onMouseEnter={handleReactionOptionsMouseEnter}
                                     onMouseLeave={handleReactionOptionsMouseLeave}
                                 >
-                                    {Object.entries(themedReactionIcons).map(([type, { emoji }]) => (
-                                        <div
+                                    {Object.entries(reactionIconsHomeView).map(([type, config], index) => (
+                                        <motion.div
                                             key={type}
-                                            className={`w-9 h-9 flex items-center justify-center rounded-full cursor-pointer transition-transform hover:scale-110 
-                                                ${monet ? 'hover:bg-white/10' : 'hover:bg-slate-100 dark:hover:bg-slate-700'}`}
-                                            onClick={() => handleReactionOptionClick(type)}
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ delay: index * 0.05 }} 
+                                            className="relative group"
                                         >
-                                            <span className="text-xl leading-none">{emoji}</span>
-                                        </div>
+                                            <motion.div
+                                                className={`w-10 h-10 flex items-center justify-center rounded-full cursor-pointer origin-bottom transition-all
+                                                    ${hoveredReaction === type ? 'z-50' : 'z-10'}`}
+                                                whileHover={{ scale: 1.5, y: -5 }} // Magnification
+                                                animate={hoveredReaction === type ? config.animation : {}} // Unique Physics Animation
+                                                onHoverStart={() => setHoveredReaction(type)}
+                                                onHoverEnd={() => setHoveredReaction(null)}
+                                                onClick={() => handleReactionOptionClick(type)}
+                                            >
+                                                {/* SWITCH SRC ON HOVER */}
+                                                <img 
+                                                    src={hoveredReaction === type ? config.animated : config.static} 
+                                                    alt={config.label}
+                                                    className="w-full h-full object-contain filter drop-shadow-sm" 
+                                                />
+                                            </motion.div>
+                                            
+                                            {/* Tooltip Label */}
+                                            {hoveredReaction === type && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, y: 5 }}
+                                                    animate={{ opacity: 1, y: -20 }}
+                                                    className={`absolute -top-6 left-1/2 -translate-x-1/2 px-2 py-0.5 text-[10px] font-bold rounded-md whitespace-nowrap pointer-events-none shadow-sm
+                                                        ${monet ? 'bg-black text-white' : 'bg-slate-800 text-white'}`}
+                                                >
+                                                    {config.label}
+                                                </motion.div>
+                                            )}
+                                        </motion.div>
                                     ))}
                                 </motion.div>
                             )}

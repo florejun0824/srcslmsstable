@@ -4,9 +4,7 @@ import { createPortal } from 'react-dom';
 import { db } from '../../services/firebase';
 import { collection, query, where, onSnapshot, writeBatch, doc } from 'firebase/firestore';
 import { useTheme } from '../../contexts/ThemeContext';
-// --- NEW IMPORT FOR ULP EXPORT ---
 import { asBlob } from 'html-docx-js-typescript'; 
-// ---------------------------------
 import {
     PlusIcon,
     TrashIcon,
@@ -82,7 +80,6 @@ const getStyles = (monet) => {
             contentItem: `${monet.buttonSecondary} !justify-start !rounded-[1.5rem] md:!rounded-[2rem] border-white/10 hover:border-white/30`
         };
     }
-    // Default Candy Styles
     return {
         primaryButton: `${candyBase} bg-gradient-to-b from-blue-400 to-blue-600 hover:from-blue-300 hover:to-blue-500 text-white shadow-blue-500/40 border-b-[2px] border-blue-700`,
         secondaryButton: `${candyBase} bg-gradient-to-b from-white/80 to-white/40 dark:from-slate-700/80 dark:to-slate-800/40 backdrop-blur-md text-slate-700 dark:text-white border border-white/40 dark:border-white/10 shadow-slate-200/50 dark:shadow-black/30 hover:bg-white/60 dark:hover:bg-slate-700/60`,
@@ -92,7 +89,7 @@ const getStyles = (monet) => {
     };
 };
 
-// --- HELPER FUNCTIONS (Export Logic) ---
+// --- HELPER FUNCTIONS ---
 const isNativePlatform = () => Capacitor.isNativePlatform();
 
 const blobToBase64 = (blob) => {
@@ -130,7 +127,6 @@ async function loadFontToVfs(name, url) {
   pdfMake.vfs[name] = btoa(new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), ""));
 }
 
-// --- UPDATED FONT REGISTRATION ---
 let dejaVuLoaded = false;
 async function registerDejaVuFonts() {
   if (dejaVuLoaded) return;
@@ -156,36 +152,28 @@ async function registerDejaVuFonts() {
       Arial: dejaVuConfig,
       Helvetica: dejaVuConfig
     };
-    
     dejaVuLoaded = true;
   } catch (e) { console.error("Font load error", e); }
 }
 
 const processLatex = (text) => {
     if (!text) return '';
-
     let processed = text
         .replace(/\\degree/g, '°')
         .replace(/\\angle/g, '∠')
         .replace(/\\vec\{(.*?)\}/g, (_, c) => c.split('').map(x => x + '\u20D7').join(''));
 
-		const latexToImg = (match, code) => {
-		    const cleanCode = code.trim();
-
-		    // Render at exact final pixel size
-		    // 250 dpi visual sharpness ≈ 3× normal size
-		    const url = `https://latex.codecogs.com/png.latex?\\dpi{1080}\\bg_white\\color{black} ${encodeURIComponent(cleanCode)}`;
-
-		    return `<img src="${url}" class="math-img" />`;
-		};
-		
-
+    const latexToImg = (match, code) => {
+        const cleanCode = code.trim();
+        const url = `https://latex.codecogs.com/png.latex?\\dpi{1080}\\bg_white\\color{black} ${encodeURIComponent(cleanCode)}`;
+        return `<img src="${url}" class="math-img" />`;
+    };
 
     return processed
         .replace(/\$\$(.*?)\$\$/g, latexToImg) 
         .replace(/\$(.*?)\$/g, latexToImg);    
 };
-// --- NEW HELPER: Get Image Dimensions ---
+
 const getImageDimensions = (base64) => {
     return new Promise((resolve) => {
         const i = new Image();
@@ -193,6 +181,7 @@ const getImageDimensions = (base64) => {
         i.src = base64;
     });
 };
+
 async function fetchImageAsBase64(url) {
   const res = await fetch(url);
   const blob = await res.blob();
@@ -228,7 +217,6 @@ const convertSvgStringToPngDataUrl = (svgString) => {
     });
 }
 
-// --- HELPER: Cell Formatter ---
 const formatCellContent = (text) => {
     if (!text) return '';
     let formatted = text
@@ -239,7 +227,6 @@ const formatCellContent = (text) => {
     return marked.parseInline(formatted);
 };
 
-// --- HELPER: Smart Markdown Table Parser ---
 const forceParseMarkdownTable = (text) => {
     if (!text) return text;
     if (text.includes('<table') && (text.includes('inner-table') || text.includes('border='))) return text;
@@ -300,11 +287,20 @@ const forceParseMarkdownTable = (text) => {
     return processedLines.join('\n');
 };
 
-// --- HELPER: Pre-process HTML ---
 const preProcessHtmlForExport = (rawHtml, mode = 'pdf') => {
-
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = rawHtml;
+
+    // --- NEW: Inject styles to force word break ---
+    // This prevents long words/URLs from pushing table columns out of bounds
+    const style = document.createElement('style');
+    style.innerHTML = `
+      table { width: 100% !important; table-layout: fixed; word-wrap: break-word; }
+      td, th { word-wrap: break-word; word-break: break-all; white-space: normal; }
+      img { max-width: 100%; height: auto; }
+    `;
+    tempDiv.insertBefore(style, tempDiv.firstChild);
+    // ----------------------------------------------
 
     const textNodes = document.createTreeWalker(tempDiv, NodeFilter.SHOW_TEXT, null, false);
     let node;
@@ -328,8 +324,17 @@ const preProcessHtmlForExport = (rawHtml, mode = 'pdf') => {
     tempDiv.querySelectorAll('[style]').forEach(el => {
         let style = el.getAttribute('style') || '';
         style = style.replace(/(width|min-width|max-width):\s*[\d\.]+(px|pt|em|rem);?/gi, '');
+        if (el.tagName === 'TD' || el.tagName === 'TH') {
+            style += '; word-break: break-all; word-wrap: break-word;';
+        }
         el.setAttribute('style', style);
     });
+    
+    // Safety check for all TD/TH without style
+    tempDiv.querySelectorAll('td:not([style]), th:not([style])').forEach(el => {
+        el.setAttribute('style', 'word-break: break-all; word-wrap: break-word;');
+    });
+
     tempDiv.querySelectorAll('[width]').forEach(el => el.removeAttribute('width'));
     tempDiv.querySelectorAll('img').forEach(img => {
         img.removeAttribute('width'); img.removeAttribute('height');
@@ -359,9 +364,7 @@ const preProcessHtmlForExport = (rawHtml, mode = 'pdf') => {
         if (hasTh && !hasThead) {
             const thead = document.createElement('thead');
             const tbody = table.querySelector('tbody') || document.createElement('tbody');
-            
             thead.appendChild(firstRow);
-            
             if (!table.querySelector('tbody')) {
                 const remainingRows = Array.from(table.querySelectorAll('tr')); 
                 remainingRows.forEach(row => {
@@ -369,7 +372,6 @@ const preProcessHtmlForExport = (rawHtml, mode = 'pdf') => {
                 });
                 table.appendChild(tbody);
             }
-            
             table.insertBefore(thead, table.firstChild);
         }
 
@@ -396,7 +398,6 @@ const preProcessHtmlForExport = (rawHtml, mode = 'pdf') => {
             if (hasNestedTable) {
                 td.style.padding = "2px"; 
                 td.style.pageBreakInside = 'auto'; 
-                
                 hasNestedTable.setAttribute('border', '1');
                 hasNestedTable.style.border = '1px solid #000';
                 hasNestedTable.style.width = '100%';
@@ -465,16 +466,30 @@ const preProcessHtmlForExport = (rawHtml, mode = 'pdf') => {
     return tempDiv;
 };
 
-// --- HELPER: Sanitize PDF Structure ---
-const cleanUpPdfContent = (content, inTable = false, depth = 0) => {
+// --- HELPER: Sanitize PDF Structure (STRICT FIT) ---
+const cleanUpPdfContent = (content, inTable = false, depth = 0, tableCols = 1) => {
     if (!content) return;
 
     if (Array.isArray(content)) {
-        content.forEach(item => cleanUpPdfContent(item, inTable, depth));
+        content.forEach((item, index) => {
+            // --- FIX: MANUALLY INJECT BREAKS INTO LONG TEXT IN TABLES ---
+            if (typeof item === 'string' && inTable) {
+                // Regex: Find any sequence of 10 non-whitespace chars and insert a Zero Width Space
+                content[index] = item.replace(/([^\s\u200B]{10})/g, "$1\u200B");
+            } else {
+                cleanUpPdfContent(item, inTable, depth, tableCols);
+            }
+        });
         return;
     }
 
     if (typeof content === 'object') {
+        // --- FIX: HANDLE TEXT OBJECTS ---
+        if (content.text && typeof content.text === 'string' && inTable) {
+             // Inject Zero Width Space (\u200B) every 10 characters for long words
+             content.text = content.text.replace(/([^\s\u200B]{10})/g, "$1\u200B");
+        }
+
         if (content.text) {
             if (content.fontSize && content.fontSize > 12) {
                content.margin = [0, 5, 0, 5];
@@ -485,38 +500,42 @@ const cleanUpPdfContent = (content, inTable = false, depth = 0) => {
         if (content.content || content.stack) {
             const stack = content.content || content.stack;
             if (Array.isArray(stack)) {
-                cleanUpPdfContent(stack, inTable, depth);
+                cleanUpPdfContent(stack, inTable, depth, tableCols);
             }
             delete content.margin;
         }
-		if (content.image) {
-			const isMath = content.style && (
-			                content.style === 'math-img' || 
-			                (Array.isArray(content.style) && content.style.includes('math-img'))
-			            );
+        if (content.image) {
+            const isMath = content.style && (
+                            content.style === 'math-img' || 
+                            (Array.isArray(content.style) && content.style.includes('math-img'))
+                        );
 
-			            if (isMath) {
-			                if (!content.width || content.width === 'auto') {
-			                    content.width = 'auto'; 
-			                    content.fit = [100, 50]; 
-			                }
-			                content.margin = [0, 3, 0, 0]; 
-			                delete content.alignment;
-			            } else {
-			                const maxWidth = inTable ? 120 : 400; 
-			                content.fit = [maxWidth, 600];
-			                delete content.width; 
-			                delete content.height;
-			                content.alignment = 'center';
-			                content.margin = [0, 5, 0, 5]; 
-			            }
-					}
+            if (isMath) {
+                if (!content.width || content.width === 'auto') {
+                    content.width = 'auto'; 
+                    content.fit = [100, 50]; 
+                }
+                content.margin = [0, 3, 0, 0]; 
+                delete content.alignment;
+            } else {
+                // --- FIX: ULTRA-SAFE IMAGE SIZING IN TABLES ---
+                const availablePageWidth = 480; 
+                const calculatedMax = inTable ? (availablePageWidth / Math.max(1, tableCols)) - 20 : 400; 
+                const finalMax = Math.max(40, calculatedMax);
+                
+                content.fit = [finalMax, 600];
+                delete content.width; 
+                delete content.height;
+                content.alignment = 'center';
+                content.margin = [0, 5, 0, 5]; 
+            }
+        }
         else if (content.columns) {
             if (Array.isArray(content.columns)) {
                 content.columns = content.columns.filter(col => col);
                 content.columns.forEach(col => {
                     col.width = '*'; 
-                    cleanUpPdfContent(col, inTable, depth);
+                    cleanUpPdfContent(col, inTable, depth, tableCols);
                 });
             } else { delete content.columns; }
             delete content.columnGap;
@@ -542,37 +561,38 @@ const cleanUpPdfContent = (content, inTable = false, depth = 0) => {
                     row.push({ text: '', border: [true, true, true, true] });
                 }
                 row.forEach(cell => {
+                    // Force noWrap to false to ensure wrapping works
                     if (typeof cell === 'object') {
                         delete cell.width; 
-                        cleanUpPdfContent(cell, true, depth + 1);
+                        cell.noWrap = false; 
+                        cleanUpPdfContent(cell, true, depth + 1, safeMaxCols);
                     }
                 });
             });
 
-            if (depth === 0 && safeMaxCols === 2) {
-                content.table.widths = ['30%', '70%']; 
-            } else {
-                content.table.widths = Array(safeMaxCols).fill('*');
-            }
+            // --- FIX: EXPLICIT PERCENTAGE WIDTHS ---
+            // '*' can be flaky with overflow. Explicit % forces the calculation.
+            const colWidth = 100 / safeMaxCols;
+            content.table.widths = Array(safeMaxCols).fill(colWidth + '%');
         
             content.layout = {
                 hLineWidth: () => 0.5,
                 vLineWidth: () => 0.5,
                 hLineColor: () => '#444', 
                 vLineColor: () => '#444',
-                paddingLeft: () => 3,
-                paddingRight: () => 3,
+                paddingLeft: () => 2, 
+                paddingRight: () => 2,
                 paddingTop: () => 2, 
                 paddingBottom: () => 2,
             };
         }
 
         if (content.ul) {
-            cleanUpPdfContent(content.ul, inTable, depth);
+            cleanUpPdfContent(content.ul, inTable, depth, tableCols);
             content.margin = [0, 2, 0, 5]; 
         }
         if (content.ol) {
-            cleanUpPdfContent(content.ol, inTable, depth);
+            cleanUpPdfContent(content.ol, inTable, depth, tableCols);
             content.margin = [0, 2, 0, 5];
         }
     }
@@ -1431,7 +1451,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 					            margin: [0, 0, 0, 0] 
 					        }
 					    },
-					    tableAutoSize: true, 
+					    tableAutoSize: false, // --- FIX: DISABLE AUTO-SIZE TO FORCE 100% WIDTH ---
 					    imagesByReference: true
 					});
 

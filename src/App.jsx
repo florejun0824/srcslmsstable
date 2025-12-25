@@ -1,19 +1,3 @@
-// src/App.jsx
-
-if (typeof window !== "undefined") {
-  if (typeof window.QUOTE === "undefined") {
-    window.QUOTE = '"';
-  }
-  if (typeof window.Buffer === "undefined") {
-    try {
-      const { Buffer } = require("buffer");
-      window.Buffer = Buffer;
-    } catch (e) {
-      console.warn("Buffer polyfill failed:", e);
-    }
-  }
-}
-
 import React, { useState, useEffect, Suspense, lazy } from 'react'; 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
@@ -28,6 +12,15 @@ import UpdateOverlay from './components/UpdateOverlay';
 import LogoLoadingScreen from './components/common/LogoLoadingScreen'; 
 import * as serviceWorkerRegistration from './serviceWorkerRegistration';
 import './index.css';
+
+// --- GLOBAL DEFINITIONS ---
+if (typeof window !== "undefined") {
+  // Legacy support for some libraries that expect QUOTE
+  if (typeof window.QUOTE === "undefined") {
+    window.QUOTE = '"';
+  }
+  // NOTE: Buffer polyfill is now handled automatically by vite.config.js
+}
 
 // --- LAZY LOADED PAGES (Code Splitting) ---
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -104,6 +97,7 @@ const SystemStatusListener = () => {
 };
 
 // --- SKELETONS ---
+// Tip: In a future step, you can move these to src/components/Skeletons.jsx to clean this file up further.
 const TeacherSkeleton = () => (
   <div className="min-h-screen w-full bg-[#dae0f2] dark:bg-[#0a0c10] font-sans overflow-y-auto custom-scrollbar relative">
      <div className="fixed inset-0 pointer-events-none z-0">

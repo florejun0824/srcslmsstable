@@ -1,8 +1,8 @@
-SRCS LMS RELEASE NOTE (DECEMBER 3 PATCH)
+SRCS LMS RELEASE NOTE (DECEMBER 25 PATCH)
 
-- Redesigned the main dashboard navigation
-- Added new multiple themes overlay
-- Improved loading performance by 20%
+- Optimized Loading Performance
+- Enhanced Security
+- Fixed some Minor Issues that causes the system to crash
 - Fixed issue with scrolling on mobile devices
 - Added support for new User Profile API
 - Fixed export functions

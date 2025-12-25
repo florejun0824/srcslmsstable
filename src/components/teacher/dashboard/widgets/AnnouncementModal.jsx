@@ -1,7 +1,7 @@
 // src/components/teacher/dashboard/widgets/AnnouncementModal.jsx
 import React, { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { motion, AnimatePresence } from 'framer-motion' // <-- Added framer-motion imports
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   FaPaperPlane,
   FaEdit,
@@ -27,43 +27,48 @@ import Linkify from 'react-linkify'
 
 const reactionTypes = ['like', 'heart', 'haha', 'wow', 'sad', 'angry', 'care']
 
-const NativeEmoji = ({ emoji, ...props }) => <span {...props}>{emoji}</span>
-
-// Reaction Config
+// --- UPDATED CONFIG: STATIC VS ANIMATED PATHS ---
 const reactionIcons = {
   like: {
-    component: (props) => <NativeEmoji emoji="👍" {...props} />,
-    color: 'text-blue-500 dark:text-blue-400',
+    static: '/emojis/like.png',      // Static Image
+    animated: '/emojis/like.gif',    // Animated GIF
+    color: 'text-blue-600',
     label: 'Like',
   },
   heart: {
-    component: (props) => <NativeEmoji emoji="❤️" {...props} />,
-    color: 'text-red-500 dark:text-red-400',
+    static: '/emojis/love.png',
+    animated: '/emojis/love.gif',
+    color: 'text-red-600',
     label: 'Love',
   },
   haha: {
-    component: (props) => <NativeEmoji emoji="😂" {...props} />,
-    color: 'text-yellow-500 dark:text-yellow-400',
+    static: '/emojis/haha.png',
+    animated: '/emojis/haha.gif',
+    color: 'text-yellow-500',
     label: 'Haha',
   },
   wow: {
-    component: (props) => <NativeEmoji emoji="😮" {...props} />,
-    color: 'text-amber-500 dark:text-amber-400',
+    static: '/emojis/wow.png',
+    animated: '/emojis/wow.gif',
+    color: 'text-amber-500',
     label: 'Wow',
   },
   sad: {
-    component: (props) => <NativeEmoji emoji="😢" {...props} />,
-    color: 'text-slate-500 dark:text-slate-400',
+    static: '/emojis/sad.png',
+    animated: '/emojis/sad.gif',
+    color: 'text-blue-400',
     label: 'Sad',
   },
   angry: {
-    component: (props) => <NativeEmoji emoji="😡" {...props} />,
-    color: 'text-red-700 dark:text-red-500',
+    static: '/emojis/angry.png',
+    animated: '/emojis/angry.gif',
+    color: 'text-red-700',
     label: 'Angry',
   },
   care: {
-    component: (props) => <NativeEmoji emoji="🤗" {...props} />,
-    color: 'text-pink-500 dark:text-pink-400',
+    static: '/emojis/care.png',
+    animated: '/emojis/care.gif',
+    color: 'text-pink-500',
     label: 'Care',
   },
 }
@@ -102,6 +107,10 @@ const AnnouncementModal = ({
   const [replyToUserName, setReplyToUserName] = useState('')
   const [commentReactions, setCommentReactions] = useState({})
   const [hoveredReactionData, setHoveredReactionData] = useState(null)
+  
+  // Track specifically which emoji inside the picker is being hovered
+  const [hoveredPickerEmoji, setHoveredPickerEmoji] = useState(null)
+
   const [activeReactionPicker, setActiveReactionPicker] = useState(null)
   const [editingCommentId, setEditingCommentId] = useState(null)
   const [editingCommentText, setEditingCommentText] = useState('')
@@ -367,19 +376,19 @@ const AnnouncementModal = ({
   const handleReactionOptionsMouseLeave = () => {
     timeoutRef.current = setTimeout(() => {
       setHoveredReactionData(null)
+      setHoveredPickerEmoji(null) // Reset hovered emoji
     }, 300)
   }
 
   // --- Components ---
 
-  // --- UPDATED: Horizontal macOS Picker ---
+  // --- UPDATED: Horizontal Picker with Hover Logic ---
   const renderReactionPicker = (entityId, type, onSelect) => {
     const isActive =
       activeReactionPicker?.id === entityId && activeReactionPicker?.type === type
     const isHovered =
       hoveredReactionData?.id === entityId && hoveredReactionData?.type === type
 
-    // Use AnimatePresence to allow for exit animations, but conditionally render content
     if (!isActive && !isHovered) return null
 
     return (
@@ -398,6 +407,8 @@ const AnnouncementModal = ({
             >
                 {reactionTypes.map((rType) => {
                     const icon = reactionIcons[rType];
+                    const isEmojiHovered = hoveredPickerEmoji === rType;
+                    
                     return (
                         <motion.button
                             key={rType}
@@ -407,16 +418,21 @@ const AnnouncementModal = ({
                             }}
                             whileHover={{ scale: 1.3, y: -5 }}
                             whileTap={{ scale: 0.9 }}
-                            className="p-2 rounded-full hover:bg-white/50 dark:hover:bg-white/10 transition-colors relative group/emoji"
+                            className="p-1 rounded-full hover:bg-white/50 dark:hover:bg-white/10 transition-colors relative group/emoji"
+                            // Track individual hover for this specific emoji button
+                            onMouseEnter={() => setHoveredPickerEmoji(rType)}
+                            onMouseLeave={() => setHoveredPickerEmoji(null)}
                             onClick={() => {
                                 setActiveReactionPicker(null)
                                 handleReactionOptionsMouseLeave()
                                 onSelect(rType)
                             }}
                         >
-                            <NativeEmoji
-                                emoji={icon.component({}).props.emoji}
-                                className="text-2xl drop-shadow-sm"
+                            {/* LOGIC: Show GIF if hovered, otherwise PNG */}
+                            <img 
+                                src={isEmojiHovered ? icon.animated : icon.static} 
+                                alt={icon.label}
+                                className="w-8 h-8 object-contain" 
                             />
                             {/* Tooltip */}
                             <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-slate-900/90 text-white text-[10px] font-bold px-2 py-1 rounded-md opacity-0 group-hover/emoji:opacity-100 transition-opacity whitespace-nowrap shadow-lg pointer-events-none backdrop-blur-sm">
@@ -430,6 +446,7 @@ const AnnouncementModal = ({
     )
   }
 
+  // --- UPDATED: Reaction Count (Always Static) ---
   const renderReactionCount = (reactions) => {
     if (!reactions || Object.keys(reactions).length === 0) return null
 
@@ -452,10 +469,7 @@ const AnnouncementModal = ({
       >
         <div className="flex items-center">
           {sortedUniqueReactions.map(([type], index) => {
-            // Fallback safety check to prevent crashes on undefined types
             const reactionConfig = reactionIcons[type] || reactionIcons['like'];
-            
-            const { component: Icon } = reactionConfig;
             const zIndex = sortedUniqueReactions.length - index;
 
             return (
@@ -466,7 +480,12 @@ const AnnouncementModal = ({
                 }`}
                 style={{ zIndex: zIndex }}
               >
-                <Icon className="text-sm" />
+                 {/* ALWAYS STATIC */}
+                 <img 
+                    src={reactionConfig.static} 
+                    alt={reactionConfig.label}
+                    className="w-full h-full object-contain p-0.5"
+                 />
               </div>
             )
           })}
@@ -490,13 +509,11 @@ const AnnouncementModal = ({
 
   if (!isOpen || !announcement) return null;
 
-  // --- USE CREATEPORTAL TO RENDER AT BODY LEVEL ---
   return createPortal(
     <div
       className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/30 backdrop-blur-md p-4 font-sans"
       onClick={handleBackdropClick}
     >
-      {/* --- GLASS MODAL --- */}
       <div className="glass-panel bg-white/80 dark:bg-slate-900/80 rounded-[2.5rem] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.3)] w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col border border-white/40 dark:border-white/10">
         
         {/* Header */}
@@ -566,12 +583,12 @@ const AnnouncementModal = ({
                   }`}
                   onClick={() => toggleReactionPicker(announcement.id, 'post')}
                 >
+                  {/* ALWAYS STATIC HERE (Active State) */}
                   {postReactions[currentUserId] ? (
-                    <NativeEmoji
-                      emoji={
-                        (reactionIcons[postReactions[currentUserId]] || reactionIcons['like']).component({}).props.emoji
-                      }
-                      className="text-lg mr-2"
+                    <img
+                        src={(reactionIcons[postReactions[currentUserId]] || reactionIcons['like']).static}
+                        alt="reaction"
+                        className="w-5 h-5 mr-2 object-contain"
                     />
                   ) : (
                     <FaThumbsUp className="h-4 w-4 mr-2" />
