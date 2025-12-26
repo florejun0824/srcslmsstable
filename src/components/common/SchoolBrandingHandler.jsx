@@ -17,8 +17,9 @@ const SchoolBrandingHandler = () => {
     const { userProfile } = useAuth();
 
     useEffect(() => {
-        const schoolId = userProfile?.schoolId || 'default';
-        const brand = SCHOOL_BRANDING[schoolId] || { name: 'LMS Portal', logo: '/logo.png' };
+        // ✅ DEFAULT TO SRCS MAIN if schoolId is missing
+        const schoolId = userProfile?.schoolId || 'srcs_main';
+        const brand = SCHOOL_BRANDING[schoolId] || SCHOOL_BRANDING['srcs_main'];
 
         // 1. Update the Document Title (Browser Tab Name)
         document.title = brand.name;
@@ -36,11 +37,11 @@ const SchoolBrandingHandler = () => {
         }
 
         // 3. Update Native App Icon (Android Only)
-        if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android' && userProfile?.schoolId) {
+        if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
             const changeNativeIcon = async () => {
                 let targetAlias = 'MainActivitySRCS'; // Default
 
-                switch (userProfile.schoolId) {
+                switch (schoolId) {
                     case 'kcc_kabankalan': targetAlias = 'MainActivityKCC'; break;
                     case 'hras_sipalay': targetAlias = 'MainActivityHRA'; break;
                     case 'icad_dancalan': targetAlias = 'MainActivityICA'; break;

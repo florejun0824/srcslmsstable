@@ -19,7 +19,8 @@ const getSchoolName = (schoolId) => {
         'mchs_magballo': 'Magballo Catholic High School',
         'ichs_ilog': 'Ilog Catholic High School'
     };
-    return schools[schoolId] || 'Your School';
+    // ✅ FALLBACK: If schoolId is null/undefined, assume SRCS Main
+    return schools[schoolId || 'srcs_main'] || 'Your School';
 };
 
 // 🏫 School Logo Helper
@@ -32,7 +33,8 @@ const getSchoolLogo = (schoolId) => {
         'mchs_magballo': '/logos/mchs.png',
         'ichs_ilog': '/logos/ichs.png'
     };
-    return logos[schoolId] || '/logo.png';
+    // ✅ FALLBACK: If schoolId is null/undefined, assume SRCS Main
+    return logos[schoolId || 'srcs_main'] || '/logo.png';
 };
 
 const HomeView = ({
@@ -48,12 +50,13 @@ const HomeView = ({
     
     const [dontShowAgain, setDontShowAgain] = useState(false);
 
+    // ✅ FALLBACK in Hook Call as well
     const {
         scheduleActivities,
         onAddActivity,
         onUpdateActivity,
         onDeleteActivity,
-    } = useSchedule(showToast, userProfile?.schoolId);
+    } = useSchedule(showToast, userProfile?.schoolId || 'srcs_main');
 
     // 🚀 EFFECT: Check Storage Logic
     useEffect(() => {
@@ -87,6 +90,9 @@ const HomeView = ({
     const openScheduleModal = () => setIsScheduleModalOpen(true);
     const closeScheduleModal = () => setIsScheduleModalOpen(false);
     
+    // ✅ Logic for modal content based on effective school ID
+    const effectiveSchoolId = userProfile?.schoolId || 'srcs_main';
+
     return (
         <div 
             className="w-full space-y-8 font-sans pb-32 lg:pb-8 relative z-10"
@@ -159,7 +165,7 @@ const HomeView = ({
                                     {/* 🏫 Dynamic School Logo Header */}
                                     <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-3xl bg-slate-50 dark:bg-slate-800/50 mb-6 border border-slate-100 dark:border-slate-700 shadow-sm p-4">
                                         <img 
-                                            src={getSchoolLogo(userProfile?.schoolId)} 
+                                            src={getSchoolLogo(effectiveSchoolId)} 
                                             alt="School Logo" 
                                             className="w-full h-full object-contain drop-shadow-sm" 
                                         />
@@ -178,7 +184,7 @@ const HomeView = ({
                                             You are securely logged into
                                         </p>
                                         <p className="text-lg font-bold text-slate-800 dark:text-slate-200 mt-1">
-                                            {getSchoolName(userProfile?.schoolId)}
+                                            {getSchoolName(effectiveSchoolId)}
                                         </p>
                                     </div>
 
