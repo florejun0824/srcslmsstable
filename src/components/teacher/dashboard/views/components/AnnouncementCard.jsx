@@ -9,7 +9,7 @@ import { useTheme } from '../../../../../contexts/ThemeContext';
 // --- 1. CONFIGURATION: STATIC & ANIMATED PATHS ---
 const reactionIconsHomeView = {
   like: { 
-      static: '/emojis/like.png', // <--- You need to add this static file
+      static: '/emojis/like.png',
       animated: '/emojis/like.gif',
       label: 'Like', 
       color: 'text-blue-600',
@@ -20,7 +20,7 @@ const reactionIconsHomeView = {
       }
   },
   heart: { 
-      static: '/emojis/love.png', // <--- You need to add this static file
+      static: '/emojis/love.png',
       animated: '/emojis/love.gif',
       label: 'Love', 
       color: 'text-red-600',
@@ -30,7 +30,7 @@ const reactionIconsHomeView = {
       }
   },
   haha: { 
-      static: '/emojis/haha.png', // <--- You need to add this static file
+      static: '/emojis/haha.png',
       animated: '/emojis/haha.gif',
       label: 'Haha', 
       color: 'text-yellow-500',
@@ -41,7 +41,7 @@ const reactionIconsHomeView = {
       }
   },
   wow: { 
-      static: '/emojis/wow.png', // <--- You need to add this static file
+      static: '/emojis/wow.png',
       animated: '/emojis/wow.gif',
       label: 'Wow', 
       color: 'text-amber-500',
@@ -51,7 +51,7 @@ const reactionIconsHomeView = {
       }
   },
   sad: { 
-      static: '/emojis/sad.png', // <--- You need to add this static file
+      static: '/emojis/sad.png',
       animated: '/emojis/sad.gif',
       label: 'Sad', 
       color: 'text-blue-400',
@@ -61,7 +61,7 @@ const reactionIconsHomeView = {
       }
   },
   angry: { 
-      static: '/emojis/angry.png', // <--- You need to add this static file
+      static: '/emojis/angry.png',
       animated: '/emojis/angry.gif',
       label: 'Angry', 
       color: 'text-red-700',
@@ -71,7 +71,7 @@ const reactionIconsHomeView = {
       }
   },
   care: { 
-      static: '/emojis/care.png', // <--- You need to add this static file
+      static: '/emojis/care.png',
       animated: '/emojis/care.gif',
       label: 'Care', 
       color: 'text-pink-500',
@@ -132,6 +132,7 @@ const AnnouncementCard = forwardRef(({
 }, ref) => {
     const [isReactionOptionsVisible, setReactionOptionsVisible] = useState(false);
     const [hoveredReaction, setHoveredReaction] = useState(null);
+    const [isHoveringCount, setIsHoveringCount] = useState(false); // <--- NEW STATE FOR COUNT HOVER
     const hoverTimeoutRef = useRef(null);
     const longPressTimerRef = useRef(null);
 
@@ -172,7 +173,7 @@ const AnnouncementCard = forwardRef(({
         </a>
     );
 
-    // --- REACTION GROUPING LOGIC (Using Static Images) ---
+    // --- REACTION GROUPING LOGIC (With Hover Animation) ---
     const formatReactionCount = () => {
         const reactionsValues = Object.values(postReactions);
         const totalReactions = reactionsValues.length;
@@ -184,11 +185,16 @@ const AnnouncementCard = forwardRef(({
         const sortedTypes = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
         const isUniform = sortedTypes.length === 1; 
         
-        // MIXED: Stacked Images (Use Static)
+        // MIXED: Stacked Images
         if (!isUniform) {
             const typesToShow = sortedTypes.slice(0, 3);
             return (
-                <div className="flex items-center gap-2 cursor-pointer group" onClick={(e) => { e.stopPropagation(); onViewReactions(postReactions, usersMap); }}>
+                <div 
+                    className="flex items-center gap-2 cursor-pointer group" 
+                    onClick={(e) => { e.stopPropagation(); onViewReactions(postReactions, usersMap); }}
+                    onMouseEnter={() => setIsHoveringCount(true)} // <--- HOVER START
+                    onMouseLeave={() => setIsHoveringCount(false)} // <--- HOVER END
+                >
                     <div className="flex items-center -space-x-2">
                         {typesToShow.map((type) => {
                             const conf = reactionIconsHomeView[type];
@@ -198,9 +204,9 @@ const AnnouncementCard = forwardRef(({
                                     relative w-6 h-6 flex items-center justify-center rounded-full ring-[2px] z-10 shadow-sm overflow-hidden
                                     ${monet ? 'bg-slate-800 ring-slate-700' : 'bg-white dark:bg-slate-800 ring-white dark:ring-slate-900'}
                                 `}>
-                                    {/* ALWAYS STATIC IN COUNT */}
+                                    {/* SWITCHES TO GIF ON HOVER */}
                                     <img 
-                                        src={conf.static} 
+                                        src={isHoveringCount ? conf.animated : conf.static} 
                                         alt={conf.label}
                                         className="w-full h-full object-contain p-0.5" 
                                     />
@@ -215,15 +221,24 @@ const AnnouncementCard = forwardRef(({
             );
         }
 
-        // UNIFORM: Single Large Image (Use Static)
+        // UNIFORM: Single Large Image
         const singleType = sortedTypes[0];
         const conf = reactionIconsHomeView[singleType];
         
         return (
-            <div className="flex items-center gap-1.5 cursor-pointer group" onClick={(e) => { e.stopPropagation(); onViewReactions(postReactions, usersMap); }}>
+            <div 
+                className="flex items-center gap-1.5 cursor-pointer group" 
+                onClick={(e) => { e.stopPropagation(); onViewReactions(postReactions, usersMap); }}
+                onMouseEnter={() => setIsHoveringCount(true)} // <--- HOVER START
+                onMouseLeave={() => setIsHoveringCount(false)} // <--- HOVER END
+            >
                 {conf ? (
-                    // ALWAYS STATIC IN COUNT
-                    <img src={conf.static} alt={conf.label} className="w-5 h-5 object-contain" />
+                    // SWITCHES TO GIF ON HOVER
+                    <img 
+                        src={isHoveringCount ? conf.animated : conf.static} 
+                        alt={conf.label} 
+                        className="w-5 h-5 object-contain" 
+                    />
                 ) : (
                     <ThumbsUp className="w-4 h-4" />
                 )}
@@ -388,10 +403,11 @@ const AnnouncementCard = forwardRef(({
                         >
                             {currentUserReaction ? (
                                 <>
-                                    {/* Active State with Static Sticker (resting state) */}
+                                    {/* Active State with Animation on Hover */}
                                     {currentReactionConfig && (
                                         <img 
-                                            src={currentReactionConfig.static} 
+                                            // SWITCHES TO GIF WHEN DOCK IS OPEN (HOVER)
+                                            src={isReactionOptionsVisible ? currentReactionConfig.animated : currentReactionConfig.static} 
                                             alt={currentReactionConfig.label} 
                                             className="w-5 h-5 object-contain" 
                                         />
