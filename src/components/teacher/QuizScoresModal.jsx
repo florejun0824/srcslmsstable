@@ -16,7 +16,9 @@ import {
     ClockIcon,
     DocumentChartBarIcon,
     MagnifyingGlassIcon,
-    TrashIcon
+    TrashIcon,
+    ArrowPathIcon,
+    ExclamationTriangleIcon
 } from '@heroicons/react/24/solid';
 import { ClockIcon as ClockOutlineIcon } from '@heroicons/react/24/outline';
 import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
@@ -27,7 +29,15 @@ import Spinner from '../common/Spinner';
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// --- OPTIMIZED: Solid Stat Card ---
+// --- HELPER: Calculate Next 00:00 UTC (8:00 AM PHT) ---
+const getNextResetTime = () => {
+    const now = new Date();
+    const reset = new Date(now);
+    // Set to next midnight UTC (which is +24 hours from previous midnight)
+    reset.setUTCHours(24, 0, 0, 0); 
+    return reset.getTime();
+};
+
 const StatCard = ({ icon: Icon, title, value, color }) => {
     const colorMap = {
         blue: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20',
@@ -48,13 +58,12 @@ const StatCard = ({ icon: Icon, title, value, color }) => {
     );
 };
 
-// --- OPTIMIZED: Status Pill ---
 const StatusPill = ({ status }) => {
     const statusConfig = {
         'graded': { icon: CheckCircleIcon, style: 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400 border-green-200 dark:border-green-900/30', text: 'Graded' },
         'pending_ai_grading': { icon: SparklesIcon, style: 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 border-blue-200 dark:border-blue-900/30 animate-pulse', text: 'AI Grading' },
         'pending_review': { icon: PencilSquareIcon, style: 'bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400 border-orange-200 dark:border-orange-900/30', text: 'Needs Review' },
-        'grading_failed': { icon: XCircleIcon, style: 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400 border-red-200 dark:border-red-900/30', text: 'AI Failed' },
+        'grading_failed': { icon: ExclamationTriangleIcon, style: 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400 border-red-200 dark:border-red-900/30', text: 'AI Failed' },
         'Locked': { icon: LockClosedIcon, style: 'bg-slate-50 text-slate-700 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700', text: 'Locked' },
         'Not Started': { icon: ClockOutlineIcon, style: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-500 border-slate-200 dark:border-slate-700', text: 'Pending' },
     };
@@ -70,7 +79,6 @@ const StatusPill = ({ status }) => {
     );
 };
 
-// --- OPTIMIZED: Score Badge ---
 const ScoreBadge = ({ score, totalItems, isLate }) => {
     let bgClass = 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400';
     
@@ -104,17 +112,43 @@ const QuizScoresModal = ({
     const { showToast } = useToast();
     const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'ascending' });
     const [isBulkGrading, setIsBulkGrading] = useState(false);
+    
     const [hasPendingEssaysForThisQuiz, setHasPendingEssaysForThisQuiz] = useState(false);
+    const [hasFailedEssays, setHasFailedEssays] = useState(false);
+    const [retryCount, setRetryCount] = useState(0);
+    const [isRetryLockout, setIsRetryLockout] = useState(false);
+
     const [searchTerm, setSearchTerm] = useState('');
     const [localQuizScores, setLocalQuizScores] = useState(quizScores || []);
     
-    // PERFORMANCE: Add state for processed data to avoid heavy calculation on render
     const [processedData, setProcessedData] = useState([]);
     const [isProcessing, setIsProcessing] = useState(true);
 
-    // LOCAL STATE for Optimistic Updates
     const [optimisticUnlocked, setOptimisticUnlocked] = useState(new Set());
     const [localConfirmModal, setLocalConfirmModal] = useState({ isOpen: false, quizId: null, studentId: null });
+
+    // --- NEW: CHECK PERSISTENT LOCKOUT ON MOUNT ---
+    useEffect(() => {
+        const storedLockoutTime = localStorage.getItem('ai_retry_lockout_until');
+        if (storedLockoutTime) {
+            const lockoutUntil = parseInt(storedLockoutTime, 10);
+            if (Date.now() < lockoutUntil) {
+                // Lockout is still active
+                setIsRetryLockout(true);
+            } else {
+                // Lockout has expired
+                localStorage.removeItem('ai_retry_lockout_until');
+                setIsRetryLockout(false);
+            }
+        }
+    }, []);
+
+    // Function to Activate Persistent Lockout
+    const activateLockout = () => {
+        const resetTime = getNextResetTime();
+        localStorage.setItem('ai_retry_lockout_until', resetTime.toString());
+        setIsRetryLockout(true);
+    };
 
     useEffect(() => {
         if (!isBulkGrading) {
@@ -122,18 +156,27 @@ const QuizScoresModal = ({
         }
     }, [quizScores, isBulkGrading]);
 
-    // Check for pending essays
     useEffect(() => {
         if (quiz?.id && localQuizScores) {
-            const pending = localQuizScores.some(score =>
-                score.quizId === quiz.id &&
-                (score.hasPendingEssays === true || score.status === 'pending_ai_grading')
-            );
+            let pending = false;
+            let failed = false;
+
+            localQuizScores.forEach(score => {
+                if (score.quizId === quiz.id) {
+                    if (score.hasPendingEssays === true || score.status === 'pending_ai_grading') {
+                        pending = true;
+                    }
+                    if (Array.isArray(score.answers) && score.answers.some(a => a.status === 'grading_failed')) {
+                        failed = true;
+                    }
+                }
+            });
+
             setHasPendingEssaysForThisQuiz(pending);
+            setHasFailedEssays(failed);
         }
     }, [localQuizScores, quiz?.id]);
 
-    // --- OPTIMIZED DATA PROCESSING (Runs asynchronously) ---
     useEffect(() => {
         setIsProcessing(true);
         const timer = setTimeout(() => {
@@ -169,7 +212,12 @@ const QuizScoresModal = ({
                     if (!highestScoreAttempt || highestScoreAttempt.score === -1) {
                         highestScoreAttempt = studentAttempts[studentAttempts.length - 1];
                     }
-                    status = studentAttempts[studentAttempts.length - 1].status || 'graded';
+                    const latestAttempt = studentAttempts[studentAttempts.length - 1];
+                    if (Array.isArray(latestAttempt.answers) && latestAttempt.answers.some(a => a.status === 'grading_failed')) {
+                        status = 'grading_failed';
+                    } else {
+                        status = latestAttempt.status || 'graded';
+                    }
                 } else if (isLocked) {
                     status = 'Locked';
                 }
@@ -267,14 +315,8 @@ const QuizScoresModal = ({
 
     const handleConfirmUnlock = async () => {
         const { quizId, studentId } = localConfirmModal;
-        
-        // 1. Optimistic Update
         setOptimisticUnlocked(prev => new Set(prev).add(studentId));
-        
-        // 2. Close Modal
         setLocalConfirmModal({ isOpen: false, quizId: null, studentId: null });
-
-        // 3. Execute DB Op
         if (onUnlockQuiz) {
             await onUnlockQuiz(quizId, studentId);
         }
@@ -282,29 +324,44 @@ const QuizScoresModal = ({
 
     const handleBulkGradeEssays = async () => {
         if (!classData?.id || !quiz?.id) return;
+        
+        if (isRetryLockout) {
+            showToast("Retry limit reached. Resets at 8:00 AM.", "error");
+            return;
+        }
+
         setIsBulkGrading(true);
         showToast("Starting AI grading sequence...", "info");
         
+        let cycleHasErrors = false;
+
         try {
             const submissionsRef = collection(db, 'quizSubmissions');
             const q = query(submissionsRef,
                 where('classId', '==', classData.id),
-                where('quizId', '==', quiz.id),
-                where('hasPendingEssays', '==', true)
+                where('quizId', '==', quiz.id)
             );
+            
             const snapshot = await getDocs(q);
-            const pendingSubmissions = snapshot.docs;
+            const relevantSubmissions = snapshot.docs.filter(doc => {
+                const data = doc.data();
+                if (hasFailedEssays) {
+                    return Array.isArray(data.answers) && data.answers.some(a => a.status === 'grading_failed');
+                }
+                return data.hasPendingEssays === true;
+            });
 
-            if (pendingSubmissions.length === 0) {
-                showToast("No pending essays found.", "success");
+            if (relevantSubmissions.length === 0) {
+                showToast("No gradable essays found.", "success");
                 setHasPendingEssaysForThisQuiz(false);
+                setHasFailedEssays(false);
                 setIsBulkGrading(false);
                 return;
             }
 
             let limitReached = false;
 
-            for (const docSnap of pendingSubmissions) {
+            for (const docSnap of relevantSubmissions) {
                 if (limitReached) break;
                 const submissionId = docSnap.id;
                 const submissionData = docSnap.data();
@@ -312,13 +369,17 @@ const QuizScoresModal = ({
                 let needsUpdate = false;
 
                 for (let i = 0; i < updatedAnswers.length; i++) {
-                    if (updatedAnswers[i].questionType === 'essay' && updatedAnswers[i].status === 'pending_ai_grading') {
+                    const ans = updatedAnswers[i];
+                    const isTarget = ans.questionType === 'essay' && 
+                                     (ans.status === 'pending_ai_grading' || ans.status === 'grading_failed');
+
+                    if (isTarget) {
                         try {
                             await delay(2000); 
                             const gradingResult = await gradeEssayWithAI(
-                                updatedAnswers[i].questionText,
-                                updatedAnswers[i].rubric,
-                                updatedAnswers[i].selectedAnswer
+                                ans.questionText,
+                                ans.rubric,
+                                ans.selectedAnswer
                             );
                             updatedAnswers[i].aiGradingResult = gradingResult;
                             updatedAnswers[i].score = gradingResult.totalScore;
@@ -327,19 +388,24 @@ const QuizScoresModal = ({
                         } catch (error) {
                             console.error("AI Error:", error);
                             updatedAnswers[i].status = 'grading_failed';
-                            if (error.message?.includes("limit")) {
+                            cycleHasErrors = true; 
+                            
+                            if (error.message?.includes("limit") || error.message?.includes("LIMIT_REACHED")) {
                                 limitReached = true;
-                                showToast("AI Limit Reached. Pausing.", "error");
+                                showToast("AI Daily Limit Reached.", "error");
+                                activateLockout(); // Trigger Persistent Lockout
                                 break;
                             }
                         }
                     }
                 }
 
-                if (needsUpdate || (submissionData.hasPendingEssays && !limitReached)) {
+                if (needsUpdate || (submissionData.hasPendingEssays && !limitReached) || cycleHasErrors) {
                     const newTotalScore = updatedAnswers.reduce((sum, a) => sum + (Number(a.score) || 0), 0);
                     const hasStillPending = updatedAnswers.some(a => a.status === 'pending_ai_grading');
-                    const finalStatus = updatedAnswers.some(a => a.status === 'grading_failed') ? 'pending_review' : (hasStillPending ? 'pending_ai_grading' : 'graded');
+                    const hasStillFailed = updatedAnswers.some(a => a.status === 'grading_failed');
+                    
+                    const finalStatus = hasStillFailed ? 'pending_review' : (hasStillPending ? 'pending_ai_grading' : 'graded');
 
                     await updateDoc(doc(db, 'quizSubmissions', submissionId), {
                         answers: updatedAnswers,
@@ -362,7 +428,23 @@ const QuizScoresModal = ({
                     }));
                 }
             }
-            showToast("Batch grading cycle complete.", "success");
+
+            if (cycleHasErrors) {
+                setRetryCount(prev => {
+                    const newCount = prev + 1;
+                    if (newCount >= 5) {
+                        activateLockout(); // Trigger Persistent Lockout
+                        showToast("Too many failures. AI Grading disabled until 8:00 AM.", "error");
+                    } else {
+                        showToast(`Grading incomplete. Retry attempt ${newCount}/5 available.`, "warning");
+                    }
+                    return newCount;
+                });
+            } else {
+                showToast("Grading cycle complete.", "success");
+                setRetryCount(0);
+            }
+
         } catch (error) {
             console.error(error);
             showToast("Error during bulk grading.", "error");
@@ -424,17 +506,36 @@ const QuizScoresModal = ({
                         <div className="flex items-center gap-2 w-full sm:w-auto">
                             <button
                                 onClick={handleBulkGradeEssays}
-                                disabled={!hasPendingEssaysForThisQuiz || isBulkGrading}
+                                disabled={(!hasPendingEssaysForThisQuiz && !hasFailedEssays) || isBulkGrading || isRetryLockout}
                                 className={`flex-1 sm:flex-none px-4 sm:px-6 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-sm active:scale-[0.98]
                                     ${isBulkGrading 
                                         ? 'bg-slate-100 text-slate-400 cursor-wait' 
-                                        : hasPendingEssaysForThisQuiz 
-                                            ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:shadow-md' 
-                                            : 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed'
+                                        : isRetryLockout 
+                                            ? 'bg-red-50 text-red-400 border border-red-200 cursor-not-allowed'
+                                            : hasFailedEssays 
+                                                ? 'bg-red-600 text-white hover:bg-red-700 hover:shadow-red-500/30' 
+                                                : hasPendingEssaysForThisQuiz 
+                                                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:shadow-md'
+                                                    : 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed'
                                     }`}
                             >
-                                {isBulkGrading ? <ClockOutlineIcon className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" /> : <SparklesIcon className="w-4 h-4 sm:w-5 sm:h-5" />}
-                                {isBulkGrading ? 'Grading...' : 'Auto-Grade'}
+                                {isBulkGrading ? (
+                                    <ClockOutlineIcon className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
+                                ) : isRetryLockout ? (
+                                    <LockClosedIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                                ) : hasFailedEssays ? (
+                                    <ArrowPathIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                                ) : (
+                                    <SparklesIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                                )}
+                                
+                                {isBulkGrading 
+                                    ? 'Grading...' 
+                                    : isRetryLockout 
+                                        ? 'Limit Reached' 
+                                        : hasFailedEssays 
+                                            ? 'Retry Failed' 
+                                            : 'Auto-Grade'}
                             </button>
 
                             <button
@@ -457,7 +558,6 @@ const QuizScoresModal = ({
                             <div className="sm:rounded-2xl border-y sm:border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm bg-white dark:bg-[#1A1D24]">
                                 <div className="overflow-x-auto">
                                     <div className="min-w-[800px] sm:min-w-full">
-                                        {/* Table Header */}
                                         <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 sticky top-0 z-10">
                                             <div className="col-span-4 cursor-pointer hover:text-blue-500 flex items-center gap-1" onClick={() => requestSort('name')}>
                                                 Student {sortConfig.key === 'name' && (sortConfig.direction === 'ascending' ? <ArrowUpIcon className="w-3 h-3" /> : <ArrowDownIcon className="w-3 h-3" />)}
@@ -469,11 +569,9 @@ const QuizScoresModal = ({
                                             <div className="col-span-2 text-right">Actions</div>
                                         </div>
 
-                                        {/* Table Body */}
                                         <div className="divide-y divide-slate-100 dark:divide-slate-800">
                                             {processedData.map(student => (
                                                 <div key={student.id} className="grid grid-cols-12 gap-4 px-6 py-4 items-center hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                                    {/* Name */}
                                                     <div className="col-span-4 flex items-center gap-3">
                                                         <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xs font-bold flex-shrink-0 border border-blue-200 dark:border-blue-800/50">
                                                             {student.firstName?.[0]}{student.lastName?.[0]}
@@ -485,12 +583,10 @@ const QuizScoresModal = ({
                                                         </div>
                                                     </div>
 
-                                                    {/* Status */}
                                                     <div className="col-span-3">
                                                         <StatusPill status={student.status} />
                                                     </div>
 
-                                                    {/* Attempts */}
                                                     <div className="col-span-3 flex items-center justify-center gap-2">
                                                         {student.attemptsDisplay.map((attempt, idx) => (
                                                             <div key={idx} className="w-12">
@@ -507,7 +603,6 @@ const QuizScoresModal = ({
                                                         ))}
                                                     </div>
 
-                                                    {/* Actions */}
                                                     <div className="col-span-2 flex justify-end">
                                                         {student.isLocked ? (
                                                             <button 
@@ -537,14 +632,12 @@ const QuizScoresModal = ({
                 </div>
             </Modal>
 
-            {/* --- Internal Confirmation Modal for Unlock --- */}
             <Modal
                 isOpen={localConfirmModal.isOpen}
                 onClose={() => setLocalConfirmModal({ isOpen: false, quizId: null, studentId: null })}
                 title="Confirm Unlock"
                 size="sm"
                 showCloseButton={false}
-                // FIX: Added high z-index to ensure it appears above the parent modal
                 className="z-[9999]" 
                 containerClassName="bg-black/50 flex items-center justify-center p-4"
                 contentClassName="bg-white dark:bg-[#1A1D24] p-0 rounded-[24px] shadow-xl overflow-hidden"

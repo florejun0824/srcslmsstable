@@ -117,7 +117,6 @@ const LessonPage = forwardRef(({ page, isEditable, onFinalizeDiagram, onRevertDi
       const isDirectVideo = embedUrl && embedUrl.match(/\.(mp4|webm|ogg)$/i); 
       return ( 
         <div className="my-6"> 
-          {/* --- REMOVED: Title handled by parent --- */}
           {embedUrl ? ( 
               isDirectVideo ? ( 
                 <video controls className="w-full rounded-lg shadow-md aspect-video bg-black"> 
@@ -134,14 +133,19 @@ const LessonPage = forwardRef(({ page, isEditable, onFinalizeDiagram, onRevertDi
                 Invalid or unsupported video URL. 
             </div> 
           )} 
+
+          {/* ✅ FIXED: Render Caption for Video */}
+          {page.caption && (
+            <div className="mt-6 prose prose-sm sm:prose-base dark:prose-invert max-w-none bg-slate-50 dark:bg-white/5 p-4 rounded-xl border border-slate-100 dark:border-white/5">
+                <ContentRenderer text={page.caption} />
+            </div>
+          )}
         </div> 
       );
     }
     case "diagram-data": {
       return (
         <div className="my-6 p-4 border-2 border-dashed rounded-lg bg-slate-50 dark:bg-slate-900/20 dark:border-slate-700 select-none">
-          {/* --- REMOVED: Title handled by parent --- */}
-
           <div
             className="relative w-full max-w-4xl mx-auto bg-white dark:bg-slate-800"
             ref={imageContainerRef}
@@ -195,6 +199,13 @@ const LessonPage = forwardRef(({ page, isEditable, onFinalizeDiagram, onRevertDi
           )}
 
           {error && <div className="text-red-500 dark:text-red-400 text-sm mt-4 text-center">{error}</div>}
+
+          {/* ✅ FIXED: Render Caption for Editable Diagram */}
+          {page.caption && (
+            <div className="mt-6 prose prose-sm sm:prose-base dark:prose-invert max-w-none bg-white dark:bg-white/5 p-4 rounded-xl border border-slate-100 dark:border-white/5">
+                <ContentRenderer text={page.caption} />
+            </div>
+          )}
         </div>
       );
     }
@@ -203,8 +214,6 @@ const LessonPage = forwardRef(({ page, isEditable, onFinalizeDiagram, onRevertDi
         const content = page.content;
         return (
             <div className="my-6">
-                {/* --- REMOVED: Title handled by parent --- */}
-                
                 <div 
                     className="relative block w-full max-w-4xl mx-auto bg-gray-100 dark:bg-slate-800 rounded-lg shadow-md overflow-hidden" 
                     style={{ height: '480px' }}
@@ -221,6 +230,13 @@ const LessonPage = forwardRef(({ page, isEditable, onFinalizeDiagram, onRevertDi
                         </div>
                     )}
                 </div>
+
+                {/* ✅ FIXED: Render Caption for Finalized Diagram */}
+                {page.caption && (
+                    <div className="mt-6 prose prose-sm sm:prose-base dark:prose-invert max-w-none bg-slate-50 dark:bg-white/5 p-4 rounded-xl border border-slate-100 dark:border-white/5">
+                        <ContentRenderer text={page.caption} />
+                    </div>
+                )}
             </div>
         );
     }
@@ -230,7 +246,6 @@ const LessonPage = forwardRef(({ page, isEditable, onFinalizeDiagram, onRevertDi
       const contentString = (typeof content === 'string') ? content : JSON.stringify(content, null, 2); 
       return (
         <div className="mb-6 last:mb-0 overflow-x-auto"> 
-          {/* --- REMOVED: Title handled by parent --- */}
           <ContentRenderer text={contentString} /> 
         </div> 
       );

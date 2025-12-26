@@ -144,7 +144,9 @@ const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTo
         primaryIndex = (primaryIndex + 1) % PRIMARY_CONFIGS.length; // Rotate
 
         try {
-            // console.log(`Attempting Primary AI: ${config.name}`);
+            // --- NEW: LOG WHICH AI IS BEING USED ---
+            console.log(`Using ${config.name}...`); 
+            
             const response = await callProxyApiInternal(prompt, jsonMode, config, maxOutputTokens);
             
             // CLEAN MIMO OUTPUT: Remove <think> tags
@@ -152,6 +154,7 @@ const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTo
             return cleanResponse;
 
         } catch (error) {
+            console.warn(`${config.name} failed:`, error.message); // Added warn log for visibility
             errors[config.name] = error.message;
             // If it's a Rate Limit (429) or Server Error (5xx), wait briefly then retry
             if ([429, 503, 500, 504].includes(error.status)) {
@@ -169,11 +172,14 @@ const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTo
         fallbackIndex = (fallbackIndex + 1) % FALLBACK_CONFIGS.length;
 
         try {
-            console.log(`Attempting Fallback AI: ${config.name}`);
+            // --- NEW: LOG WHICH BACKUP IS BEING USED ---
+            console.log(`Using ${config.name}...`);
+            
             const response = await callProxyApiInternal(prompt, jsonMode, config, maxOutputTokens);
             return response; // Gemini usually doesn't need <think> cleaning
 
         } catch (error) {
+            console.warn(`${config.name} failed:`, error.message);
             errors[config.name] = error.message;
             if ([429, 503, 500, 504].includes(error.status)) {
                 await delay(1500);

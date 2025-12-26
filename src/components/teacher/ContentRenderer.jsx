@@ -29,8 +29,6 @@ const katexDarkFix = `
   }
   
   /* 3. CRITICAL FIX: NEUTRALIZE GLOBAL INDEX.CSS CONFLICT */
-  /* Your index.css forces all '.content-renderer svg' to be block/100% width. */
-  /* We must strictly reset this for KaTeX SVGs to prevent them from vanishing. */
   .content-renderer .katex svg {
     display: inline-block !important; /* Override 'display: block' */
     width: auto !important;           /* Override 'width: 100%' */
@@ -58,6 +56,17 @@ const katexDarkFix = `
     overflow-y: hidden;
   }
 `;
+
+// --- HELPER: Google Drive Image Fixer (Ported from EditLessonModal) ---
+const convertGoogleDriveLink = (url) => {
+    if (!url) return '';
+    // Check for standard "view" link: /file/d/FILE_ID/view
+    const driveMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (driveMatch && driveMatch[1]) {
+        return `https://drive.google.com/uc?export=view&id=${driveMatch[1]}`;
+    }
+    return url;
+};
 
 // --- NEW HELPER: The "Healer" (Fixes Broken Table Rows) ---
 const healBrokenMarkdown = (text) => {
@@ -225,22 +234,24 @@ export default function ContentRenderer({ htmlContent, text }) {
   // --- Diagram renderer logic ---
   if (text && typeof text === 'object' && text.diagram_prompt) {
     if (text.generatedImageUrl) {
-      return (
-        <div className="diagram-renderer flex flex-col items-center my-4">
-          <img
-            src={text.generatedImageUrl}
-            alt="Generated diagram"
-            className="max-w-full rounded shadow"
-          />
-          {Array.isArray(text.labels) && text.labels.length > 0 && (
-            <ul className="mt-2 text-sm text-gray-600 dark:text-gray-400 list-disc list-inside">
-              {text.labels.map((label, idx) => (
-                <li key={idx}>{label}</li>
-              ))}
-            </ul>
-          )}
-        </div>
-      );
+        // Apply drive converter to raw diagram URLs too if needed
+        const processedUrl = convertGoogleDriveLink(text.generatedImageUrl);
+        return (
+            <div className="diagram-renderer flex flex-col items-center my-4">
+            <img
+                src={processedUrl}
+                alt="Generated diagram"
+                className="max-w-full rounded shadow"
+            />
+            {Array.isArray(text.labels) && text.labels.length > 0 && (
+                <ul className="mt-2 text-sm text-gray-600 dark:text-gray-400 list-disc list-inside">
+                {text.labels.map((label, idx) => (
+                    <li key={idx}>{label}</li>
+                ))}
+                </ul>
+            )}
+            </div>
+        );
     } else {
       return (
         <div className="diagram-placeholder flex flex-col items-center justify-center border border-dashed border-gray-400 rounded-lg p-6 text-gray-500 my-4">
@@ -371,9 +382,18 @@ export default function ContentRenderer({ htmlContent, text }) {
             strong: ({ node, ...props }) => {
               return <strong className="font-bold text-slate-800 dark:text-slate-100" {...props} />;
             },
-            img: ({ node, ...props }) => (
-              <img {...props} alt="" className="max-w-full" />
-            ),
+            // ✅ UPDATED: Apply Google Drive Converter to Markdown Images
+            img: ({ node, src, ...props }) => {
+              const processedSrc = convertGoogleDriveLink(src);
+              return (
+                <img 
+                    src={processedSrc} 
+                    {...props} 
+                    alt={props.alt || ""} 
+                    className="max-w-full rounded-lg shadow-sm" 
+                />
+              );
+            },
             svg: ({ node, ...props }) => (
               <div className="overflow-x-auto flex justify-center my-4 not-prose">
                 <svg {...props} />

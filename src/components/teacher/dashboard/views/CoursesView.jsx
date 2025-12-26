@@ -311,9 +311,9 @@ const SubjectDetail = memo((props) => {
         ? `relative z-10 h-full flex flex-col rounded-3xl sm:rounded-[2rem] w-full max-w-7xl mx-auto overflow-hidden ${monet.container}`
         : "relative z-10 h-full flex flex-col bg-white/90 dark:bg-[#1A1D24]/95 rounded-3xl sm:rounded-[2rem] shadow-xl shadow-slate-200/60 dark:shadow-black/50 border border-slate-200 dark:border-slate-800 w-full max-w-7xl mx-auto overflow-hidden";
 
-    const headerClasses = monet
-        ? `flex-none flex flex-col md:flex-row justify-between items-start md:items-center py-4 px-4 sm:p-6 gap-4 border-b border-white/10 z-20`
-        : "flex-none flex flex-col md:flex-row justify-between items-start md:items-center py-4 px-4 sm:p-6 gap-4 border-b border-slate-200/60 dark:border-white/5 bg-white/80 dark:bg-[#1A1D24]/80 z-20";
+const headerClasses = monet
+        ? `flex-none flex flex-col md:flex-row justify-between items-start md:items-center py-3 px-4 sm:px-6 gap-4 border-b border-white/10 z-20`
+        : "flex-none flex flex-col md:flex-row justify-between items-start md:items-center py-3 px-4 sm:px-6 gap-4 border-b border-slate-200/60 dark:border-white/5 bg-white/80 dark:bg-[#1A1D24]/80 z-20";
 
     useEffect(() => {
         if (activeSubject) {
@@ -395,49 +395,53 @@ const SubjectDetail = memo((props) => {
 
     if (!activeSubject) return <Spinner />;
 
-    return (
-        <div className={commonContainerClasses}>
-            {/* NO AuroraBackground */}
-
-            <div className={containerClasses}>
+	return (
+	        <div className={commonContainerClasses}>
+	            <div className={containerClasses}>
                 
-                {/* HEADER */}
-                <div className={headerClasses}>
-                    <div className="flex items-center gap-2 sm:gap-3 flex-wrap w-full md:w-auto">
-                        <button onClick={handleBackNavigation} className={getButtonClass('secondary', monet)}>
-                            {activeUnit ? <Squares2X2Icon className="w-4 h-4" /> : <ArrowUturnLeftIcon className="w-4 h-4" />}
-                            <span className="hidden sm:inline font-bold">{activeUnit ? 'All Units' : 'Back'}</span>
-                        </button>
-                        <div className={`h-8 w-px mx-1 hidden sm:block ${monet ? 'bg-white/20' : 'bg-slate-200 dark:bg-slate-700'}`}></div>
-                        <h2 className={`text-lg sm:text-xl font-bold tracking-tight truncate max-w-[180px] sm:max-w-sm ${monet ? monet.text : 'text-slate-800 dark:text-slate-100'}`}>
-                            {activeSubject.title}
-                        </h2>
-                        <div className="flex items-center ml-auto sm:ml-2 space-x-2">
-                            <button onClick={() => handleOpenEditSubject(activeSubject)} className={getButtonClass('icon', monet)} title="Edit Subject Name"><PencilSquareIcon className="w-4 h-4" /></button>
-                            <button onClick={() => handleInitiateDelete('subject', activeSubject.id, activeSubject.title)} className={getButtonClass('destructive', monet)} title="Delete Subject"><TrashIcon className="w-4 h-4" /></button>
-                        </div>
-                    </div>
+	                {/* HEADER */}
+	                <div className={headerClasses}>
+	                    <div className="flex items-center gap-2 sm:gap-3 flex-wrap w-full md:w-auto">
+	                        <button onClick={handleBackNavigation} className={getButtonClass('secondary', monet)}>
+	                            {activeUnit ? <Squares2X2Icon className="w-4 h-4" /> : <ArrowUturnLeftIcon className="w-4 h-4" />}
+	                            <span className="hidden sm:inline font-bold">{activeUnit ? 'All Units' : 'Back'}</span>
+	                        </button>
+                        
+	                        <div className={`h-6 w-px mx-1 hidden sm:block ${monet ? 'bg-white/20' : 'bg-slate-200 dark:bg-slate-700'}`}></div>
+                        
+	                        <h2 className={`text-lg sm:text-xl font-bold tracking-tight truncate max-w-[180px] sm:max-w-sm ${monet ? monet.text : 'text-slate-800 dark:text-slate-100'}`}>
+	                            {activeSubject.title}
+	                        </h2>
+                        
+	                        {/* Edit/Delete Icons */}
+	                        <div className="flex items-center ml-auto sm:ml-2 space-x-1">
+	                            <button onClick={() => handleOpenEditSubject(activeSubject)} className={getButtonClass('icon', monet)} title="Edit Subject Name"><PencilSquareIcon className="w-4 h-4" /></button>
+	                            <button onClick={() => handleInitiateDelete('subject', activeSubject.id, activeSubject.title)} className={getButtonClass('destructive', monet)} title="Delete Subject"><TrashIcon className="w-4 h-4" /></button>
+	                        </div>
+	                    </div>
 
-                    <div className="flex gap-2 sm:gap-3 flex-wrap w-full md:w-auto">
-                        <button onClick={() => setShareContentModalOpen(true)} className={`${getButtonClass('secondary', monet)} flex-1 sm:flex-none justify-center`}>
-                            <ShareIcon className={`w-4 h-4 ${monet ? monet.accent : 'text-blue-500'}`} />
-                            <span className="text-xs sm:text-sm">Share</span>
-                        </button>
-                        <button onClick={() => setAddUnitModalOpen(true)} className={`${getButtonClass('secondary', monet)} flex-1 sm:flex-none justify-center`}>
-                            <PlusCircleIcon className={`w-5 h-5 ${monet ? monet.accent : 'text-emerald-500'}`} />
-                            <span className="text-xs sm:text-sm">Add Unit</span>
-                        </button>
-                        <button onClick={() => setIsAiHubOpen(true)} className={`${getButtonClass('primary', monet)} pl-4 pr-5 flex-1 sm:flex-none justify-center whitespace-nowrap`}>
-                            <SparklesIcon className="w-5 h-5 text-yellow-300 drop-shadow-sm" />AI Tools
-                        </button>
-                    </div>
-                </div>
+	                    <div className="flex gap-2 sm:gap-3 flex-wrap w-full md:w-auto">
+	                        <button onClick={() => setShareContentModalOpen(true)} className={`${getButtonClass('secondary', monet)} flex-1 sm:flex-none justify-center`}>
+	                            <ShareIcon className={`w-4 h-4 ${monet ? monet.accent : 'text-slate-500'}`} />
+	                            <span className="hidden md:inline text-xs sm:text-sm">Share</span>
+	                        </button>
+	                        <button onClick={() => setAddUnitModalOpen(true)} className={`${getButtonClass('secondary', monet)} flex-1 sm:flex-none justify-center`}>
+	                            <PlusCircleIcon className={`w-4 h-4 ${monet ? monet.accent : 'text-emerald-500'}`} />
+	                            <span className="text-xs sm:text-sm">Add Unit</span>
+	                        </button>
+	                        {/* New Unique AI Button Style */}
+	                        <button onClick={() => setIsAiHubOpen(true)} className={`${getButtonClass(monet ? 'primary' : 'ai', monet)} flex-1 sm:flex-none justify-center whitespace-nowrap`}>
+	                            <SparklesIcon className="w-4 h-4 text-white/90" />
+	                            <span className="text-sm text-white">AI Tools</span>
+	                        </button>
+	                    </div>
+	                </div>
 
-                {/* CONTENT AREA */}
-                <div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar p-2 sm:p-4">
-                    {isLoadingUnitsAndLessons ? (
-                        <SkeletonList />
-                    ) : (
+	                {/* CONTENT AREA */}
+	                <div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar p-0"> {/* Removed padding here to let accordion control spacing */}
+	                    {isLoadingUnitsAndLessons ? (
+	                        <div className="p-4"><SkeletonList /></div>
+	                    ) : (
                         <UnitAccordion
                             subject={activeSubject}
                             onInitiateDelete={handleInitiateDelete}

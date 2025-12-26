@@ -21,7 +21,9 @@ import {
     ChevronRightIcon,
     FolderIcon,
     XMarkIcon,       
-    PlayCircleIcon   
+    PlayCircleIcon,
+    AcademicCapIcon,
+    BookOpenIcon
 } from '@heroicons/react/24/solid';
 import {
     DndContext,
@@ -60,32 +62,28 @@ const performanceStyles = {
     backfaceVisibility: 'hidden', 
 };
 
-// Base Candy Button
-const candyBase = `
-    relative overflow-hidden font-bold rounded-full transition-all duration-200 
+// --- NEW BUTTON STYLES (Soft-Tech / Modern) ---
+const neoBtnBase = `
+    relative font-semibold rounded-xl transition-all duration-200 
     disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 
-    active:scale-95 tracking-wide shadow-lg hover:shadow-xl
-    after:absolute after:inset-0 after:rounded-full after:pointer-events-none 
-    after:shadow-[inset_0_1px_0_rgba(255,255,255,0.4)]
+    active:scale-95 tracking-wide shadow-sm hover:shadow-md border
 `;
 
 // Helper to get button/card classes based on monet presence
 const getStyles = (monet) => {
     if (monet) {
         return {
-            primaryButton: `${candyBase} ${monet.buttonPrimary}`,
-            secondaryButton: `${candyBase} ${monet.buttonSecondary}`,
-            iconButton: `${candyBase} p-2 rounded-full aspect-square ${monet.buttonSecondary}`,
-            unitCard: `${monet.cardGradient} border border-white/20 text-white shadow-xl hover:-translate-y-1 hover:shadow-2xl`,
-            contentItem: `${monet.buttonSecondary} !justify-start !rounded-[1.5rem] md:!rounded-[2rem] border-white/10 hover:border-white/30`
+            primaryButton: `${neoBtnBase} ${monet.buttonPrimary}`,
+            secondaryButton: `${neoBtnBase} ${monet.buttonSecondary}`,
+            iconButton: `${neoBtnBase} p-2 aspect-square ${monet.buttonSecondary}`,
+            contentItem: `${monet.buttonSecondary} !justify-start !rounded-2xl border-white/10 hover:border-white/30`
         };
     }
     return {
-        primaryButton: `${candyBase} bg-gradient-to-b from-blue-400 to-blue-600 hover:from-blue-300 hover:to-blue-500 text-white shadow-blue-500/40 border-b-[2px] border-blue-700`,
-        secondaryButton: `${candyBase} bg-gradient-to-b from-white/80 to-white/40 dark:from-slate-700/80 dark:to-slate-800/40 backdrop-blur-md text-slate-700 dark:text-white border border-white/40 dark:border-white/10 shadow-slate-200/50 dark:shadow-black/30 hover:bg-white/60 dark:hover:bg-slate-700/60`,
-        iconButton: `${candyBase} p-2 rounded-full aspect-square bg-gradient-to-b from-white/90 to-slate-100/50 dark:from-slate-700 to-slate-800 text-slate-500 dark:text-slate-300 hover:text-blue-500 border border-white/50 dark:border-white/5`,
-        unitCard: null, 
-        contentItem: `bg-white/60 dark:bg-[#1c1c1e]/60 backdrop-blur-2xl border border-white/50 dark:border-white/5 shadow-sm hover:shadow-xl hover:shadow-black/5 dark:hover:shadow-black/50 text-slate-800 dark:text-slate-100`
+        primaryButton: `${neoBtnBase} bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-transparent hover:bg-slate-800 dark:hover:bg-slate-100`,
+        secondaryButton: `${neoBtnBase} bg-white dark:bg-[#2A2D36] text-slate-700 dark:text-slate-200 border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 hover:bg-slate-50 dark:hover:bg-white/5`,
+        iconButton: `${neoBtnBase} p-2 aspect-square bg-transparent border-transparent hover:bg-slate-100 dark:hover:bg-white/10 text-slate-500 dark:text-slate-400`,
+        contentItem: `bg-white dark:bg-[#1c1c1e] border border-slate-200 dark:border-white/5 shadow-sm`
     };
 };
 
@@ -157,7 +155,7 @@ async function registerDejaVuFonts() {
 }
 
 const processLatex = (text) => {
-    if (!text) return '';
+    if (!text || typeof text !== 'string') return ''; 
     let processed = text
         .replace(/\\degree/g, '°')
         .replace(/\\angle/g, '∠')
@@ -183,6 +181,7 @@ const getImageDimensions = (base64) => {
 };
 
 async function fetchImageAsBase64(url) {
+  if (!url) return null;
   const res = await fetch(url);
   const blob = await res.blob();
   return new Promise((resolve) => {
@@ -291,8 +290,7 @@ const preProcessHtmlForExport = (rawHtml, mode = 'pdf') => {
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = rawHtml;
 
-    // --- NEW: Inject styles to force word break ---
-    // This prevents long words/URLs from pushing table columns out of bounds
+    // --- Inject styles for tables/images ---
     const style = document.createElement('style');
     style.innerHTML = `
       table { width: 100% !important; table-layout: fixed; word-wrap: break-word; }
@@ -300,7 +298,34 @@ const preProcessHtmlForExport = (rawHtml, mode = 'pdf') => {
       img { max-width: 100%; height: auto; }
     `;
     tempDiv.insertBefore(style, tempDiv.firstChild);
-    // ----------------------------------------------
+
+    // --- FIX: BLOCKQUOTES (POETRY/HAIKU LAYOUT) ---
+    const quotes = tempDiv.querySelectorAll('blockquote');
+    quotes.forEach(quote => {
+        // 1. Flatten Headers (Fixes the "Giant Number" issue)
+        const headers = quote.querySelectorAll('h1, h2, h3, h4, h5, h6');
+        headers.forEach(header => {
+            const span = document.createElement('span');
+            // Convert header to bold text + break
+            span.innerHTML = `<strong>${header.innerHTML}</strong><br/>`;
+            header.parentNode.replaceChild(span, header);
+        });
+
+        // 2. Preserve Line Breaks (Fixes "Running Together")
+        // Markdown parsers usually treat single newlines as spaces. 
+        // We force them to be <br/> tags inside blockquotes so poetry preserves shape.
+        const paragraphs = quote.querySelectorAll('p');
+        if (paragraphs.length > 0) {
+            paragraphs.forEach(p => {
+                // Regex replace global newlines with breaks
+                p.innerHTML = p.innerHTML.replace(/\n/g, '<br/>');
+            });
+        } else {
+            // Fallback if text is not wrapped in <p>
+            quote.innerHTML = quote.innerHTML.replace(/\n/g, '<br/>');
+        }
+    });
+    // --------------------------------------------------
 
     const textNodes = document.createTreeWalker(tempDiv, NodeFilter.SHOW_TEXT, null, false);
     let node;
@@ -330,7 +355,6 @@ const preProcessHtmlForExport = (rawHtml, mode = 'pdf') => {
         el.setAttribute('style', style);
     });
     
-    // Safety check for all TD/TH without style
     tempDiv.querySelectorAll('td:not([style]), th:not([style])').forEach(el => {
         el.setAttribute('style', 'word-break: break-all; word-wrap: break-word;');
     });
@@ -632,7 +656,7 @@ const AiGenerationHub = lazyWithRetry(() => import('./AiGenerationHub'));
 const ContentListSkeleton = () => (
     <div className="flex flex-col gap-4 animate-pulse">
         {[1,2,3].map(i => (
-            <div key={i} className="h-32 rounded-[2rem] bg-slate-200 dark:bg-slate-800" />
+            <div key={i} className="h-32 rounded-3xl bg-slate-200 dark:bg-slate-800/50 ring-1 ring-white/10" />
         ))}
     </div>
 );
@@ -656,7 +680,7 @@ const MenuPortal = ({ children, menuStyle, onClose, monet }) => {
     
     const containerClass = monet 
         ? `fixed z-[9999] backdrop-blur-xl rounded-2xl shadow-2xl ring-1 ring-white/10 p-2 animate-in fade-in zoom-in-95 duration-200 flex flex-col gap-1 bg-[#1E212B]/90 border border-white/10`
-        : `fixed z-[9999] bg-white/90 dark:bg-[#1E212B]/95 backdrop-blur-xl rounded-2xl shadow-2xl ring-1 ring-black/5 p-2 animate-in fade-in zoom-in-95 duration-200 flex flex-col gap-1 border border-white/20 dark:border-white/5`;
+        : `fixed z-[9999] bg-white/95 dark:bg-[#1E212B]/95 backdrop-blur-xl rounded-2xl shadow-2xl ring-1 ring-black/5 p-2 animate-in fade-in zoom-in-95 duration-200 flex flex-col gap-1 border border-white/20 dark:border-white/5`;
 
     return createPortal(
         <div ref={menuRef} style={menuStyle} className={containerClass}>
@@ -709,7 +733,7 @@ const MenuItem = ({ icon: Icon, text, onClick, disabled, loading, monet }) => {
     );
 };
 
-const AddContentButton = ({ onAddLesson, onAddQuiz, monet, styles }) => {
+const AddContentButton = ({ onAddLesson, onAddQuiz, monet, styles, className }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [menuStyle, setMenuStyle] = useState({});
     const buttonRef = useRef(null);
@@ -725,7 +749,7 @@ const AddContentButton = ({ onAddLesson, onAddQuiz, monet, styles }) => {
 
     return (
         <>
-            <button ref={buttonRef} onClick={handleToggle} className={`${styles.primaryButton} !px-3 !py-1.5 text-xs md:text-sm`}>
+            <button ref={buttonRef} onClick={handleToggle} className={`${styles.primaryButton} ${className || ''}`}>
                 <PlusIcon className="w-4 h-4" /> <span className="hidden md:inline">Add Content</span> <span className="md:hidden">Add</span>
             </button>
             {isOpen && <MenuPortal menuStyle={menuStyle} onClose={() => setIsOpen(false)} monet={monet}>
@@ -807,7 +831,7 @@ const ExportTutorialModal = ({ isOpen, onClose, onConfirm, monet }) => {
     );
 };
 
-// --- SORTABLE UNIT LIST ITEM ---
+// --- REDESIGNED: SORTABLE UNIT LIST ITEM ---
 const SortableUnitListRow = memo(({ unit, onSelect, onAction, isReordering, index, monet, styles }) => {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
         id: unit.id, data: { type: 'unit' }, disabled: !isReordering,
@@ -815,86 +839,109 @@ const SortableUnitListRow = memo(({ unit, onSelect, onAction, isReordering, inde
     
     const style = { transform: CSS.Translate.toString(transform), transition };
     
-    const gradients = [
-        "bg-gradient-to-br from-cyan-500 via-blue-500 to-indigo-600",
-        "bg-gradient-to-br from-purple-500 via-pink-500 to-rose-500",
-        "bg-gradient-to-br from-teal-400 via-emerald-500 to-green-600",
-        "bg-gradient-to-br from-amber-400 via-orange-500 to-red-500"
-    ];
-
-    const iconGradient = monet ? monet.cardGradient : gradients[index % gradients.length];
+    // Aesthetic: Glassmorphic Folder Stack
+    // We use a slight rotation variation for visual interest in the icon
+    const rotation = index % 2 === 0 ? '-rotate-3' : 'rotate-3';
     
-    const containerClasses = monet 
-        ? `${monet.buttonSecondary} !justify-start !p-0 overflow-visible border-white/10 hover:border-white/30`
-        : `bg-white dark:bg-[#15171B] border border-slate-200 dark:border-white/5 shadow-sm hover:shadow-lg dark:hover:shadow-black/40 hover:border-blue-400/30 dark:hover:border-white/10`;
+    const folderGradients = [
+        "from-blue-500 to-indigo-600 shadow-blue-500/30",
+        "from-violet-500 to-fuchsia-600 shadow-purple-500/30", 
+        "from-emerald-400 to-teal-600 shadow-emerald-500/30",
+        "from-amber-400 to-orange-500 shadow-orange-500/30"
+    ];
+    
+    const activeGradient = monet ? monet.cardGradient : `bg-gradient-to-br ${folderGradients[index % folderGradients.length]}`;
+
+    const cardBase = monet 
+        ? `${monet.buttonSecondary} !justify-start !p-0 border-white/10 backdrop-blur-md`
+        : `bg-white/70 dark:bg-[#1A1D24]/80 backdrop-blur-xl border border-white/20 dark:border-white/5 shadow-sm hover:shadow-xl dark:shadow-black/50`;
 
     const rowClasses = isReordering 
-        ? "opacity-70 bg-slate-50 border-2 border-dashed border-slate-300 dark:bg-slate-800 dark:border-slate-600"
-        : `${containerClasses} rounded-[1.5rem] md:rounded-[2rem] transition-all duration-300 group`;
+        ? "opacity-60 grayscale scale-[0.98] border-dashed border-2 border-slate-300 dark:border-slate-600"
+        : `${cardBase} hover:-translate-y-1 transition-all duration-300 group overflow-hidden`;
 
     return (
         <div ref={setNodeRef} style={{...style, ...performanceStyles}} {...attributes} className="mb-4">
             <div 
                 onClick={() => !isReordering && onSelect(unit)} 
-                className={`relative w-full flex items-center p-3 md:p-4 ${rowClasses} ${!isReordering ? 'cursor-pointer active:scale-[0.99]' : ''}`}
+                className={`relative w-full rounded-2xl md:rounded-3xl p-1 ${rowClasses} ${!isReordering ? 'cursor-pointer' : ''}`}
             >
-                {isReordering && (
-                    <button {...listeners} className="p-2 mr-2 rounded-full bg-slate-100 dark:bg-slate-700 cursor-grab active:cursor-grabbing">
-                        <ArrowsUpDownIcon className="h-5 w-5 text-slate-400" />
-                    </button>
-                )}
+                {/* Decorative Background Blob */}
+                <div className="absolute -right-10 -top-10 w-32 h-32 bg-gradient-to-br from-white/20 to-transparent rounded-full blur-2xl pointer-events-none opacity-50"></div>
 
-                <div className={`
-                    h-14 w-14 md:h-16 md:w-16 flex-shrink-0 
-                    rounded-[1rem] md:rounded-[1.3rem] 
-                    flex items-center justify-center 
-                    shadow-lg shadow-black/5
-                    mr-4 md:mr-6
-                    ${iconGradient}
-                `}>
-                    <FolderIcon className="h-7 w-7 md:h-8 md:w-8 text-white drop-shadow-md" />
-                </div>
-
-                <div className="flex-grow min-w-0 pr-2">
-                    <h3 className={`
-                        text-lg md:text-xl font-bold tracking-tight leading-tight truncate
-                        ${monet ? 'text-white' : 'text-slate-800 dark:text-slate-100'}
-                    `}>
-                        {unit.title}
-                    </h3>
-                    <p className={`
-                        text-xs md:text-sm font-medium mt-1 truncate
-                        ${monet ? 'text-white/50' : 'text-slate-500 dark:text-slate-400'}
-                    `}>
-                        Tap to view contents
-                    </p>
-                </div>
-
-                {!isReordering && (
-                    <div className="flex items-center gap-2 md:gap-4">
-                        <div onClick={(e) => e.stopPropagation()}>
-                            <ActionMenu monet={monet} styles={styles}>
-                                <MenuItem icon={PencilIcon} text="Edit Unit" onClick={(e) => { e.stopPropagation(); onAction('edit', unit); }} monet={monet} />
-                                <MenuItem icon={ArrowsUpDownIcon} text="Reorder" onClick={(e) => { e.stopPropagation(); onAction('reorder', unit); }} monet={monet} />
-                                <MenuItem icon={TrashIcon} text="Delete Unit" onClick={(e) => { e.stopPropagation(); onAction('delete', unit); }} monet={monet} />
-                            </ActionMenu>
+                <div className="relative flex items-center p-3 md:p-5 gap-4 md:gap-6">
+                    {isReordering && (
+                        <div {...listeners} className="p-2 cursor-grab active:cursor-grabbing hover:bg-black/5 rounded-lg">
+                            <ArrowsUpDownIcon className="h-6 w-6 text-slate-400" />
                         </div>
-                        <div className={`
-                            hidden md:flex h-10 w-10 rounded-full items-center justify-center 
-                            transition-all duration-300
-                            ${monet ? 'bg-white/10 group-hover:bg-white/20' : 'bg-slate-100 dark:bg-white/5 group-hover:bg-blue-50 dark:group-hover:bg-white/10'}
-                        `}>
-                            <ChevronRightIcon className={`w-5 h-5 ${monet ? 'text-white' : 'text-slate-400 group-hover:text-blue-500 dark:text-slate-400'}`} />
+                    )}
+
+                    {/* Folder Icon Container */}
+                    <div className={`
+                        relative h-16 w-16 md:h-20 md:w-20 flex-shrink-0 
+                        rounded-2xl flex items-center justify-center 
+                        text-white shadow-lg transition-transform duration-500 group-hover:scale-105
+                        ${activeGradient}
+                    `}>
+                        {/* Folder "Ear" Effect */}
+                        <div className="absolute top-0 right-0 w-6 h-6 bg-white/20 rounded-bl-xl"></div>
+                        <FolderIcon className={`h-8 w-8 md:h-10 md:w-10 drop-shadow-md ${rotation}`} />
+                        
+                        {/* Unit Number Badge (mock) */}
+                        <div className="absolute -bottom-2 -right-2 bg-white dark:bg-slate-800 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm border border-slate-100 dark:border-white/10 text-slate-600 dark:text-slate-300">
+                            #{index + 1}
                         </div>
                     </div>
-                )}
+
+                    {/* Content */}
+                    <div className="flex-grow min-w-0 flex flex-col justify-center">
+                        <div className="flex items-center gap-2 mb-1">
+                            <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-md ${monet ? 'bg-white/10 text-white/70' : 'bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400'}`}>
+                                Unit
+                            </span>
+                        </div>
+                        <h3 className={`
+                            text-xl md:text-2xl font-bold tracking-tight leading-none truncate mb-1
+                            ${monet ? 'text-white' : 'text-slate-800 dark:text-slate-100'}
+                        `}>
+                            {unit.title}
+                        </h3>
+                        <div className="flex items-center gap-3">
+                            <p className={`text-xs font-medium truncate flex items-center gap-1 ${monet ? 'text-white/50' : 'text-slate-500 dark:text-slate-400'}`}>
+                                <span>Tap to view contents</span>
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Actions */}
+                    {!isReordering && (
+                        <div className="flex items-center gap-2 z-10">
+                            <div onClick={(e) => e.stopPropagation()}>
+                                <ActionMenu monet={monet} styles={styles}>
+                                    <MenuItem icon={PencilIcon} text="Edit Unit" onClick={(e) => { e.stopPropagation(); onAction('edit', unit); }} monet={monet} />
+                                    <MenuItem icon={ArrowsUpDownIcon} text="Reorder" onClick={(e) => { e.stopPropagation(); onAction('reorder', unit); }} monet={monet} />
+                                    <MenuItem icon={TrashIcon} text="Delete Unit" onClick={(e) => { e.stopPropagation(); onAction('delete', unit); }} monet={monet} />
+                                </ActionMenu>
+                            </div>
+                            <div className={`
+                                hidden md:flex h-12 w-12 rounded-full items-center justify-center 
+                                transition-all duration-300 border
+                                ${monet 
+                                    ? 'bg-white/5 border-white/10 hover:bg-white/20 text-white' 
+                                    : 'bg-white dark:bg-white/5 border-slate-100 dark:border-white/5 text-slate-400 hover:text-blue-600 hover:border-blue-200 shadow-sm'}
+                            `}>
+                                <ChevronRightIcon className="w-5 h-5 stroke-[2.5]" />
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
 }, (prev, next) => prev.unit.id === next.unit.id && prev.unit.title === next.unit.title && prev.isReordering === next.isReordering && prev.index === next.index && prev.monet === next.monet);
 
 
-// --- SORTABLE CONTENT (LESSON) ROW ---
+// --- REDESIGNED: SORTABLE CONTENT ITEM (LESSON/QUIZ) ---
 const SortableContentItem = memo(({ item, isReordering, onAction, exportingLessonId, isAiGenerating, monet, styles, isPdfDisabled }) => {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
         id: item.id, data: { type: item.type, unitId: item.unitId }, disabled: !isReordering,
@@ -902,78 +949,95 @@ const SortableContentItem = memo(({ item, isReordering, onAction, exportingLesso
     
     const style = { transform: CSS.Translate.toString(transform), transition };
     const isLesson = item.type === 'lesson';
-    const Icon = isLesson ? DocumentTextIcon : ClipboardDocumentListIcon;
-
-    const defaultTheme = isLesson 
+    
+    // Distinct Visual Identity
+    const Icon = isLesson ? BookOpenIcon : AcademicCapIcon; // Better icons
+    const typeLabel = isLesson ? "LESSON" : "QUIZ";
+    
+    const theme = isLesson 
         ? {
-            iconBg: 'bg-gradient-to-br from-blue-400 to-cyan-500 shadow-blue-500/30',
-            hoverBorder: 'hover:border-blue-400/30',
-            activeRing: 'active:ring-blue-500/20',
-            textTitle: 'group-hover:text-blue-600 dark:group-hover:text-blue-300'
+            accent: 'bg-blue-500',
+            lightAccent: 'bg-blue-50 dark:bg-blue-500/10',
+            textAccent: 'text-blue-600 dark:text-blue-400',
+            border: 'border-l-4 border-l-blue-500',
+            gradient: 'from-blue-500 to-cyan-400',
+            shadow: 'shadow-blue-500/20'
           }
         : {
-            iconBg: 'bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-purple-500/30',
-            hoverBorder: 'hover:border-purple-400/30',
-            activeRing: 'active:ring-purple-500/20',
-            textTitle: 'group-hover:text-purple-600 dark:group-hover:text-purple-300'
+            accent: 'bg-purple-500',
+            lightAccent: 'bg-purple-50 dark:bg-purple-500/10',
+            textAccent: 'text-purple-600 dark:text-purple-400',
+            border: 'border-l-4 border-l-purple-500',
+            gradient: 'from-purple-500 to-pink-500',
+            shadow: 'shadow-purple-500/20'
           };
 
-    const monetIconBg = monet ? (isLesson ? monet.buttonPrimary : monet.buttonSecondary) : '';
-    const monetHoverBorder = monet ? 'hover:border-white/30' : '';
-    const monetTextTitle = monet ? 'text-white' : '';
+    // Card Container Styles
+    const containerClasses = monet 
+        ? `${monet.buttonSecondary} !justify-start border-white/10 hover:border-white/30`
+        : `bg-white dark:bg-[#1E212B] border border-slate-200 dark:border-white/5 shadow-sm hover:shadow-lg dark:shadow-black/40`;
 
     return (
-        <div ref={setNodeRef} style={{...style, ...performanceStyles}} {...attributes} className="mb-3 md:mb-4"> 
+        <div ref={setNodeRef} style={{...style, ...performanceStyles}} {...attributes} className="mb-3"> 
             <div 
                 onClick={() => !isReordering && onAction('view', item)}
                 className={`
                     relative group w-full flex items-center 
-                    p-3 md:p-4 
-                    rounded-[1.5rem] md:rounded-[2rem] 
+                    p-3 md:p-4 rounded-xl md:rounded-2xl overflow-hidden
                     transition-all duration-300 ease-out
-                    md:hover:-translate-y-1 active:scale-[0.98]
-                    ${styles.contentItem} 
-                    ${monet ? monetHoverBorder : defaultTheme.hoverBorder} 
-                    ${isReordering ? 'ring-2 ring-blue-500/50 bg-blue-50/50' : ''}
+                    ${containerClasses}
+                    ${isReordering ? 'opacity-80 scale-[0.99] border-dashed border-2' : 'hover:-translate-y-0.5 active:scale-[0.99]'}
+                    ${!monet ? theme.border : ''} 
                 `}
             >
+                {/* Visual Strip for Monet Mode (since we can't use border-l there easily) */}
+                {monet && <div className={`absolute left-0 top-0 bottom-0 w-1 ${isLesson ? 'bg-blue-400' : 'bg-purple-400'}`}></div>}
+
                 {isReordering && (
-                    <button {...listeners} className="p-2 mr-2 rounded-full text-slate-400 hover:text-blue-500 hover:bg-blue-50 cursor-grab active:cursor-grabbing">
+                    <button {...listeners} className="p-2 mr-2 rounded-lg text-slate-400 hover:bg-black/5 cursor-grab active:cursor-grabbing">
                         <Bars3Icon className="w-5 h-5" />
                     </button>
                 )}
 
+                {/* Icon Box - Distinct shapes */}
                 <div className={`
-                    h-12 w-12 md:h-16 md:w-16 flex-shrink-0 
-                    rounded-[1rem] md:rounded-[1.2rem] 
+                    h-12 w-12 md:h-14 md:w-14 flex-shrink-0 
+                    ${isLesson ? 'rounded-xl' : 'rounded-full'} 
                     flex items-center justify-center 
-                    mr-3 md:mr-5 
-                    shadow-lg ring-2 md:ring-4 ring-white/50 dark:ring-white/5
-                    ${monet ? monetIconBg : defaultTheme.iconBg}
+                    mr-4 md:mr-5 relative overflow-hidden
+                    bg-gradient-to-br ${monet ? monet.cardGradient : theme.gradient}
+                    ${theme.shadow}
                 `}>
-                    <Icon className="h-6 w-6 md:h-8 md:w-8 text-white drop-shadow-md stroke-[2]" />
+                    <Icon className="h-6 w-6 text-white drop-shadow-sm relative z-10" />
+                    {/* Gloss Reflection */}
+                    <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent z-0"></div>
                 </div>
 
-                <div className="flex-grow min-w-0 pr-2 md:pr-4">
+                <div className="flex-grow min-w-0 pr-2">
+                    <div className="flex items-center gap-2 mb-0.5">
+                        <span className={`text-[9px] md:text-[10px] font-black tracking-widest ${monet ? 'text-white/60' : theme.textAccent}`}>
+                            {typeLabel}
+                        </span>
+                        {item.contentType === 'teacherGuide' && <span className="text-[9px] bg-amber-100 text-amber-700 px-1.5 rounded-sm font-bold">ULP</span>}
+                    </div>
                     <h4 className={`
-                        font-bold text-[16px] md:text-[19px] 
-                        tracking-tight leading-snug
-                        transition-colors duration-300 
-                        ${monet ? monetTextTitle : 'text-slate-800 dark:text-slate-100'}
-                        ${!isReordering && !monet ? `cursor-pointer ${defaultTheme.textTitle}` : ''}
+                        font-bold text-base md:text-lg 
+                        leading-tight truncate
+                        ${monet ? 'text-white' : 'text-slate-800 dark:text-slate-100'}
                     `}>
                         {item.title || 'Untitled'}
                     </h4>
                     {item.subtitle && (
-                        <p className={`text-[12px] md:text-[14px] font-medium mt-0.5 line-clamp-1 ${monet ? 'text-white/60' : 'text-slate-500 dark:text-slate-400'}`}>
+                        <p className={`text-xs md:text-sm mt-0.5 truncate ${monet ? 'text-white/50' : 'text-slate-500 dark:text-slate-400'}`}>
                             {item.subtitle}
                         </p>
                     )}
                 </div>
 
+                {/* Right Side Interactions */}
                 <div className={`
-                    flex items-center gap-1 transition-all duration-300
-                    ${isReordering ? 'opacity-0' : 'opacity-100 md:opacity-0 md:group-hover:opacity-100 md:translate-x-4 md:group-hover:translate-x-0'}
+                    flex items-center gap-1 transition-opacity duration-200
+                    ${isReordering ? 'opacity-0 pointer-events-none' : 'opacity-100'}
                 `}>
                     <div onClick={(e) => e.stopPropagation()}>
                         <ActionMenu monet={monet} styles={styles}>
@@ -1002,9 +1066,6 @@ const SortableContentItem = memo(({ item, isReordering, onAction, exportingLesso
                             <MenuItem icon={TrashIcon} text="Delete" onClick={() => onAction('delete', item)} monet={monet} />
                         </ActionMenu>
                     </div>
-                    <div className={`hidden md:flex h-10 w-10 rounded-full items-center justify-center ml-2 ${monet ? 'bg-white/10 text-white/50 group-hover:text-white' : 'bg-slate-100/50 dark:bg-white/5 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300'}`}>
-                        <ChevronRightIcon className="w-5 h-5 stroke-[2.5]" />
-                    </div>
                 </div>
             </div>
         </div>
@@ -1027,10 +1088,8 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
     const [exportingLessonId, setExportingLessonId] = useState(null);
     const [isReordering, setIsReordering] = useState(false);
     
-    // --- NEW STATE FOR TUTORIAL ---
     const [tutorialModalOpen, setTutorialModalOpen] = useState(false);
     const [itemToExport, setItemToExport] = useState(null);
-    // ----------------------------
 
     const styles = getStyles(monet);
     const { activeOverlay } = useTheme();
@@ -1060,23 +1119,13 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
     );
 
-    // --- CHECK FOR MATH 7-10 RESTRICTION ---
     const isPdfRestricted = useMemo(() => {
         if (!subject?.title) return false;
-        
         const title = subject.title.toLowerCase();
-        
-        // 1. Check if it is a Mathematics subject
         const isMath = title.includes('math'); 
-        
-        // 2. Check if it is Grade 7, 8, 9, or 10
-        // Matches "7", "8", "9", "10" as whole words (e.g., "Math 7", "Mathematics 10")
-        const isTargetGrade = /\b(7|8|9|10)\b/.test(title) || 
-                              (subject.gradeLevel && ['7','8','9','10'].includes(String(subject.gradeLevel)));
-
+        const isTargetGrade = /\b(7|8|9|10)\b/.test(title) || (subject.gradeLevel && ['7','8','9','10'].includes(String(subject.gradeLevel)));
         return isMath && isTargetGrade;
     }, [subject]);
-    // ---------------------------------------
 
     useEffect(() => {
         if (!subject?.id) { setUnits([]); return; }
@@ -1099,7 +1148,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
         return () => { unL(); unQ(); };
     }, [subject?.id]);
 
-	const handleExportDocx = async (lesson) => {
+    const handleExportDocx = async (lesson) => {
 	        if (isExportingRef.current) return;
 	        isExportingRef.current = true;
 	        setExportingLessonId(lesson.id);
@@ -1376,99 +1425,146 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 	    };
 
 // --- SMART EXPORT: PDF ---
-    const handleExportLessonPdf = async (lesson) => {
-        if (exportingLessonId) return;
-        setExportingLessonId(lesson.id);
+		const handleExportLessonPdf = async (lesson) => {
+		    if (exportingLessonId) return;
+		    setExportingLessonId(lesson.id);
 
-        const isULP = lesson.contentType === 'teacherGuide';
-        const isATG = lesson.contentType === 'teacherAtg';
-        const isSpecialDoc = isULP || isATG;
-    
-        const docLabel = isULP ? "ULP" : (isATG ? "ATG" : "Lesson");
-        const suffix = isULP ? "_ULP" : (isATG ? "_ATG" : "");
+		    const isULP = lesson.contentType === 'teacherGuide';
+		    const isATG = lesson.contentType === 'teacherAtg';
+		    const isSpecialDoc = isULP || isATG;
 
-        const pageSize = isSpecialDoc ? { width: 612, height: 936 } : 'A4';
-        
-        // [Left, Top, Right, Bottom]
-        const pageMargins = isSpecialDoc ? [36, 80, 36, 60] : [40, 80, 40, 60]; 
+		    const docLabel = isULP ? "ULP" : (isATG ? "ATG" : "Lesson");
+		    const suffix = isULP ? "_ULP" : (isATG ? "_ATG" : "");
 
-		showToast(`Preparing ${docLabel} PDF...`, "info");
+		    const pageSize = isSpecialDoc ? { width: 612, height: 936 } : 'A4';
+		    const pageMargins = isSpecialDoc ? [36, 80, 36, 60] : [40, 80, 40, 60];
+
+		    showToast(`Preparing ${docLabel} PDF...`, "info");
+
 		    try {
-		        await registerDejaVuFonts();
-		        const headerBase64 = await fetchImageAsBase64("/header-port.png").catch(()=>null);
-		        const footerBase64 = await fetchImageAsBase64("/Footer.png").catch(()=>null);
-    
+		        const fontsLoaded = await registerDejaVuFonts();
+		        const activeFont = fontsLoaded ? 'DejaVu' : 'Roboto';
+
+		        const headerBase64 = await fetchImageAsBase64("/header-port.png").catch(() => null);
+		        const footerBase64 = await fetchImageAsBase64("/Footer.png").catch(() => null);
+
 		        const pages = Array.isArray(lesson.pages) && lesson.pages.length ? lesson.pages : [{ title: lesson.title || '', content: lesson.content || lesson.html || '' }];
 
 		        let lessonContent = [];
-		        let collectedImages = {}; // 1. Initialize image container
+		        let collectedImages = {};
 
 		        for (const page of pages) {
 		            const cleanTitle = (page.title || "").replace(/^page\s*\d+\s*[:-]?\s*/i, "");
-        
+
 		            if (cleanTitle && !cleanTitle.includes('Unit Learning Plan') && !cleanTitle.includes('Adaptive Teaching Guide')) {
 		                lessonContent.push({ text: cleanTitle, fontSize: 16, bold: true, color: '#005a9c', margin: [0, 10, 0, 5] });
 		            }
-        
-		            // Ensure you use the UPDATED processLatex from Step 1 here
-		            let rawHtml;
-		            if (isSpecialDoc) {
-		                rawHtml = page.content || '';
-		            } else {
-		                rawHtml = marked.parse(processLatex(page.content || ''));
-		            }
 
-		            const processedDiv = preProcessHtmlForExport(rawHtml, isULP ? 'ulp' : (isATG ? 'atg' : 'pdf'));
-        
-		            // --- IMAGE PRE-FETCHING (Keep your Step 2 logic here if added) ---
-		            const mathImages = processedDiv.querySelectorAll('img');
-		            if (mathImages.length > 0) {
-		                await Promise.all(Array.from(mathImages).map(async (img) => {
-		                    if (img.src && img.src.startsWith('http')) {
+		            if (typeof page.content === 'object' && page.content !== null) {
+		                const imageUrls = page.content.imageUrls || (page.content.generatedImageUrl ? [page.content.generatedImageUrl] : []);
+
+		                if (Array.isArray(imageUrls) && imageUrls.length > 0) {
+		                    for (const url of imageUrls) {
+		                        if (!url) continue;
 		                        try {
-		                            const base64 = await fetchImageAsBase64(img.src);
-		                            img.src = base64; 
-		                        } catch (err) { console.warn("Failed to load image:", img.src); }
+		                            const base64 = await fetchImageAsBase64(url);
+		                            if (base64) {
+		                                lessonContent.push({
+		                                    image: base64,
+		                                    width: 450,
+		                                    alignment: 'center',
+		                                    margin: [0, 10, 0, 5]
+		                                });
+		                            }
+		                        } catch (e) {
+		                            console.warn("Failed to load lesson image", url);
+		                            lessonContent.push({ text: "(Image could not be loaded)", italics: true, fontSize: 10, alignment: 'center', color: 'gray' });
+		                        }
 		                    }
-		                }));
-		            }
-		            // ---------------------------------------------------------------
-        
-		            const finalHtml = processedDiv.innerHTML;
-        
-		            // 2. Capture the full result object from htmlToPdfmake
-					const pdfResult = htmlToPdfmake(finalHtml, { 
-					    defaultStyles: { 
-					        fontSize: 9, 
-					        lineHeight: 1.1, 
-					        alignment: 'justify',
-					        margin: [0, 0, 0, 0] 
-					    },
-					    // NEW: Define the custom class style for pdfmake
-					    customStyles: {
-					        'math-img': {
-					            // This ensures pdfmake treats it as an inline element if possible
-					            margin: [0, 0, 0, 0] 
-					        }
-					    },
-					    tableAutoSize: false, // --- FIX: DISABLE AUTO-SIZE TO FORCE 100% WIDTH ---
-					    imagesByReference: true
-					});
+		                }
 
-		            // 3. Extract content AND images
-		            let pageBody = pdfResult.content || pdfResult;
-		            if (pdfResult.images) {
-		                Object.assign(collectedImages, pdfResult.images); // Merge new images
-		            }
+		                if (page.caption) {
+		                    let captionHtml = marked.parse(processLatex(page.caption));
+		                    const processedCaption = preProcessHtmlForExport(captionHtml, isULP ? 'ulp' : (isATG ? 'atg' : 'pdf'));
+		                    const pdfCaption = htmlToPdfmake(processedCaption.innerHTML, {
+		                        defaultStyles: { fontSize: 10, alignment: 'center', color: '#444' }
+		                    });
 
-		            if (!Array.isArray(pageBody)) {
-		                pageBody = [pageBody];
-		            }
+		                    let captionBody = pdfCaption.content || pdfCaption;
+		                    if (Array.isArray(captionBody)) lessonContent.push(...captionBody);
+		                    else lessonContent.push(captionBody);
+		                }
 
-		            cleanUpPdfContent(pageBody, false, 0);
+		            } else {
+		                const contentString = typeof page.content === 'string' ? page.content : '';
+		                let rawHtml;
+		                if (isSpecialDoc) {
+		                    rawHtml = contentString;
+		                } else {
+		                    rawHtml = marked.parse(processLatex(contentString));
+		                }
 
-		            if (pageBody.length > 0) {
-		                lessonContent.push(...pageBody);
+		                const processedDiv = preProcessHtmlForExport(rawHtml, isULP ? 'ulp' : (isATG ? 'atg' : 'pdf'));
+
+		                const mathImages = processedDiv.querySelectorAll('img');
+		                if (mathImages.length > 0) {
+		                    await Promise.all(Array.from(mathImages).map(async (img) => {
+		                        if (img.src && img.src.startsWith('http')) {
+		                            try {
+		                                const base64 = await fetchImageAsBase64(img.src);
+		                                img.src = base64;
+		                            } catch (err) { console.warn("Failed to load image:", img.src); }
+		                        }
+		                    }));
+		                }
+
+		                const finalHtml = processedDiv.innerHTML;
+
+		                // --- MODIFIED CONFIGURATION FOR JUSTIFY & BLOCKQUOTES ---
+		                const pdfResult = htmlToPdfmake(finalHtml, {
+		                    defaultStyles: {
+		                        fontSize: 9,
+		                        lineHeight: 1.2,
+		                        alignment: 'justify', // Justified text
+		                        margin: [0, 0, 0, 5]
+		                    },
+		                    // Specific styles for HTML tags
+		                    tagStyles: {
+		                        blockquote: {
+		                            background: '#f5f7fa', // Very light blue/gray background
+		                            margin: [20, 5, 20, 10], // Indent left and right
+		                            color: '#334155', // Slate color
+		                            italics: true
+		                        },
+		                        code: {
+		                           background: '#eeeeee',
+		                           fontSize: 8
+		                        }
+		                    },
+		                    customStyles: {
+		                        'math-img': {
+		                            margin: [0, 0, 0, 0],
+		                            alignment: 'left'
+		                        }
+		                    },
+		                    tableAutoSize: false,
+		                    imagesByReference: true
+		                });
+
+		                let pageBody = pdfResult.content || pdfResult;
+		                if (pdfResult.images) {
+		                    Object.assign(collectedImages, pdfResult.images);
+		                }
+
+		                if (!Array.isArray(pageBody)) {
+		                    pageBody = [pageBody];
+		                }
+
+		                cleanUpPdfContent(pageBody, false, 0);
+
+		                if (pageBody.length > 0) {
+		                    lessonContent.push(...pageBody);
+		                }
 		            }
 		        }
 
@@ -1482,13 +1578,12 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 		                { text: subject?.title || "", fontSize: 12, italics: true, alignment: "center", color: '#555555', margin: [0, 0, 0, 10], pageBreak: "after" },
 		                ...lessonContent
 		            ],
-		            // 4. Pass the collected images to pdfMake
 		            images: {
-		                ...collectedImages, 
+		                ...collectedImages,
 		                ...(headerBase64 ? { headerImg: headerBase64 } : {}),
 		                ...(footerBase64 ? { footerImg: footerBase64 } : {})
 		            },
-		            defaultStyle: { font: 'DejaVu', fontSize: 12 }
+		            defaultStyle: { font: activeFont, fontSize: 12, alignment: 'justify' }
 		        };
 
 		        const pdfDoc = pdfMake.createPdf(docDef);
@@ -1497,15 +1592,14 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 		        } else {
 		            pdfDoc.download(`${(lesson.title || 'export').replace(/[^a-z0-9]/gi, '_')}${suffix}.pdf`);
 		        }
-        
-		    } catch (e) { 
+
+		    } catch (e) {
 		        console.error("PDF Export Error:", e);
-		        showToast("PDF Error: " + (e.message || e), "error"); 
+		        showToast("PDF Error: " + (e.message || e), "error");
 		    }
 		    setExportingLessonId(null);
 		};
-	
-    // --- CONFIRM EXPORT AFTER TUTORIAL ---
+
     const handleConfirmExport = () => {
         setTutorialModalOpen(false);
         if (itemToExport) {
@@ -1527,8 +1621,6 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
             case 'reorder': setIsReordering(true); break;
             case 'generateQuiz': setLessonForAiQuiz(item); setAiQuizModalOpen(true); break;
             case 'exportPdf': handleExportLessonPdf(item); break;
-            
-            // --- MODIFIED CASE: Check for ULP/ATG before exporting ---
             case 'exportDocx': 
                 const isSpecialDoc = item.contentType === 'teacherGuide' || item.contentType === 'teacherAtg';
                 if (isSpecialDoc) {
@@ -1538,7 +1630,6 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                     handleExportDocx(item); 
                 }
                 break;
-            // --------------------------------------------------------
         }
     }, [onSetActiveUnit, onInitiateDelete]);
 
@@ -1582,51 +1673,53 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
         switch (activeOverlay) {
             case 'christmas': return 'bg-[#0f172a]/95';
             case 'valentines': return 'bg-[#2c0b0e]/95';
-            case 'graduation': return 'bg-[#1a1400]/95';
-            case 'rainy': return 'bg-[#061816]/95';
-            case 'cyberpunk': return 'bg-[#180a20]/95';
-            case 'spring': return 'bg-[#1f0f15]/95';
-            case 'space': return 'bg-[#020617]/95';
             default: return 'bg-[#1A1D24]/95';
         }
     };
 
     const headerBg = monet 
         ? `${getMonetHeaderBg()} backdrop-blur-xl border-b border-white/10 shadow-sm z-40`
-        : 'bg-slate-50/90 dark:bg-[#0F1115]/90 backdrop-blur-xl border-b border-white/20 dark:border-white/5 z-40';
-
-    const headerText = monet ? 'text-white' : 'text-slate-800 dark:text-white';
-    const headerSubText = monet ? 'text-white/60' : 'text-slate-500';
+        : 'bg-white/95 dark:bg-[#1E212B]/95 backdrop-blur-xl border-b border-slate-200 dark:border-white/5 z-40';
 
     return (
         <>
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 {activeUnit ? (
-                    <div className="relative">
-                        <div className={`sticky top-0 -mx-4 px-4 md:px-6 pt-3 pb-3 mb-6 flex items-center justify-between gap-4 animate-in slide-in-from-top-2 ${headerBg}`}>
-                            <div className="min-w-0 flex-1">
-                                <h2 className={`text-lg md:text-xl font-black tracking-tight leading-tight truncate ${headerText}`}>
-                                    {activeUnit.title}
-                                </h2>
-                                <p className={`text-xs md:text-xs font-medium truncate ${headerSubText}`}>Manage Lessons & Quizzes</p>
+                    <div className="relative min-h-[500px]">
+                        {/* Unit Header */}
+                        <div className={`sticky top-0 -mx-4 px-4 md:px-6 py-3 mb-1 flex items-center justify-between gap-4 animate-in slide-in-from-top-2 ${headerBg}`}>
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                                <button onClick={() => onSetActiveUnit(null)} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-white/10">
+                                    <ChevronRightIcon className="w-5 h-5 rotate-180 text-slate-500" />
+                                </button>
+                                <div className="min-w-0">
+                                    <h2 className={`text-lg md:text-xl font-black tracking-tight leading-none truncate ${monet ? 'text-white' : 'text-slate-800 dark:text-white'}`}>
+                                        {activeUnit.title}
+                                    </h2>
+                                    <p className={`text-xs font-medium truncate mt-1 ${monet ? 'text-white/60' : 'text-slate-500'}`}>
+                                        {unifiedContent.length} Items
+                                    </p>
+                                </div>
                             </div>
                             
                             <div className="flex-shrink-0 flex items-center gap-2">
                                 {renderGeneratePptButton && renderGeneratePptButton(activeUnit)}
-                                <button onClick={() => setIsReordering(!isReordering)} className={`${styles.secondaryButton} !px-3 !py-1.5 text-xs md:text-sm`}>
-                                    {isReordering ? 'Done' : 'Reorder'}
+                                <button onClick={() => setIsReordering(!isReordering)} className={`${styles.secondaryButton} !px-3 !py-2 text-xs md:text-sm`}>
+                                    <ArrowsUpDownIcon className="w-4 h-4" />
+                                    <span className={isReordering ? "inline" : "hidden md:inline"}>{isReordering ? 'Done' : 'Sort'}</span>
                                 </button>
                                 <AddContentButton 
                                     onAddLesson={() => { setSelectedUnit(activeUnit); setAddLessonModalOpen(true); }} 
                                     onAddQuiz={() => { setSelectedUnit(activeUnit); setAddQuizModalOpen(true); }}
                                     monet={monet}
                                     styles={styles}
-                                    className="!px-3 !py-1.5 text-xs md:text-sm"
+                                    className="!px-3 !py-2 text-xs md:text-sm"
                                 />
                             </div>
                         </div>
 
-                        <div className="pb-20 px-1 md:px-2">
+                        {/* Lessons List Container */}
+                        <div className="pb-20 px-1 md:px-2 max-w-5xl mx-auto">
                             {unifiedContent.length > 0 ? (
                                 <SortableContext items={unifiedContent.map(i => i.id)} strategy={verticalListSortingStrategy}>
                                     {unifiedContent.map(item => (
@@ -1644,12 +1737,12 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                                     ))}
                                 </SortableContext>
                             ) : (
-                                <div className={`flex flex-col items-center justify-center py-24 border-2 border-dashed rounded-[2.5rem] backdrop-blur-md mx-2 ${monet ? 'bg-black/20 border-white/10' : 'border-slate-200 dark:border-white/10 bg-white/40 dark:bg-white/5'}`}>
-                                    <div className={`h-24 w-24 rounded-[2rem] flex items-center justify-center mb-6 shadow-xl ring-1 ring-black/5 ${monet ? 'bg-white/10' : 'bg-white dark:bg-white/10'}`}>
-                                        <RectangleStackIcon className={`h-12 w-12 ${monet ? 'text-white/60' : 'text-slate-300 dark:text-slate-500'}`} />
+                                <div className={`flex flex-col items-center justify-center py-24 border-2 border-dashed rounded-[2rem] backdrop-blur-md mx-2 ${monet ? 'bg-black/20 border-white/10' : 'border-slate-200 dark:border-white/10 bg-white/40 dark:bg-white/5'}`}>
+                                    <div className={`h-20 w-20 rounded-2xl flex items-center justify-center mb-6 shadow-xl ring-1 ring-black/5 ${monet ? 'bg-white/10' : 'bg-white dark:bg-white/10'}`}>
+                                        <RectangleStackIcon className={`h-10 w-10 ${monet ? 'text-white/60' : 'text-slate-300 dark:text-slate-500'}`} />
                                     </div>
-                                    <h3 className={`text-xl font-bold ${monet ? 'text-white' : 'text-slate-800 dark:text-white'}`}>Empty Unit</h3>
-                                    <p className={`mb-6 font-medium text-center px-4 ${monet ? 'text-white/60' : 'text-slate-500'}`}>Add your first lesson or quiz to get started.</p>
+                                    <h3 className={`text-xl font-bold ${monet ? 'text-white' : 'text-slate-800 dark:text-white'}`}>This unit is empty</h3>
+                                    <p className={`mb-6 font-medium text-center px-4 ${monet ? 'text-white/60' : 'text-slate-500'}`}>Create a lesson or quiz to get started.</p>
                                     <AddContentButton 
                                         onAddLesson={() => { setSelectedUnit(activeUnit); setAddLessonModalOpen(true); }} 
                                         onAddQuiz={() => { setSelectedUnit(activeUnit); setAddQuizModalOpen(true); }}
@@ -1661,29 +1754,21 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                         </div>
                     </div>
                 ) : (
-                    <div className="relative">
+                    // Units List View
+                    <div className="relative max-w-5xl mx-auto">
                         {units.length > 0 && (
-                            <div className="flex justify-end mb-4">
+                            <div className="flex justify-end mb-4 px-2">
                                 <button 
                                     onClick={() => setIsReordering(!isReordering)} 
-                                    className={`${styles.secondaryButton} !px-4 !py-2 text-sm`}
+                                    className={`${styles.secondaryButton} !px-4 !py-2 text-sm backdrop-blur-md`}
                                 >
-                                    {isReordering ? (<>Done</>) : (<><ArrowsUpDownIcon className="w-4 h-4" /> Reorder Units</>)}
+                                    {isReordering ? (<span className="text-blue-500 font-bold">Done Sorting</span>) : (<><ArrowsUpDownIcon className="w-4 h-4" /> Reorder Units</>)}
                                 </button>
                             </div>
                         )}
 
-                        {isReordering && (
-                            <div className={`sticky top-0 z-30 mb-6 p-4 backdrop-blur-xl rounded-2xl border flex justify-between items-center animate-in slide-in-from-top-2 ${monet ? 'bg-black/20 border-white/10' : 'bg-blue-500/10 border-blue-500/20'}`}>
-                                <span className={`font-bold flex items-center gap-2 text-sm md:text-base ${monet ? 'text-white' : 'text-blue-600 dark:text-blue-300'}`}>
-                                    <ArrowsUpDownIcon className="w-5 h-5" /> Reordering Mode
-                                </span>
-                                <button onClick={() => setIsReordering(false)} className={`${styles.primaryButton} !py-1 !px-4 text-sm`}>Done</button>
-                            </div>
-                        )}
-
                         {units.length > 0 ? (
-                            <div className="flex flex-col gap-3 md:gap-4 pb-20">
+                            <div className="flex flex-col gap-3 pb-20">
                                 <SortableContext items={units.map(u => u.id)} strategy={verticalListSortingStrategy}>
                                     {units.map((unit, idx) => (
                                         <SortableUnitListRow key={unit.id} unit={unit} index={idx} onSelect={onSetActiveUnit} onAction={handleAction} isReordering={isReordering} monet={monet} styles={styles} />
@@ -1692,24 +1777,23 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                             </div>
                         ) : (
                             <div className="flex flex-col items-center justify-center py-32 opacity-60">
-                                <QueueListIcon className={`w-20 h-20 mb-4 ${monet ? 'text-white/30' : 'text-slate-300 dark:text-slate-600'}`} />
-                                <h3 className={`text-2xl font-bold ${monet ? 'text-white/60' : 'text-slate-900 dark:text-white'}`}>No Units Yet</h3>
+                                <QueueListIcon className={`w-24 h-24 mb-6 ${monet ? 'text-white/20' : 'text-slate-200 dark:text-slate-700'}`} />
+                                <h3 className={`text-2xl font-bold ${monet ? 'text-white/60' : 'text-slate-400 dark:text-slate-500'}`}>No Units Created</h3>
+                                <p className="text-sm text-slate-400 mt-2">Tap the + button to create your first unit.</p>
                             </div>
                         )}
                     </div>
                 )}
             </DndContext>
 
-            {/* --- NEW MODAL INSERTION --- */}
+            {/* Modals & Portals */}
             <ExportTutorialModal 
                 isOpen={tutorialModalOpen} 
                 onClose={() => { setTutorialModalOpen(false); setItemToExport(null); }}
                 onConfirm={handleConfirmExport}
                 monet={monet}
             />
-            {/* --------------------------- */}
 
-            {/* Modals */}
             <Suspense fallback={<ContentListSkeleton />}>
                 {isAiHubOpen && <AiGenerationHub isOpen={isAiHubOpen} onClose={() => setIsAiHubOpen(false)} unitId={unitForAi?.id} subjectId={subject?.id} />}
                 {editUnitModalOpen && <EditUnitModal isOpen={editUnitModalOpen} onClose={() => setEditUnitModalOpen(false)} unit={selectedUnit} />}

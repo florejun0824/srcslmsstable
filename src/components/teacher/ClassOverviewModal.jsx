@@ -1,3 +1,5 @@
+// src/components/teacher/ClassOverviewModal.jsx
+
 import React, { useState, useEffect, memo, useMemo } from 'react';
 import Modal from '../common/Modal';
 import AnnouncementViewModal from '../common/AnnouncementViewModal';
@@ -33,7 +35,8 @@ import {
     ClipboardDocumentListIcon,
     PresentationChartLineIcon,
     UserGroupIcon,
-    Cog6ToothIcon
+    Cog6ToothIcon,
+    CheckIcon // Added CheckIcon for the custom checkbox
 } from '@heroicons/react/24/solid';
 import CreateClassAnnouncementForm from './CreateClassAnnouncementForm';
 import { useAuth } from '../../contexts/AuthContext';
@@ -43,7 +46,6 @@ import ViewQuizModal from './ViewQuizModal';
 import GenerateReportModal from './GenerateReportModal';
 import EditAvailabilityModal from './EditAvailabilityModal';
 import UserInitialsAvatar from '../common/UserInitialsAvatar';
-// Spinner import removed (replaced by skeletons)
 import { motion, AnimatePresence } from 'framer-motion';
 
 // --- HELPER: OPTIMIZED STATIC AURORA BACKGROUND ---
@@ -131,15 +133,27 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     const { userProfile } = useAuth();
     const { showToast } = useToast();
     const [activeTab, setActiveTab] = useState('announcements');
+    
+    // Data States
     const [quizScores, setQuizScores] = useState([]);
     const [announcements, setAnnouncements] = useState([]);
     const [sharedContentPosts, setSharedContentPosts] = useState([]);
-    
+    const [units, setUnits] = useState({});
+    const [freshStudentData, setFreshStudentData] = useState([]);
+    const [quizLocks, setQuizLocks] = useState([]);
+
     // Loading States
-    const [loadingScores, setLoadingScores] = useState(true); // Renamed from loading
+    const [loadingScores, setLoadingScores] = useState(true); 
     const [loadingAnnouncements, setLoadingAnnouncements] = useState(true);
     const [loadingPosts, setLoadingPosts] = useState(true);
+    const [loadingStudents, setLoadingStudents] = useState(false);
     
+    // Lazy Loading Flags (Performance Optimization)
+    const [postsRequested, setPostsRequested] = useState(false);
+    const [scoresRequested, setScoresRequested] = useState(false);
+    const [studentsRequested, setStudentsRequested] = useState(false);
+
+    // Modal & Selection States
     const [showAddForm, setShowAddForm] = useState(false);
     const [viewLessonData, setViewLessonData] = useState(null);
     const [viewQuizData, setViewQuizData] = useState(null);
@@ -148,19 +162,14 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     const [editContent, setEditContent] = useState('');
     const [postToEdit, setPostToEdit] = useState(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [quizLocks, setQuizLocks] = useState([]);
     const [isScoresDetailModalOpen, setScoresDetailModalOpen] = useState(false);
     const [selectedQuizForScores, setSelectedQuizForScores] = useState(null);
     const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
-    const [units, setUnits] = useState({});
     const [collapsedPosts, setCollapsedPosts] = useState(new Set());
     const [collapsedUnits, setCollapsedUnits] = useState(new Set());
     const [classQuizIds, setClassQuizIds] = useState([]);
     const [selectedLessons, setSelectedLessons] = useState(new Set());
     const [selectedQuizzes, setSelectedQuizzes] = useState(new Set());
-
-    const [freshStudentData, setFreshStudentData] = useState([]);
-    const [loadingStudents, setLoadingStudents] = useState(false);
 
     const [confirmModal, setConfirmModal] = useState({
         isOpen: false,
@@ -170,6 +179,7 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         confirmColor: 'red',
     });
 
+    // --- RESET & CLEANUP ON CLOSE ---
     useEffect(() => {
         if (isOpen && classData?.id) {
             setActiveTab('announcements');
@@ -186,51 +196,37 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             setSelectedLessons(new Set());
             setSelectedQuizzes(new Set());
             setFreshStudentData([]);
+            
+            // Reset Loading States
             setLoadingStudents(false);
             setLoadingAnnouncements(true);
             setLoadingPosts(true);
             setLoadingScores(true);
+
+            // Reset Lazy Flags
+            setPostsRequested(false);
+            setScoresRequested(false);
+            setStudentsRequested(false);
         }
     }, [isOpen, classData?.id]);
 
-    const studentIdsHash = useMemo(() => {
-        if (!classData?.students) return '';
-        return classData.students.map(s => s.id).sort().join(',');
-    }, [classData?.students]);
-
+    // --- LAZY LOADING TRIGGERS ---
     useEffect(() => {
-        const fetchFreshStudentData = async () => {
-            if (activeTab !== 'students') return;
-            
-            if (!classData?.students || classData.students.length === 0) {
-                setFreshStudentData([]); 
-                return;
+        if (isOpen) {
+            if (activeTab === 'lessons' || activeTab === 'quizzes' || activeTab === 'scores') {
+                setPostsRequested(true);
             }
-
-            setLoadingStudents(true);
-            try {
-                const studentIds = classData.students.map(s => s.id);
-                if (studentIds.length > 0) {
-                    const students = await fetchDocsInBatches('users', studentIds);
-                    const sortedStudents = students.sort((a, b) => 
-                        (a.lastName || '').localeCompare(b.lastName || '')
-                    );
-                    setFreshStudentData(sortedStudents);
-                } else {
-                    setFreshStudentData([]);
-                }
-            } catch (err) {
-                console.error("Error fetching fresh student data:", err);
-                showToast("Could not load updated student list.", "error");
-                setFreshStudentData(classData.students.sort((a,b) => (a.lastName || '').localeCompare(b.lastName || '')));
-            } finally {
-                setLoadingStudents(false);
+            if (activeTab === 'scores') {
+                setScoresRequested(true);
             }
-        };
+            if (activeTab === 'students') {
+                setStudentsRequested(true);
+            }
+        }
+    }, [activeTab, isOpen]);
 
-        fetchFreshStudentData();
-    }, [activeTab, studentIdsHash, showToast]); 
 
+    // 1. ANNOUNCEMENTS LISTENER (Always on Open)
     useEffect(() => {
         if (!isOpen || !classData?.id) return;
         
@@ -249,8 +245,9 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         return () => { active = false; unsub(); };
     }, [isOpen, classData?.id]);
 
+    // 2. SHARED POSTS & UNITS LISTENER (Lazy Loaded)
     useEffect(() => {
-        if (!isOpen || !classData?.id) return;
+        if (!isOpen || !classData?.id || !postsRequested) return; 
         
         setLoadingPosts(true);
         let active = true;
@@ -281,10 +278,12 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         });
 
         return () => { active = false; unsub(); };
-    }, [isOpen, classData?.id]);
+    }, [isOpen, classData?.id, postsRequested]);
 
+    // 3. QUIZ SCORES LISTENER (Lazy Loaded)
     useEffect(() => {
-        if (!isOpen || !classData?.id) return;
+        if (!isOpen || !classData?.id || !scoresRequested) return; 
+
         setLoadingScores(true);
         let active = true;
         const scoresQuery = query(collection(db, 'quizSubmissions'), where("classId", "==", classData.id));
@@ -298,10 +297,11 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         });
 
         return () => { active = false; unsub(); };
-    }, [isOpen, classData?.id]);
+    }, [isOpen, classData?.id, scoresRequested]);
 
+    // 4. QUIZ LOCKS LISTENER (Lazy Loaded)
     useEffect(() => {
-        if (!isOpen || !classData?.id) {
+        if (!isOpen || !classData?.id || !postsRequested) { 
              setQuizLocks([]); 
              return;
         }
@@ -338,7 +338,44 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
         });
 
         return () => unsubscribers.forEach(unsub => unsub());
-    }, [isOpen, classData?.id, classQuizIds]);
+    }, [isOpen, classData?.id, classQuizIds, postsRequested]);
+
+    // 5. STUDENTS DATA FETCH (Lazy Loaded)
+    useEffect(() => {
+        const fetchFreshStudentData = async () => {
+            if (!isOpen || !studentsRequested) return;
+            
+            if (!classData?.students || classData.students.length === 0) {
+                setFreshStudentData([]); 
+                return;
+            }
+
+            if (freshStudentData.length > 0) return;
+
+            setLoadingStudents(true);
+            try {
+                const studentIds = classData.students.map(s => s.id);
+                if (studentIds.length > 0) {
+                    const students = await fetchDocsInBatches('users', studentIds);
+                    const sortedStudents = students.sort((a, b) => 
+                        (a.lastName || '').localeCompare(b.lastName || '')
+                    );
+                    setFreshStudentData(sortedStudents);
+                } else {
+                    setFreshStudentData([]);
+                }
+            } catch (err) {
+                console.error("Error fetching fresh student data:", err);
+                showToast("Could not load updated student list.", "error");
+                setFreshStudentData(classData.students.sort((a,b) => (a.lastName || '').localeCompare(b.lastName || '')));
+            } finally {
+                setLoadingStudents(false);
+            }
+        };
+
+        fetchFreshStudentData();
+    }, [isOpen, studentsRequested, classData?.students]); 
+
 
     const togglePostCollapse = (postId) => {
         setCollapsedPosts(prev => {
@@ -361,8 +398,11 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
     
     const onChangeEdit = (e) => setEditContent(e.target.value);
 
+    // ... (Keep existing Logic for Collapsing/Selection Effects)
     useEffect(() => {
         if (isOpen && classData?.id && (activeTab === 'lessons' || activeTab === 'quizzes')) {
+            if (!postsRequested) return;
+
             const newCollapsedPosts = new Set();
             const newCollapsedUnits = new Set();
             
@@ -385,20 +425,21 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             setCollapsedPosts(newCollapsedPosts);
             setCollapsedUnits(newCollapsedUnits);
         } else if (activeTab === 'scores') {
-            const allUnitTitles = new Set();
-            sharedContentPosts.forEach(post => {
-               (post.quizzes || []).forEach(quiz => {
-                   const unitDisplayName = units[quiz.unitId] || 'Uncategorized';
-                   allUnitTitles.add(unitDisplayName);
-               });
-           });
-           setCollapsedUnits(allUnitTitles);
-           setCollapsedPosts(new Set());
+            if (!postsRequested) return;
+             const allUnitTitles = new Set();
+             sharedContentPosts.forEach(post => {
+                (post.quizzes || []).forEach(quiz => {
+                    const unitDisplayName = units[quiz.unitId] || 'Uncategorized';
+                    allUnitTitles.add(unitDisplayName);
+                });
+            });
+            setCollapsedUnits(allUnitTitles);
+            setCollapsedPosts(new Set());
         } else {
             setCollapsedPosts(new Set());
             setCollapsedUnits(new Set());
         }
-    }, [activeTab, sharedContentPosts, units, isOpen, classData?.id]);
+    }, [activeTab, sharedContentPosts, units, isOpen, classData?.id, postsRequested]);
 
     const handleTabChange = (tabName) => {
         setActiveTab(tabName);
@@ -770,151 +811,156 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
             </motion.div>
         );
 
-        if (activeTab === 'lessons') {
-            if (loadingPosts) {
-                return (
-                    <div className="space-y-6 pb-8">
-                        <SkeletonPostGroup />
-                        <SkeletonPostGroup />
-                    </div>
-                );
-            }
-            const lessonsByPostAndUnit = sharedContentPosts.reduce((acc, post) => {
-                const postLessons = (post.lessons || []);
-                if (postLessons.length === 0) return acc;
-                if (!acc[post.id]) {
-                    acc[post.id] = { post: post, units: {} };
-                }
-                postLessons.forEach(lessonDetails => {
-                    const unitDisplayName = units[lessonDetails.unitId] || 'Uncategorized';
-                    if (!acc[post.id].units[unitDisplayName]) {
-                        acc[post.id].units[unitDisplayName] = [];
-                    }
-                    acc[post.id].units[unitDisplayName].push(lessonDetails);
-                });
-                return acc;
-            }, {});
+		if (activeTab === 'lessons') {
+		            if (loadingPosts) {
+		                return (
+		                    <div className="space-y-6 pb-8">
+		                        <SkeletonPostGroup />
+		                        <SkeletonPostGroup />
+		                    </div>
+		                );
+		            }
+		            const lessonsByPostAndUnit = sharedContentPosts.reduce((acc, post) => {
+		                const postLessons = (post.lessons || []);
+		                if (postLessons.length === 0) return acc;
+		                if (!acc[post.id]) {
+		                    acc[post.id] = { post: post, units: {} };
+		                }
+		                postLessons.forEach(lessonDetails => {
+		                    const unitDisplayName = units[lessonDetails.unitId] || 'Uncategorized';
+		                    if (!acc[post.id].units[unitDisplayName]) {
+		                        acc[post.id].units[unitDisplayName] = [];
+		                    }
+		                    acc[post.id].units[unitDisplayName].push(lessonDetails);
+		                });
+		                return acc;
+		            }, {});
             
-            const postEntries = Object.values(lessonsByPostAndUnit).sort((a, b) => 
-                (a.post.createdAt?.toDate() || 0) - (b.post.createdAt?.toDate() || 0)
-            );
+		            const postEntries = Object.values(lessonsByPostAndUnit).sort((a, b) => 
+		                (a.post.createdAt?.toDate() || 0) - (b.post.createdAt?.toDate() || 0)
+		            );
             
-            const selectedSet = selectedLessons;
+		            const selectedSet = selectedLessons;
 
-            return (
-                <div className="space-y-4 sm:space-y-6 pb-28 sm:pb-8">
-                    {postEntries.length > 0 ? postEntries.map(({ post, units: unitsInPost }) => {
+		            return (
+		                <div className="space-y-4 sm:space-y-6 pb-28 sm:pb-8">
+		                    {postEntries.length > 0 ? postEntries.map(({ post, units: unitsInPost }) => {
                         
-                        const sortedUnitKeys = Object.keys(unitsInPost).sort(customUnitSort);
-                        const isPostCollapsed = collapsedPosts.has(post.id);
+		                        const sortedUnitKeys = Object.keys(unitsInPost).sort(customUnitSort);
+		                        const isPostCollapsed = collapsedPosts.has(post.id);
 
-                        return (
-                            <PostGroup key={post.id}>
-                                <button 
-                                    className="w-full text-left p-3 sm:p-5 group"
-                                    onClick={() => togglePostCollapse(post.id)}
-                                >
-                                    <div className="flex justify-between items-start">
-                                        <div className="flex-1 min-w-0">
-                                            <h3 className="font-bold text-slate-900 dark:text-white text-base sm:text-xl group-hover:text-[#007AFF] dark:group-hover:text-[#0A84FF] transition-colors truncate tracking-tight">{post.title}</h3>
-                                            <div className="text-[10px] sm:text-xs font-medium text-slate-500 dark:text-slate-400 mt-1 sm:mt-2 flex flex-wrap gap-x-2 sm:gap-x-4 gap-y-1">
-                                                <span className="flex items-center gap-1"><CalendarDaysIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-slate-400" />From: {post.availableFrom?.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>
-                                                {post.availableUntil && <span className="flex items-center gap-1"><ClockIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-slate-400" />Until: {post.availableUntil.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>}
-                                                {(() => {
-                                                    let targetText = "All Students";
-                                                    if (post.targetAudience === 'specific') targetText = `${post.targetStudentIds?.length || 0} Student(s)`;
-                                                    return <span className="flex items-center gap-1"><UsersIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-slate-400" />Target: {targetText}</span>;
-                                                })()}
-                                            </div>
-                                        </div>
-                                        <div className="flex-shrink-0 flex items-center gap-1 sm:gap-3 pl-2 sm:pl-4">
-                                            <button 
-                                                onClick={(e) => { e.stopPropagation(); handleEditDatesClick(post); }} 
-                                                title="Edit Availability" 
-                                                className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-600 transition-all active:scale-95"
-                                            >
-                                                <Cog6ToothIcon className="w-5 h-5" />
-                                            </button>
+		                        return (
+		                            <PostGroup key={post.id}>
+		                                <button 
+		                                    className="w-full text-left p-3 sm:p-5 group"
+		                                    onClick={() => togglePostCollapse(post.id)}
+		                                >
+		                                    <div className="flex justify-between items-start">
+		                                        <div className="flex-1 min-w-0">
+		                                            <h3 className="font-bold text-slate-900 dark:text-white text-base sm:text-xl group-hover:text-[#007AFF] dark:group-hover:text-[#0A84FF] transition-colors truncate tracking-tight">{post.title}</h3>
+		                                            <div className="text-[10px] sm:text-xs font-medium text-slate-500 dark:text-slate-400 mt-1 sm:mt-2 flex flex-wrap gap-x-2 sm:gap-x-4 gap-y-1">
+		                                                <span className="flex items-center gap-1"><CalendarDaysIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-slate-400" />From: {post.availableFrom?.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>
+		                                                {post.availableUntil && <span className="flex items-center gap-1"><ClockIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-slate-400" />Until: {post.availableUntil.toDate().toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}</span>}
+		                                                {(() => {
+		                                                    let targetText = "All Students";
+		                                                    if (post.targetAudience === 'specific') targetText = `${post.targetStudentIds?.length || 0} Student(s)`;
+		                                                    return <span className="flex items-center gap-1"><UsersIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-slate-400" />Target: {targetText}</span>;
+		                                                })()}
+		                                            </div>
+		                                        </div>
+		                                        <div className="flex-shrink-0 flex items-center gap-1 sm:gap-3 pl-2 sm:pl-4">
+		                                            <button 
+		                                                onClick={(e) => { e.stopPropagation(); handleEditDatesClick(post); }} 
+		                                                title="Edit Availability" 
+		                                                className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-600 transition-all active:scale-95"
+		                                            >
+		                                                <Cog6ToothIcon className="w-5 h-5" />
+		                                            </button>
                                             
-                                            <div className={`p-1 rounded-full bg-slate-100 dark:bg-slate-800 transition-transform duration-300 ${isPostCollapsed ? '' : 'rotate-180'}`}>
-                                                <ChevronDownIcon className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500 dark:text-slate-400" />
-                                            </div>
-                                        </div>
-                                    </div>
-                                </button>
+		                                            <div className={`p-1 rounded-full bg-slate-100 dark:bg-slate-800 transition-transform duration-300 ${isPostCollapsed ? '' : 'rotate-180'}`}>
+		                                                <ChevronDownIcon className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500 dark:text-slate-400" />
+		                                            </div>
+		                                        </div>
+		                                    </div>
+		                                </button>
                                 
-                                {!isPostCollapsed && (
-                                    <div className="space-y-3 sm:space-y-4 px-3 sm:px-4 pb-3 sm:pb-5">
-                                        {sortedUnitKeys.map(unitDisplayName => {
-                                            const lessonsInUnit = unitsInPost[unitDisplayName];
-                                            const unitKey = `${post.id}_${unitDisplayName}`;
-                                            const isUnitCollapsed = collapsedUnits.has(unitKey);
+		                                {!isPostCollapsed && (
+		                                    <div className="space-y-3 sm:space-y-4 px-3 sm:px-4 pb-3 sm:pb-5">
+		                                        {sortedUnitKeys.map(unitDisplayName => {
+		                                            const lessonsInUnit = unitsInPost[unitDisplayName];
+		                                            const unitKey = `${post.id}_${unitDisplayName}`;
+		                                            const isUnitCollapsed = collapsedUnits.has(unitKey);
                                             
-                                            const lessonIdsInUnit = lessonsInUnit.map(l => l.id);
-                                            const isAllSelected = lessonIdsInUnit.length > 0 && lessonIdsInUnit.every(id => selectedSet.has(id));
+		                                            const lessonIdsInUnit = lessonsInUnit.map(l => l.id);
+		                                            const isAllSelected = lessonIdsInUnit.length > 0 && lessonIdsInUnit.every(id => selectedSet.has(id));
 
-                                            return (
-                                                <div key={unitKey} className="bg-slate-50 dark:bg-slate-800 rounded-xl sm:rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-                                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 px-3 sm:px-4 py-2 sm:py-3 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
-                                                        <button className="flex-1 flex items-center gap-2 group min-w-0" onClick={() => toggleUnitCollapse(post.id, unitDisplayName)}>
-                                                            <h4 className="font-bold text-xs sm:text-base text-slate-800 dark:text-slate-200 group-hover:text-[#007AFF] transition-colors truncate">{unitDisplayName}</h4>
-                                                            <ChevronDownIcon className={`h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-400 transition-transform flex-shrink-0 ${isUnitCollapsed ? '' : 'rotate-180'}`} />
-                                                        </button>
-                                                        <label className="flex items-center justify-end gap-2 cursor-pointer w-full sm:w-fit sm:pl-4 flex-shrink-0 select-none">
-                                                            <input
-                                                                type="checkbox"
-                                                                className="h-3.5 w-3.5 sm:h-4 sm:w-4 rounded-[4px] text-[#007AFF] border-slate-300 dark:border-slate-600 dark:bg-slate-800 focus:ring-[#007AFF]"
-                                                                checked={isAllSelected}
-                                                                onChange={() => {
-                                                                    const set = setSelectedLessons;
-                                                                    set(prevSet => {
-                                                                        const newSet = new Set(prevSet);
-                                                                        if (isAllSelected) lessonIdsInUnit.forEach(id => newSet.delete(id));
-                                                                        else lessonIdsInUnit.forEach(id => newSet.add(id));
-                                                                        return newSet;
-                                                                    });
-                                                                }}
-                                                            />
-                                                            <span className="text-[11px] sm:text-[13px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Select All</span>
-                                                        </label>
-                                                    </div>
+		                                            return (
+		                                                <div key={unitKey} className="bg-slate-50 dark:bg-slate-800 rounded-xl sm:rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+		                                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 px-3 sm:px-4 py-2 sm:py-3 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
+		                                                        <button className="flex-1 flex items-center gap-2 group min-w-0" onClick={() => toggleUnitCollapse(post.id, unitDisplayName)}>
+		                                                            <h4 className="font-bold text-xs sm:text-base text-slate-800 dark:text-slate-200 group-hover:text-[#007AFF] transition-colors truncate">{unitDisplayName}</h4>
+		                                                            <ChevronDownIcon className={`h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-400 transition-transform flex-shrink-0 ${isUnitCollapsed ? '' : 'rotate-180'}`} />
+		                                                        </button>
+                                                        
+		                                                        {/* --- CUSTOM CIRCULAR CHECKBOX (SELECT ALL) --- */}
+		                                                        <div 
+		                                                            className="flex items-center justify-end gap-2 cursor-pointer w-full sm:w-fit sm:pl-4 flex-shrink-0 select-none group"
+		                                                            onClick={() => {
+		                                                                const set = setSelectedLessons;
+		                                                                set(prevSet => {
+		                                                                    const newSet = new Set(prevSet);
+		                                                                    if (isAllSelected) lessonIdsInUnit.forEach(id => newSet.delete(id));
+		                                                                    else lessonIdsInUnit.forEach(id => newSet.add(id));
+		                                                                    return newSet;
+		                                                                });
+		                                                            }}
+		                                                        >
+		                                                            <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${isAllSelected ? 'bg-[#007AFF] border-[#007AFF]' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 group-hover:border-[#007AFF]'}`}>
+		                                                                <CheckIcon className={`w-3 h-3 text-white stroke-[3] transition-transform duration-200 ${isAllSelected ? 'scale-100' : 'scale-0'}`} />
+		                                                            </div>
+		                                                            <span className="text-[11px] sm:text-[13px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Select All</span>
+		                                                        </div>
+		                                                    </div>
                                                     
-                                                    {!isUnitCollapsed && (
-                                                        <div className="divide-y divide-slate-200 dark:divide-slate-700">
-                                                            {lessonsInUnit.sort((a, b) => (a.order || 0) - (b.order || 0) || a.title.localeCompare(b.title)).map(lessonDetails => {
-                                                                const isChecked = selectedSet.has(lessonDetails.id);
-                                                                return (
-                                                                    <ListItem key={lessonDetails.id} isChecked={isChecked}>
-                                                                        <label className="p-1 cursor-pointer" onClick={(e) => e.stopPropagation()}>
-                                                                            <input
-                                                                                type="checkbox"
-                                                                                className="h-4 w-4 sm:h-5 sm:w-5 rounded-[6px] text-[#007AFF] border-slate-300 dark:border-slate-600 dark:bg-slate-800 focus:ring-[#007AFF] transition-all"
-                                                                                checked={isChecked}
-                                                                                onChange={() => handleToggleSelection('lesson', lessonDetails.id)}
-                                                                            />
-                                                                        </label>
-                                                                        <div className="flex-1 min-w-0" onClick={() => setViewLessonData(lessonDetails)}>
-                                                                            <p className="font-semibold text-slate-900 dark:text-white text-sm sm:text-base cursor-pointer hover:text-[#007AFF] transition-colors truncate">{lessonDetails.title}</p>
-                                                                        </div>
-                                                                        <div className="flex space-x-1 flex-shrink-0">
-                                                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteContentFromPost(post.id, lessonDetails.id, 'lesson'); }} className="p-1.5 sm:p-2 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Unshare Lesson"><TrashIcon className="w-4 h-4 sm:w-5 sm:h-5" /></button>
-                                                                        </div>
-                                                                    </ListItem>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </PostGroup>
-                        );
-                    }) : <EmptyState icon={PlayCircleIcon} text="No lessons shared yet" subtext="Share lessons with your class to get started." />}
-                </div>
-            );
-        }
+		                                                    {!isUnitCollapsed && (
+		                                                        <div className="divide-y divide-slate-200 dark:divide-slate-700">
+		                                                            {lessonsInUnit.sort((a, b) => (a.order || 0) - (b.order || 0) || a.title.localeCompare(b.title)).map(lessonDetails => {
+		                                                                const isChecked = selectedSet.has(lessonDetails.id);
+		                                                                return (
+		                                                                    <ListItem key={lessonDetails.id} isChecked={isChecked}>
+                                                                        
+		                                                                        {/* --- CUSTOM CIRCULAR CHECKBOX (ITEM) --- */}
+		                                                                        <div 
+		                                                                            className="p-1 cursor-pointer" 
+		                                                                            onClick={(e) => { e.stopPropagation(); handleToggleSelection('lesson', lessonDetails.id); }}
+		                                                                        >
+		                                                                            <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200 flex-shrink-0 ${isChecked ? 'bg-[#007AFF] border-[#007AFF] shadow-sm scale-105' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-[#007AFF] hover:bg-slate-50 dark:hover:bg-slate-700'}`}>
+		                                                                                <CheckIcon className={`w-3.5 h-3.5 text-white stroke-[3] transition-transform duration-200 ${isChecked ? 'scale-100' : 'scale-0'}`} />
+		                                                                            </div>
+		                                                                        </div>
+
+		                                                                        <div className="flex-1 min-w-0" onClick={() => setViewLessonData(lessonDetails)}>
+		                                                                            <p className="font-semibold text-slate-900 dark:text-white text-sm sm:text-base cursor-pointer hover:text-[#007AFF] transition-colors truncate">{lessonDetails.title}</p>
+		                                                                        </div>
+		                                                                        <div className="flex space-x-1 flex-shrink-0">
+		                                                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteContentFromPost(post.id, lessonDetails.id, 'lesson'); }} className="p-1.5 sm:p-2 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Unshare Lesson"><TrashIcon className="w-4 h-4 sm:w-5 sm:h-5" /></button>
+		                                                                        </div>
+		                                                                    </ListItem>
+		                                                                );
+		                                                            })}
+		                                                        </div>
+		                                                    )}
+		                                                </div>
+		                                            );
+		                                        })}
+		                                    </div>
+		                                )}
+		                            </PostGroup>
+		                        );
+		                    }) : <EmptyState icon={PlayCircleIcon} text="No lessons shared yet" subtext="Share lessons with your class to get started." />}
+		                </div>
+		            );
+		        }
         
         if (activeTab === 'quizzes') {
             if (loadingPosts) {
@@ -1005,23 +1051,25 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                                             <h4 className="font-bold text-xs sm:text-base text-slate-800 dark:text-slate-200 group-hover:text-[#007AFF] transition-colors truncate">{unitDisplayName}</h4>
                                                             <ChevronDownIcon className={`h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-400 transition-transform flex-shrink-0 ${isUnitCollapsed ? '' : 'rotate-180'}`} />
                                                         </button>
-                                                        <label className="flex items-center justify-end gap-2 cursor-pointer w-full sm:w-fit sm:pl-4 flex-shrink-0 select-none">
-                                                            <input
-                                                                type="checkbox"
-                                                                className="h-3.5 w-3.5 sm:h-4 sm:w-4 rounded-[4px] text-[#007AFF] border-slate-300 dark:border-slate-600 dark:bg-slate-800 focus:ring-[#007AFF]"
-                                                                checked={isAllSelected}
-                                                                onChange={() => {
-                                                                    const set = setSelectedQuizzes;
-                                                                    set(prevSet => {
-                                                                        const newSet = new Set(prevSet);
-                                                                        if (isAllSelected) quizIdsInUnit.forEach(id => newSet.delete(id));
-                                                                        else quizIdsInUnit.forEach(id => newSet.add(id));
-                                                                        return newSet;
-                                                                    });
-                                                                }}
-                                                            />
+
+                                                        {/* --- UPDATED: CUSTOM CIRCULAR CHECKBOX FOR SELECT ALL --- */}
+                                                        <div 
+                                                            className="flex items-center justify-end gap-2 cursor-pointer w-full sm:w-fit sm:pl-4 flex-shrink-0 select-none group"
+                                                            onClick={() => {
+                                                                const set = setSelectedQuizzes;
+                                                                set(prevSet => {
+                                                                    const newSet = new Set(prevSet);
+                                                                    if (isAllSelected) quizIdsInUnit.forEach(id => newSet.delete(id));
+                                                                    else quizIdsInUnit.forEach(id => newSet.add(id));
+                                                                    return newSet;
+                                                                });
+                                                            }}
+                                                        >
+                                                            <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${isAllSelected ? 'bg-[#007AFF] border-[#007AFF]' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 group-hover:border-[#007AFF]'}`}>
+                                                                <CheckIcon className={`w-3 h-3 text-white stroke-[3] transition-transform duration-200 ${isAllSelected ? 'scale-100' : 'scale-0'}`} />
+                                                            </div>
                                                             <span className="text-[11px] sm:text-[13px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Select All</span>
-                                                        </label>
+                                                        </div>
                                                     </div>
                                                     
                                                     {!isUnitCollapsed && (
@@ -1030,14 +1078,16 @@ const ClassOverviewModal = ({ isOpen, onClose, classData, onRemoveStudent }) => 
                                                                 const isChecked = selectedSet.has(quizDetails.id);
                                                                 return (
                                                                     <ListItem key={quizDetails.id} isChecked={isChecked}>
-                                                                        <label className="p-1 cursor-pointer" onClick={(e) => e.stopPropagation()}>
-                                                                            <input
-                                                                                type="checkbox"
-                                                                                className="h-4 w-4 sm:h-5 sm:w-5 rounded-[6px] text-[#007AFF] border-slate-300 dark:border-slate-600 dark:bg-slate-800 focus:ring-[#007AFF] transition-all"
-                                                                                checked={isChecked}
-                                                                                onChange={() => handleToggleSelection('quiz', quizDetails.id)}
-                                                                            />
-                                                                        </label>
+                                                                        {/* --- UPDATED: CUSTOM CIRCULAR CHECKBOX FOR ITEMS --- */}
+                                                                        <div 
+                                                                            className="p-1 cursor-pointer" 
+                                                                            onClick={(e) => { e.stopPropagation(); handleToggleSelection('quiz', quizDetails.id); }}
+                                                                        >
+                                                                            <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200 flex-shrink-0 ${isChecked ? 'bg-[#007AFF] border-[#007AFF] shadow-sm scale-105' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-[#007AFF] hover:bg-slate-50 dark:hover:bg-slate-700'}`}>
+                                                                                <CheckIcon className={`w-3.5 h-3.5 text-white stroke-[3] transition-transform duration-200 ${isChecked ? 'scale-100' : 'scale-0'}`} />
+                                                                            </div>
+                                                                        </div>
+
                                                                         <div
                                                                             className="flex-1 min-w-0"
                                                                             onClick={() => setViewQuizData({

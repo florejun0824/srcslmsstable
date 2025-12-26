@@ -32,7 +32,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 // --- CONFIGURATION ---
 // INCREASED SAFETY DELAY: 40 seconds to strictly align with 15k TPM limit and prevent 429s.
-const GEMMA_SAFETY_DELAY_MS = 40000; 
+const GEMMA_SAFETY_DELAY_MS = 30000; 
 
 /**
  * --- Helper: Smart Delay ---

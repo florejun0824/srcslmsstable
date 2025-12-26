@@ -26,6 +26,17 @@ const getEmbedUrl = (url) => {
     return url; 
 };
 
+// --- HELPER: Google Drive Image Fixer ---
+const convertGoogleDriveLink = (url) => {
+    if (!url) return '';
+    // Check for standard "view" link: /file/d/FILE_ID/view
+    const driveMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (driveMatch && driveMatch[1]) {
+        return `https://drive.google.com/uc?export=view&id=${driveMatch[1]}`;
+    }
+    return url;
+};
+
 // --- MOBILE RESTRICTION OVERLAY ---
 const MobileRestricted = ({ onClose }) => (
     <div className="fixed inset-0 z-[300] bg-[#f5f5f7] dark:bg-[#000000] flex flex-col items-center justify-center p-8 text-center md:hidden animate-in fade-in duration-300">
@@ -677,7 +688,18 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
                                                     <div className="space-y-3">
                                                         {Array.isArray(activePage.content?.imageUrls) && activePage.content.imageUrls.map((url, idx) => (
                                                             <div key={idx} className="flex gap-2 items-center">
-                                                                <input placeholder={`Paste Image URL #${idx + 1}`} value={url} onChange={(e) => { const newUrls = [...activePage.content.imageUrls]; newUrls[idx] = e.target.value; handlePageChange('imageUrls', newUrls); }} className={inputClass}/>
+                                                                {/* GOOGLE DRIVE FIX APPLIED HERE */}
+                                                                <input 
+                                                                    placeholder={`Paste Image URL #${idx + 1}`} 
+                                                                    value={url} 
+                                                                    onChange={(e) => { 
+                                                                        const newUrls = [...activePage.content.imageUrls]; 
+                                                                        // Automatically convert Google Drive links on input
+                                                                        newUrls[idx] = convertGoogleDriveLink(e.target.value); 
+                                                                        handlePageChange('imageUrls', newUrls); 
+                                                                    }} 
+                                                                    className={inputClass}
+                                                                />
                                                                 <button onClick={() => { const newUrls = activePage.content.imageUrls.filter((_, i) => i !== idx); handlePageChange('imageUrls', newUrls); }} className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-[12px] transition-colors border border-transparent hover:border-red-100">
                                                                     <TrashIcon className="w-5 h-5 stroke-[2.5]"/>
                                                                 </button>

@@ -18,7 +18,7 @@ import { CheckCircleIcon as CheckCircleSolid } from '@heroicons/react/24/solid';
 import LessonPage from '../teacher/LessonPage';
 import ContentRenderer from '../teacher/ContentRenderer';
 import { useToast } from '../../contexts/ToastContext';
-import { useTheme } from '../../contexts/ThemeContext'; // IMPORTED
+import { useTheme } from '../../contexts/ThemeContext';
 
 // --- PDF & NATIVE IMPORTS ---
 import htmlToPdfmake from 'html-to-pdfmake';
@@ -49,6 +49,7 @@ const blobToBase64 = (blob) => {
 };
 
 const fetchImageAsBase64 = async (url) => {
+    if (!url) return null;
     try {
         const response = await fetch(url);
         const blob = await response.blob();
@@ -99,18 +100,324 @@ async function registerDejaVuFonts() {
     await loadFontToVfs("DejaVuSans-Bold.ttf", "/fonts/DejaVuSans-Bold.ttf");
     await loadFontToVfs("DejaVuSans-Oblique.ttf", "/fonts/DejaVuSans-Oblique.ttf");
     await loadFontToVfs("DejaVuSans-BoldOblique.ttf", "/fonts/DejaVuSans-BoldOblique.ttf");
+    
+    const dejaVuConfig = { 
+        normal: "DejaVuSans.ttf", 
+        bold: "DejaVuSans-Bold.ttf", 
+        italics: "DejaVuSans-Oblique.ttf", 
+        bolditalics: "DejaVuSans-BoldOblique.ttf" 
+    };
+
     pdfMake.fonts = {
-      DejaVu: { normal: "DejaVuSans.ttf", bold: "DejaVuSans-Bold.ttf", italics: "DejaVuSans-Oblique.ttf", bolditalics: "DejaVuSans-BoldObliques.ttf" },
+      DejaVu: dejaVuConfig,
+      "DejaVu Sans": dejaVuConfig,
+      "DejavuSans": dejaVuConfig,
+      "DejaVuSans": dejaVuConfig,
+      Roboto: dejaVuConfig,
+      Arial: dejaVuConfig
     };
     dejaVuLoaded = true;
   } catch (error) { console.error("Failed to load fonts:", error); }
 }
 
+// --- ROBUST PDF PROCESSING HELPERS (Ported from UnitAccordion) ---
+
 const processLatex = (text) => {
+    if (!text || typeof text !== 'string') return '';
+    let processed = text
+        .replace(/\\degree/g, '°')
+        .replace(/\\angle/g, '∠')
+        .replace(/\\vec\{(.*?)\}/g, (_, c) => c.split('').map(x => x + '\u20D7').join(''));
+
+    const latexToImg = (match, code) => {
+        const cleanCode = code.trim();
+        const url = `https://latex.codecogs.com/png.latex?\\dpi{200}\\bg_white\\color{black} ${encodeURIComponent(cleanCode)}`;
+        return `<img src="${url}" class="math-img" />`;
+    };
+
+    return processed
+        .replace(/\$\$(.*?)\$\$/g, latexToImg) 
+        .replace(/\$(.*?)\$/g, latexToImg);    
+};
+
+const convertSvgStringToPngDataUrl = (svgString) => {
+    return new Promise((resolve, reject) => {
+        const MAX_WIDTH = 550;
+        let corrected = svgString.replace(/xmlns="\[http:\/\/www\.w3\.org\/2000\/svg\]\(http:\/\/www\.w3\.org\/2000\/svg\)"/g, 'xmlns="http://www.w3.org/2000/svg"');
+        if (!corrected.includes('xmlns=')) corrected = corrected.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+        
+        const img = new Image();
+        const src = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(corrected)))}`;
+        
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const aspectRatio = img.height / img.width || 1;
+            const width = MAX_WIDTH;
+            const height = Math.round(width * aspectRatio);
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve({ dataUrl: canvas.toDataURL('image/png'), width, height });
+        };
+        img.onerror = () => reject(new Error("SVG Load Failed"));
+        img.src = src;
+    });
+}
+
+const formatCellContent = (text) => {
     if (!text) return '';
-    let p = text.replace(/\\degree/g, '°').replace(/\\angle/g, '∠');
-    p = p.replace(/\\vec\{(.*?)\}/g, (m, c) => c.split('').map(char => char + '\u20D7').join(''));
-    return p.replace(/\$\$(.*?)\$\$/g, '$1').replace(/\$(.*?)\$/g, '$1');
+    let formatted = text
+        .replace(/\\n/g, '<br/>')      
+        .replace(/\n/g, '<br/>')       
+        .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>') 
+        .replace(/\*(.*?)\*/g, '<i>$1</i>');    
+    return marked.parseInline(formatted);
+};
+
+const forceParseMarkdownTable = (text) => {
+    if (!text) return text;
+    if (text.includes('<table') && (text.includes('inner-table') || text.includes('border='))) return text;
+
+    const lines = text.replace(/<br\s*\/?>/gi, '\n').split('\n');
+    let processedLines = [];
+    let tableBuffer = [];
+    
+    const isRow = (line) => line.trim().startsWith('|') || (line.includes('|') && line.trim().length > 5);
+    const isSeparator = (line) => /^\|?[\s:-]+\|[\s:-]+\|?$/.test(line.trim());
+
+    const renderBuffer = (rows) => {
+         if (!rows.length) return '';
+         const normalizedRows = rows.map(r => {
+            let row = r.trim();
+            if (!row.startsWith('|')) row = '|' + row;
+            if (!row.endsWith('|')) row = row + '|';
+            return row;
+         });
+         let maxCols = 0;
+         const parsedRows = normalizedRows.map(r => {
+            const cells = r.split('|').slice(1, -1);
+            maxCols = Math.max(maxCols, cells.length);
+            return cells;
+         });
+
+         let html = '<table border="1" cellpadding="5" cellspacing="0" style="width:100%; border-collapse: collapse; margin-bottom: 10px; border: 1px solid #000;"><tbody>';
+         parsedRows.forEach(cells => {
+            html += '<tr>';
+            while(cells.length < maxCols) cells.push('');
+            cells.forEach(c => {
+                html += `<td style="border: 1px solid #000; padding: 5px;">${formatCellContent(c)}</td>`;
+            });
+            html += '</tr>';
+         });
+         html += '</tbody></table>';
+         return html;
+    };
+
+    for (let i = 0; i < lines.length; i++) {
+        let line = lines[i].trim();
+        if (isRow(line) && !isSeparator(line)) {
+            tableBuffer.push(line);
+        } else if (tableBuffer.length > 0 && line !== '' && !isRow(line)) {
+            let lastRow = tableBuffer[tableBuffer.length - 1];
+            if (lastRow.endsWith('|')) lastRow = lastRow.slice(0, -1);
+            tableBuffer[tableBuffer.length - 1] = lastRow + " " + line + "|";
+        } else {
+            if (tableBuffer.length > 0) {
+                processedLines.push(renderBuffer(tableBuffer));
+                tableBuffer = [];
+            }
+            if (!isSeparator(line)) processedLines.push(line);
+        }
+    }
+    if (tableBuffer.length > 0) processedLines.push(renderBuffer(tableBuffer));
+
+    return processedLines.join('\n');
+};
+
+const preProcessHtmlForExport = (rawHtml) => {
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = rawHtml;
+
+    // Inject styles to force word break
+    const style = document.createElement('style');
+    style.innerHTML = `
+      table { width: 100% !important; table-layout: fixed; word-wrap: break-word; }
+      td, th { word-wrap: break-word; word-break: break-all; white-space: normal; }
+      img { max-width: 100%; height: auto; }
+    `;
+    tempDiv.insertBefore(style, tempDiv.firstChild);
+
+    // Parse Markdown tables manually if needed
+    const textNodes = document.createTreeWalker(tempDiv, NodeFilter.SHOW_TEXT, null, false);
+    let node;
+    const nodesToReplace = [];
+    while ((node = textNodes.nextNode())) {
+        if (node.nodeValue.includes('|') && node.nodeValue.includes('---')) {
+            if (!node.parentNode.closest('table')) nodesToReplace.push(node);
+        }
+    }
+    nodesToReplace.forEach(node => {
+        try {
+            const htmlTable = forceParseMarkdownTable(node.nodeValue);
+            if (htmlTable.includes('<table')) {
+                const wrapper = document.createElement('div');
+                wrapper.innerHTML = htmlTable;
+                node.parentNode.replaceChild(wrapper, node);
+            }
+        } catch (e) { console.warn("Markdown conversion error", e); }
+    });
+
+    // Style cleanup
+    tempDiv.querySelectorAll('[style]').forEach(el => {
+        let style = el.getAttribute('style') || '';
+        style = style.replace(/(width|min-width|max-width):\s*[\d\.]+(px|pt|em|rem);?/gi, '');
+        if (el.tagName === 'TD' || el.tagName === 'TH') {
+            style += '; word-break: break-all; word-wrap: break-word;';
+        }
+        el.setAttribute('style', style);
+    });
+    
+    // Safety check for all TD/TH without style
+    tempDiv.querySelectorAll('td:not([style]), th:not([style])').forEach(el => {
+        el.setAttribute('style', 'word-break: break-all; word-wrap: break-word;');
+    });
+
+    // Clean images
+    tempDiv.querySelectorAll('img').forEach(img => {
+        img.removeAttribute('width'); img.removeAttribute('height');
+        img.style.maxWidth = '400px'; 
+        img.style.height = 'auto';
+        img.style.display = 'block';
+        img.style.margin = '10px auto';
+    });
+
+    // Format tables for PDFMake
+    const tables = Array.from(tempDiv.querySelectorAll('table'));
+    tables.forEach(table => {
+        table.setAttribute('border', '1');
+        table.style.width = '100%';
+        table.style.border = '1px solid #000'; 
+        table.style.marginBottom = '10px';
+
+        const firstRow = table.querySelector('tr');
+        const hasTh = firstRow && firstRow.querySelector('th');
+        const hasThead = table.querySelector('thead');
+
+        if (hasTh && !hasThead) {
+            const thead = document.createElement('thead');
+            const tbody = table.querySelector('tbody') || document.createElement('tbody');
+            thead.appendChild(firstRow);
+            if (!table.querySelector('tbody')) {
+                const remainingRows = Array.from(table.querySelectorAll('tr')); 
+                remainingRows.forEach(row => {
+                    if (row !== firstRow) tbody.appendChild(row);
+                });
+                table.appendChild(tbody);
+            }
+            table.insertBefore(thead, table.firstChild);
+        }
+    });
+
+    return tempDiv;
+};
+
+const cleanUpPdfContent = (content, inTable = false, depth = 0, tableCols = 1) => {
+    if (!content) return;
+
+    if (Array.isArray(content)) {
+        content.forEach((item, index) => {
+            if (typeof item === 'string' && inTable) {
+                content[index] = item.replace(/([^\s\u200B]{10})/g, "$1\u200B");
+            } else {
+                cleanUpPdfContent(item, inTable, depth, tableCols);
+            }
+        });
+        return;
+    }
+
+    if (typeof content === 'object') {
+        if (content.text && typeof content.text === 'string' && inTable) {
+             content.text = content.text.replace(/([^\s\u200B]{10})/g, "$1\u200B");
+        }
+
+        if (content.content || content.stack) {
+            const stack = content.content || content.stack;
+            if (Array.isArray(stack)) {
+                cleanUpPdfContent(stack, inTable, depth, tableCols);
+            }
+        }
+        if (content.image) {
+            const isMath = content.style && (
+                            content.style === 'math-img' || 
+                            (Array.isArray(content.style) && content.style.includes('math-img'))
+                        );
+
+            if (isMath) {
+                if (!content.width || content.width === 'auto') {
+                    content.width = 'auto'; 
+                    content.fit = [100, 50]; 
+                }
+                content.margin = [0, 3, 0, 0]; 
+                delete content.alignment;
+            } else {
+                const availablePageWidth = 480; 
+                const calculatedMax = inTable ? (availablePageWidth / Math.max(1, tableCols)) - 20 : 400; 
+                const finalMax = Math.max(40, calculatedMax);
+                
+                content.fit = [finalMax, 600];
+                delete content.width; 
+                delete content.height;
+                content.alignment = 'center';
+                content.margin = [0, 5, 0, 5]; 
+            }
+        }
+        if (content.table) {
+            delete content.width; 
+            delete content.height;
+            content.margin = [0, 5, 0, 5];
+
+            const body = content.table.body;
+            if (!Array.isArray(body) || body.length === 0) {
+                content.table.body = [[{ text: '' }]];
+            }
+
+            content.table.body = content.table.body.filter(row => Array.isArray(row));
+
+            const maxCols = content.table.body.reduce((max, row) => Math.max(max, row.length), 0);
+            const safeMaxCols = maxCols > 0 ? maxCols : 1;
+
+            // Fix rows that are shorter than max cols
+            content.table.body.forEach(row => {
+                while (row.length < safeMaxCols) {
+                    row.push({ text: '', border: [true, true, true, true] });
+                }
+                row.forEach(cell => {
+                    if (typeof cell === 'object') {
+                        delete cell.width; 
+                        cell.noWrap = false; 
+                        cleanUpPdfContent(cell, true, depth + 1, safeMaxCols);
+                    }
+                });
+            });
+
+            const colWidth = 100 / safeMaxCols;
+            content.table.widths = Array(safeMaxCols).fill(colWidth + '%');
+        
+            content.layout = {
+                hLineWidth: () => 0.5,
+                vLineWidth: () => 0.5,
+                hLineColor: () => '#444', 
+                vLineColor: () => '#444',
+                paddingLeft: () => 2, 
+                paddingRight: () => 2,
+                paddingTop: () => 2, 
+                paddingBottom: () => 2,
+            };
+        }
+        if (content.ul) cleanUpPdfContent(content.ul, inTable, depth, tableCols);
+        if (content.ol) cleanUpPdfContent(content.ol, inTable, depth, tableCols);
+    }
 };
 
 // --- ANIMATION VARIANTS ---
@@ -132,7 +439,7 @@ const navMenuVariants = {
     exit: { opacity: 0, y: -10, scale: 0.95, transition: { duration: 0.15 } }
 };
 
-// --- HELPER: MONET EFFECT COLOR EXTRACTION (High Opacity for Readability) ---
+// --- HELPER: MONET EFFECT COLOR EXTRACTION ---
 const getMonetStyle = (activeOverlay) => {
     if (activeOverlay === 'christmas') return { background: 'rgba(15, 23, 66, 0.95)', borderColor: 'rgba(100, 116, 139, 0.2)' }; 
     if (activeOverlay === 'valentines') return { background: 'rgba(60, 10, 20, 0.95)', borderColor: 'rgba(255, 100, 100, 0.15)' }; 
@@ -153,8 +460,8 @@ function StudentViewLessonModal({ isOpen, onClose, onComplete, lesson, userId, c
     const [isPageNavOpen, setIsPageNavOpen] = useState(false);
     
     const { showToast } = useToast();
-    const { activeOverlay } = useTheme(); // Theme Hook
-    const monetStyle = getMonetStyle(activeOverlay); // Monet Style
+    const { activeOverlay } = useTheme(); 
+    const monetStyle = getMonetStyle(activeOverlay); 
 
     const contentRef = useRef(null);
     const lessonPageRef = useRef(null);
@@ -206,14 +513,11 @@ function StudentViewLessonModal({ isOpen, onClose, onComplete, lesson, userId, c
     };
 
     const handleFinishLesson = async () => {
-        // If already awarded, this function shouldn't necessarily do anything except close if button clicked again
         if (xpAwarded) {
             handleClose();
             return;
         }
-        
         if (!onComplete || totalPages === 0 || currentPage < totalPages - 1) return;
-        
         try {
             await onComplete({ pagesRead: maxPageReached + 1, totalPages, isFinished: true, lessonId: currentLesson?.id || null });
             setXpAwarded(true); 
@@ -242,9 +546,15 @@ function StudentViewLessonModal({ isOpen, onClose, onComplete, lesson, userId, c
         window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown); 
     }, [isOpen, goToNextPage, goToPreviousPage, handleClose, isPageNavOpen]);
 
+    // --- REFINED PDF EXPORT (Matches UnitAccordion) ---
 	const handleExportLessonPdf = async (lessonToExport) => {
 	    if (exportingLessonId) return;
 	    setExportingLessonId(lessonToExport.id);
+        
+        // Define sizes (Student view always standard A4 lesson)
+        const pageSize = 'A4';
+        const pageMargins = [40, 80, 40, 60];
+
 	    showToast("Preparing PDF...", "info");
 	    try {
             await registerDejaVuFonts();
@@ -252,39 +562,117 @@ function StudentViewLessonModal({ isOpen, onClose, onComplete, lesson, userId, c
             const headerBase64 = await fetchImageAsBase64("/header-port.png");
             const footerBase64 = await fetchImageAsBase64("/Footer.png");
 
-	        const pdfStyles = {
-	            coverTitle: { fontSize: 32, bold: true, margin: [0, 0, 0, 15] },
-	            coverSub: { fontSize: 18, italics: true, color: '#555555' },
-	            pageTitle: { fontSize: 20, bold: true, color: '#005a9c', margin: [0, 20, 0, 8] },
-	            blockquote: { margin: [20, 5, 20, 5], italics: true, color: '#4a4a4a' },
-	            default: { fontSize: 11, lineHeight: 1.5, color: '#333333', alignment: 'justify' }
-	        };
 			const lessonTitleToExport = lessonToExport.lessonTitle || lessonToExport.title || 'Untitled Lesson';
 	        let safeTitle = lessonTitleToExport.replace(/[^a-zA-Z0-9.-_]/g, '_').substring(0, 200);
 			const sanitizedFileName = (safeTitle || 'lesson') + '.pdf';
-	        let lessonContent = [];
+	        
+            let lessonContent = [];
+            let collectedImages = {}; 
 
 	        for (const page of lessonToExport.pages) {
 	            const cleanTitle = (page.title || "").replace(/^page\s*\d+\s*[:-]?\s*/i, "");
-	            if (cleanTitle) lessonContent.push({ text: cleanTitle, style: 'pageTitle' });
-	            let html = marked.parse(processLatex(typeof page.content === 'string' ? page.content : ''));
-                html = html.replace(/<blockquote>\s*<p>/g, '<blockquote>').replace(/<\/p>\s*<\/blockquote>/g, '</blockquote>');
-	            lessonContent.push(htmlToPdfmake(html, { defaultStyles: pdfStyles.default }));
+	            
+                if (cleanTitle) {
+                    lessonContent.push({ text: cleanTitle, fontSize: 16, bold: true, color: '#005a9c', margin: [0, 10, 0, 5] });
+                }
+
+                // --- HANDLE OBJECT CONTENT (IMAGES/DIAGRAMS) ---
+                if (typeof page.content === 'object' && page.content !== null) {
+                    // 1. Handle Images (Diagrams)
+                    const imageUrls = page.content.imageUrls || (page.content.generatedImageUrl ? [page.content.generatedImageUrl] : []);
+                    
+                    if (Array.isArray(imageUrls) && imageUrls.length > 0) {
+                         for (const url of imageUrls) {
+                             if(!url) continue;
+                             try {
+                                 const base64 = await fetchImageAsBase64(url);
+                                 if(base64) {
+                                     lessonContent.push({
+                                         image: base64,
+                                         width: 450, 
+                                         alignment: 'center',
+                                         margin: [0, 10, 0, 5]
+                                     });
+                                 }
+                             } catch (e) {
+                                 console.warn("Failed to load lesson image", url);
+                             }
+                         }
+                    }
+
+                    // 2. Handle Caption
+                    if (page.caption) {
+                         let captionHtml = marked.parse(processLatex(page.caption));
+                         const processedCaption = preProcessHtmlForExport(captionHtml);
+                         const pdfCaption = htmlToPdfmake(processedCaption.innerHTML, { 
+                             defaultStyles: { fontSize: 10, alignment: 'center', color: '#444' } 
+                         });
+                         
+                         let captionBody = pdfCaption.content || pdfCaption;
+                         if(Array.isArray(captionBody)) lessonContent.push(...captionBody);
+                         else lessonContent.push(captionBody);
+                    }
+                } else {
+                    // --- HANDLE TEXT/HTML CONTENT ---
+                    const contentString = typeof page.content === 'string' ? page.content : '';
+                    const rawHtml = marked.parse(processLatex(contentString));
+                    const processedDiv = preProcessHtmlForExport(rawHtml);
+                    
+                    // Pre-fetch images in HTML
+                    const htmlImages = processedDiv.querySelectorAll('img');
+                    if (htmlImages.length > 0) {
+                        await Promise.all(Array.from(htmlImages).map(async (img) => {
+                            if (img.src && img.src.startsWith('http')) {
+                                try {
+                                    const base64 = await fetchImageAsBase64(img.src);
+                                    img.src = base64; 
+                                } catch (err) { console.warn("Failed to load image:", img.src); }
+                            }
+                        }));
+                    }
+
+                    const pdfResult = htmlToPdfmake(processedDiv.innerHTML, { 
+                        defaultStyles: { 
+                            fontSize: 11, 
+                            lineHeight: 1.5, 
+                            color: '#333333', 
+                            alignment: 'justify' 
+                        },
+                        customStyles: {
+                            'math-img': { margin: [0, 0, 0, 0] }
+                        },
+                        tableAutoSize: false,
+                        imagesByReference: true
+                    });
+
+                    let pageBody = pdfResult.content || pdfResult;
+                    if (pdfResult.images) {
+                        Object.assign(collectedImages, pdfResult.images);
+                    }
+                    if (!Array.isArray(pageBody)) pageBody = [pageBody];
+
+                    cleanUpPdfContent(pageBody, false, 0);
+
+                    if (pageBody.length > 0) {
+                        lessonContent.push(...pageBody);
+                    }
+                }
 	        }
 
 	        const docDefinition = {
-	            pageSize: "A4", pageMargins: [72, 100, 72, 100],
-	            header: { margin: [0, 20, 0, 0], stack: [{ image: "headerImg", width: 450, alignment: "center" }] },
-	            footer: { margin: [0, 0, 0, 20], stack: [{ image: "footerImg", width: 450, alignment: "center" }] },
-                defaultStyle: { font: 'DejaVu', ...pdfStyles.default },
-	            styles: pdfStyles,
+	            pageSize: pageSize, pageMargins: pageMargins,
+	            header: headerBase64 ? { margin: [0, 10, 0, 0], stack: [{ image: "headerImg", width: 450, alignment: "center" }] } : undefined,
+	            footer: footerBase64 ? { margin: [0, 0, 0, 20], stack: [{ image: "footerImg", width: 450, alignment: "center" }] } : undefined,
+                defaultStyle: { font: 'DejaVu', fontSize: 11 },
 	            content: [
-	                { stack: [{ text: lessonTitleToExport, style: "coverTitle" }, { text: "SRCS Learning Portal", style: "coverSub" }], alignment: "center", margin: [0, 200, 0, 0], pageBreak: "after" },
+	                { text: lessonTitleToExport, fontSize: 32, bold: true, alignment: "center", margin: [0, 200, 0, 0] },
+                    { text: "SRCS Learning Portal", fontSize: 18, italics: true, color: '#555555', alignment: "center", margin: [0, 0, 0, 0], pageBreak: "after" },
 	                ...lessonContent
 	            ],
 	            images: { 
-                    headerImg: headerBase64, 
-                    footerImg: footerBase64 
+                    ...collectedImages,
+                    ...(headerBase64 ? { headerImg: headerBase64 } : {}),
+                    ...(footerBase64 ? { footerImg: footerBase64 } : {})
                 }
 	        };
 
@@ -294,38 +682,36 @@ function StudentViewLessonModal({ isOpen, onClose, onComplete, lesson, userId, c
             } else {
 				pdfDoc.download(sanitizedFileName, () => { setExportingLessonId(null); });
             }
-	    } catch (error) { console.error("Failed to export PDF:", error); showToast("Error creating PDF.", "error"); setExportingLessonId(null); }
+	    } catch (error) { 
+            console.error("Failed to export PDF:", error); 
+            showToast("Error creating PDF.", "error"); 
+            setExportingLessonId(null); 
+        }
 	};
 
     if (!isOpen || !currentLesson) return null;
 
     // --- DESIGN CONSTANTS ---
-    // If NO monet style, fallback to this. Otherwise, use Monet style.
     const glassPanelClass = !monetStyle.background 
         ? "bg-white/90 dark:bg-[#121212]/90 backdrop-blur-2xl border border-white/20 dark:border-white/5 shadow-2xl"
-        : "backdrop-blur-2xl shadow-2xl border border-white/10"; // Base classes if Monet active
+        : "backdrop-blur-2xl shadow-2xl border border-white/10"; 
     
     return (
-        // Changed z-index from 9999 to 50 so toasts (z-50+) show on top
         <Dialog open={isOpen} onClose={handleClose} className={`fixed inset-0 z-[50] flex items-center justify-center font-sans ${className}`}>
-            {/* Immersive Blur Backdrop */}
             <motion.div 
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }} 
                 className="fixed inset-0 bg-black/60 backdrop-blur-sm" aria-hidden="true" 
             />
             
-            {/* Modal Window */}
             <Dialog.Panel 
                 as={motion.div} 
                 variants={modalVariants} 
                 initial="hidden" 
                 animate="visible" 
                 exit="exit" 
-                style={monetStyle} // Apply dynamic background color
+                style={monetStyle} 
                 className={`relative w-full max-w-6xl h-[100dvh] md:h-[90vh] flex flex-col overflow-hidden md:rounded-[2.5rem] ${glassPanelClass}`}
             >
-                
-                {/* Progress Bar */}
                 <div className="absolute top-0 left-0 right-0 h-1 bg-slate-100/10 z-20">
                     <motion.div 
                         initial={{ width: 0 }} 
@@ -335,14 +721,12 @@ function StudentViewLessonModal({ isOpen, onClose, onComplete, lesson, userId, c
                     />
                 </div>
 
-                {/* --- HEADER --- */}
                 <header className="relative z-20 flex justify-between items-center px-4 py-3 sm:px-8 sm:py-5 border-b border-slate-200/50 dark:border-white/5 flex-shrink-0 bg-white/40 dark:bg-white/5 backdrop-blur-md">
                     <div className="flex flex-col gap-0.5 overflow-hidden">
                         <Dialog.Title className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white truncate tracking-tight">
                             {lessonTitle}
                         </Dialog.Title>
                         
-                        {/* JUMP TO PAGE TRIGGER */}
                         <button 
                             onClick={() => setIsPageNavOpen(!isPageNavOpen)}
                             className="flex items-center gap-1.5 text-[10px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider hover:text-blue-600 dark:hover:text-blue-400 transition-colors w-fit"
@@ -353,7 +737,6 @@ function StudentViewLessonModal({ isOpen, onClose, onComplete, lesson, userId, c
                     </div>
 
                     <div className="flex items-center gap-2 sm:gap-3">
-                        {/* Export Button */}
                         <button
                             onClick={() => currentLesson.studyGuideUrl ? window.open(currentLesson.studyGuideUrl, '_blank') : handleExportLessonPdf(currentLesson)}
                             disabled={!!exportingLessonId}
@@ -372,13 +755,11 @@ function StudentViewLessonModal({ isOpen, onClose, onComplete, lesson, userId, c
                             </span>
                         </button>
 
-                        {/* Close Button */}
                         <button onClick={handleClose} className="p-2 rounded-full text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-all">
                             <XMarkIcon className="w-5 h-5 sm:w-6 sm:h-6 stroke-2" />
                         </button>
                     </div>
 
-                    {/* JUMP TO PAGE DROPDOWN OVERLAY */}
                     <AnimatePresence>
                         {isPageNavOpen && (
                             <>
@@ -417,7 +798,6 @@ function StudentViewLessonModal({ isOpen, onClose, onComplete, lesson, userId, c
                     </AnimatePresence>
                 </header>
                 
-                {/* --- CONTENT --- */}
                 <main ref={contentRef} className="flex-grow overflow-y-auto custom-scrollbar flex flex-col items-center p-4 sm:p-6 md:p-10 pb-20 sm:pb-10 relative bg-[#f8f9fa] dark:bg-transparent">
                     <div className="w-full max-w-4xl flex-grow">
                         <AnimatePresence initial={false} mode="wait">
@@ -429,7 +809,6 @@ function StudentViewLessonModal({ isOpen, onClose, onComplete, lesson, userId, c
                                 exit="exit" 
                                 className="w-full min-h-full"
                             >
-                                {/* Objectives Card */}
                                 {currentPage === 0 && objectives.length > 0 && (
                                     <motion.div 
                                         initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
@@ -452,7 +831,6 @@ function StudentViewLessonModal({ isOpen, onClose, onComplete, lesson, userId, c
                                     </motion.div>
                                 )}
 
-                                {/* Lesson Content - Justified & Indented */}
                                 {pageData ? (
                                     <article className="prose prose-sm sm:prose-base dark:prose-invert max-w-none text-justify [&_p]:indent-8">
                                         {pageData.title && (
@@ -488,11 +866,8 @@ function StudentViewLessonModal({ isOpen, onClose, onComplete, lesson, userId, c
                     </div>
                 </main>
                 
-                {/* --- FOOTER CONTROL DECK --- */}
                 <footer className="absolute bottom-0 left-0 right-0 sm:static flex-shrink-0 py-4 sm:py-5 px-6 border-t border-slate-200/50 dark:border-white/5 bg-white/80 dark:bg-[#121212]/80 backdrop-blur-xl flex justify-center items-center z-20">
                     <div className="flex items-center gap-2 sm:gap-4 p-1.5 sm:p-2 pl-2 sm:pl-3 pr-2 sm:pr-3 bg-white dark:bg-white/5 backdrop-blur-xl rounded-full shadow-lg border border-slate-100 dark:border-white/10">
-                        
-                        {/* Previous */}
                         <button 
                             onClick={goToPreviousPage} 
                             disabled={currentPage === 0} 
@@ -500,13 +875,8 @@ function StudentViewLessonModal({ isOpen, onClose, onComplete, lesson, userId, c
                         >
                             <ArrowLeftIcon className="h-4 w-4 sm:h-5 sm:w-5 stroke-2" />
                         </button>
-
-                        {/* Divider */}
                         <div className="h-6 w-px bg-slate-200 dark:bg-white/10 mx-1"></div>
-
-                        {/* Next / Finish */}
                         <button
-                            // CHANGED: If already finished (xpAwarded), click closes the modal.
                             onClick={currentPage < totalPages - 1 ? goToNextPage : (xpAwarded ? handleClose : handleFinishLesson)}
                             className={`
                                 flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 rounded-full font-bold text-xs sm:text-sm text-white shadow-md transition-all active:scale-95
