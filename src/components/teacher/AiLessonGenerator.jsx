@@ -31,8 +31,10 @@ import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 // --- CONFIGURATION ---
-// INCREASED SAFETY DELAY: 40 seconds to strictly align with 15k TPM limit and prevent 429s.
-const GEMMA_SAFETY_DELAY_MS = 30000; 
+// SAFETY DELAY: Adjusted for larger context (50k chars ~= 12k tokens).
+// 15k TPM limit means we can process ~1 request of this size per minute.
+// We set this to 45 seconds to be safe (allowing for some buffer/burst capacity).
+const GEMMA_SAFETY_DELAY_MS = 45000; 
 
 /**
  * --- Helper: Smart Delay ---
@@ -56,19 +58,15 @@ const smartDelay = async (ms, signal) => {
 
 /**
  * --- Micro-Worker Sanitizer (Bulletproof Version) ---
- * Aggressively fixes common AI JSON errors (bad escapes, LaTeX)
- * and falls back to regex extraction if parsing fails.
  */
 const sanitizeJsonComponent = (aiResponse) => {
     let jsonString = aiResponse;
 
     try {
-        // 1. Try to find a JSON block wrapped in markdown backticks
         const markdownMatch = aiResponse.match(/```(json)?\s*(\{[\s\S]*\})\s*```/);
         if (markdownMatch && markdownMatch[2]) {
             jsonString = markdownMatch[2];
         } else {
-            // 2. If no markdown, find the first opening and last closing brace
             const startIndex = jsonString.indexOf('{');
             const endIndex = jsonString.lastIndexOf('}');
             if (startIndex !== -1 && endIndex !== -1) {
@@ -76,9 +74,7 @@ const sanitizeJsonComponent = (aiResponse) => {
             }
         }
 
-        // Fix unescaped newlines inside strings
         let cleanString = jsonString.replace(/(?<=:\s*"[^"]*)\n(?=[^"]*")/g, "\\n");
-        // Fix invalid backslashes (e.g. \textbf -> \\textbf) - simple heuristic
         cleanString = cleanString.replace(/\\(?![/u"\\bfnrt])/g, "\\\\");
 
         return JSON.parse(cleanString);
@@ -86,21 +82,16 @@ const sanitizeJsonComponent = (aiResponse) => {
     } catch (parseError) {
         console.warn("JSON.parse failed, attempting Manual Regex Extraction:", parseError.message);
 
-        // --- ATTEMPT 2: Manual Regex Extraction (The Safety Net) ---
         try {
-            // Extract Title
             const titleMatch = aiResponse.match(/"title"\s*:\s*"([^"]*?)"/);
             const title = titleMatch ? titleMatch[1] : "Generated Page";
 
-            // Extract Content
-            // We look for "content": " ... " 
             const contentMatch = aiResponse.match(/"content"\s*:\s*"([\s\S]*?)"(?=\s*\}|\s*,)/);
             
             let content = "";
             if (contentMatch) {
                 content = contentMatch[1];
             } else {
-                // Last ditch: just grab everything after "content":
                 const parts = aiResponse.split(/"content"\s*:\s*"/);
                 if (parts.length > 1) {
                     const roughContent = parts[1];
@@ -113,7 +104,6 @@ const sanitizeJsonComponent = (aiResponse) => {
                 }
             }
 
-            // Manually unescape standard JSON escapes since we didn't run JSON.parse
             content = content
                 .replace(/\\n/g, '\n')
                 .replace(/\\"/g, '"')
@@ -132,7 +122,6 @@ const sanitizeJsonComponent = (aiResponse) => {
 
         } catch (extractError) {
             console.error("Critical: Failed to sanitize JSON.", aiResponse.substring(0, 200));
-            // Return a dummy object so the app doesn't crash
             return {
                 page: {
                     title: "Generation Error",
@@ -153,7 +142,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
     const [error, setError] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
     
-    // Progress States
     const [progressMessage, setProgressMessage] = useState('');
     const [generationProgress, setGenerationProgress] = useState(0); 
     const [currentAction, setCurrentAction] = useState('');
@@ -208,7 +196,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                     highlight: 'bg-pink-900/40 border-pink-500/30',
                     inputBg: 'bg-black/30'
                 };
-            default: // Standard
+            default: 
                 return {
                     bgGradient: 'bg-[#f5f5f7] dark:bg-[#121212]',
                     panelBg: 'bg-white dark:bg-[#1e1e1e]',
@@ -230,7 +218,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         );
     }, [subjects]);
 
-    // --- PERFORMANCE OPTIMIZATIONS ---
     const sortedUnits = useMemo(() => {
         if (!subjectContext?.units) return [];
         return [...subjectContext.units].sort((a, b) => 
@@ -389,7 +376,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         }
     };
 
-    // --- PROMPTS AND INSTRUCTIONS (FULL VERSION) ---
+    // --- PROMPTS AND INSTRUCTIONS ---
 
     const getBasePromptContext = () => {
         const languageAndGradeInstruction = `
@@ -451,17 +438,19 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         **MATH & SCIENCE HANDLING:**
         If the source text contains mathematical formulas, ensure your lesson titles and summaries reflect the mathematical content accurately.
 
-        **CRITICAL TASK: ANALYZE DOCUMENT SCOPE**
-        
+        **CRITICAL TASK: ANALYZE FULL DOCUMENT SCOPE**
+        The source text provided is large. You must ensure your lesson plan covers **ALL** key topics found in the text, from beginning to end. 
+        - **DO NOT** stop after the first few paragraphs. 
+        - **DO NOT** summarize the whole document into one single generic lesson if there are clearly distinct chapters or major topics.
+
         **Step 1: Identify Structure**
-        Scan the text for lesson headers (e.g., "Lesson 1", "1.1", "Lesson A").
+        Scan the text for lesson headers (e.g., "Lesson 1", "1.1", "Lesson A") or major topic changes.
         
         **Step 2: Apply Strict Rules**
         
-        **RULE A: SINGLE LESSON (Most Likely)**
+        **RULE A: SINGLE LESSON (Standard)**
         - If the document focuses on **ONE** specific lesson title (e.g., "Lesson 1: Comparison Texts") or one main topic, create **EXACTLY ONE** lesson object.
-        - **DO NOT** split sub-topics (like "Introduction", "Activity", "Analysis", "Writing") into separate lessons. These are merely *pages* within the single lesson.
-        - **Example:** If the text is "Unit 15, Lesson 1", generate ONLY "Lesson 1".
+        - However, ensure the *summary* of that lesson is broad enough to cover all sub-points in the text.
 
         **RULE B: MULTIPLE LESSONS (Only if explicit)**
         - ONLY generate multiple lessons if the source text explicitly contains distinct headers for multiple lessons (e.g., It contains text for "Lesson 1" AND text for "Lesson 2").
@@ -474,7 +463,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
           "lessons": [
             {
               "lessonTitle": "Lesson ${existingLessonCount + 1}: [Title]",
-              "summary": "1-2 sentence summary."
+              "summary": "Detailed summary covering all key points in this section."
             }
           ]
         }
@@ -577,27 +566,35 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                 jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "Let's Get Started",\n    "content": "Warm-up activity instructions..."\n  }\n}`;
                 break;
 
-			case 'CoreContentPlanner':
-			    taskInstruction = `Analyze the focus for this lesson: "${lessonPlan.summary}" and the source text.
-			    **CRITICAL TASK (NON-NEGOTIABLE):** Break this topic into 6-10 granular sub-topic titles. 
-			    - You must ensure there are enough sections to cover the material in extreme detail. 
-			    - Do NOT combine topics. Each title must represent a deep-dive section.`; // Planner Expansion
-			    jsonFormat = `{"coreContentTitles": ["Sub-topic 1", "Sub-topic 2", "Sub-topic 3", "Sub-topic 4", "Sub-topic 5", "Sub-topic 6"]}`;
-			    break;
+            case 'CoreContentPlanner':
+                taskInstruction = `Analyze the focus for this lesson: "${lessonPlan.summary}" and the SOURCE TEXT provided.
+                **CRITICAL TASK (NON-NEGOTIABLE):** Your task is to break down the material in the source text into a series of **page-sized sub-topics**. 
+                - **BE COMPREHENSIVE:** Do not summarize quickly. If the text has 5 distinct sections, create 5 page titles.
+                - **NO SKIPPING:** Ensure the end of the source text is represented in the final pages.
+                - Each sub-topic you list will become *one single page*.
+                - Do **NOT** include titles for "Introduction," "Warm-Up," "Summary," etc.`;
+                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "coreContentTitles": [\n    "First Sub-Topic Title",\n    "Second Sub-Topic Title"\n  ]\n}`;
+                break;
 
-			case 'CoreContentPage':
-			    const currentTitle = extraData.contentTitle;
-			    taskInstruction = `
-			    **GENERATE AN UNABRIDGED DEEP-DIVE PAGE.**
-			    - **Page Title:** Must be exactly: "${currentTitle}"
-			    - **Target Length:** 1000+ words.
-			    - **Tone:** Brilliant university professor / Bestselling author.
-			    - **Format Rule:** Use long, descriptive narrative paragraphs. 
-			    - **STRICTLY FORBIDDEN:** Do NOT use bulleted lists, brief summaries, or short-form content. 
-			    - **Depth Requirement:** Explain the 'why' and 'how' for every concept. Use vivid analogies and exhaustive explanations from the source text.`; // No-Brevity Rule
-    
-			    jsonFormat = `{"page": {"title": "${currentTitle}", "content": "Extremely detailed narrative content here..."}}`;
-			    break;
+            case 'CoreContentPage':
+                const allTitles = extraData.allContentTitles || [extraData.contentTitle];
+                const currentIndex = extraData.currentIndex !== undefined ? extraData.currentIndex : 0;
+                const currentTitle = extraData.contentTitle;
+                
+                const contentContextInstruction = `
+                **PAGING CONTEXT:** Page ${currentIndex + 1} of ${allTitles.length}.
+                - **Current Title:** "${currentTitle}"
+                `;
+
+                taskInstruction = `Generate *one* core content page for this lesson.
+                - **Page Title:** It MUST be exactly: "${currentTitle}"
+                ${contentContextInstruction}
+                - **Content:** You are writing the detailed body content for this specific topic. 
+                - **BE DETAILED:** Do not be overly concise. Explain the concepts fully, using examples from the source text or your own knowledge.
+                - **CRITICAL LENGTH CONSTRAINT:** Aim for depth. Max 8000 chars JSON.`;
+                
+                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${currentTitle}",\n    "content": "Detailed markdown content..."\n  }\n}`;
+                break;
             
             case 'CheckForUnderstanding':
                 taskInstruction = `Generate the "Check for Understanding" page. 3-4 concept questions based on the lesson.`;
@@ -687,7 +684,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
 
             try {
                 // Lower max output tokens to save TPM
-                const aiResponse = await callGeminiWithLimitCheck(finalPrompt, { maxOutputTokens: 2048, signal });
+                const aiResponse = await callGeminiWithLimitCheck(finalPrompt, { maxOutputTokens: 5048, signal });
                 
                 if (!isMountedRef.current || signal?.aborted) throw new Error("Aborted");
                 return sanitizeJsonComponent(aiResponse); 
@@ -734,11 +731,10 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
             if (!isMounted.current || signal.aborted) return;
             extractedText = extractedText.replace(/₱/g, 'PHP ');
             
-            // --- STRICT TRUNCATION FOR TPM SAFETY ---
-            // Reduced to 12,000 characters (approx 3,500 tokens).
-            // This leaves room for the prompt overhead + context history.
-            // Prevents 15k limit crash on first request.
-            const sourceText = extractedText.substring(0, 50000); 
+            // --- INCREASED TRUNCATION LIMIT FOR FULL CONTEXT ---
+            // Increased to 50,000 characters (approx 12,000 tokens).
+            // This covers significantly more of the file.
+            const sourceText = extractedText.substring(0, 45000); 
             
             // --- PHASE 2: PLANNING (5% -> 15%) ---
             setCurrentAction('Creating curriculum outline and lesson map...');
@@ -747,9 +743,9 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
             const baseContext = getBasePromptContext();
             const plannerPrompt = getPlannerPrompt(sourceText, baseContext);
             
-            // Initial safety delay
-            await smartDelay(32000, signal);
-            const plannerResponse = await callGeminiWithLimitCheck(plannerPrompt, { maxOutputTokens: 2048, signal });
+            // Initial safety delay - longer for larger input
+            await smartDelay(GEMMA_SAFETY_DELAY_MS, signal);
+            const plannerResponse = await callGeminiWithLimitCheck(plannerPrompt, { maxOutputTokens: 5048, signal });
             if (!isMounted.current || signal.aborted) return;
             
             const lessonPlans = sanitizeJsonBlock(plannerResponse); 
@@ -799,7 +795,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                     
                     try {
                         // --- SAFETY DELAY ---
-                        // 40s wait guarantees 15k quota bucket refills significantly.
+                        // Guarantees we don't exceed TPM with the larger 50k char payload
                         await smartDelay(GEMMA_SAFETY_DELAY_MS, signal);
                         
                         const result = await generateLessonComponent(
@@ -818,16 +814,12 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                         if (result?.page?.content) {
                             const newEntry = `\n\n--- [${type.toUpperCase()}]: ${result.page.title} ---\n${result.page.content}`;
                             let fullContext = accumulatedLessonContext + newEntry;
-                            if (fullContext.length > 20000) {
-                                fullContext = "..." + fullContext.slice(-20000); 
+                            if (fullContext.length > 4000) {
+                                fullContext = "..." + fullContext.slice(-4000); 
                             }
                             accumulatedLessonContext = fullContext;
                         }
                         
-                        // Objectives don't need sliding window, just append for reference if needed, 
-                        // but usually better to leave out of context to save tokens unless critical.
-                        // We will omit adding objectives to context to save tokens.
-
                         return result;
                     } catch (e) {
                         if (e.name === 'AbortError' || e.message === 'Aborted') throw e; 
@@ -852,8 +844,8 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                     const comps = await safeGenerate('competencies');
                     if(comps) newLesson.assignedCompetencies = comps.competencies;
                     
-					const intro = await safeGenerate('Introduction', {}, 8192); // Increased to 8192
-					if(intro) newLesson.pages.push({ ...intro.page, type: 'text' });
+                    const intro = await safeGenerate('Introduction');
+                    if(intro) newLesson.pages.push({ ...intro.page, type: 'text' });
                     
                     // 25% through lesson
                     setGenerationProgress(Math.floor(currentBaseProgress + (progressPerLesson * 0.25))); 
@@ -868,7 +860,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                     setGenerationProgress(Math.floor(currentBaseProgress + (progressPerLesson * 0.5)));
 
                     for (const [cIdx, title] of contentTitles.entries()) {
-                        const pageData = await safeGenerate('CoreContentPage', { contentTitle: title, currentIndex: cIdx, allContentTitles: contentTitles }, 16384);
+                        const pageData = await safeGenerate('CoreContentPage', { contentTitle: title, currentIndex: cIdx, allContentTitles: contentTitles });
                         if (pageData) newLesson.pages.push({ ...pageData.page, type: 'text' });
                     }
                     
@@ -971,7 +963,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                             {isProcessing ? (
                                 <div className="flex flex-col items-center justify-center py-12 space-y-4 animate-in fade-in duration-500">
                                     <div className="relative">
-                                        {/* INLINE SPINNER REPLACEMENT 1 */}
                                         <div className={`absolute inset-0 rounded-full blur-xl animate-pulse ${themeStyles.iconBg}`} />
                                         <svg className={`animate-spin h-10 w-10 ${themeStyles.accentColor}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -1156,7 +1147,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                     
                                     {/* Visual Pulse */}
                                     <div className="relative mb-8">
-                                        {/* INLINE SPINNER REPLACEMENT 2 */}
                                         <div className={`absolute inset-0 rounded-full blur-2xl animate-pulse opacity-40 ${themeStyles.iconBg}`} />
                                         <div className={`w-24 h-24 rounded-[32px] flex items-center justify-center shadow-2xl border bg-white dark:bg-black ${themeStyles.borderColor}`}>
                                             <svg className={`animate-spin h-10 w-10 ${themeStyles.accentColor}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
