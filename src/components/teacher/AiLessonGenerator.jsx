@@ -34,7 +34,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 // SAFETY DELAY: Adjusted for larger context (50k chars ~= 12k tokens).
 // 15k TPM limit means we can process ~1 request of this size per minute.
 // We set this to 45 seconds to be safe (allowing for some buffer/burst capacity).
-const GEMMA_SAFETY_DELAY_MS = 45000; 
+const GEMMA_SAFETY_DELAY_MS = 15000; 
 
 /**
  * --- Helper: Smart Delay ---
@@ -591,7 +591,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                 ${contentContextInstruction}
                 - **Content:** You are writing the detailed body content for this specific topic. 
                 - **BE DETAILED:** Do not be overly concise. Explain the concepts fully, using examples from the source text or your own knowledge.
-                - **CRITICAL LENGTH CONSTRAINT:** Aim for depth. Max 8000 chars JSON.`;
+                - **CRITICAL LENGTH CONSTRAINT:** Aim for depth. Max 12000 chars JSON.`;
                 
                 jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${currentTitle}",\n    "content": "Detailed markdown content..."\n  }\n}`;
                 break;
@@ -684,7 +684,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
 
             try {
                 // Lower max output tokens to save TPM
-                const aiResponse = await callGeminiWithLimitCheck(finalPrompt, { maxOutputTokens: 5048, signal });
+                const aiResponse = await callGeminiWithLimitCheck(finalPrompt, { maxOutputTokens: 6144, signal });
                 
                 if (!isMountedRef.current || signal?.aborted) throw new Error("Aborted");
                 return sanitizeJsonComponent(aiResponse); 
@@ -745,7 +745,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
             
             // Initial safety delay - longer for larger input
             await smartDelay(GEMMA_SAFETY_DELAY_MS, signal);
-            const plannerResponse = await callGeminiWithLimitCheck(plannerPrompt, { maxOutputTokens: 5048, signal });
+            const plannerResponse = await callGeminiWithLimitCheck(plannerPrompt, { maxOutputTokens: 6144, signal });
             if (!isMounted.current || signal.aborted) return;
             
             const lessonPlans = sanitizeJsonBlock(plannerResponse); 
