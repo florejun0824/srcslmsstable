@@ -1,4 +1,4 @@
 {
-  "version": "2025-12-26T02:38:52.642Z",
-  "whatsNew": "SRCS LMS RELEASE NOTE (DECEMBER 26 PATCH)\n\n- Optimized Loading Performance\n- Enhanced Security\n- Fixed some Minor Issues that causes the system to crash\n- Fixed issue with scrolling on mobile devices\n- Added support for new User Profile API\n- Fixed export functions\n- Updated AI versions\n- Enhanced Prompts\n- Enhanced Overall Fluidity\n- Fixed Memory Leaks\n- Fixed Errors in Lesson, ULP, ATG, Exam, TOS creations\n- Added Monet Theming alongside themes overlay\n- Disabled some AI features in mobile mode to ensure stability\n- Enhanced Editing UI"
+  "version": "2025-12-26T10:22:09.499Z",
+  "whatsNew": "SRCS LMS RELEASE NOTE (DECEMBER 26 PATCH) v 2.0\n \n- Optimized Loading Performance\n- Enhanced Security\n- Added Support for Multiple Schools\n- Fixed some Minor Issues that causes the system to crash\n- Fixed issue with scrolling on mobile devices\n- Added support for new User Profile API\n- Fixed export functions\n- Updated AI versions\n- Enhanced Prompts\n- Enhanced Overall Fluidity\n- Fixed Memory Leaks\n- Fixed Errors in Lesson, ULP, ATG, Exam, TOS creations\n- Added Monet Theming alongside themes overlay\n- Disabled some AI features in mobile mode to ensure stability\n- Enhanced Editing UI"
 }

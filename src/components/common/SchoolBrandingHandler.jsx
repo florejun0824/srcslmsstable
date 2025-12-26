@@ -1,9 +1,9 @@
-// src/components/common/SchoolBrandingHandler.jsx
 import { useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { Capacitor } from '@capacitor/core';
+import { AppIcon } from '@capacitor-community/app-icon';
 
 // 🏫 SHARED SCHOOL CONFIGURATION
-// You can move this to a constants file later if you want
 const SCHOOL_BRANDING = {
     'srcs_main': { name: 'SRCS Learning Management System', logo: '/logo.png' },
     'hras_sipalay': { name: 'HRA Learning Management System', logo: '/logos/hra.png' },
@@ -17,15 +17,13 @@ const SchoolBrandingHandler = () => {
     const { userProfile } = useAuth();
 
     useEffect(() => {
-        // 1. Determine which branding to use
-        // If logged in, use school branding. If not, fallback to Generic/Default.
         const schoolId = userProfile?.schoolId || 'default';
         const brand = SCHOOL_BRANDING[schoolId] || { name: 'LMS Portal', logo: '/logo.png' };
 
-        // 2. Update the Document Title (Browser Tab Name)
+        // 1. Update the Document Title (Browser Tab Name)
         document.title = brand.name;
 
-        // 3. Update the Favicon (Browser Tab Icon)
+        // 2. Update the Favicon (Browser Tab Icon)
         const link = document.querySelector("link[rel~='icon']");
         if (link) {
             link.href = brand.logo;
@@ -37,9 +35,37 @@ const SchoolBrandingHandler = () => {
             document.head.appendChild(newLink);
         }
 
-    }, [userProfile?.schoolId]); // Re-run whenever the user (or school) changes
+        // 3. Update Native App Icon (Android Only)
+        if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android' && userProfile?.schoolId) {
+            const changeNativeIcon = async () => {
+                let targetAlias = 'MainActivitySRCS'; // Default
 
-    return null; // This component doesn't render anything visible
+                switch (userProfile.schoolId) {
+                    case 'kcc_kabankalan': targetAlias = 'MainActivityKCC'; break;
+                    case 'hras_sipalay': targetAlias = 'MainActivityHRA'; break;
+                    case 'icad_dancalan': targetAlias = 'MainActivityICA'; break;
+                    case 'mchs_magballo': targetAlias = 'MainActivityMCHS'; break;
+                    case 'ichs_ilog': targetAlias = 'MainActivityICHS'; break;
+                    default: targetAlias = 'MainActivitySRCS'; break;
+                }
+
+                try {
+                    const isSupported = await AppIcon.isSupported();
+                    if (isSupported.value) {
+                        // This will enable the target alias and disable the others
+                        await AppIcon.change({ name: targetAlias });
+                    }
+                } catch (error) {
+                    console.error("Failed to update native app icon:", error);
+                }
+            };
+
+            changeNativeIcon();
+        }
+
+    }, [userProfile?.schoolId]); 
+
+    return null; 
 };
 
 export default SchoolBrandingHandler;

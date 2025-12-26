@@ -1,7 +1,8 @@
-SRCS LMS RELEASE NOTE (DECEMBER 26 PATCH)
-
+SRCS LMS RELEASE NOTE (DECEMBER 26 PATCH) v 2.0
+ 
 - Optimized Loading Performance
 - Enhanced Security
+- Added Support for Multiple Schools
 - Fixed some Minor Issues that causes the system to crash
 - Fixed issue with scrolling on mobile devices
 - Added support for new User Profile API
