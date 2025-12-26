@@ -577,33 +577,27 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                 jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "Let's Get Started",\n    "content": "Warm-up activity instructions..."\n  }\n}`;
                 break;
 
-            case 'CoreContentPlanner':
-                taskInstruction = `Analyze the focus for this lesson: "${lessonPlan.summary}" and the source text.
-                **CRITICAL TASK (NON-NEGOTIABLE):** Your task is to break down this lesson's topic into a series of **page-sized sub-topics**. Each sub-topic you list will become *one single page*.
-                - If simple, return 1-2 titles.
-                - If complex, return 3-5 titles as needed.
-                - Do **NOT** include titles for "Introduction," "Warm-Up," "Summary," etc.`;
-                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "coreContentTitles": [\n    "First Sub-Topic Title",\n    "Second Sub-Topic Title"\n  ]\n}`;
-                break;
+			case 'CoreContentPlanner':
+			    taskInstruction = `Analyze the focus for this lesson: "${lessonPlan.summary}" and the source text.
+			    **CRITICAL TASK (NON-NEGOTIABLE):** Break this topic into 6-10 granular sub-topic titles. 
+			    - You must ensure there are enough sections to cover the material in extreme detail. 
+			    - Do NOT combine topics. Each title must represent a deep-dive section.`; // Planner Expansion
+			    jsonFormat = `{"coreContentTitles": ["Sub-topic 1", "Sub-topic 2", "Sub-topic 3", "Sub-topic 4", "Sub-topic 5", "Sub-topic 6"]}`;
+			    break;
 
-            case 'CoreContentPage':
-                const allTitles = extraData.allContentTitles || [extraData.contentTitle];
-                const currentIndex = extraData.currentIndex !== undefined ? extraData.currentIndex : 0;
-                const currentTitle = extraData.contentTitle;
-                
-                const contentContextInstruction = `
-                **PAGING CONTEXT:** Page ${currentIndex + 1} of ${allTitles.length}.
-                - **Current Title:** "${currentTitle}"
-                `;
-
-                taskInstruction = `Generate *one* core content page for this lesson.
-                - **Page Title:** It MUST be exactly: "${currentTitle}"
-                ${contentContextInstruction}
-                - **Content:** Detail-rich, narrative-driven, relevant *only* to this page title.
-                - **CRITICAL LENGTH CONSTRAINT:** Be thorough but concise. Max 8000 chars JSON.`;
-                
-                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${currentTitle}",\n    "content": "Detailed markdown content..."\n  }\n}`;
-                break;
+			case 'CoreContentPage':
+			    const currentTitle = extraData.contentTitle;
+			    taskInstruction = `
+			    **GENERATE AN UNABRIDGED DEEP-DIVE PAGE.**
+			    - **Page Title:** Must be exactly: "${currentTitle}"
+			    - **Target Length:** 1000+ words.
+			    - **Tone:** Brilliant university professor / Bestselling author.
+			    - **Format Rule:** Use long, descriptive narrative paragraphs. 
+			    - **STRICTLY FORBIDDEN:** Do NOT use bulleted lists, brief summaries, or short-form content. 
+			    - **Depth Requirement:** Explain the 'why' and 'how' for every concept. Use vivid analogies and exhaustive explanations from the source text.`; // No-Brevity Rule
+    
+			    jsonFormat = `{"page": {"title": "${currentTitle}", "content": "Extremely detailed narrative content here..."}}`;
+			    break;
             
             case 'CheckForUnderstanding':
                 taskInstruction = `Generate the "Check for Understanding" page. 3-4 concept questions based on the lesson.`;
@@ -744,7 +738,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
             // Reduced to 12,000 characters (approx 3,500 tokens).
             // This leaves room for the prompt overhead + context history.
             // Prevents 15k limit crash on first request.
-            const sourceText = extractedText.substring(0, 12000); 
+            const sourceText = extractedText.substring(0, 50000); 
             
             // --- PHASE 2: PLANNING (5% -> 15%) ---
             setCurrentAction('Creating curriculum outline and lesson map...');
@@ -824,8 +818,8 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                         if (result?.page?.content) {
                             const newEntry = `\n\n--- [${type.toUpperCase()}]: ${result.page.title} ---\n${result.page.content}`;
                             let fullContext = accumulatedLessonContext + newEntry;
-                            if (fullContext.length > 4000) {
-                                fullContext = "..." + fullContext.slice(-4000); 
+                            if (fullContext.length > 20000) {
+                                fullContext = "..." + fullContext.slice(-20000); 
                             }
                             accumulatedLessonContext = fullContext;
                         }
@@ -858,8 +852,8 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                     const comps = await safeGenerate('competencies');
                     if(comps) newLesson.assignedCompetencies = comps.competencies;
                     
-                    const intro = await safeGenerate('Introduction');
-                    if(intro) newLesson.pages.push({ ...intro.page, type: 'text' });
+					const intro = await safeGenerate('Introduction', {}, 8192); // Increased to 8192
+					if(intro) newLesson.pages.push({ ...intro.page, type: 'text' });
                     
                     // 25% through lesson
                     setGenerationProgress(Math.floor(currentBaseProgress + (progressPerLesson * 0.25))); 
@@ -874,7 +868,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                     setGenerationProgress(Math.floor(currentBaseProgress + (progressPerLesson * 0.5)));
 
                     for (const [cIdx, title] of contentTitles.entries()) {
-                        const pageData = await safeGenerate('CoreContentPage', { contentTitle: title, currentIndex: cIdx, allContentTitles: contentTitles });
+                        const pageData = await safeGenerate('CoreContentPage', { contentTitle: title, currentIndex: cIdx, allContentTitles: contentTitles }, 16384);
                         if (pageData) newLesson.pages.push({ ...pageData.page, type: 'text' });
                     }
                     
