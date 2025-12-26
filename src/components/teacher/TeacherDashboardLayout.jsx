@@ -71,6 +71,19 @@ const DeleteConfirmationModal = lazy(() => import('./DeleteConfirmationModal'));
 const EditSubjectModal = lazy(() => import('./EditSubjectModal'));
 const DeleteSubjectModal = lazy(() => import('./DeleteSubjectModal'));
 
+// 🏫 SCHOOL BRANDING CONFIGURATION
+const SCHOOL_BRANDING = {
+    'srcs_main': { name: 'SRCS LMS', logo: '/logo.png' }, // Default
+    'hras_sipalay': { name: 'HRA LMS', logo: '/logos/hra.png' },
+    'kcc_kabankalan': { name: 'KCC LMS', logo: '/logos/kcc.png' },
+    'icad_dancalan': { name: 'ICA LMS', logo: '/logos/ica.png' },
+    'mchs_magballo': { name: 'MCHS LMS', logo: '/logos/mchs.png' },
+    'ichs_ilog': { name: 'ICHS LMS', logo: '/logos/ichs.png' }
+};
+
+const getSchoolBranding = (schoolId) => {
+    return SCHOOL_BRANDING[schoolId] || SCHOOL_BRANDING['srcs_main'];
+};
 
 // --- CUSTOM CSS: OPTIMIZED FOR PERFORMANCE ---
 const macOsStyles = `
@@ -290,6 +303,9 @@ const ProfileDropdown = ({ userProfile, onLogout, size = 'desktop' }) => {
 // --- DESKTOP HEADER (Monet Powered) ---
 const DesktopHeader = ({ userProfile, setIsLogoutModalOpen, showTutorial, onTutorialComplete }) => {
     const { monetTheme } = useTheme();
+    
+    // 🏫 Get Dynamic Branding
+    const branding = getSchoolBranding(userProfile?.schoolId);
 
     // UPDATED NAV ITEMS WITH LUCIDE ICONS
     const navItems = [
@@ -317,14 +333,11 @@ const DesktopHeader = ({ userProfile, setIsLogoutModalOpen, showTutorial, onTuto
             {/* Left: Logo */}
             <div className="flex items-center gap-4 flex-shrink-0 z-20 group cursor-default">
                 <div className="w-11 h-11 rounded-[1.2rem] bg-gradient-to-br from-white to-slate-100 dark:from-slate-800 dark:to-slate-900 shadow-[inset_0_1px_1px_rgba(255,255,255,0.6)] flex items-center justify-center flex-shrink-0 border border-slate-200/60 dark:border-slate-700/60 transition-transform duration-500 group-hover:rotate-6 drop-shadow-md">
-                    <img src="/logo.png" alt="Logo" className="w-7 h-7 object-contain drop-shadow-sm" />
+                    <img src={branding.logo} alt="Logo" className="w-7 h-7 object-contain drop-shadow-sm" />
                 </div>
                 <div className="hidden xl:block">
                     <span className="font-black text-lg bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 tracking-tight leading-tight block">
-                        SRCS
-                    </span>
-                    <span className="font-black text-lg bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 tracking-tight leading-tight block">
-                        LMS
+                        {branding.name}
                     </span>
                 </div>
             </div>
@@ -486,6 +499,9 @@ const TeacherDashboardLayout = (props) => {
 
     // --- MONET ENGINE INTEGRATION (via Context) ---
     const { monetTheme } = useTheme(); 
+    
+    // 🏫 Get Dynamic Branding for Mobile Header
+    const branding = getSchoolBranding(userProfile?.schoolId);
 
     const handleRenameCategory = async (newName) => {
         const oldName = categoryToEdit?.name;
@@ -624,12 +640,12 @@ const TeacherDashboardLayout = (props) => {
                 >
                     <div className="flex items-center flex-shrink-0 z-20">
                             <div className="w-10 h-10 rounded-[1rem] bg-gradient-to-tr from-white to-slate-100 dark:from-slate-800 dark:to-slate-900 shadow-sm flex items-center justify-center border border-slate-200 dark:border-slate-700">
-                            <img src="/logo.png" alt="SRCS" className="w-6 h-6 object-contain" />
+                            <img src={branding.logo} alt="School Logo" className="w-6 h-6 object-contain" />
                             </div>
                     </div>
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
                         <span className="font-black text-xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-500 to-purple-600 dark:from-blue-400 dark:via-indigo-400 dark:to-purple-400">
-                            SRCS LMS
+                            {branding.name}
                         </span>
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0 z-20">

@@ -23,6 +23,18 @@ import {
 // ✅ Import the unified firestoreService
 import firestoreService from '../services/firestoreService';
 
+// 🏫 SCHOOL CONFIGURATION (Multi-Tenancy)
+export const SCHOOLS = {
+  srcs_main: { id: 'srcs_main', name: 'San Ramon Catholic School, Inc.' },
+  hras_sipalay: { id: 'hras_sipalay', name: 'Holy Rosary Academy of Sipalay, Inc.' },
+  kcc_kabankalan: { id: 'kcc_kabankalan', name: 'Kabankalan Catholic College, Inc.' },
+  icad_dancalan: { id: 'icad_dancalan', name: 'Immaculate Conception Academy of Dancalan, Inc.' },
+  mchs_magballo: { id: 'mchs_magballo', name: 'Magballo Catholic High School, Inc.' },
+  ichs_ilog: { id: 'ichs_ilog', name: 'Ilog Catholic High School, Inc.' }
+};
+
+export const DEFAULT_SCHOOL_ID = 'srcs_main';
+
 const AuthContext = createContext(null);
 
 const MOCK_PASSWORD_CHECK = (submittedPassword, storedPassword) => {
@@ -66,6 +78,12 @@ export const AuthProvider = ({ children }) => {
       const loggedInUser = localStorage.getItem('loggedInUser');
       if (loggedInUser && loggedInUser !== 'null' && loggedInUser !== 'undefined') {
         const parsedUser = JSON.parse(loggedInUser);
+        
+        // 🛡️ SAFETY NET: Default to Main School if missing
+        if (!parsedUser.schoolId) {
+          parsedUser.schoolId = DEFAULT_SCHOOL_ID;
+        }
+
         setUser(parsedUser);
         if (parsedUser.id) {
           currentSessionId.current = localStorage.getItem(
@@ -98,6 +116,12 @@ export const AuthProvider = ({ children }) => {
         }
 
         const latestUserData = docSnap.data();
+
+        // 🛡️ SAFETY NET: Default to Main School if missing
+        if (!latestUserData.schoolId) {
+          latestUserData.schoolId = DEFAULT_SCHOOL_ID;
+        }
+
         const firestoreSessionId = latestUserData.lastSessionId;
 
         // 🔐 Session conflict check
@@ -142,7 +166,7 @@ export const AuthProvider = ({ children }) => {
             return prev;
           }
 
-          // ✅ Something else changed (e.g., name, role, strand)
+          // ✅ Something else changed (e.g., name, role, strand, schoolId)
           const newUser = { ...prev, ...latestUserData };
           localStorage.setItem("loggedInUser", JSON.stringify(newUser));
           return newUser;
@@ -197,7 +221,14 @@ export const AuthProvider = ({ children }) => {
       }
 
       const userDoc = querySnapshot.docs[0];
-      const userData = { id: userDoc.id, ...userDoc.data() };
+      const rawData = userDoc.data();
+      
+      // 🛡️ SAFETY NET: Default to Main School if missing
+      const userData = { 
+        id: userDoc.id, 
+        ...rawData,
+        schoolId: rawData.schoolId || DEFAULT_SCHOOL_ID 
+      };
 
       if (!MOCK_PASSWORD_CHECK(password, userData.password)) {
         throw new Error('Invalid username or password.');
@@ -256,6 +287,11 @@ export const AuthProvider = ({ children }) => {
     if (user) {
       const profile = await firestoreService.getUserProfile(user.id);
       if (profile) {
+        // 🛡️ SAFETY NET: Default to Main School if missing
+        if (!profile.schoolId) {
+          profile.schoolId = DEFAULT_SCHOOL_ID;
+        }
+
         const storedSessionId = localStorage.getItem(`currentSessionId_${user.id}`);
         if (storedSessionId) {
           currentSessionId.current = storedSessionId;

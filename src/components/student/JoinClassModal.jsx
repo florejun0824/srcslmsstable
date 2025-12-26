@@ -1,5 +1,7 @@
+// src/components/student/JoinClassModal.jsx
 import React, { useState } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
+// ✅ Import DEFAULT_SCHOOL_ID for safety fallback
+import { useAuth, DEFAULT_SCHOOL_ID } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { DocumentPlusIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
@@ -18,10 +20,17 @@ const JoinClassModal = ({ isOpen, onClose, onClassJoined }) => {
 
     setIsSubmitting(true);
     try {
+      // ✅ SECURITY UPDATE: Explicitly attach schoolId to ensure cross-school joining is blocked
+      const studentProfileWithSchool = {
+        ...userProfile,
+        schoolId: userProfile?.schoolId || DEFAULT_SCHOOL_ID
+      };
+
       const result = await firestoreService.joinClassWithCode(
         classCode.toUpperCase(),
-        userProfile
+        studentProfileWithSchool
       );
+      
       showToast(`Successfully joined class: ${result.className}!`, 'success');
       onClose();
       if (onClassJoined) {
@@ -40,48 +49,38 @@ const JoinClassModal = ({ isOpen, onClose, onClassJoined }) => {
     // --- OVERLAY: Darker, blurrier backdrop for focus ---
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex justify-center items-center z-50 p-4 font-sans">
       
-      {/* --- MODAL CONTAINER: Glass Panel with Ambient Light --- */}
-      <div className="relative w-full max-w-sm overflow-hidden rounded-[2rem] bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border border-white/60 dark:border-white/10 shadow-2xl ring-1 ring-black/5">
+      {/* --- MODAL CONTAINER: Glassmorphism style --- */}
+      <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl w-full max-w-sm rounded-[2rem] shadow-2xl border border-white/20 dark:border-slate-700/50 p-6 transform transition-all scale-100">
         
-        {/* Decorative Background Mesh/Glow */}
-        <div className="absolute -top-20 -right-20 w-48 h-48 bg-red-500/20 rounded-full blur-3xl pointer-events-none mix-blend-multiply dark:mix-blend-screen"></div>
-        <div className="absolute -bottom-20 -left-20 w-48 h-48 bg-orange-500/20 rounded-full blur-3xl pointer-events-none mix-blend-multiply dark:mix-blend-screen"></div>
-
-        <div className="relative z-10 p-6 sm:p-8">
-          
-          {/* Header */}
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-4">
-              {/* Icon: Floating Gradient Gem */}
-              <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-br from-red-500 to-orange-600 shadow-lg shadow-red-500/30 text-white">
-                  <DocumentPlusIcon className="w-6 h-6" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-slate-900 dark:text-white leading-tight tracking-tight">Join Class</h2>
-                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Enter your code below</p>
-              </div>
+        {/* Header */}
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-gradient-to-tr from-red-500 to-orange-500 rounded-2xl shadow-lg shadow-orange-500/20">
+              <DocumentPlusIcon className="w-6 h-6 text-white" strokeWidth={2.5} />
             </div>
-            
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close modal"
-              className="p-2 rounded-full bg-slate-100/50 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-slate-400 transition-colors"
-            >
-              <XMarkIcon className="w-5 h-5" />
-            </button>
+            <div>
+              <h3 className="text-lg font-black text-slate-800 dark:text-white leading-tight">Join Class</h3>
+              <p className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Enter Code</p>
+            </div>
           </div>
+          <button 
+            onClick={onClose}
+            className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 transition-colors"
+          >
+            <XMarkIcon className="w-6 h-6" strokeWidth={2.5} />
+          </button>
+        </div>
 
-          {/* Form */}
-          <form onSubmit={handleJoinSubmit} className="space-y-6">
-            <div className="space-y-2">
-              {/* Input: Clean spatial field */}
+        {/* Form */}
+        <form onSubmit={handleJoinSubmit} className="space-y-5">
+            <div className="relative group">
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-red-500 to-orange-500 rounded-2xl opacity-20 group-hover:opacity-40 transition duration-500"></div>
               <input
                 type="text"
                 value={classCode}
-                onChange={(e) => setClassCode(e.target.value.toUpperCase())}
-                placeholder="CODE"
-                className="w-full py-4 px-4 bg-white/50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-2xl text-center font-mono text-3xl font-bold tracking-[0.3em] text-slate-800 dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-700 focus:outline-none focus:ring-4 focus:ring-red-500/10 focus:border-red-500 transition-all shadow-inner uppercase"
+                onChange={(e) => setClassCode(e.target.value)}
+                placeholder="ABC-123"
+                className="relative w-full bg-white dark:bg-slate-900 border-0 rounded-xl px-4 py-4 text-center font-mono text-3xl font-bold tracking-[0.3em] text-slate-800 dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-700 focus:outline-none focus:ring-4 focus:ring-red-500/10 focus:border-red-500 transition-all shadow-inner uppercase"
                 maxLength="6"
                 autoFocus
               />
@@ -100,13 +99,12 @@ const JoinClassModal = ({ isOpen, onClose, onClassJoined }) => {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex-[2] px-5 py-3 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-red-500 to-orange-600 shadow-lg shadow-red-500/30 hover:shadow-red-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:hover:scale-100 disabled:shadow-none"
+                className="flex-[2] px-5 py-3 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-red-500 to-orange-600 shadow-lg shadow-red-500/30 hover:shadow-red-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isSubmitting ? 'Verifying...' : 'Join Class'}
+                {isSubmitting ? 'Joining...' : 'Join Class'}
               </button>
             </div>
-          </form>
-        </div>
+        </form>
       </div>
     </div>
   );

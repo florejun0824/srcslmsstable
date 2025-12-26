@@ -9,13 +9,12 @@ import {
   Search,
   UserPlus,
   X,
-  ChevronDown,
-  ChevronsUpDown,
   CheckIcon,
   ListFilter,
   Trash2,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ChevronsUpDown
 } from 'lucide-react';
 // [ADDED] Import CheckCircleIcon for the custom radio-style checkbox
 import { CheckCircleIcon } from '@heroicons/react/24/solid'; 
@@ -93,7 +92,6 @@ const StudentMobileCard = ({ user, enrolledClasses, onEdit, onSelect, isSelected
         {/* Card Header */}
         <div className="flex items-start gap-3.5">
             <div className="pt-1">
-                {/* [UPDATED] Custom Radio-Style Checkbox */}
                 <div className="relative flex items-center justify-center w-6 h-6">
                     <input 
                         type="checkbox" 
@@ -166,7 +164,7 @@ const StudentMobileCard = ({ user, enrolledClasses, onEdit, onSelect, isSelected
 
 // --- COMPONENT: Student Desktop Row (Renders as TR) ---
 const StudentDesktopRow = ({ user, enrolledClasses, onEdit, onSelect, isSelected }) => {
-  const { activeOverlay } = useTheme(); // Need theme context here for proper checkbox styling in monet mode
+  const { activeOverlay } = useTheme();
 
   return (
     <motion.tr 
@@ -175,7 +173,6 @@ const StudentDesktopRow = ({ user, enrolledClasses, onEdit, onSelect, isSelected
         className={`hidden md:table-row transition-colors border-b border-slate-100 dark:border-slate-800 last:border-none group ${isSelected ? 'bg-indigo-50 dark:bg-indigo-900/20' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}
     >
         <td className="px-6 py-4 text-center w-16">
-            {/* [UPDATED] Custom Radio-Style Checkbox */}
             <div className="relative flex items-center justify-center w-5 h-5 mx-auto">
                 <input 
                     type="checkbox" 
@@ -294,13 +291,7 @@ const CustomSelect = ({ value, onChange, options }) => {
 
 
 // --- FILTER POPUP ---
-const FilterPopup = ({
-  allClasses,
-  filters,
-  onFilterChange,
-  onClose,
-  onClear
-}) => {
+const FilterPopup = ({ allClasses, filters, onFilterChange, onClose, onClear }) => {
   const [classSearch, setClassSearch] = useState('');
   const [isClassSearchOpen, setIsClassSearchOpen] = useState(false);
   const { activeOverlay } = useTheme();
@@ -469,12 +460,16 @@ const StudentManagementView = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isFilterOpen]);
 
+  // ✅ UPDATED: Pass schoolId to fetch only this school's data
   const fetchData = async () => {
+    // Wait for userProfile to be loaded
+    if (!userProfile?.schoolId) return;
+
     setLoading(true);
     try {
       const [users, classes] = await Promise.all([
-        firestoreService.getAllUsers(),
-        firestoreService.getAllClasses()
+        firestoreService.getAllUsers(userProfile.schoolId),     // <--- FIX HERE
+        firestoreService.getAllClasses(userProfile.schoolId)    // <--- FIX HERE
       ]);
       setAllStudents(users.filter(u => u.role === 'student' && !u.isRestricted));
       setAllClasses(classes);
@@ -486,9 +481,10 @@ const StudentManagementView = () => {
     }
   };
 
+  // ✅ UPDATED: Run effect when schoolId changes
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [userProfile?.schoolId]);
 
   const enrolledClassesMap = useMemo(() => {
     const map = new Map();
@@ -516,7 +512,7 @@ const StudentManagementView = () => {
         }
         return `${student.firstName} ${student.lastName}`.toLowerCase().includes(lowerName);
       })
-      // --- FIX: UPDATED SORT LOGIC (Strict Alphabetical: Last Name -> First Name) ---
+      // Sort: Last Name -> First Name
       .sort((a, b) => {
           const nameA = (a.lastName || '').toLowerCase();
           const nameB = (b.lastName || '').toLowerCase();
@@ -524,7 +520,6 @@ const StudentManagementView = () => {
           if (nameA < nameB) return -1;
           if (nameA > nameB) return 1;
           
-          // Tie-breaker: First Name
           const firstA = (a.firstName || '').toLowerCase();
           const firstB = (b.firstName || '').toLowerCase();
           
@@ -537,12 +532,10 @@ const StudentManagementView = () => {
       return result;
   }, [allStudents, filters, enrolledClassesMap]);
   
-  // Effect to reset pagination when filtered results change length
   useEffect(() => {
       setCurrentPage(1);
   }, [filters, filteredStudents.length]);
 
-  // Pagination Logic (Slices the filtered list)
   const paginatedStudents = useMemo(() => {
       const startIndex = (currentPage - 1) * itemsPerPage;
       const endIndex = startIndex + itemsPerPage;
@@ -585,23 +578,16 @@ const StudentManagementView = () => {
     });
   };
 
-  // Select all visible on current page vs Select all filtered
-  // Let's stick to selecting all *visible* on the current page for simplicity, 
-  // or all *filtered* if user expects bulk actions across pages. 
-  // Standard UX usually selects current page first.
   const handleSelectAll = () => {
-    // Check if all displayed items are selected
     const allDisplayedSelected = paginatedStudents.every(s => selectedStudentIds.has(s.id));
     
     if (allDisplayedSelected) {
-        // Deselect all on current page
         setSelectedStudentIds(prev => {
             const newSet = new Set(prev);
             paginatedStudents.forEach(s => newSet.delete(s.id));
             return newSet;
         });
     } else {
-        // Select all on current page
         setSelectedStudentIds(prev => {
             const newSet = new Set(prev);
             paginatedStudents.forEach(s => newSet.add(s.id));
@@ -610,7 +596,6 @@ const StudentManagementView = () => {
     }
   };
   
-  // Helper to check if "Select All" checkbox should be checked
   const isAllPageSelected = paginatedStudents.length > 0 && paginatedStudents.every(s => selectedStudentIds.has(s.id));
 
   const handleEditClick = (user) => {
@@ -733,7 +718,7 @@ const StudentManagementView = () => {
             </button>
         </motion.div>
         
-        {/* Table / Content Area (Solid Background) */}
+        {/* Table / Content Area */}
 		<div className="flex-1 overflow-hidden flex flex-col min-h-0 relative z-0">
             {loading ? (
                 <StudentTableSkeleton />
@@ -749,7 +734,6 @@ const StudentManagementView = () => {
                     <thead className="bg-slate-50 dark:bg-slate-800 sticky top-0 z-10">
                     <tr>
                         <th className="px-6 py-4 text-center w-16">
-                            {/* [UPDATED] Select All Checkbox (Radio Style) */}
                             <div className="relative flex items-center justify-center w-5 h-5 mx-auto">
                                 <input
                                     type="checkbox"
@@ -800,7 +784,6 @@ const StudentManagementView = () => {
                 <div className="block md:hidden flex-1 overflow-y-auto p-4 custom-scrollbar">
                 {paginatedStudents.length > 0 && (
                     <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl mb-4 border border-slate-200 dark:border-slate-700">
-                        {/* [UPDATED] Mobile Select All Checkbox (Radio Style) */}
                         <div className="relative flex items-center justify-center w-5 h-5">
                             <input
                                 type="checkbox"
@@ -861,27 +844,7 @@ const StudentManagementView = () => {
                                 <ChevronLeft size={16} />
                             </button>
                             
-                            {/* Simple Page Numbers */}
                             <div className="flex items-center gap-1">
-                                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                    // Logic to show generic window of pages centered on current
-                                    let pageNum = i + 1;
-                                    if (totalPages > 5) {
-                                        if (currentPage > 3) pageNum = currentPage - 2 + i;
-                                        if (pageNum > totalPages) pageNum = i + 1; // Fallback, though clamp logic usually better
-                                    }
-                                    
-                                    // Better simple logic for small window:
-                                    // Just show 1..N if N <= 5.
-                                    // If N > 5, show: 1, ... curr-1, curr, curr+1, ... N (Too complex for simple snippet)
-                                    // Let's stick to a simple slice for now or just current/total text on mobile.
-                                    
-                                    // Adjusted Simple Logic:
-                                    // Always show current page button highlighted
-                                    // If total pages is huge, we might just show Prev [Page X of Y] Next
-                                    return null; 
-                                })}
-                                
                                 <span className="text-xs font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-lg">
                                     Page {currentPage} of {totalPages}
                                 </span>

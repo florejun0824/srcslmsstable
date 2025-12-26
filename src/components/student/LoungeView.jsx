@@ -151,7 +151,7 @@ const LoungeView = ({
             <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                     <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight leading-none mb-1">
-                        SRCS Lounge
+                       Lounge
                     </h1>
                     <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium leading-relaxed max-w-md">
                         Connect, share, and learn with your peers across campus.

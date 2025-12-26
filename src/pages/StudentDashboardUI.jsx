@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect, useMemo, Fragment } from 'react';
 import { NavLink } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, Transition } from '@headlessui/react';
+import { Menu, Transition, Dialog } from '@headlessui/react'; // ✅ Added Dialog
 import {
     ClipboardDocumentCheckIcon,
     UserIcon,
@@ -22,6 +22,8 @@ import {
     AcademicCapIcon
 } from '@heroicons/react/24/solid';
 import { IconPalette } from '@tabler/icons-react';
+// ✅ Added Lucide Icons for Welcome Modal
+import { ShieldCheck, Share2, CheckCircle2, Check, School } from 'lucide-react';
 
 // Sub-Pages & Components
 import StudentProfilePage from './StudentProfilePage';
@@ -42,6 +44,33 @@ import ThemeToggle from '../components/common/ThemeToggle';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../contexts/ToastContext';
+
+// 🏫 SCHOOL BRANDING CONFIGURATION
+const SCHOOL_BRANDING = {
+    'srcs_main': { name: 'SRCS', logo: '/logo.png' }, // Default
+    'hras_sipalay': { name: 'HRA', logo: '/logos/hra.png' },
+    'kcc_kabankalan': { name: 'KCC', logo: '/logos/kcc.png' },
+    'icad_dancalan': { name: 'ICA', logo: '/logos/ica.png' },
+    'mchs_magballo': { name: 'MCHS', logo: '/logos/mchs.png' },
+    'ichs_ilog': { name: 'ICHS', logo: '/logos/ichs.png' }
+};
+
+const getSchoolBranding = (schoolId) => {
+    return SCHOOL_BRANDING[schoolId] || SCHOOL_BRANDING['srcs_main'];
+};
+
+// ✅ Helper for Full Name in Modal
+const getFullSchoolName = (schoolId) => {
+    const schools = {
+        'srcs_main': 'San Ramon Catholic School',
+        'hras_sipalay': 'Holy Rosary Academy',
+        'kcc_kabankalan': 'Kabankalan Catholic College',
+        'icad_dancalan': 'Immaculate Conception Academy',
+        'mchs_magballo': 'Magballo Catholic High School',
+        'ichs_ilog': 'Ilog Catholic High School'
+    };
+    return schools[schoolId] || 'Your School';
+};
 
 // --- CUSTOM CSS: MAC OS SCROLLBARS & UTILS ---
 const scrollbarStyles = `
@@ -88,7 +117,7 @@ const scrollbarStyles = `
         inset 0 0 0 1px rgba(255, 255, 255, 0.05);
   }
 
-  /* Mobile Theme Text Adjustment - Forces smaller text inside the dropdown on mobile to prevent overflow */
+  /* Mobile Theme Text Adjustment */
   @media (max-width: 640px) {
     .mobile-theme-adjust * {
         font-size: 0.50rem !important; /* text-xs */
@@ -110,7 +139,6 @@ const getMonetStyle = (activeOverlay) => {
 };
 
 // --- HELPER: MONET TEXT COLOR (For Logo) ---
-// Ensures text matches the theme but remains highly readable
 const getLogoClass = (activeOverlay) => {
     if (activeOverlay === 'christmas') return 'text-blue-100';
     if (activeOverlay === 'valentines') return 'text-pink-100';
@@ -294,8 +322,6 @@ const DashboardHome = ({ userProfile, myClasses, setSelectedClass, handleViewCha
                     style={monetStyle} // MONET EFFECT APPLIED HERE
                     className={`w-full min-h-[180px] h-auto rounded-[2.5rem] p-6 sm:p-8 shadow-xl border border-white/5 flex flex-col justify-between relative overflow-hidden group transition-colors duration-500 ${!monetStyle.background ? 'bg-gradient-to-br from-slate-800 to-slate-900' : ''}`}
                 >
-                    {/* CHANGED: Removed the large AcademicCapIcon overlay to clean up the design */}
-                    
                     <div className="relative z-10 mb-4">
                         <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight leading-tight break-words">
                             {getGreeting()}, <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">{userProfile?.firstName}</span>
@@ -437,13 +463,43 @@ const StudentDashboardUI = ({
 }) => {
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+    
+    // ✅ Welcome Modal State
+    const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(false);
+    const [dontShowAgain, setDontShowAgain] = useState(false);
+
     const profileMenuRef = useRef(null);
     const { isSessionConflictModalOpen, sessionConflictMessage, setIsSessionConflictModalOpen, performLogout } = useAuth();
     
+    // 🏫 Get Dynamic Branding
+    const branding = getSchoolBranding(userProfile?.schoolId);
+
     // --- THEME CONTEXT & MONET STYLE ---
     const { activeOverlay } = useTheme();
     const monetStyle = getMonetStyle(activeOverlay);
     const logoClass = getLogoClass(activeOverlay);
+
+    // ✅ EFFECT: Welcome Modal Logic (Persistent)
+    useEffect(() => {
+        if (userProfile?.id) {
+            const hasOptedOut = localStorage.getItem(`welcome_opt_out_${userProfile.id}`);
+            const hasSeenSession = sessionStorage.getItem(`welcome_seen_session_${userProfile.id}`);
+
+            if (!hasOptedOut && !hasSeenSession) {
+                setIsWelcomeModalOpen(true);
+            }
+        }
+    }, [userProfile?.id]);
+
+    const handleCloseWelcome = () => {
+        if (userProfile?.id) {
+            sessionStorage.setItem(`welcome_seen_session_${userProfile.id}`, 'true');
+            if (dontShowAgain) {
+                localStorage.setItem(`welcome_opt_out_${userProfile.id}`, 'true');
+            }
+        }
+        setIsWelcomeModalOpen(false);
+    };
 
     useEffect(() => {
         if (selectedClass && view !== 'classes') {
@@ -544,13 +600,14 @@ const StudentDashboardUI = ({
                     style={monetStyle}
                     className="glass-panel mx-auto max-w-[1920px] rounded-[1.5rem] px-4 py-2.5 shadow-lg flex items-center justify-between relative transition-colors duration-500"
                 >
-                    {/* Left: Logo */}
+                    {/* Left: Dynamic Logo */}
                     <div className="flex items-center gap-3 flex-shrink-0 z-20">
                         <div className="w-10 h-10 rounded-2xl bg-white/10 shadow-md flex items-center justify-center flex-shrink-0">
-                            <img src="/logo.png" alt="SRCS" className="w-6 h-6 object-contain" />
+                            {/* 🏫 UPDATED: Dynamic Logo */}
+                            <img src={branding.logo} alt="School Logo" className="w-6 h-6 object-contain" />
                         </div>
-                        {/* CHANGED: Use dynamic logoClass for Monet Effect visibility */}
-                        <span className={`font-extrabold text-xl tracking-tight block ${logoClass}`}>SRCS</span>
+                        {/* 🏫 UPDATED: Dynamic Name */}
+                        <span className={`font-extrabold text-xl tracking-tight block ${logoClass}`}>{branding.name}</span>
                     </div>
 
                     {/* Center: Desktop Nav */}
@@ -711,6 +768,130 @@ const StudentDashboardUI = ({
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            {/* ✅ ADDED: WELCOME MODAL */}
+            <Transition appear show={isWelcomeModalOpen} as={Fragment}>
+                <Dialog as="div" className="relative z-[100]" onClose={() => {}}>
+                    <Transition.Child
+                        as={Fragment}
+                        enter="ease-out duration-300"
+                        enterFrom="opacity-0"
+                        enterTo="opacity-100"
+                        leave="ease-in duration-200"
+                        leaveFrom="opacity-100"
+                        leaveTo="opacity-0"
+                    >
+                        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" />
+                    </Transition.Child>
+
+                    <div className="fixed inset-0 overflow-y-auto">
+                        <div className="flex min-h-full items-center justify-center p-4 text-center">
+                            <Transition.Child
+                                as={Fragment}
+                                enter="ease-out duration-300"
+                                enterFrom="opacity-0 scale-95 translate-y-4"
+                                enterTo="opacity-100 scale-100 translate-y-0"
+                                leave="ease-in duration-200"
+                                leaveFrom="opacity-100 scale-100 translate-y-0"
+                                leaveTo="opacity-0 scale-95 translate-y-4"
+                            >
+                                <Dialog.Panel className="w-full max-w-md md:max-w-xl transform overflow-hidden rounded-[2.5rem] bg-white dark:bg-[#1c1c1e] p-8 text-left align-middle shadow-2xl transition-all border border-white/20 ring-1 ring-black/5 relative">
+                                    
+                                    {/* Dynamic School Logo Header */}
+                                    <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-3xl bg-slate-50 dark:bg-slate-800/50 mb-6 border border-slate-100 dark:border-slate-700 shadow-sm p-4">
+                                        <img 
+                                            src={branding.logo} 
+                                            alt="School Logo" 
+                                            className="w-full h-full object-contain drop-shadow-sm" 
+                                        />
+                                    </div>
+
+                                    <Dialog.Title
+                                        as="h3"
+                                        className="text-2xl font-black leading-tight text-slate-900 dark:text-white text-center mb-2 tracking-tight"
+                                    >
+                                        Welcome back,<br/>
+                                        <span className="text-blue-600 dark:text-blue-400">{userProfile?.firstName}!</span>
+                                    </Dialog.Title>
+                                    
+                                    <div className="mt-2 text-center mb-8">
+                                        <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
+                                            You are securely logged into
+                                        </p>
+                                        <p className="text-lg font-bold text-slate-800 dark:text-slate-200 mt-1">
+                                            {getFullSchoolName(userProfile?.schoolId)}
+                                        </p>
+                                    </div>
+
+                                    {/* Privacy Info Box */}
+                                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-5 border border-slate-100 dark:border-slate-700/50 space-y-5">
+                                        
+                                        <div className="flex gap-4">
+                                            <div className="flex-shrink-0 mt-0.5">
+                                                <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl">
+                                                    <Share2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" strokeWidth={2} />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <h4 className="text-sm font-bold text-slate-900 dark:text-white">Shared Resources</h4>
+                                                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mt-1">
+                                                    Subject content is shared across our sister schools to foster collaboration.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="w-full h-px bg-slate-200 dark:bg-slate-700/50" />
+
+                                        <div className="flex gap-4">
+                                            <div className="flex-shrink-0 mt-0.5">
+                                                <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl">
+                                                    <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400" strokeWidth={2} />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <h4 className="text-sm font-bold text-slate-900 dark:text-white">Private & Secure</h4>
+                                                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mt-1">
+                                                    Your <strong>Student Data, Classes, and Records</strong> are strictly isolated and visible only to your school.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                    </div>
+
+                                    <div className="mt-8">
+                                        {/* CUSTOM CIRCULAR CHECKBOX */}
+                                        <div 
+                                            className="flex items-center justify-center gap-2.5 mb-5 cursor-pointer group"
+                                            onClick={() => setDontShowAgain(!dontShowAgain)}
+                                        >
+                                            <div className={`
+                                                w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-200
+                                                ${dontShowAgain 
+                                                    ? 'bg-blue-600 border-blue-600 dark:bg-blue-500 dark:border-blue-500' 
+                                                    : 'bg-transparent border-slate-300 dark:border-slate-600 group-hover:border-blue-400'}
+                                            `}>
+                                                <Check className={`w-3.5 h-3.5 text-white transition-opacity duration-200 ${dontShowAgain ? 'opacity-100' : 'opacity-0'}`} strokeWidth={3} />
+                                            </div>
+                                            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 select-none group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-colors">
+                                                Don't show this message again
+                                            </span>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            className="w-full inline-flex justify-center items-center gap-2 rounded-2xl border border-transparent bg-blue-600 px-4 py-4 text-sm font-bold text-white hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 transition-all active:scale-95 shadow-xl shadow-blue-500/20 hover:shadow-blue-500/30"
+                                            onClick={handleCloseWelcome}
+                                        >
+                                            <CheckCircle2 className="w-5 h-5" strokeWidth={2.5} />
+                                            Continue to Dashboard
+                                        </button>
+                                    </div>
+                                </Dialog.Panel>
+                            </Transition.Child>
+                        </div>
+                    </div>
+                </Dialog>
+            </Transition>
 
             <SessionConflictModal isOpen={isSessionConflictModalOpen} message={sessionConflictMessage} onClose={performLogout} />
         </div>

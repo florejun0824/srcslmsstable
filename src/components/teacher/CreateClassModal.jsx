@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+// src/components/teacher/CreateClassModal.jsx
+import React, { useState, Fragment, useMemo } from 'react'; // ✅ Added useMemo
+import { Dialog, Transition } from '@headlessui/react';
 import { useToast } from '../../contexts/ToastContext';
+import { useAuth, DEFAULT_SCHOOL_ID } from '../../contexts/AuthContext';
 import { db } from '../../services/firebase'; 
-import { collection, addDoc } from 'firebase/firestore';
-import Modal from '../common/Modal';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 // --- VISUAL ASSETS ---
 import { 
@@ -12,7 +14,8 @@ import {
     IconChevronDown, 
     IconCheck, 
     IconBook, 
-    IconChalkboard
+    IconChalkboard,
+    IconX 
 } from '@tabler/icons-react';
 
 // --- DESIGN SYSTEM CONSTANTS ---
@@ -20,271 +23,285 @@ const glassInput = "w-full bg-slate-50/50 dark:bg-black/20 border border-slate-2
 const labelStyle = "block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 ml-1";
 const inputIconWrapper = "absolute left-4 top-[3.2rem] text-slate-400 dark:text-slate-500 pointer-events-none";
 
-const dropdownBase = "relative mt-0 rounded-xl border border-slate-200/60 dark:border-white/10 bg-slate-50/50 dark:bg-black/20 cursor-pointer select-none transition-all hover:bg-white/60 dark:hover:bg-white/5";
-const dropdownMenu = "absolute z-50 mt-2 w-full bg-white/90 dark:bg-[#1a1d24]/95 backdrop-blur-xl rounded-xl shadow-2xl border border-slate-200/60 dark:border-white/10 overflow-hidden max-h-64 overflow-y-auto ring-1 ring-black/5";
-const dropdownItem = "px-5 py-4 text-sm text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-blue-500/20 hover:text-blue-600 dark:hover:text-blue-300 flex justify-between items-center transition-colors cursor-pointer";
+const dropdownBase = "relative mt-0 rounded-xl border border-slate-200/60 dark:border-white/10 bg-slate-50/50 dark:bg-black/20 cursor-pointer select-none transition-all hover:bg-slate-100/50 dark:hover:bg-white/5";
+const dropdownHeader = "flex items-center justify-between p-4";
+const dropdownList = "absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[#1c1c1e] border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl max-h-60 overflow-y-auto z-50 p-1";
+const dropdownItem = "p-3 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 cursor-pointer text-sm font-medium text-slate-700 dark:text-slate-200 flex items-center justify-between transition-colors";
 
-const primaryButtonStyles = `
-    w-full py-4 text-base font-bold text-white rounded-xl 
-    bg-gradient-to-b from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500
-    shadow-[0_4px_12px_rgba(37,99,235,0.3)] hover:shadow-[0_6px_16px_rgba(37,99,235,0.4)]
-    border border-blue-400/20 active:scale-[0.98] transition-all duration-200 
-    disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none
-`;
+const primaryButtonStyles = "w-full py-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-lg shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-70 disabled:cursor-not-allowed";
 
-const generateClassCode = () => {
-    const chars = 'ABCDEFGHIJKLMNPQRSTUVWXYZ123456789';
-    let result = '';
-    for (let i = 0; i < 6; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
-};
+const CreateClassModal = ({ isOpen, onClose, teacherId, courses = [] }) => {
+    const { showToast } = useToast();
+    const { userProfile } = useAuth();
 
-const CreateClassModal = ({ isOpen, onClose, teacherId, courses }) => {
     const [className, setClassName] = useState('');
     const [section, setSection] = useState('');
+    const [subjectId, setSubjectId] = useState('');
     const [gradeLevel, setGradeLevel] = useState('Grade 7');
-    const [selectedSubjectId, setSelectedSubjectId] = useState('');
     const [meetLink, setMeetLink] = useState('');
+    
+    // UI States
+    const [isGradeOpen, setIsGradeOpen] = useState(false);
+    const [isSubjectOpen, setIsSubjectOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [gradeDropdownOpen, setGradeDropdownOpen] = useState(false);
-    const [subjectDropdownOpen, setSubjectDropdownOpen] = useState(false);
-    const { showToast } = useToast();
 
     const gradeLevels = ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
 
+    // ✅ SORT COURSES ALPHABETICALLY
+    const sortedCourses = useMemo(() => {
+        return [...courses].sort((a, b) => 
+            a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' })
+        );
+    }, [courses]);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!className.trim() || !section.trim() || !gradeLevel) {
-            showToast("Please fill out all fields.", "error");
+        
+        if (!className || !subjectId || !gradeLevel) {
+            showToast('Please fill in all required fields.', 'error');
             return;
         }
 
         setIsSubmitting(true);
-        let finalMeetLink = meetLink.trim(); 
 
         try {
-            if (!finalMeetLink) {
-                showToast("A persistent Google Meet link is required.", "error");
-                setIsSubmitting(false);
-                return;
-            }
-            
-            if (!finalMeetLink.startsWith("https://meet.google.com/")) {
-                showToast("Please enter a valid Google Meet URL", "warning");
-                setIsSubmitting(false);
-                return;
-            }
+            const selectedCourse = courses.find(c => c.id === subjectId);
+            const classCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
-            const newClassCode = generateClassCode();
-            await addDoc(collection(db, "classes"), {
+            const newClass = {
                 name: className,
-                section: section,
-                gradeLevel: gradeLevel,
-                teacherId: teacherId,
+                section: section || 'A',
+                subjectId,
+                subjectName: selectedCourse?.title || 'Unknown Subject',
+                gradeLevel,
+                classCode,
+                teacherId,
+                schoolId: userProfile?.schoolId || DEFAULT_SCHOOL_ID, 
+                meetLink: meetLink || '',
                 students: [],
-                classCode: newClassCode,
+                studentIds: [],
+                createdAt: serverTimestamp(),
+                contentLastUpdatedAt: serverTimestamp(),
                 isArchived: false,
-                subjectId: selectedSubjectId,
-                meetLink: finalMeetLink,
-            });
+                theme: 'blue'
+            };
+
+            await addDoc(collection(db, 'classes'), newClass);
             
-            showToast(`Class created successfully! Code: ${newClassCode}`, 'success');
-            onClose(); 
+            showToast('Class created successfully!', 'success');
+            onClose();
             
             setClassName('');
             setSection('');
-            setSelectedSubjectId('');
+            setSubjectId('');
+            setGradeLevel('Grade 7');
             setMeetLink('');
-            setGradeLevel('Grade 7'); 
 
         } catch (error) {
-            console.error("Error creating class: ", error);
-            showToast(`Failed to create class: ${error.message}`, 'error');
+            console.error('Error creating class:', error);
+            showToast('Failed to create class. Please try again.', 'error');
         } finally {
             setIsSubmitting(false);
         }
     };
 
     return (
-        <Modal
-            isOpen={isOpen}
-            onClose={onClose}
-            title="Create New Class"
-            // [FIX 1] Use a valid key from Modal.jsx sizeClasses. '4xl' is approx double 'md'.
-            size="4xl"
-            
-            // [FIX 2] Use !important to override the hardcoded 'bg-neumorphic-base' in Modal.jsx
-            // This applies your glass style to the main container.
-            roundedClass="rounded-[2.5rem] !bg-white/90 dark:!bg-[#18181b]/95 !backdrop-blur-2xl !border !border-white/20 dark:!border-white/5 !shadow-2xl"
-            
-            // [FIX 3] Remove default padding from Modal.jsx so we can control it in the form
-            contentClassName="!p-0"
-        >
-            <form onSubmit={handleSubmit} className="space-y-10 relative p-8 md:p-12">
-                
-                {/* Row 1: Name & Section */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                    <div className="relative group">
-                        <label htmlFor="className" className={labelStyle}>Class Name</label>
-                        <IconSchool size={20} className={inputIconWrapper} />
-                        <input
-                            type="text"
-                            id="className"
-                            value={className}
-                            onChange={(e) => setClassName(e.target.value)}
-                            placeholder="e.g. English Literature"
-                            className={glassInput}
-                            required
-                        />
-                    </div>
+        <Transition appear show={isOpen} as={Fragment}>
+            <Dialog as="div" className="relative z-[9999]" onClose={onClose}>
+                <Transition.Child
+                    as={Fragment}
+                    enter="ease-out duration-300"
+                    enterFrom="opacity-0"
+                    enterTo="opacity-100"
+                    leave="ease-in duration-200"
+                    leaveFrom="opacity-100"
+                    leaveTo="opacity-0"
+                >
+                    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" />
+                </Transition.Child>
 
-                    <div className="relative group">
-                        <label htmlFor="section" className={labelStyle}>Section</label>
-                        <IconSection size={20} className={inputIconWrapper} />
-                        <input
-                            type="text"
-                            id="section"
-                            value={section}
-                            onChange={(e) => setSection(e.target.value)}
-                            placeholder="e.g. A - Morning Session"
-                            className={glassInput}
-                            required
-                        />
-                    </div>
-                </div>
-
-                {/* Row 2: Grade & Subject */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                    {/* Grade Level Dropdown */}
-                    <div className="relative">
-                        <label className={labelStyle}>Grade Level</label>
-                        <div
-                            className={dropdownBase}
-                            onClick={() => {
-                                setGradeDropdownOpen(!gradeDropdownOpen);
-                                setSubjectDropdownOpen(false);
-                            }}
+                <div className="fixed inset-0 overflow-y-auto">
+                    <div className="flex min-h-full items-center justify-center p-4 text-center">
+                        <Transition.Child
+                            as={Fragment}
+                            enter="ease-out duration-300"
+                            enterFrom="opacity-0 scale-95 translate-y-4"
+                            enterTo="opacity-100 scale-100 translate-y-0"
+                            leave="ease-in duration-200"
+                            leaveFrom="opacity-100 scale-100 translate-y-0"
+                            leaveTo="opacity-0 scale-95 translate-y-4"
                         >
-                            <div className="flex items-center justify-between px-5 py-4 text-slate-800 dark:text-slate-100">
-                                <div className="flex items-center gap-4">
-                                    <IconBook size={20} className="text-slate-400 dark:text-slate-500" />
-                                    <span className="text-base font-medium">{gradeLevel}</span>
-                                </div>
-                                <IconChevronDown size={20} className={`text-slate-400 transition-transform ${gradeDropdownOpen ? 'rotate-180' : ''}`} />
-                            </div>
-                            
-                            {gradeDropdownOpen && (
-                                <ul className={dropdownMenu}>
-                                    {gradeLevels.map((level) => (
-                                        <li
-                                            key={level}
-                                            className={dropdownItem}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setGradeLevel(level);
-                                                setGradeDropdownOpen(false);
-                                            }}
-                                        >
-                                            {level}
-                                            {gradeLevel === level && <IconCheck size={20} className="text-blue-500" />}
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Subject Dropdown */}
-                    <div className="relative">
-                        <label className={labelStyle}>Assign Subject</label>
-                        <div
-                            className={dropdownBase}
-                            onClick={() => {
-                                setSubjectDropdownOpen(!subjectDropdownOpen);
-                                setGradeDropdownOpen(false);
-                            }}
-                        >
-                            <div className="flex items-center justify-between px-5 py-4 text-slate-800 dark:text-slate-100">
-                                <div className="flex items-center gap-4">
-                                    <IconChalkboard size={20} className="text-slate-400 dark:text-slate-500" />
-                                    <span className="text-base font-medium truncate max-w-[220px]">
-                                        {selectedSubjectId
-                                            ? courses.find((c) => c.id === selectedSubjectId)?.title
-                                            : 'No Subject'}
-                                    </span>
-                                </div>
-                                <IconChevronDown size={20} className={`text-slate-400 transition-transform ${subjectDropdownOpen ? 'rotate-180' : ''}`} />
-                            </div>
-                            
-                            {subjectDropdownOpen && (
-                                <ul className={dropdownMenu}>
-                                    <li
-                                        className={dropdownItem}
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setSelectedSubjectId('');
-                                            setSubjectDropdownOpen(false);
-                                        }}
+                            {/* Custom Width: md:max-w-2xl */}
+                            <Dialog.Panel className="w-full max-w-md md:max-w-2xl transform overflow-hidden rounded-[2rem] bg-white dark:bg-[#1c1c1e] p-8 text-left align-middle shadow-2xl transition-all border border-white/20 dark:border-white/10 ring-1 ring-black/5">
+                                
+                                {/* Header */}
+                                <div className="flex items-center justify-between mb-8">
+                                    <Dialog.Title as="h3" className="text-2xl font-black text-slate-800 dark:text-white tracking-tight leading-none">
+                                        Create New Class
+                                    </Dialog.Title>
+                                    <button 
+                                        onClick={onClose}
+                                        className="p-2 -mr-2 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
                                     >
-                                        <span className="opacity-70">No Subject Assigned</span>
-                                        {!selectedSubjectId && <IconCheck size={20} className="text-blue-500" />}
-                                    </li>
-                                    {courses
-                                        .sort((a, b) => a.title.localeCompare(b.title))
-                                        .map((course) => (
-                                            <li
-                                                key={course.id}
-                                                className={dropdownItem}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setSelectedSubjectId(course.id);
-                                                    setSubjectDropdownOpen(false);
-                                                }}
+                                        <IconX size={20} strokeWidth={2.5} />
+                                    </button>
+                                </div>
+
+                                {/* Form */}
+                                <form onSubmit={handleSubmit} className="space-y-6">
+                                    
+                                    {/* 1. Class Name Input */}
+                                    <div className="relative">
+                                        <label htmlFor="className" className={labelStyle}>
+                                            Class Name <span className="text-red-500">*</span>
+                                        </label>
+                                        <IconChalkboard size={20} className={inputIconWrapper} />
+                                        <input
+                                            type="text"
+                                            id="className"
+                                            value={className}
+                                            onChange={(e) => setClassName(e.target.value)}
+                                            placeholder="e.g. Science 7 - Einstein"
+                                            className={glassInput}
+                                            required 
+                                            autoFocus
+                                        />
+                                    </div>
+
+                                    {/* 2. Section Input */}
+                                    <div className="relative">
+                                        <label htmlFor="section" className={labelStyle}>
+                                            Section
+                                        </label>
+                                        <IconSection size={20} className={inputIconWrapper} />
+                                        <input
+                                            type="text"
+                                            id="section"
+                                            value={section}
+                                            onChange={(e) => setSection(e.target.value)}
+                                            placeholder="e.g. Einstein"
+                                            className={glassInput}
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        {/* 3. Grade Level Dropdown */}
+                                        <div className="relative">
+                                            <label className={labelStyle}>Grade Level <span className="text-red-500">*</span></label>
+                                            <div 
+                                                className={dropdownBase}
+                                                onClick={() => setIsGradeOpen(!isGradeOpen)}
                                             >
-                                                {course.title}
-                                                {selectedSubjectId === course.id && <IconCheck size={20} className="text-blue-500" />}
-                                            </li>
-                                        ))}
-                                </ul>
-                            )}
-                        </div>
+                                                <div className={dropdownHeader}>
+                                                    <div className="flex items-center gap-3">
+                                                        <IconSchool size={20} className="text-slate-400" />
+                                                        <span className="text-slate-700 dark:text-slate-200 font-medium">{gradeLevel}</span>
+                                                    </div>
+                                                    <IconChevronDown size={18} className={`text-slate-400 transition-transform ${isGradeOpen ? 'rotate-180' : ''}`} />
+                                                </div>
+                                                
+                                                {isGradeOpen && (
+                                                    <div className={dropdownList}>
+                                                        {gradeLevels.map((grade) => (
+                                                            <div 
+                                                                key={grade} 
+                                                                className={dropdownItem}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setGradeLevel(grade);
+                                                                    setIsGradeOpen(false);
+                                                                }}
+                                                            >
+                                                                {grade}
+                                                                {gradeLevel === grade && <IconCheck size={16} className="text-blue-500" />}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* 4. Subject Selection Dropdown */}
+                                        <div className="relative">
+                                            <label className={labelStyle}>Subject <span className="text-red-500">*</span></label>
+                                            <div 
+                                                className={dropdownBase}
+                                                onClick={() => setIsSubjectOpen(!isSubjectOpen)}
+                                            >
+                                                <div className={dropdownHeader}>
+                                                    <div className="flex items-center gap-3">
+                                                        <IconBook size={20} className="text-slate-400" />
+                                                        <span className={`font-medium ${subjectId ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400'} truncate`}>
+                                                            {subjectId ? courses.find(c => c.id === subjectId)?.title : 'Select Subject'}
+                                                        </span>
+                                                    </div>
+                                                    <IconChevronDown size={18} className={`text-slate-400 transition-transform ${isSubjectOpen ? 'rotate-180' : ''}`} />
+                                                </div>
+                                                
+                                                {isSubjectOpen && (
+                                                    <div className={dropdownList}>
+                                                        {sortedCourses.length > 0 ? (
+                                                            sortedCourses.map((course) => (
+                                                                <div 
+                                                                    key={course.id} 
+                                                                    className={dropdownItem}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setSubjectId(course.id);
+                                                                        setIsSubjectOpen(false);
+                                                                    }}
+                                                                >
+                                                                    <span className="truncate pr-2">{course.title}</span>
+                                                                    {subjectId === course.id && <IconCheck size={16} className="text-blue-500 flex-shrink-0" />}
+                                                                </div>
+                                                            ))
+                                                        ) : (
+                                                            <div className="p-4 text-center text-xs text-slate-400">
+                                                                No subjects available.
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 5. Google Meet Link */}
+                                    <div className="relative">
+                                        <label htmlFor="meetLink" className={labelStyle}>
+                                            Google Meet Link
+                                        </label>
+                                        <IconVideo size={20} className={inputIconWrapper} />
+                                        <input
+                                            type="url"
+                                            id="meetLink"
+                                            value={meetLink}
+                                            onChange={(e) => setMeetLink(e.target.value)}
+                                            placeholder="https://meet.google.com/..."
+                                            className={glassInput}
+                                        />
+                                        <p className="text-xs font-medium text-slate-400 dark:text-slate-500 mt-2 ml-1">
+                                            Paste the persistent link for your recurring class sessions.
+                                        </p>
+                                    </div>
+
+                                    <div className="pt-8">
+                                        <button type="submit" disabled={isSubmitting} className={primaryButtonStyles}>
+                                            {isSubmitting ? (
+                                                <div className="flex items-center justify-center gap-2">
+                                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                    <span>Creating...</span>
+                                                </div>
+                                            ) : 'Create Class'}
+                                        </button>
+                                    </div>
+                                </form>
+                            </Dialog.Panel>
+                        </Transition.Child>
                     </div>
                 </div>
-
-                {/* Meet Link Row - Full Width */}
-                <div className="relative group pt-2">
-                    <label htmlFor="meetLink" className={labelStyle}>
-                        Google Meet Link <span className="text-red-500">*</span>
-                    </label>
-                    <IconVideo size={20} className={inputIconWrapper} />
-                    <input
-                        type="url"
-                        id="meetLink"
-                        value={meetLink}
-                        onChange={(e) => setMeetLink(e.target.value)}
-                        placeholder="https://meet.google.com/..."
-                        className={glassInput}
-                        required 
-                    />
-                    <p className="text-xs font-medium text-slate-400 dark:text-slate-500 mt-2 ml-1">
-                        Paste the persistent link for your recurring class sessions.
-                    </p>
-                </div>
-
-                <div className="pt-8">
-                    <button type="submit" disabled={isSubmitting} className={primaryButtonStyles}>
-                        {isSubmitting ? (
-                            <div className="flex items-center justify-center gap-2">
-                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                <span>Creating...</span>
-                            </div>
-                        ) : 'Create Class'}
-                    </button>
-                </div>
-            </form>
-        </Modal>
+            </Dialog>
+        </Transition>
     );
 };
 

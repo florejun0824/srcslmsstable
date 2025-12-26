@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Fragment } from 'react';
 import { memo } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth, DEFAULT_SCHOOL_ID } from '../contexts/AuthContext'; // ✅ Import DEFAULT_SCHOOL_ID
 import { useToast } from '../contexts/ToastContext';
 import {
   Trash2,
@@ -19,7 +19,7 @@ import {
   Settings,
   AlertTriangle,
   Info,
-  Check, // [ADDED] Imported Check icon
+  Check, 
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Dialog, Transition } from '@headlessui/react';
@@ -30,9 +30,7 @@ import DownloadAccountsModal from '../components/admin/DownloadAccountsModal';
 import EditUserModal from '../components/admin/EditUserModal';
 
 // --- DESIGN TOKENS & UTILS ---
-// Apple-style glass panel class
 const glassPanel = "bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-xl shadow-black/5";
-// Apple-style input/item hover
 const listItemHover = "hover:bg-black/5 dark:hover:bg-white/10 transition-colors duration-200";
 
 // --- SKELETON COMPONENT ---
@@ -40,16 +38,12 @@ const TableSkeleton = () => (
   <div className={`${glassPanel} rounded-2xl mb-5 overflow-hidden animate-pulse`}>
     <div className="p-4 flex items-center justify-between">
       <div className="flex items-center gap-4">
-        {/* Icon Placeholder */}
         <div className="w-10 h-10 rounded-xl bg-gray-200 dark:bg-white/10"></div>
         <div className="space-y-2">
-          {/* Title Placeholder */}
           <div className="h-5 w-32 bg-gray-200 dark:bg-white/10 rounded-md"></div>
-          {/* Subtitle Placeholder */}
           <div className="h-3 w-20 bg-gray-200 dark:bg-white/5 rounded-md"></div>
         </div>
       </div>
-      {/* Chevron Placeholder */}
       <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-white/5"></div>
     </div>
   </div>
@@ -68,7 +62,6 @@ export const AlertModal = ({ isOpen, onClose, title, message }) => (
         leaveFrom="opacity-100"
         leaveTo="opacity-0"
       >
-        {/* Standard Apple dimming */}
         <div className="fixed inset-0 bg-black/20 dark:bg-black/40 backdrop-blur-sm" />
       </Transition.Child>
 
@@ -83,7 +76,6 @@ export const AlertModal = ({ isOpen, onClose, title, message }) => (
             leaveFrom="opacity-100 scale-100 blur-0"
             leaveTo="opacity-0 scale-95 blur-sm"
           >
-            {/* MacOS Dialog Style */}
             <Dialog.Panel className="w-full max-w-sm transform overflow-hidden rounded-2xl bg-white/90 dark:bg-[#1c1c1e]/90 backdrop-blur-2xl p-6 text-left align-middle shadow-2xl ring-1 ring-black/5 transition-all">
               <Dialog.Title
                 as="h3"
@@ -286,8 +278,7 @@ const CollapsibleUserTable = memo(({
           <table className="min-w-full text-sm text-left">
             <thead className="bg-gray-50/50 dark:bg-black/20 text-xs uppercase font-semibold text-gray-400">
               <tr>
-                <th className="px-6 py-3 w-14"> {/* Increased width slightly */}
-                  {/* [UPDATED] iOS-Style Select All Checkbox */}
+                <th className="px-6 py-3 w-14">
                   <div className="relative flex items-center justify-center">
                     <input
                       type="checkbox"
@@ -318,7 +309,6 @@ const CollapsibleUserTable = memo(({
                       }`}
                   >
                     <td className="px-6 py-3.5">
-                      {/* [UPDATED] iOS-Style Row Checkbox */}
                       <div className="relative flex items-center justify-center">
                         <input
                           type="checkbox"
@@ -365,7 +355,6 @@ const CollapsibleUserTable = memo(({
                             <Settings size={18} strokeWidth={2} />
                           </button>
 
-                          {/* Action Menu - Popover Style */}
                           {localActionMenuOpenFor === user.id && (
                             <div
                               onClick={(e) => e.stopPropagation()}
@@ -440,7 +429,8 @@ const CollapsibleUserTable = memo(({
 
 
 const AdminDashboard = () => {
-  const { firestoreService } = useAuth();
+  // ✅ Extract userProfile to get the current school ID
+  const { firestoreService, userProfile } = useAuth();
   const { showToast } = useToast();
   const [allUsers, setAllUsers] = useState([]);
   const [groupedUsers, setGroupedUsers] = useState({ admins: [], teachers: [], students: [] });
@@ -450,7 +440,6 @@ const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('active');
   const [studentsByGrade, setStudentsByGrade] = useState({});
   const [openSections, setOpenSections] = useState({
-    // --- UPDATED: ALL SECTIONS COLLAPSED BY DEFAULT ---
     admins: false,
     teachers: false,
     studentsContainer: false,
@@ -490,10 +479,15 @@ const AdminDashboard = () => {
   const closeAlertModal = () => setAlertModalState({ ...alertModalState, isOpen: false });
   const closeConfirmModal = () => setConfirmModalState({ ...confirmModalState, isOpen: false });
   
+  // ✅ UPDATED: Fetch only users from the current admin's school
   const fetchAndGroupUsers = async () => {
+    // Wait for userProfile to be loaded
+    if (!userProfile?.schoolId) return;
+
     setLoading(true);
     try {
-      const users = await firestoreService.getAllUsers();
+      // Pass the school ID to filter the query
+      const users = await firestoreService.getAllUsers(userProfile.schoolId);
       setAllUsers(users);
 
       const active = [];
@@ -536,9 +530,10 @@ const AdminDashboard = () => {
     }
   };
 
+  // ✅ UPDATED: Reload when schoolId changes or component mounts
   useEffect(() => {
     fetchAndGroupUsers();
-  }, []);
+  }, [userProfile?.schoolId]);
 
   const toggleSection = (section) => {
     setOpenSections((prev) => ({ ...prev, [section]: !prev[section] }));
@@ -616,11 +611,14 @@ const AdminDashboard = () => {
 
   const handleGenerateUsers = async (data) => {
     let usersToCreate = [];
-    const { names, quantity, role, gradeLevel } = data;
+    const { names, quantity, role, gradeLevel, schoolId } = data; // ✅ Extract schoolId if passed
 
     const generatePassword = () => {
       return Math.random().toString(36).slice(-8);
     };
+
+    // ✅ Ensure we have a school ID to assign
+    const targetSchoolId = schoolId || userProfile?.schoolId || DEFAULT_SCHOOL_ID;
 
     try {
       if (names) {
@@ -641,6 +639,7 @@ const AdminDashboard = () => {
               email,
               password: generatePassword(),
               role,
+              schoolId: targetSchoolId, // ✅ Attach School ID
               createdAt: new Date(),
             };
             if (role === 'student' && gradeLevel) {
@@ -663,6 +662,7 @@ const AdminDashboard = () => {
             email,
             password: generatePassword(),
             role,
+            schoolId: targetSchoolId, // ✅ Attach School ID
             createdAt: new Date(),
           };
           if (role === 'student' && gradeLevel) {

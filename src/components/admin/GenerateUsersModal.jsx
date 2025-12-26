@@ -1,8 +1,10 @@
 // src/components/admin/GenerateUsersModal.jsx
 
 import React, { useState } from 'react';
-import { Users, X, ChevronDown } from 'lucide-react';
+import { Users, X, ChevronDown, Building } from 'lucide-react';
 import { CSSTransition, SwitchTransition } from 'react-transition-group';
+// ✅ Import Auth & School Config
+import { useAuth, SCHOOLS, DEFAULT_SCHOOL_ID } from '../../contexts/AuthContext';
 
 const gradeLevels = ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
 
@@ -11,11 +13,18 @@ const glassInput = "w-full appearance-none px-4 py-3 bg-gray-50/50 dark:bg-black
 const labelStyle = "block text-[13px] font-medium text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide ml-1";
 
 const GenerateUsersModal = ({ onSubmit, onClose }) => {
+    const { userProfile } = useAuth();
+    
+    // Check if the current admin is from the Main School
+    const isSuperAdmin = userProfile?.schoolId === DEFAULT_SCHOOL_ID;
+
     const [activeTab, setActiveTab] = useState('list'); 
     const [quantity, setQuantity] = useState(10);
     const [names, setNames] = useState('');
     const [role, setRole] = useState('student');
     const [gradeLevel, setGradeLevel] = useState(gradeLevels[0]);
+    // ✅ Add School State (Defaults to Admin's School)
+    const [schoolId, setSchoolId] = useState(userProfile?.schoolId || DEFAULT_SCHOOL_ID);
     const [error, setError] = useState('');
 
     const handleSubmit = (e) => {
@@ -29,9 +38,11 @@ const GenerateUsersModal = ({ onSubmit, onClose }) => {
             setError('Please paste at least one name.');
             return;
         }
+        
         const submissionData = activeTab === 'list' 
-            ? { names, role } 
-            : { quantity: parseInt(quantity, 10), role };
+            ? { names, role, schoolId } 
+            : { quantity: parseInt(quantity, 10), role, schoolId }; // ✅ Pass schoolId
+        
         if (role === 'student') {
             submissionData.gradeLevel = gradeLevel;
         }
@@ -41,23 +52,19 @@ const GenerateUsersModal = ({ onSubmit, onClose }) => {
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             {/* --- 1. BACKGROUND & AURORA EFFECTS --- */}
-            {/* Dark overlay */}
             <div className="absolute inset-0 bg-black/30 backdrop-blur-sm transition-opacity" onClick={onClose} />
             
-            {/* Aurora Blobs (Animated) */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute top-1/3 left-1/3 w-96 h-96 bg-indigo-500/20 rounded-full mix-blend-screen filter blur-3xl opacity-40 animate-pulse"></div>
                 <div className="absolute bottom-1/3 right-1/3 w-96 h-96 bg-blue-500/20 rounded-full mix-blend-screen filter blur-3xl opacity-40 animate-pulse delay-1000"></div>
             </div>
             
             {/* --- 2. MODAL CONTAINER --- */}
-            {/* UPDATED: Added 'md:max-w-[640px]' to override width on desktop */}
             <div className="relative w-full max-w-[420px] md:max-w-[640px] transform overflow-hidden rounded-[28px] bg-white/70 dark:bg-[#1c1c1e]/80 backdrop-blur-2xl shadow-[0_40px_80px_-12px_rgba(0,0,0,0.3)] ring-1 ring-white/20 dark:ring-white/5 transition-all duration-300 ease-out animate-modal-pop-in">
                 
                 {/* Header */}
                 <div className="flex items-center justify-between p-6 pb-4">
                     <div className="flex items-center gap-4">
-                        {/* Apple-style Squaricle Icon */}
                         <div className="w-[42px] h-[42px] rounded-[12px] bg-gradient-to-b from-[#007AFF] to-[#0062CC] flex items-center justify-center shadow-lg shadow-blue-500/30 border-t border-white/20">
                             <Users className="w-5 h-5 text-white drop-shadow-md" strokeWidth={2.5} />
                         </div>
@@ -84,7 +91,6 @@ const GenerateUsersModal = ({ onSubmit, onClose }) => {
                         
                         {/* Segmented Control */}
                         <div className="p-1 bg-gray-200/60 dark:bg-black/30 rounded-xl flex items-center relative backdrop-blur-md">
-                            {/* Sliding Background Indicator */}
                             <div 
                                 className={`absolute top-1 bottom-1 rounded-[9px] bg-white dark:bg-[#636366] shadow-sm transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] w-[calc(50%-4px)] ${activeTab === 'list' ? 'left-1' : 'left-[calc(50%)]'}`} 
                             />
@@ -138,6 +144,34 @@ const GenerateUsersModal = ({ onSubmit, onClose }) => {
                         <div>
                             <label className={labelStyle}>Options</label>
                             <div className="bg-white/50 dark:bg-white/5 border border-gray-200/50 dark:border-white/10 rounded-xl overflow-hidden">
+                                
+                                {/* 🏫 SCHOOL SELECTOR (Only for Super Admin) */}
+                                {isSuperAdmin && (
+                                    <div className="flex justify-between items-center p-3 pr-4 border-b border-gray-100 dark:border-white/5 bg-blue-50/50 dark:bg-blue-900/10">
+                                        <div className="flex items-center gap-2">
+                                            <Building className="w-4 h-4 text-blue-500" />
+                                            <label htmlFor="schoolId" className="text-[15px] text-gray-900 dark:text-white font-medium">
+                                                Target School
+                                            </label>
+                                        </div>
+                                        <div className="relative max-w-[200px]">
+                                            <select 
+                                                id="schoolId" 
+                                                value={schoolId} 
+                                                onChange={(e) => setSchoolId(e.target.value)} 
+                                                className="appearance-none bg-transparent text-right text-[14px] text-blue-600 dark:text-blue-400 font-bold pr-6 focus:outline-none cursor-pointer w-full"
+                                            >
+                                                {Object.values(SCHOOLS).map((school) => (
+                                                    <option key={school.id} value={school.id}>
+                                                        {school.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-600 dark:text-blue-400 pointer-events-none" strokeWidth={2.5} />
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* Role Row */}
                                 <div className="flex justify-between items-center p-3 pr-4 border-b border-gray-100 dark:border-white/5">
                                     <label htmlFor="role" className="text-[15px] text-gray-900 dark:text-white font-medium pl-2">Assign Role</label>
@@ -193,7 +227,6 @@ const GenerateUsersModal = ({ onSubmit, onClose }) => {
                             "
                         >
                             <span className="relative z-10">Generate Accounts</span>
-                            {/* Subtle sheen effect */}
                             <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
                         </button>
                     </div>

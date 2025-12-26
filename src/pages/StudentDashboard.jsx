@@ -92,7 +92,7 @@ const StudentDashboard = () => {
   const [loungeUsersMap, setLoungeUsersMap] = useState({});
   const [hasLoungeFetched, setHasLoungeFetched] = useState(false); 
 
-  const loungePostUtils = useStudentPosts(loungePosts, userProfile?.id, showToast);
+  const loungePostUtils = useStudentPosts(loungePosts, setLoungePosts, userProfile?.id, showToast);
   
   const handleViewChange = async (newView) => {
     const newTimestamp = new Date();
@@ -343,9 +343,9 @@ const StudentDashboard = () => {
     }
   }, [loungeUsersMap]); 
 
-  // --- LOUNGE: Function to fetch posts ---
+  // ✅ LOUNGE FETCH UPDATED: Added schoolId filter
   const fetchLoungePosts = useCallback(async () => {
-    if (!userProfile?.id) return;
+    if (!userProfile?.id || !userProfile?.schoolId) return;
     
     setIsLoungeLoading(true);
     
@@ -353,6 +353,7 @@ const StudentDashboard = () => {
       const postsQuery = query(
         collection(db, 'studentPosts'),
         where('audience', '==', 'Public'),
+        where('schoolId', '==', userProfile.schoolId), // <-- School Isolation
         orderBy('createdAt', 'desc')
       );
       const snapshot = await getDocs(postsQuery);
@@ -375,7 +376,7 @@ const StudentDashboard = () => {
       setIsLoungeLoading(false);
       setHasLoungeFetched(true); 
     }
-  }, [userProfile?.id, showToast, fetchMissingLoungeUsers]);
+  }, [userProfile?.id, userProfile?.schoolId, showToast, fetchMissingLoungeUsers]);
 
   
   const fetchContentRef = useRef();

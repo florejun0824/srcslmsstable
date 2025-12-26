@@ -21,6 +21,8 @@ import localforage from "localforage";
 
 const functions = getFunctions();
 
+const DEFAULT_SCHOOL_ID = 'srcs_main';
+
 localforage.config({
   name: "LMSApp",
   storeName: "offlineSubmissions",
@@ -83,6 +85,7 @@ export const submitQuizAnswers = async (quizId, classId, answers, studentId) => 
 
 export const getAllSubjects = async () => {
   try {
+    // 🌍 SHARED CONTENT: No schoolId filter here. Everyone sees the same courses.
     const snapshot = await getDocs(collection(db, 'courses'));
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch (err) {
@@ -115,10 +118,30 @@ export const getUserProfile = async (uid) => {
   }
 };
 
-export const getAllUsers = async () => {
+// 🔒 UPDATED: Handle "Legacy" users (missing schoolId) for the Main School
+export const getAllUsers = async (schoolId) => {
   try {
-    const snapshot = await getDocs(collection(db, 'users'));
+    const targetSchool = schoolId || DEFAULT_SCHOOL_ID;
+    const usersRef = collection(db, 'users');
+    
+    // 1. If we are the MAIN SCHOOL, fetch ALL users first
+    // This allows us to "adopt" users who have no schoolId yet.
+    if (targetSchool === DEFAULT_SCHOOL_ID) {
+      const snapshot = await getDocs(usersRef);
+      return snapshot.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(user => 
+          // Keep if they belong to Main School OR have no school assigned (legacy)
+          user.schoolId === DEFAULT_SCHOOL_ID || !user.schoolId
+        );
+    }
+
+    // 2. If we are a SISTER SCHOOL, use strict filtering
+    // They should NEVER see "unassigned" users.
+    const q = query(usersRef, where("schoolId", "==", targetSchool));
+    const snapshot = await getDocs(q);
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+
   } catch (err) {
     console.error("❌ getAllUsers failed", err);
     throw err;
@@ -127,7 +150,12 @@ export const getAllUsers = async () => {
 
 export const addUser = async (userData) => {
   try {
-    await addDoc(collection(db, 'users'), userData);
+    // Ensure schoolId is present (default to main if missing)
+    const payload = {
+      ...userData,
+      schoolId: userData.schoolId || DEFAULT_SCHOOL_ID
+    };
+    await addDoc(collection(db, 'users'), payload);
   } catch (err) {
     console.error("❌ addUser failed", err);
     throw err;
@@ -143,6 +171,7 @@ export const deleteUser = async (userId) => {
   }
 };
 
+// 🔒 UPDATED: Ensure batch added users have schoolId
 export const addMultipleUsers = async (users) => {
   if (!Array.isArray(users)) {
     const error = new TypeError("Failed to add multiple users: The input must be an array.");
@@ -152,9 +181,14 @@ export const addMultipleUsers = async (users) => {
   try {
     const batch = writeBatch(db);
     const usersCollectionRef = collection(db, "users");
+    
     users.forEach((user) => {
       const newUserRef = doc(usersCollectionRef);
-      batch.set(newUserRef, user);
+      // Attach schoolId to every user in the batch
+      batch.set(newUserRef, {
+        ...user,
+        schoolId: user.schoolId || DEFAULT_SCHOOL_ID
+      });
     });
     await batch.commit();
   } catch (err) {
@@ -226,7 +260,8 @@ export const updateUserDetails = async (userId, updates) => {
           id: userId,
           firstName: firstName || oldUser.firstName || "",
           lastName: lastName || oldUser.lastName || "",
-          email: email || oldUser.email || ""
+          email: email || oldUser.email || "",
+          schoolId: oldUser.schoolId || DEFAULT_SCHOOL_ID // Preserve school ID
         });
       }
     }
@@ -395,6 +430,7 @@ export const joinClassWithCode = async (classCode, studentProfile) => {
     }
 
     const upperCaseClassCode = classCode.toUpperCase();
+    // 1. Find the class by code
     const q = query(collection(db, "classes"), where("classCode", "==", upperCaseClassCode));
     const querySnapshot = await getDocs(q);
 
@@ -405,6 +441,15 @@ export const joinClassWithCode = async (classCode, studentProfile) => {
     const classDoc = querySnapshot.docs[0];
     const classData = classDoc.data();
     const classDocRef = doc(db, "classes", classDoc.id);
+
+    // 🔒 SECURITY: Prevent cross-school joining
+    // If class has no schoolId, assume default. If student has none, assume default.
+    const classSchoolId = classData.schoolId || DEFAULT_SCHOOL_ID;
+    const studentSchoolId = studentProfile.schoolId || DEFAULT_SCHOOL_ID;
+
+    if (classSchoolId !== studentSchoolId) {
+      throw new Error("You cannot join a class from a different school.");
+    }
 
     if (classData.gradeLevel !== studentProfile.gradeLevel) {
       throw new Error(
@@ -452,11 +497,19 @@ export const deleteClass = async (classId) => {
   }
 };
 
-// --- NEW FUNCTION ---
-export const getAllClasses = async () => {
+// 🔒 UPDATED: Filter classes by School ID
+export const getAllClasses = async (schoolId) => {
   try {
+    const targetSchool = schoolId || DEFAULT_SCHOOL_ID;
     const classesRef = collection(db, 'classes');
-    const q = query(classesRef, where("isArchived", "!=", true));
+    
+    // Filter by school AND ensure not archived
+    const q = query(
+      classesRef, 
+      where("isArchived", "!=", true),
+      where("schoolId", "==", targetSchool)
+    );
+    
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   } catch (err) {
@@ -465,7 +518,6 @@ export const getAllClasses = async () => {
   }
 };
 
-// --- NEW FUNCTION ---
 export const addStudentsToClass = async (classId, studentIds, studentObjects) => {
   try {
     if (!classId || !studentIds || !studentObjects) {
@@ -512,12 +564,14 @@ export const deleteAnnouncement = async (classId, postId) => {
   }
 };
 
+// 🔒 UPDATED: Tag announcement with schoolId
 export const postTeacherAnnouncement = async (teacherProfile, content) => {
   try {
     return addDoc(collection(db, "teacherAnnouncements"), {
       content,
       teacherId: teacherProfile.id,
       teacherName: `${teacherProfile.firstName} ${teacherProfile.lastName}`,
+      schoolId: teacherProfile.schoolId || DEFAULT_SCHOOL_ID,
       createdAt: serverTimestamp(),
     });
   } catch (err) {
@@ -576,8 +630,8 @@ const firestoreService = {
   joinClassWithCode,
   updateClassArchiveStatus,
   deleteClass,
-  getAllClasses, // <-- ADDED
-  addStudentsToClass, // <-- ADDED
+  getAllClasses, // <-- UPDATED
+  addStudentsToClass, 
 
   updateAnnouncement,
   deleteAnnouncement,

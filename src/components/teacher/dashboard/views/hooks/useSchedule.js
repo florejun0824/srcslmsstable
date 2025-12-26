@@ -1,15 +1,24 @@
-import { useState, useEffect, useMemo } from 'react';
-import { db } from '../../../../../services/firebase'; // Adjust path if needed
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+// src/components/teacher/dashboard/views/hooks/useSchedule.js
 
-export const useSchedule = (showToast) => {
+import { useState, useEffect, useMemo } from 'react';
+import { db } from '../../../../../services/firebase'; 
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, where } from 'firebase/firestore'; // ✅ Added query, where
+
+// ✅ Accept schoolId as the second argument
+export const useSchedule = (showToast, schoolId) => {
     const [scheduleActivities, setScheduleActivities] = useState([]);
     const [currentActivityIndex, setCurrentActivityIndex] = useState(0);
     const scheduleCollectionRef = collection(db, 'schedules');
 
     // Real-time listener for schedule updates from Firestore
     useEffect(() => {
-        const unsubscribe = onSnapshot(scheduleCollectionRef, (snapshot) => {
+        // ✅ Only listen if we have a schoolId
+        if (!schoolId) return;
+
+        // ✅ Filter by School ID
+        const q = query(scheduleCollectionRef, where("schoolId", "==", schoolId));
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
             const fetchedSchedules = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
             setScheduleActivities(fetchedSchedules);
         }, (error) => {
@@ -20,12 +29,13 @@ export const useSchedule = (showToast) => {
         });
 
         return () => unsubscribe();
-    }, [showToast]);
+    }, [showToast, schoolId]); // ✅ Re-run if schoolId changes
 
     // CRUD operations
     const handleAddScheduleActivity = async (newActivity) => {
         try {
-            await addDoc(scheduleCollectionRef, newActivity);
+            // ✅ Tag new activity with schoolId
+            await addDoc(scheduleCollectionRef, { ...newActivity, schoolId });
         } catch (error) {
             console.error("Error adding schedule activity:", error);
         }
@@ -53,25 +63,14 @@ export const useSchedule = (showToast) => {
 
     // --- FIXED: Memoized calculation to filter expired dates correctly ---
     const filteredScheduleActivitiesForDisplay = useMemo(() => {
-        // 1. Get "Today" at the very beginning of the day (00:00:00) based on system time (PH Time)
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
         return scheduleActivities.filter(activity => {
             if (!activity.endDate) return false;
-
-            // 2. Parse the HTML date string (YYYY-MM-DD) explicitly to Local Time
-            // Direct new Date("2025-12-15") often defaults to UTC, which causes timezone issues.
             const [y, m, d] = activity.endDate.split('-').map(Number);
-            
-            // Create a date object for the End Date (Month is 0-indexed in JS)
             const activityEndDate = new Date(y, m - 1, d);
-            
-            // 3. Set the End Date to the very end of that day (23:59:59)
-            // This ensures if today is Dec 15, and end date is Dec 15, it is still shown.
             activityEndDate.setHours(23, 59, 59, 999);
-
-            // 4. Compare: Check if the end date is in the future or is today
             return activityEndDate >= today;
         });
     }, [scheduleActivities]);
@@ -79,17 +78,14 @@ export const useSchedule = (showToast) => {
     // Memoized calculation to get today's upcoming activities for the header
     const todayActivities = useMemo(() => {
         const now = new Date();
-        // Format to YYYY-MM-DD using local time explicitly
         const offset = now.getTimezoneOffset() * 60000;
         const localISOTime = (new Date(now - offset)).toISOString().slice(0, -1);
         const todayFormatted = localISOTime.split('T')[0];
 
         return scheduleActivities.filter(activity => {
-            // Check Date Range
             const isActivityActiveTodayByDate = todayFormatted >= activity.startDate && todayFormatted <= activity.endDate;
             if (!isActivityActiveTodayByDate) return false;
 
-            // Check Time (if applicable)
             if (activity.time && activity.time !== 'N/A') {
                 try {
                     let [timePart, ampm] = activity.time.split(' ');
@@ -109,8 +105,6 @@ export const useSchedule = (showToast) => {
         }).sort((a, b) => {
             if (a.time === 'N/A' || !a.time) return -1;
             if (b.time === 'N/A' || !b.time) return 1;
-            // Simple string sort for time is risky, but works if format is consistent HH:MM AM/PM
-            // Ideally convert to minutes for sorting, but keeping existing logic structure
             return a.time.localeCompare(b.time);
         });
     }, [scheduleActivities]);
