@@ -488,6 +488,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
     const getMasterInstructions = (baseContext) => {
         const styleRules = `
         **CRITICAL FORMATTING RULE (NON-NEGOTIABLE):** You MUST NOT use Markdown code block formatting (like indenting with four spaces or using triple backticks \\\`\\\`\\\`) for regular content like bulleted lists or standard paragraphs.
+		**SYSTEM INSTRUCTION:** DO NOT output your thinking process. Output ONLY raw, valid JSON.
         
         **CRITICAL JSON & LATEX SAFETY (ABSOLUTE PRIORITY):**
         - You are writing a JSON string. ALL backslashes must be escaped.

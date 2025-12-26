@@ -268,6 +268,8 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
       1. **OUTPUT:** Valid JSON object ONLY.
       2. **ESCAPING:** Escape double quotes inside strings (\\").
       3. **FORMATTING:** Use \\n for line breaks inside standard JSON text strings, but keep HTML tags clean.
+	  
+	  **SYSTEM INSTRUCTION:** DO NOT output your thinking process. Output ONLY raw, valid JSON.
       `;
       
       switch (type) {

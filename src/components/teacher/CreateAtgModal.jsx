@@ -122,7 +122,8 @@ export default function CreateAtgModal({ isOpen, onClose, subjectId, unitId }) {
             // Step 1: Planning
             setProgress(10); setProgressLabel("Step 1/5: Planning Prerequisites...");
             const step1 = await generateAtgChunk("Planning", `
-                **Part 1: PLANNING**
+                **SYSTEM INSTRUCTION:** DO NOT output your thinking process. Output ONLY raw, valid JSON.
+				**Part 1: PLANNING**
 
                 **1. Prerequisite Content-Knowledge and Skills:**
                 Based on the source lesson, identify the essential concepts, vocabulary, and skills students MUST have mastered in previous grade levels or lessons to access this new material.

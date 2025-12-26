@@ -451,6 +451,7 @@ const getMasterInstructions = async (guideData) => {
 
     const masterInstructions = `
         **Persona and Tone:** Adopt the persona of a **brilliant university professor who is also a bestselling popular book author**. Your writing should have the authority, accuracy, and depth of a subject matter expert, but the narrative flair and engaging storytelling of a great writer.
+		**SYSTEM INSTRUCTION:** DO NOT output your thinking process. Output ONLY raw, valid JSON.
         **CRITICAL AUDIENCE INSTRUCTION:** The target audience is **Grade ${guideData.gradeLevel}**.
         ${perspectiveInstruction}
         **CRITICAL INSTRUCTION FOR CORE CONTENT:** Instead of just listing facts, **weave them into a compelling narrative**. Tell the story *behind* the concept. Explain the "why" and "how". Use vivid analogies.

@@ -3,11 +3,10 @@ import { db } from './firebase';
 import { doc, getDoc, updateDoc, setDoc, increment } from 'firebase/firestore';
 
 // --- KEY HIDING UTILITY ---
-// This function removes any API key patterns (AIza...) from error text
 const sanitizeError = (text) => {
     if (!text || typeof text !== 'string') return text;
-    // Regex to find Google API Keys and replace them with [HIDDEN]
-    return text.replace(/api_key:[a-zA-Z0-9_\-]{35,}/g, 'api_key:[HIDDEN]');
+    // Regex to find Google/OpenAI Keys and hide them
+    return text.replace(/(api_key|Bearer)\s*[:=]\s*[a-zA-Z0-9_\-]{20,}/gi, '$1:[HIDDEN]');
 };
 
 // --- ENVIRONMENT SETUP ---
@@ -16,20 +15,29 @@ const isNative = Capacitor.isNativePlatform();
 const API_BASE = isNative ? PROD_API_URL : '';
 
 // --- CONFIGURATION ---
-const GEMINI_MODEL = 'gemma-3-27b-it'; 
-
-const API_CONFIGS = [
-    { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Primary' },
-    { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Fallback 1' },
-    { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Fallback 2' },
-    { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Fallback 3' },
-    { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Fallback 4' },
-    { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Fallback 5' },
+// TIER 1: OpenRouter (Xiaomi MiMo V2) - FREE & FAST
+const PRIMARY_CONFIGS = [
+    { service: 'openrouter', url: `${API_BASE}/api/openrouter`, name: 'MiMo Flash 1 (Primary)' },
+    { service: 'openrouter', url: `${API_BASE}/api/openrouter`, name: 'MiMo Flash 2 (Primary)' },
+    { service: 'openrouter', url: `${API_BASE}/api/openrouter`, name: 'MiMo Flash 3 (Primary)' },
+    { service: 'openrouter', url: `${API_BASE}/api/openrouter`, name: 'MiMo Flash 4 (Primary)' },
+    { service: 'openrouter', url: `${API_BASE}/api/openrouter`, name: 'MiMo Flash 5 (Primary)' },
 ];
 
-const NUM_CONFIGS = API_CONFIGS.length;
-let currentApiIndex = 0;
-const FREE_API_CALL_LIMIT_PER_MONTH = 500000;
+// TIER 2: Google Gemini - RELIABLE BACKUP
+const GEMINI_MODEL = 'gemma-3-27b-it'; 
+const FALLBACK_CONFIGS = [
+    { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Backup 1' },
+    { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Backup 2' },
+    { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Backup 3' },
+    { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Backup 4' },
+    { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Backup 5' },
+];
+
+let primaryIndex = 0;
+let fallbackIndex = 0;
+
+const FREE_API_CALL_LIMIT_PER_MONTH = 500000; // Effectively unlimited for now
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 let usageCache = { callCount: 0, resetMonth: 0, lastChecked: 0 };
@@ -72,13 +80,12 @@ const checkAiLimitReached = async () => {
         return false;
 
     } catch (error) {
-        // Sanitize error just in case
         console.error("Error checking AI usage:", sanitizeError(error.message));
-        return false; // Fail open if tracker is down
+        return false; 
     }
 };
 
-// --- CORE API CALLER (SECURE) ---
+// --- CORE API CALLER (GENERIC) ---
 const callProxyApiInternal = async (prompt, jsonMode = false, config, maxOutputTokens = undefined) => {
     try {
         const response = await fetch(config.url, {
@@ -88,17 +95,15 @@ const callProxyApiInternal = async (prompt, jsonMode = false, config, maxOutputT
                 prompt: prompt,
                 jsonMode: jsonMode,
                 maxOutputTokens: maxOutputTokens,
-                model: config.model 
+                model: config.model // Only used for Gemini, ignored by OpenRouter endpoint
             }),
         });
 
-        // 1. Get raw text first
         const rawText = await response.text();
 
         if (!response.ok) {
-            // 2. SANITIZE ERROR BEFORE LOGGING
             const safeErrorText = sanitizeError(rawText);
-            console.error(`Proxy Failed (${config.url}): ${response.status}. Response: ${safeErrorText}`);
+            console.error(`Proxy Failed (${config.name}): ${response.status}. Response: ${safeErrorText}`);
             
             const error = new Error(safeErrorText.substring(0, 200)); 
             error.status = response.status;
@@ -107,49 +112,71 @@ const callProxyApiInternal = async (prompt, jsonMode = false, config, maxOutputT
 
         if (!rawText) throw new Error("Proxy response was empty.");
 
-        // 3. Handle JSON Errors that come as 200 OK (Edge case)
+        // Handle JSON Errors that come as 200 OK
         if (rawText.trim().startsWith('{"error"')) {
             try {
                 const errorJson = JSON.parse(rawText);
                 const safeMessage = sanitizeError(errorJson.error || "Unknown error");
                 throw new Error(safeMessage);
             } catch (e) {
-                if (e.message !== "Unknown error") throw e; // Re-throw real parsing errors if needed
+                if (e.message !== "Unknown error") throw e; 
             }
         }
 
         return rawText;
 
     } catch (error) {
-        // Ensure even network errors are sanitized if they somehow contain sensitive info
         error.message = sanitizeError(error.message);
         throw error;
     }
 }
 
-// --- LOAD BALANCER ---
+// --- TIERED LOAD BALANCER ---
 const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTokens = undefined) => {
-    const startIndex = currentApiIndex;
-    currentApiIndex = (currentApiIndex + 1) % NUM_CONFIGS;
     const errors = {};
+    
+    // PHASE 1: Try Primary Tier (OpenRouter / MiMo)
+    // We try 3 attempts on Primary before giving up to save time
+    const maxPrimaryAttempts = 3; 
 
-    for (let i = 0; i < NUM_CONFIGS; i++) {
-        const keyIndex = (startIndex + i) % NUM_CONFIGS;
-        const config = API_CONFIGS[keyIndex];
+    for (let i = 0; i < maxPrimaryAttempts; i++) {
+        const config = PRIMARY_CONFIGS[primaryIndex];
+        primaryIndex = (primaryIndex + 1) % PRIMARY_CONFIGS.length; // Rotate
 
         try {
-            // Simplified: Direct call to proxy
+            // console.log(`Attempting Primary AI: ${config.name}`);
             const response = await callProxyApiInternal(prompt, jsonMode, config, maxOutputTokens);
-            return response;
+            
+            // CLEAN MIMO OUTPUT: Remove <think> tags
+            let cleanResponse = response.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+            return cleanResponse;
 
         } catch (error) {
-            errors[config.name] = sanitizeError(error.message);
-
+            errors[config.name] = error.message;
+            // If it's a Rate Limit (429) or Server Error (5xx), wait briefly then retry
             if ([429, 503, 500, 504].includes(error.status)) {
-                console.warn(`Retryable error on ${config.name}. Waiting...`);
-                await delay(2000); 
-            } else {
-                console.error(`Non-retryable error on ${config.name}:`, errors[config.name]);
+                await delay(1000); 
+            }
+        }
+    }
+
+    console.warn("Primary AI tier failed. Switching to FALLBACK TIER (Gemini).");
+
+    // PHASE 2: Try Fallback Tier (Google Gemini)
+    // Try all configured backup keys
+    for (let i = 0; i < FALLBACK_CONFIGS.length; i++) {
+        const config = FALLBACK_CONFIGS[fallbackIndex];
+        fallbackIndex = (fallbackIndex + 1) % FALLBACK_CONFIGS.length;
+
+        try {
+            console.log(`Attempting Fallback AI: ${config.name}`);
+            const response = await callProxyApiInternal(prompt, jsonMode, config, maxOutputTokens);
+            return response; // Gemini usually doesn't need <think> cleaning
+
+        } catch (error) {
+            errors[config.name] = error.message;
+            if ([429, 503, 500, 504].includes(error.status)) {
+                await delay(1500);
             }
         }
     }
@@ -170,8 +197,12 @@ export const callGeminiWithLimitCheck = async (prompt, options = {}) => {
         const rawResponse = await callGeminiWithLoadBalancing(prompt, false, options.maxOutputTokens);
         await updateDoc(doc(db, 'usage_trackers', 'ai_usage'), { callCount: increment(1) });
 
-        const safeResponse = rawResponse ? String(rawResponse) : '';
-        return safeResponse.replace(/^```json\s*|```$/g, '').trim();
+        let safeResponse = rawResponse ? String(rawResponse) : '';
+        
+        // Final cleanup for JSON markdown wrappers
+        safeResponse = safeResponse.replace(/^```json\s*|```$/g, '').trim();
+
+        return safeResponse;
 
     } catch (error) {
         usageCache.callCount -= 1; 
@@ -184,7 +215,7 @@ export const callChatbotAi = async (prompt) => {
     return await callGeminiWithLimitCheck(prompt);
 };
 
-// --- FULLY RESTORED ESSAY GRADING FUNCTION ---
+// --- GRADING FUNCTION (Preserved) ---
 export const gradeEssayWithAI = async (promptText, rubric, studentAnswer) => {
     const limitReached = await checkAiLimitReached();
     if (limitReached) {
@@ -215,11 +246,9 @@ export const gradeEssayWithAI = async (promptText, rubric, studentAnswer) => {
     \`\`\`
     **Instructions:**
     1.  Carefully read the student's answer in relation to the essay prompt.
-    2.  For EACH criterion in the rubric JSON, assign points based *only* on how well the student's answer meets that specific criterion. Adhere strictly to the definition and maximum points for each criterion.
-    3.  Provide a concise justification (1-2 sentences) explaining the points awarded for EACH criterion, referencing parts of the student's answer if applicable.
-    4.  Calculate the total score by summing the points awarded for all criteria. This total score MUST NOT exceed the total possible points (${maxTotalPoints}).
-    5.  Provide brief overall feedback (2-3 sentences) summarizing the answer's key strengths and areas for improvement based *only* on the rubric criteria.
-    6.  Return ONLY a single, valid JSON object matching the specified structure EXACTLY. Ensure all keys and value types match. Do NOT include any text, notes, or markdown formatting before or after the JSON block.
+    2.  For EACH criterion in the rubric JSON, assign points based *only* on how well the student's answer meets that specific criterion.
+    3.  Provide a concise justification (1-2 sentences).
+    4.  Return ONLY a single, valid JSON object matching the specified structure EXACTLY.
     **JSON Output Structure (Strict):**
     \`\`\`json
     {
@@ -236,17 +265,16 @@ export const gradeEssayWithAI = async (promptText, rubric, studentAnswer) => {
     usageCache.lastChecked = Date.now();
 
     try {
-        console.log("Sending grading prompt to AI (load balanced)...");
+        console.log("Sending grading prompt to AI...");
         const jsonResponseText = await callGeminiWithLoadBalancing(gradingPrompt, true);
 
-        // Safety check for parsing
         let data;
         try {
-             // FIX: Ensure it is a string before parsing
              const safeText = typeof jsonResponseText === 'string' ? jsonResponseText : JSON.stringify(jsonResponseText);
-             data = JSON.parse(safeText);
+             // Ensure no markdown lingers
+             const cleanText = safeText.replace(/^```json\s*|```$/g, '').trim();
+             data = JSON.parse(cleanText);
         } catch (e) {
-             // Fallback if already object
              if (typeof jsonResponseText === 'object') {
                  data = jsonResponseText;
              } else {
@@ -254,23 +282,21 @@ export const gradeEssayWithAI = async (promptText, rubric, studentAnswer) => {
              }
         }
 
-        const validatedData = validateAndCleanGradingResponse(data, validRubric, "AI (Load Balanced)");
+        const validatedData = validateAndCleanGradingResponse(data, validRubric, "AI Grader");
 
         const usageDocRef = doc(db, 'usage_trackers', 'ai_usage');
         await updateDoc(usageDocRef, { callCount: increment(1) });
         
-        console.log("AI Grading (Load Balanced) successful:", validatedData);
         return validatedData;
 
     } catch (error) { 
         usageCache.callCount -= 1;
-        // Wrapped in sanitizeError
         console.error("gradeEssayWithAI failed:", sanitizeError(error.message));
         throw error;
     } 
 };
 
-// --- FULLY RESTORED CLEANING FUNCTION ---
+// --- VALIDATION HELPER (Preserved) ---
 function validateAndCleanGradingResponse(data, validRubric, source = "AI") {
      if (!data || !Array.isArray(data.scores) || typeof data.totalScore !== 'number' || data.scores.length === 0) {
         console.error(`Invalid grading JSON structure from ${source}:`, JSON.stringify(data, null, 2));
@@ -279,7 +305,6 @@ function validateAndCleanGradingResponse(data, validRubric, source = "AI") {
 
     let calculatedTotal = 0;
     const validatedScores = [];
-    const originalCriteriaNames = validRubric.map(item => item.criteria);
 
     validRubric.forEach(rubricItem => {
         const aiScoreItem = data.scores.find(s => s.criteria === rubricItem.criteria);
@@ -294,7 +319,6 @@ function validateAndCleanGradingResponse(data, validRubric, source = "AI") {
             });
             calculatedTotal += awarded;
         } else {
-             console.warn(`${source} did not provide score for criteria: "${rubricItem.criteria}". Awarding 0 points.`);
              validatedScores.push({
                  criteria: rubricItem.criteria,
                  pointsAwarded: 0,
@@ -303,16 +327,7 @@ function validateAndCleanGradingResponse(data, validRubric, source = "AI") {
         }
     });
 
-    data.scores.forEach(aiScoreItem => {
-         if (!originalCriteriaNames.includes(aiScoreItem.criteria)) {
-             console.warn(`${source} included an extra criteria not in the rubric: "${aiScoreItem.criteria}". Ignoring.`);
-         }
-     });
-
     const finalTotalScore = Math.round(calculatedTotal);
-    if (finalTotalScore !== Math.round(data.totalScore)) {
-        console.warn(`${source} reported totalScore (${data.totalScore}) differs from calculated/validated score (${finalTotalScore}). Using calculated score.`);
-    }
 
     return {
         scores: validatedScores,
