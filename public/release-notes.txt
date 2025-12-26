@@ -1,4 +1,4 @@
-SRCS LMS RELEASE NOTE (DECEMBER 25 PATCH)
+SRCS LMS RELEASE NOTE (DECEMBER 26 PATCH)
 
 - Optimized Loading Performance
 - Enhanced Security

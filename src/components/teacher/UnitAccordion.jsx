@@ -58,7 +58,7 @@ import { FileOpener } from '@capacitor-community/file-opener';
 
 // --- STYLES ---
 const performanceStyles = {
-    touchAction: 'none',
+    touchAction: 'pan-y', // Allows vertical scrolling
     backfaceVisibility: 'hidden', 
 };
 
@@ -870,11 +870,14 @@ const SortableUnitListRow = memo(({ unit, onSelect, onAction, isReordering, inde
                 <div className="absolute -right-10 -top-10 w-32 h-32 bg-gradient-to-br from-white/20 to-transparent rounded-full blur-2xl pointer-events-none opacity-50"></div>
 
                 <div className="relative flex items-center p-3 md:p-5 gap-4 md:gap-6">
-                    {isReordering && (
-                        <div {...listeners} className="p-2 cursor-grab active:cursor-grabbing hover:bg-black/5 rounded-lg">
-                            <ArrowsUpDownIcon className="h-6 w-6 text-slate-400" />
-                        </div>
-                    )}
+				{isReordering && (
+				    <div 
+				        {...listeners} 
+				        className="p-2 cursor-grab active:cursor-grabbing hover:bg-black/5 rounded-lg touch-none" // <-- Add 'touch-none'
+				    >
+				        <ArrowsUpDownIcon className="h-6 w-6 text-slate-400" />
+				    </div>
+				)}
 
                     {/* Folder Icon Container */}
                     <div className={`
@@ -993,11 +996,14 @@ const SortableContentItem = memo(({ item, isReordering, onAction, exportingLesso
                 {/* Visual Strip for Monet Mode (since we can't use border-l there easily) */}
                 {monet && <div className={`absolute left-0 top-0 bottom-0 w-1 ${isLesson ? 'bg-blue-400' : 'bg-purple-400'}`}></div>}
 
-                {isReordering && (
-                    <button {...listeners} className="p-2 mr-2 rounded-lg text-slate-400 hover:bg-black/5 cursor-grab active:cursor-grabbing">
-                        <Bars3Icon className="w-5 h-5" />
-                    </button>
-                )}
+				{isReordering && (
+				    <button 
+				        {...listeners} 
+				        className="p-2 mr-2 rounded-lg text-slate-400 hover:bg-black/5 cursor-grab active:cursor-grabbing touch-none" // <-- Add 'touch-none'
+				    >
+				        <Bars3Icon className="w-5 h-5" />
+				    </button>
+				)}
 
                 {/* Icon Box - Distinct shapes */}
                 <div className={`
