@@ -502,17 +502,25 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         **ABSOLUTE RULE FOR CONTENT CONTINUATION (NON-NEGOTIABLE):** When a single topic or section is too long for one page and its discussion must continue onto the next page, a heading for that topic (the 'title' in the JSON) MUST ONLY appear on the very first page. ALL subsequent pages for that topic MUST have an empty string for their title: \\\`"title": ""\\\`.
         `;
 
-        const masterInstructions = `
-        **Persona and Tone:** Adopt the persona of a **brilliant university professor who is also a bestselling popular book author**. Your writing should have the authority, accuracy, and depth of a subject matter expert, but the narrative flair and engaging storytelling of a great writer.
+const masterInstructions = `
+        **Persona and Tone:** Adopt the persona of a **passionate expert lecturer** who loves the subject.
+        - **Goal:** Your goal is to provide a **comprehensive and immersive** learning experience.
+        - **Tone:** Enthusiastic, articulate, and detailed. Avoid being dry or robotic.
         ${baseContext.perspectiveInstruction}
-        **CRITICAL INSTRUCTION FOR CORE CONTENT:** Instead of just listing facts, **weave them into a compelling narrative**. Tell the story *behind* the concept. Explain the "why" and "how". Use vivid analogies.
-        
-        **CRITICAL INSTRUCTION FOR INTERACTIVITY (NON-NEGOTIABLE):** You MUST embed small, interactive elements directly within the core content pages.
-        - Use Markdown blockquotes (\`>\`) to format these.
-        - **Examples:**
-            - **> Think About It:** If gravity suddenly disappeared, what's the first thing that would happen?
-            - **> Quick Poll:** Raise your hand if you think plants breathe.
-        `;
+
+        **CRITICAL "UNPACKING" RULE:**
+        - **NEVER SUMMARIZE:** Your job is not to make the text shorter. Your job is to make it **clearer and richer**.
+        - **Explain the "Why":** Don't just list facts. Explain the mechanisms, reasons, and implications behind the facts found in the Source Text.
+        - **Narrative Structure:** Treat the lesson like a story. Connect concepts logically rather than just listing them.
+
+        **CRITICAL FIDELITY & SUPPORT:**
+        - **Source Anchor:** All core definitions and key points must come from the Source Text.
+        - **Reliable Expansion:** You are encouraged to use your internal knowledge to provide **context, analogies, and historical background** to make the Source Text come alive.
+        - **Fact Check:** Do not invent data. If adding an example, it must be a standard, verifiable academic example.
+
+        **CRITICAL INSTRUCTION FOR INTERACTIVITY:**
+        - Embed "Think About It" or "Real World Connection" callouts using Markdown blockquotes (\`>\`) to break up long sections of text without losing depth.
+    `;
         return { styleRules, masterInstructions };
     };
 
@@ -576,25 +584,35 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                 jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "coreContentTitles": [\n    "First Sub-Topic Title",\n    "Second Sub-Topic Title"\n  ]\n}`;
                 break;
 
-            case 'CoreContentPage':
-                const allTitles = extraData.allContentTitles || [extraData.contentTitle];
-                const currentIndex = extraData.currentIndex !== undefined ? extraData.currentIndex : 0;
-                const currentTitle = extraData.contentTitle;
+			case 'CoreContentPage':
+			                const allTitles = extraData.allContentTitles || [extraData.contentTitle];
+			                const currentIndex = extraData.currentIndex !== undefined ? extraData.currentIndex : 0;
+			                const currentTitle = extraData.contentTitle;
                 
-                const contentContextInstruction = `
-                **PAGING CONTEXT:** Page ${currentIndex + 1} of ${allTitles.length}.
-                - **Current Title:** "${currentTitle}"
-                `;
+			                const contentContextInstruction = `
+			                **PAGING CONTEXT:** Page ${currentIndex + 1} of ${allTitles.length}.
+			                - **Current Title:** "${currentTitle}"
+			                `;
 
-                taskInstruction = `Generate *one* core content page for this lesson.
-                - **Page Title:** It MUST be exactly: "${currentTitle}"
-                ${contentContextInstruction}
-                - **Content:** You are writing the detailed body content for this specific topic. 
-                - **BE DETAILED:** Do not be overly concise. Explain the concepts fully, using examples from the source text or your own knowledge.
-                - **CRITICAL LENGTH CONSTRAINT:** Aim for depth. Max 12000 chars JSON.`;
+			                taskInstruction = `Generate *one* core content page for this lesson.
+			                - **Page Title:** It MUST be exactly: "${currentTitle}"
+			                ${contentContextInstruction}
                 
-                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${currentTitle}",\n    "content": "Detailed markdown content..."\n  }\n}`;
-                break;
+			                **CONTENT GENERATION STRATEGY:**
+			                1. **Goal:** Create a **deep-dive explanation**, not a summary. Assume the student is intelligent but needs the concept "unpacked" fully.
+			                2. **Elaboration (Anti-Brevity):** - Do not shorten the source text. Instead, **expand** on it. 
+			                   - If the source text provides a dense fact (e.g., "Mitochondria produce ATP"), you must explain the *significance* of that fact using reliable scientific consensus.
+			                   - **Turn 1 sentence from the source into 3 sentences of clear explanation.**
+			                3. **Engaging Narrative Flow:** - Avoid a dry list of facts. Write with a **conversational academic flow**.
+			                   - Use transitional phrases (e.g., "To understand this better, let's look at...", "Why does this matter? Because...").
+			                   - Use **Formatting** (Bold, Italic, Blockquotes) to create visual rhythm, not just to shorten the text.
+			                4. **Reliable Support:** - If the text is abstract, illustrate it with a **concrete real-world analogy** derived from your training data (e.g., "Think of voltage like water pressure...").
+			                   - Ensure all analogies are factually accurate.
+                
+			                - **CRITICAL LENGTH CONSTRAINT:** maximizing depth is priority. Aim for 800-1500 words of rich content if the topic allows.`;
+                
+			                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${currentTitle}",\n    "content": "Detailed markdown content..."\n  }\n}`;
+			                break;
             
             case 'CheckForUnderstanding':
                 taskInstruction = `Generate the "Check for Understanding" page. 3-4 concept questions based on the lesson.`;
