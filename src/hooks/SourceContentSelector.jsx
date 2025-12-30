@@ -1,87 +1,128 @@
-import React, { useState, useEffect, Fragment } from 'react';
-import { collection, query, onSnapshot, where } from 'firebase/firestore';
-import { db } from '../services/firebase';
-// --- MODIFIED: Added Headless UI and Heroicons ---
+import React, { Fragment } from 'react';
 import { Listbox, Transition } from '@headlessui/react';
-import { CheckIcon, ChevronUpDownIcon } from '@heroicons/react/24/solid';
+import { CheckIcon, ChevronUpDownIcon, Square2StackIcon } from '@heroicons/react/24/outline';
 
 /**
- * A selector component for lessons, filtered by a subjectId and supporting multiple selections.
- * Lessons are now grouped by their unitId, with the unit name displayed for better organization.
- *
- * @param {object} props - The component props.
- * @param {string} props.subjectId - The ID of the selected subject to filter lessons by.
- * @param {function} props.onLessonsSelect - Callback function to be called with an array of selected lessons.
+ * One UI 8.5 Redesign of SourceContentSelector
+ * - Updated: Circular checkboxes with animated fill and checkmark.
  */
 export default function SourceContentSelector({
     selectedSubjectId,
-    handleSubjectChange, // This will now be called by the Listbox
+    handleSubjectChange,
     allSubjects,
     selectedUnitIds,
     handleUnitSelectionChange,
     unitsForSubject,
     loading,
 }) {
-    // --- MODIFIED: Neumorphic input styles for the Listbox button ---
-    const neuInput = "relative w-full cursor-default bg-slate-200 dark:bg-neumorphic-base-dark rounded-xl shadow-[inset_2px_2px_5px_#bdc1c6,inset_-2px_-2px_5px_#ffffff] dark:shadow-neumorphic-inset-dark py-2.5 pl-4 pr-10 text-left focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:text-sm";
-    
-    // Find the currently selected subject object from the ID
+    // --- UI TOKENS ---
+    const ui = {
+        label: "block text-[0.65rem] font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1",
+        
+        // Input Button
+        inputBtn: `
+            relative w-full cursor-pointer 
+            bg-[#F7F9FC] dark:bg-[#2C2C2C] 
+            hover:bg-[#EEF1F6] dark:hover:bg-[#343434]
+            rounded-xl py-3 pl-4 pr-10 text-left 
+            border border-transparent focus:border-blue-500/50
+            focus:outline-none focus:ring-4 focus:ring-blue-500/10 
+            transition-all duration-200
+        `,
+        inputText: "block truncate text-sm font-bold text-gray-900 dark:text-white",
+        
+        // Dropdown Panel
+        dropdown: `
+            absolute z-50 mt-2 max-h-60 w-full overflow-auto 
+            rounded-2xl bg-white dark:bg-[#252525] 
+            py-2 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.2)] 
+            ring-1 ring-black/5 dark:ring-white/10 focus:outline-none
+            custom-scrollbar
+        `,
+        
+        // Unit Container
+        unitWell: `
+            mt-2 space-y-2 rounded-2xl 
+            bg-[#F7F9FC] dark:bg-[#2C2C2C] 
+            p-3 max-h-[280px] overflow-y-auto 
+            custom-scrollbar border border-transparent
+        `,
+        
+        // Checkbox Item Row
+        unitItem: `
+            group flex items-center gap-3 rounded-xl p-3 
+            transition-all duration-200 cursor-pointer border border-transparent
+            hover:bg-white hover:shadow-sm hover:border-gray-100
+            dark:hover:bg-[#3A3A3A] dark:hover:border-white/5
+        `,
+        
+        // CUSTOM CIRCULAR CHECKBOX
+        checkbox: `
+            appearance-none 
+            h-6 w-6 rounded-full 
+            border-2 border-gray-300 dark:border-gray-500 
+            bg-white dark:bg-[#1E1E1E]
+            checked:bg-blue-500 checked:border-blue-500 
+            transition-all duration-200 ease-in-out cursor-pointer
+        `,
+        
+        // Floating Checkmark Icon
+        checkmarkIcon: `
+            absolute pointer-events-none text-white 
+            w-3.5 h-3.5 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
+            transition-all duration-200 ease-[cubic-bezier(0.19,1,0.22,1)]
+        `
+    };
+
     const selectedSubject = allSubjects.find(s => s.id === selectedSubjectId) || null;
 
-    // This function adapts the Listbox's object output to the parent's ID-based handler
     const handleListboxChange = (subjectObject) => {
         if (handleSubjectChange) {
-            // Create a synthetic event object to match what <select> would have provided
             handleSubjectChange({ target: { value: subjectObject.id } });
         }
     };
 
     return (
-        <div className="space-y-5">
-            {/* --- MODIFIED: Replaced <Selector> with <Listbox> --- */}
-            <div>
+        <div className="space-y-6 h-full flex flex-col">
+            
+            {/* --- SUBJECT SELECTOR --- */}
+            <div className="flex-none">
                 <Listbox value={selectedSubject} onChange={handleListboxChange} disabled={loading}>
-                    <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5">Source Subject</label>
-                    <div className="relative mt-1">
-                        <Listbox.Button id="course-select-button" className={neuInput}>
-                            <span className="block truncate text-slate-800 dark:text-slate-100">
-                                {selectedSubject ? selectedSubject.title : (loading ? "Loading subjects..." : "Select a Source Subject")}
+                    <div className="relative">
+                        <Listbox.Label className={ui.label}>Source Subject</Listbox.Label>
+                        <Listbox.Button className={ui.inputBtn}>
+                            <span className={ui.inputText}>
+                                {selectedSubject ? selectedSubject.title : (loading ? "Loading subjects..." : "Select Subject")}
                             </span>
-                            <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
-                                <ChevronUpDownIcon
-                                    className="h-5 w-5 text-gray-400"
-                                    aria-hidden="true"
-                                />
+                            <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4">
+                                <ChevronUpDownIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
                             </span>
                         </Listbox.Button>
+                        
                         <Transition
                             as={Fragment}
                             leave="transition ease-in duration-100"
-                            leaveFrom="opacity-100"
-                            leaveTo="opacity-0"
+                            leaveFrom="opacity-100 translate-y-0"
+                            leaveTo="opacity-0 translate-y-2"
                         >
-                            <Listbox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-xl bg-slate-200 dark:bg-neumorphic-base-dark py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+                            <Listbox.Options className={ui.dropdown}>
                                 {allSubjects.map((subject) => (
                                     <Listbox.Option
                                         key={subject.id}
                                         className={({ active }) =>
-                                            `relative cursor-default select-none py-2 pl-10 pr-4 ${
-                                                active ? 'bg-sky-100 text-sky-900 dark:bg-sky-800 dark:text-sky-100' : 'text-gray-900 dark:text-slate-100'
+                                            `relative cursor-pointer select-none py-3 pl-10 pr-4 text-sm font-medium transition-colors ${
+                                                active ? 'bg-blue-50 text-blue-600 dark:bg-blue-500/20 dark:text-blue-200' : 'text-gray-700 dark:text-gray-200'
                                             }`
                                         }
                                         value={subject}
                                     >
                                         {({ selected }) => (
                                             <>
-                                                <span
-                                                    className={`block truncate ${
-                                                        selected ? 'font-medium' : 'font-normal'
-                                                    }`}
-                                                >
+                                                <span className={`block truncate ${selected ? 'font-bold' : 'font-normal'}`}>
                                                     {subject.title}
                                                 </span>
                                                 {selected ? (
-                                                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-sky-600 dark:text-sky-400">
+                                                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-blue-600 dark:text-blue-400">
                                                         <CheckIcon className="h-5 w-5" aria-hidden="true" />
                                                     </span>
                                                 ) : null}
@@ -94,36 +135,54 @@ export default function SourceContentSelector({
                     </div>
                 </Listbox>
             </div>
-            {/* --- END OF REPLACEMENT --- */}
 
-            <div>
-                {/* --- MODIFIED: Added dark theme text --- */}
-                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5">Select Units</label>
-                {/* --- MODIFIED: Styled checkbox container --- */}
-                <div className="mt-2 space-y-2 rounded-lg bg-slate-100 dark:bg-neumorphic-base-dark/50 shadow-[inset_2px_2px_5px_#bdc1c6,inset_-2px_-2px_5px_#ffffff] dark:shadow-neumorphic-inset-dark p-3 max-h-48 overflow-y-auto">
+            {/* --- UNIT SELECTOR --- */}
+            <div className="flex-1 flex flex-col min-h-0">
+                <div className="flex items-center justify-between mb-2 px-1">
+                    <label className={ui.label}>Select Units</label>
+                    {selectedUnitIds.size > 0 && (
+                        <span className="text-[0.65rem] font-bold text-blue-500 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-md">
+                            {selectedUnitIds.size} Selected
+                        </span>
+                    )}
+                </div>
+                
+                <div className={ui.unitWell}>
                     {unitsForSubject.length > 0 ? (
-                        unitsForSubject.map(unit => (
-                            <label
-                                key={unit.id}
-                                // --- MODIFIED: Dark theme hover ---
-                                className="flex items-center gap-3 rounded-md p-2.5 hover:bg-slate-200/60 dark:hover:bg-neumorphic-base-dark cursor-pointer transition-colors"
-                            >
-                                <input
-                                    type="checkbox"
-                                    checked={selectedUnitIds.has(unit.id)}
-                                    onChange={() => handleUnitSelectionChange(unit.id)}
-                                    // --- MODIFIED: Dark theme checkbox ---
-                                    className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 dark:bg-slate-800 dark:border-slate-600"
-                                />
-                                {/* --- MODIFIED: Dark theme text --- */}
-                                <span className="text-sm text-slate-700 dark:text-slate-300">{unit.title}</span>
-                            </label>
-                        ))
+                        unitsForSubject.map(unit => {
+                            const isSelected = selectedUnitIds.has(unit.id);
+                            return (
+                                <label
+                                    key={unit.id}
+                                    className={`${ui.unitItem} ${isSelected ? 'bg-white shadow-sm ring-1 ring-black/5 dark:bg-[#3A3A3A]' : ''}`}
+                                >
+                                    <div className="relative flex items-center justify-center">
+                                        {/* Pure CSS Circular Checkbox */}
+                                        <input
+                                            type="checkbox"
+                                            checked={isSelected}
+                                            onChange={() => handleUnitSelectionChange(unit.id)}
+                                            className={ui.checkbox}
+                                        />
+                                        {/* Overlay Icon (Only visible when checked) */}
+                                        <CheckIcon 
+                                            strokeWidth={3}
+                                            className={`${ui.checkmarkIcon} ${isSelected ? 'opacity-100 scale-100' : 'opacity-0 scale-50'}`} 
+                                        />
+                                    </div>
+                                    <span className={`text-sm select-none ${isSelected ? 'font-bold text-gray-900 dark:text-white' : 'font-medium text-gray-500 dark:text-gray-400'}`}>
+                                        {unit.title}
+                                    </span>
+                                </label>
+                            );
+                        })
                     ) : (
-                        // --- MODIFIED: Dark theme text ---
-                        <p className="py-4 text-center text-xs text-slate-500 dark:text-slate-400">
-                            {selectedSubjectId ? 'No units found in this subject.' : 'Select a subject to see units.'}
-                        </p>
+                        <div className="h-full flex flex-col items-center justify-center text-center p-6 opacity-50">
+                            <Square2StackIcon className="w-8 h-8 text-gray-400 mb-2" />
+                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">
+                                {selectedSubjectId ? 'No units found' : 'Select a subject first'}
+                            </p>
+                        </div>
                     )}
                 </div>
             </div>

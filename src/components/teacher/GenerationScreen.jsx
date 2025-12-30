@@ -125,14 +125,15 @@ const sanitizeJsonComponent = (aiResponse) => {
  * --- Base Context Builder ---
  */
 const getBasePromptContext = (guideData, existingSubjectContext) => {
-    const languageAndGradeInstruction = `
-        **TARGET AUDIENCE (NON-NEGOTIABLE):**
-        - **Grade Level:** The entire output MUST be tailored for **Grade ${guideData.gradeLevel}** students.
-        - **Language:** The entire output MUST be written in **${guideData.language}**.
-        ${guideData.language === 'Filipino' ? `
-        - **CRITICAL FILIPINO LANGUAGE RULE:** You are strictly forbidden from using English or any form of code-switching (Taglish). The output must be pure, academic Filipino.
-        ` : ''}
-    `;
+const languageAndGradeInstruction = `
+    **TARGET AUDIENCE (NON-NEGOTIABLE):**
+    - **Context:** Philippines K-12 Curriculum (DepEd MATATAG Standards).
+    - **Grade Level:** Grade ${guideData.gradeLevel}. Ensure content aligns with the specific learning competencies for this grade level in the Philippines.
+    - **Localization:** Use Filipino names (e.g., Juan, Maria), local currency (PHP/Pesos), and local examples (e.g., jeepneys, barangays) in all examples and word problems.
+    - **Language:** The entire output MUST be written in **${guideData.language}**.
+    ${guideData.language === 'Filipino' ? `
+    - **CRITICAL FILIPINO LANGUAGE RULE:** Use formal, academic Filipino (Wikang Pambansa). Avoid colloquial "Taglish" unless explicitly framing it as informal dialogue.` : ''}
+`;
 
     const catholicSubjects = ["Christian Social Living 7-10", "Religious Education 11-12"];
     let perspectiveInstruction = '';
@@ -300,9 +301,14 @@ const getComponentPrompt = (guideData, baseContext, lessonPlan, componentType, s
             ${previousContentInstruction}
             `;
 
-            taskInstruction = `Generate *one* core content page for this lesson.
+taskInstruction = `Generate *one* core content page for this lesson.
             - **Page Title:** It MUST be exactly: "${currentTitle}"
             ${contentContextInstruction}
+
+            **CRITICAL PEDAGOGY (PHILIPPINES 4A's):**
+            - **Analysis & Abstraction:** After presenting facts, explicitly explain *why* this concept matters to a Filipino student.
+            - **Application:** Connect the concept to a local real-life scenario (e.g., "In your barangay...", "When you buy from the sari-sari store...").
+
             - **Content:** Detail-rich, narrative-driven, relevant *only* to this page title.
             - **CRITICAL LENGTH CONSTRAINT:** Be thorough but concise. Max 8000 chars JSON.`;
             

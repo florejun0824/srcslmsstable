@@ -14,9 +14,9 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
-  ChevronsUpDown
+  ChevronsUpDown,
+  GraduationCap
 } from 'lucide-react';
-// [ADDED] Import CheckCircleIcon for the custom radio-style checkbox
 import { CheckCircleIcon } from '@heroicons/react/24/solid'; 
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -24,49 +24,71 @@ import EditUserModal from '../../../admin/EditUserModal';
 import ImportToClassModal from './ImportToClassModal'; 
 import UserInitialsAvatar from '../../../common/UserInitialsAvatar';
 
-// --- Helper: Monet/Theme Color Extraction ---
-const getThemeCardStyle = (activeOverlay) => {
-    switch (activeOverlay) {
-        case 'christmas': 
-            return { backgroundColor: 'rgba(15, 23, 66, 0.6)', borderColor: 'rgba(100, 116, 139, 0.2)' };
-        case 'valentines': 
-            return { backgroundColor: 'rgba(60, 10, 20, 0.6)', borderColor: 'rgba(255, 100, 100, 0.15)' };
-        case 'graduation': 
-            return { backgroundColor: 'rgba(30, 25, 10, 0.6)', borderColor: 'rgba(255, 215, 0, 0.15)' };
-        case 'rainy': 
-            return { backgroundColor: 'rgba(20, 35, 20, 0.6)', borderColor: 'rgba(100, 150, 100, 0.2)' };
-        case 'cyberpunk': 
-            return { backgroundColor: 'rgba(35, 5, 45, 0.6)', borderColor: 'rgba(180, 0, 255, 0.2)' };
-        case 'spring': 
-            return { backgroundColor: 'rgba(50, 10, 20, 0.6)', borderColor: 'rgba(255, 150, 180, 0.2)' };
-        case 'space': 
-            return { backgroundColor: 'rgba(5, 5, 10, 0.6)', borderColor: 'rgba(100, 100, 255, 0.15)' };
-        default: 
-            return {}; 
+// --- ONE UI 8.5 + MONET THEME HELPER ---
+const getThemeStyles = (overlay) => {
+    switch (overlay) {
+        case 'christmas':
+            return {
+                accentBg: 'bg-red-600',
+                accentGradient: 'from-red-600 to-green-700',
+                accentText: 'text-red-600',
+                lightBg: 'bg-red-50 dark:bg-red-900/20',
+                glassBg: 'bg-red-50/60 dark:bg-red-900/10',
+                border: 'border-red-200 dark:border-red-800',
+                ring: 'focus:ring-red-500',
+                checkbox: 'checked:bg-red-600 checked:border-red-600',
+                iconBg: 'bg-red-100 dark:bg-red-900/40'
+            };
+        case 'valentines':
+            return {
+                accentBg: 'bg-pink-600',
+                accentGradient: 'from-pink-500 to-rose-600',
+                accentText: 'text-pink-600',
+                lightBg: 'bg-pink-50 dark:bg-pink-900/20',
+                glassBg: 'bg-pink-50/60 dark:bg-pink-900/10',
+                border: 'border-pink-200 dark:border-pink-800',
+                ring: 'focus:ring-pink-500',
+                checkbox: 'checked:bg-pink-600 checked:border-pink-600',
+                iconBg: 'bg-pink-100 dark:bg-pink-900/40'
+            };
+        case 'cyberpunk':
+            return {
+                accentBg: 'bg-fuchsia-600',
+                accentGradient: 'from-purple-600 to-pink-600',
+                accentText: 'text-fuchsia-400',
+                lightBg: 'bg-fuchsia-900/20',
+                glassBg: 'bg-fuchsia-900/10',
+                border: 'border-fuchsia-500/50',
+                ring: 'focus:ring-fuchsia-500',
+                checkbox: 'checked:bg-fuchsia-500 checked:border-fuchsia-500',
+                iconBg: 'bg-fuchsia-900/40'
+            };
+        default: // Default Blue/Indigo
+            return {
+                accentBg: 'bg-indigo-600',
+                accentGradient: 'from-indigo-600 to-blue-600',
+                accentText: 'text-indigo-600',
+                lightBg: 'bg-indigo-50 dark:bg-indigo-900/20',
+                glassBg: 'bg-indigo-50/60 dark:bg-indigo-900/10',
+                border: 'border-indigo-200 dark:border-indigo-800',
+                ring: 'focus:ring-indigo-500',
+                checkbox: 'checked:bg-indigo-600 checked:border-indigo-600',
+                iconBg: 'bg-indigo-100 dark:bg-indigo-900/40'
+            };
     }
 };
 
-// --- SKELETAL LOADING COMPONENT ---
+// --- SKELETAL LOADING ---
 const StudentTableSkeleton = () => (
-  <div className="flex-1 bg-white dark:bg-[#1A1D24] rounded-[2rem] border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden flex flex-col p-4 animate-pulse">
-    <div className="hidden md:flex items-center gap-4 mb-4 px-4 py-3 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-      <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700"></div>
-      <div className="h-4 w-32 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
-      <div className="h-4 w-24 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
-      <div className="flex-1"></div>
-      <div className="h-4 w-16 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
-    </div>
-    <div className="space-y-3 overflow-y-auto custom-scrollbar flex-1">
-      {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-        <div key={i} className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700">
-           <div className="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 flex-shrink-0"></div>
+  <div className="flex-1 flex flex-col animate-pulse h-full">
+    <div className="space-y-3 overflow-hidden flex-1 p-4">
+      {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+        <div key={i} className="flex items-center gap-4 p-4 rounded-[1.8rem] bg-white/40 dark:bg-white/5 border border-white/20">
+           <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 flex-shrink-0"></div>
            <div className="flex-1 space-y-2">
-              <div className="h-4 w-48 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
-              <div className="md:hidden h-3 w-24 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
+              <div className="h-4 w-1/3 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
            </div>
-           <div className="hidden md:block w-32 h-6 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
-           <div className="hidden md:block w-48 h-6 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
-           <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex-shrink-0"></div>
+           <div className="hidden md:block w-24 h-6 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
         </div>
       ))}
     </div>
@@ -74,405 +96,247 @@ const StudentTableSkeleton = () => (
 );
 
 // --- COMPONENT: Student Mobile Card ---
-const StudentMobileCard = ({ user, enrolledClasses, onEdit, onSelect, isSelected }) => {
-  const { activeOverlay } = useTheme();
-  const dynamicThemeStyle = getThemeCardStyle(activeOverlay);
-
+const StudentMobileCard = ({ user, enrolledClasses, onEdit, onSelect, isSelected, theme }) => {
   return (
     <motion.div 
         layout
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        style={dynamicThemeStyle}
-        className={`relative p-4 mb-3 rounded-[2rem] border shadow-sm overflow-hidden transition-all duration-300
+        initial={{ opacity: 0, scale: 0.98 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className={`
+            relative p-5 mb-3 rounded-[2rem] border transition-all duration-300 active:scale-[0.98]
             ${isSelected 
-                ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-700 ring-1 ring-indigo-500/20' 
-                : (activeOverlay === 'none' ? 'bg-white dark:bg-[#1A1D24]' : '') + ' border-slate-200 dark:border-slate-700'}`}
+                ? `${theme.lightBg} ${theme.border} ring-1 ${theme.ring.replace('focus:', '')}` 
+                : 'bg-white/60 dark:bg-[#1e1e1e]/60 border-white/40 dark:border-white/5 shadow-sm'
+            }
+        `}
     >
-        {/* Card Header */}
-        <div className="flex items-start gap-3.5">
-            <div className="pt-1">
-                <div className="relative flex items-center justify-center w-6 h-6">
-                    <input 
-                        type="checkbox" 
-                        checked={isSelected} 
-                        onChange={onSelect} 
-                        className={`peer appearance-none w-6 h-6 rounded-full border-2 transition-all cursor-pointer 
-                            ${activeOverlay !== 'none' 
-                                ? 'border-white/40 checked:bg-white checked:border-white' 
-                                : 'border-slate-300 dark:border-slate-600 checked:bg-indigo-500 checked:border-indigo-500'
-                            }`}
-                    />
-                    <CheckCircleIcon className={`absolute w-6 h-6 pointer-events-none opacity-0 peer-checked:opacity-100 transition-all scale-50 peer-checked:scale-100 drop-shadow-sm 
-                        ${activeOverlay !== 'none' ? 'text-black' : 'text-white'}`} 
-                    />
-                </div>
+        <div className="flex items-center gap-4">
+            <div className="relative flex items-center justify-center w-6 h-6 flex-shrink-0">
+                <input 
+                    type="checkbox" 
+                    checked={isSelected} 
+                    onChange={onSelect} 
+                    className={`peer appearance-none w-6 h-6 rounded-full border-2 transition-all cursor-pointer border-slate-300 dark:border-slate-600 ${theme.checkbox}`}
+                />
+                <CheckCircleIcon className="absolute w-6 h-6 pointer-events-none opacity-0 peer-checked:opacity-100 transition-all scale-50 peer-checked:scale-100 text-white" />
             </div>
 
-            <div className="flex-1 flex gap-3">
-                <div className="flex-shrink-0 w-12 h-12 rounded-full shadow-sm ring-2 ring-white dark:ring-slate-800 overflow-hidden bg-slate-100 dark:bg-slate-800">
-                    <UserInitialsAvatar 
-                        user={user} 
-                        size="full" 
-                        className="w-full h-full text-sm"
-                    />
-                </div>
-
-                <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <h3 className="font-black text-slate-900 dark:text-white text-base leading-tight truncate pr-2">
-                                {user.firstName} {user.lastName}
-                            </h3>
-                            <div className="flex items-center gap-2 mt-1">
-                                <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wide border border-slate-200 dark:border-slate-700">
-                                    {user.gradeLevel || 'N/A'}
-                                </span>
-                            </div>
-                        </div>
-                        
-                        <button
-                            onClick={onEdit}
-                            className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-slate-700 transition-all shadow-sm border border-slate-200 dark:border-slate-700"
-                        >
-                            <Cog size={18} />
-                        </button>
-                    </div>
-                </div>
+            <div className="flex-shrink-0 w-12 h-12 rounded-full ring-2 ring-white dark:ring-white/10 overflow-hidden bg-slate-100 dark:bg-slate-800 shadow-md">
+                <UserInitialsAvatar user={user} size="full" className="w-full h-full text-sm font-bold" />
             </div>
-        </div>
 
-        <div className="mt-4 pl-9"> 
-            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
-                {enrolledClasses.length > 0 ? (
-                    enrolledClasses.map(className => (
-                    <span 
-                        key={className} 
-                        className="flex-shrink-0 px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-xs font-bold text-blue-600 dark:text-blue-300 border border-blue-100 dark:border-blue-800/30 whitespace-nowrap"
-                    >
-                        {className}
-                    </span>
-                    ))
-                ) : (
-                    <span className="text-xs text-slate-400 italic pl-1">No active classes</span>
-                )}
+            <div className="flex-1 min-w-0">
+                <h3 className="font-bold text-slate-900 dark:text-white text-[15px] truncate leading-tight">
+                    {user.lastName}, {user.firstName}
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                   {user.gradeLevel || 'No Grade'} • {enrolledClasses.length} Classes
+                </p>
             </div>
+            
+            <button
+                onClick={onEdit}
+                className="p-2.5 rounded-2xl bg-white dark:bg-white/10 text-slate-400 hover:text-indigo-600 dark:hover:text-white shadow-sm border border-slate-100 dark:border-white/5 transition-colors"
+            >
+                <Cog size={20} />
+            </button>
         </div>
     </motion.div>
   );
 };
 
-// --- COMPONENT: Student Desktop Row (Renders as TR) ---
-const StudentDesktopRow = ({ user, enrolledClasses, onEdit, onSelect, isSelected }) => {
-  const { activeOverlay } = useTheme();
-
+// --- COMPONENT: Student Desktop Row ---
+const StudentDesktopRow = ({ user, enrolledClasses, onEdit, onSelect, isSelected, theme }) => {
   return (
-    <motion.tr 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className={`hidden md:table-row transition-colors border-b border-slate-100 dark:border-slate-800 last:border-none group ${isSelected ? 'bg-indigo-50 dark:bg-indigo-900/20' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+    <tr 
+        className={`
+            group border-b border-slate-100 dark:border-white/5 last:border-none transition-colors 
+            ${isSelected ? theme.lightBg : 'hover:bg-slate-50/50 dark:hover:bg-white/5'}
+        `}
     >
-        <td className="px-6 py-4 text-center w-16">
-            <div className="relative flex items-center justify-center w-5 h-5 mx-auto">
+        <td className="px-6 py-4 w-16">
+            <div className="relative flex items-center justify-center w-5 h-5 mx-auto z-0">
                 <input 
                     type="checkbox" 
                     checked={isSelected} 
                     onChange={onSelect} 
-                    className={`peer appearance-none w-5 h-5 rounded-full border-2 transition-all cursor-pointer 
-                        ${activeOverlay !== 'none' 
-                            ? 'border-white/40 checked:bg-white checked:border-white' 
-                            : 'border-slate-300 dark:border-slate-600 checked:bg-indigo-500 checked:border-indigo-500'
-                        }`}
+                    className={`peer appearance-none w-5 h-5 rounded-full border-2 transition-all cursor-pointer border-slate-300 dark:border-slate-600 ${theme.checkbox}`}
                 />
-                <CheckCircleIcon className={`absolute w-5 h-5 pointer-events-none opacity-0 peer-checked:opacity-100 transition-all scale-50 peer-checked:scale-100 drop-shadow-sm 
-                    ${activeOverlay !== 'none' ? 'text-black' : 'text-white'}`} 
-                />
+                <CheckCircleIcon className="absolute w-5 h-5 pointer-events-none opacity-0 peer-checked:opacity-100 transition-all scale-50 peer-checked:scale-100 text-white" />
             </div>
         </td>
-        <td className="px-6 py-4 whitespace-nowrap">
-            <div className="flex items-center gap-3">
-                <div className="flex-shrink-0 w-9 h-9 rounded-full shadow-sm ring-2 ring-white dark:ring-slate-800 overflow-hidden bg-slate-100 dark:bg-slate-800">
+        <td className="px-6 py-4">
+            <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full ring-2 ring-white dark:ring-white/10 overflow-hidden relative z-0 shadow-sm">
                     <UserInitialsAvatar user={user} size="full" className="w-full h-full text-xs font-bold" />
                 </div>
-                <span className="font-bold text-slate-800 dark:text-white">{user.lastName}, {user.firstName}</span>
+                <div className="flex flex-col">
+                    <span className="font-bold text-slate-700 dark:text-slate-200 text-sm">{user.lastName}, {user.firstName}</span>
+                </div>
             </div>
         </td>
-        <td className="px-6 py-4 whitespace-nowrap">
-            <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 capitalize">
+        <td className="px-6 py-4">
+            <span className="inline-flex items-center px-3 py-1 rounded-[0.8rem] text-xs font-bold bg-white dark:bg-white/5 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-white/10 shadow-sm">
                 {user.gradeLevel || 'N/A'}
             </span>
         </td>
         <td className="px-6 py-4">
           {enrolledClasses.length > 0 ? (
             <div className="flex flex-wrap gap-1.5">
-                {enrolledClasses.slice(0, 3).map(className => (
-                    <span key={className} className="text-xs font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">
+                {enrolledClasses.slice(0, 2).map(className => (
+                    <span key={className} className="text-[10px] font-bold px-2.5 py-1 rounded-lg border bg-white dark:bg-white/5 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10 shadow-sm">
                         {className}
                     </span>
                 ))}
-                {enrolledClasses.length > 3 && (
-                    <span className="text-xs font-bold text-slate-400 dark:text-slate-500 self-center">+{enrolledClasses.length - 3} more</span>
+                {enrolledClasses.length > 2 && (
+                    <span className="text-[10px] font-bold text-slate-400 px-1 pt-1">+{enrolledClasses.length - 2}</span>
                 )}
             </div>
           ) : (
-            <span className="text-xs text-slate-400 italic">Unassigned</span>
+            <span className="text-xs text-slate-400 italic opacity-60">Unassigned</span>
           )}
         </td>
-        <td className="px-6 py-4 whitespace-nowrap text-right">
+        <td className="px-6 py-4 text-right">
           <button
             onClick={onEdit}
-            className="p-2 rounded-full text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all"
+            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-indigo-500 dark:hover:bg-indigo-600 transition-all active:scale-95"
           >
             <Cog size={18} />
           </button>
         </td>
-    </motion.tr>
+    </tr>
   );
 };
 
-
-// --- CUSTOM SELECT ---
-const CustomSelect = ({ value, onChange, options }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const selectRef = useRef(null);
-    const selectedLabel = options.find(opt => opt.value === value)?.label || options[0].label;
-
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (selectRef.current && !selectRef.current.contains(event.target)) {
-                setIsOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    return (
-        <div className="relative" ref={selectRef}>
-            <button
-                type="button"
-                onClick={() => setIsOpen(prev => !prev)}
-                className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 px-4 py-2.5 rounded-xl flex justify-between items-center text-left text-sm font-medium hover:bg-white dark:hover:bg-slate-700 transition-colors"
-            >
-                <span>{selectedLabel}</span>
-                <ChevronsUpDown className="w-4 h-4 text-slate-400" />
-            </button>
-
-            <AnimatePresence>
-                {isOpen && (
-                    <motion.ul
-                        initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                        transition={{ duration: 0.2 }}
-                        className="absolute z-50 top-full mt-1 w-full max-h-48 overflow-y-auto bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 p-1"
-                    >
-                        {options.map(option => (
-                            <li
-                                key={option.value}
-                                onClick={() => {
-                                    onChange(option.value);
-                                    setIsOpen(false);
-                                }}
-                                className="flex items-center justify-between p-2 rounded-lg text-sm text-slate-700 dark:text-slate-200 font-medium cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
-                            >
-                                <span>{option.label}</span>
-                                {value === option.value && (
-                                    <CheckIcon className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                                )}
-                            </li>
-                        ))}
-                    </motion.ul>
-                )}
-            </AnimatePresence>
-        </div>
-    );
-};
-
-
 // --- FILTER POPUP ---
-const FilterPopup = ({ allClasses, filters, onFilterChange, onClose, onClear }) => {
+const FilterPopup = ({ allClasses, filters, onFilterChange, onClose, onClear, theme }) => {
   const [classSearch, setClassSearch] = useState('');
   const [isClassSearchOpen, setIsClassSearchOpen] = useState(false);
-  const { activeOverlay } = useTheme();
-  const dynamicThemeStyle = getThemeCardStyle(activeOverlay);
 
   const availableClasses = useMemo(() => {
     const lowerSearch = classSearch.toLowerCase();
     return allClasses.filter(cls => {
-      if (filters.grade !== 'All') {
-        if (cls.gradeLevel !== filters.grade) return false;
-      }
+      if (filters.grade !== 'All' && cls.gradeLevel !== filters.grade) return false;
       return cls.name.toLowerCase().includes(lowerSearch);
     });
   }, [allClasses, classSearch, filters.grade]);
 
-  const gradeLevelOptions = [
-    { value: 'All', label: 'All Grades' },
-    { value: 'Grade 7', label: 'Grade 7' },
-    { value: 'Grade 8', label: 'Grade 8' },
-    { value: 'Grade 9', label: 'Grade 9' },
-    { value: 'Grade 10', label: 'Grade 10' },
-    { value: 'Grade 11', label: 'Grade 11' },
-    { value: 'Grade 12', label: 'Grade 12' },
-    { value: 'N/A', label: 'N/A' },
-  ];
-
   return (
     <>
-        <div className="fixed inset-0 bg-black/30 z-40 md:hidden" onClick={onClose} />
-
+        <div className="fixed inset-0 bg-transparent z-40" onClick={onClose} />
         <motion.div 
-            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            initial={{ opacity: 0, scale: 0.9, y: 15 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 10 }}
-            style={dynamicThemeStyle}
-            className={`fixed top-24 left-4 right-4 z-50 md:absolute md:top-14 md:left-0 md:right-auto md:w-80 rounded-[2rem] shadow-2xl border border-slate-200 dark:border-slate-700
-                ${activeOverlay === 'none' ? 'bg-white dark:bg-[#1A1D24]' : ''}`}
+            exit={{ opacity: 0, scale: 0.9, y: 15 }}
+            className="absolute top-full right-0 mt-3 w-80 rounded-[2rem] shadow-[0_20px_50px_-10px_rgba(0,0,0,0.15)] bg-white/90 dark:bg-[#1A1D24]/90 backdrop-blur-3xl border border-white/20 dark:border-white/5 z-50 ring-1 ring-black/5"
         >
-            <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
-                <h3 className="font-bold text-base text-slate-900 dark:text-white">Filters</h3>
-                <button 
-                    onClick={onClear}
-                    className="flex items-center gap-1 text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 px-2 py-1 rounded-lg transition-colors"
-                >
-                    <Trash2 size={12} />
-                    Clear
+            <div className="p-5 border-b border-slate-100 dark:border-white/5 flex justify-between items-center bg-slate-50/50 dark:bg-white/5 rounded-t-[2rem]">
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                    <ListFilter size={16} className={theme.accentText} /> Filter Students
+                </h3>
+                <button onClick={onClear} className="flex items-center gap-1 text-[10px] font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 px-2.5 py-1.5 rounded-lg transition-colors">
+                    <Trash2 size={12} /> Clear
                 </button>
             </div>
-            <div className="p-4 space-y-4">
-                <div>
-                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide">
-                        By Grade
-                    </label>
-                    <CustomSelect
-                        value={filters.grade}
-                        onChange={(value) => onFilterChange('grade', value)}
-                        options={gradeLevelOptions}
-                    />
+            
+            <div className="p-5 space-y-5">
+                {/* Grade Dropdown */}
+                <div className="relative">
+                    <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 block">Grade Level</label>
+                    <div className="relative group">
+                        <select 
+                            value={filters.grade}
+                            onChange={(e) => onFilterChange('grade', e.target.value)}
+                            className="w-full appearance-none bg-slate-100/50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-[1.2rem] px-4 py-3 text-sm font-semibold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 transition-shadow"
+                        >
+                            {['All', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12', 'N/A'].map(opt => (
+                                <option key={opt} value={opt}>{opt === 'All' ? 'All Grades' : opt}</option>
+                            ))}
+                        </select>
+                        <ChevronsUpDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
                 </div>
 
-                <div>
-                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide">
-                        By Class
-                    </label>
-                    <div className="relative">
+                {/* Class Search */}
+                <div className="relative">
+                    <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 block">Class Section</label>
+                    <div className="relative group">
                         <input
                             type="text"
-                            placeholder={filters.grade !== 'All' ? `Search ${filters.grade} classes...` : "Search classes..."}
+                            placeholder="Search class..."
                             value={filters.class ? filters.class.name : classSearch}
                             onFocus={() => setIsClassSearchOpen(true)}
-                            onBlur={() => setTimeout(() => setIsClassSearchOpen(false), 150)}
-                            onChange={(e) => {
-                                setClassSearch(e.target.value);
-                                onFilterChange('class', null);
-                                setIsClassSearchOpen(true); 
-                            }}
-                            disabled={!!filters.class}
-                            className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 px-4 py-2.5 pl-10 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm transition-all disabled:opacity-60"
+                            onChange={(e) => { setClassSearch(e.target.value); onFilterChange('class', null); setIsClassSearchOpen(true); }}
+                            className="w-full bg-slate-100/50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-[1.2rem] pl-4 pr-10 py-3 text-sm font-semibold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 transition-shadow"
                         />
-                        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                        {filters.class && (
-                            <button 
-                                onClick={() => onFilterChange('class', null)}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 hover:text-red-500 transition-colors"
-                            >
-                                <X size={14} />
-                            </button>
+                        {filters.class ? (
+                            <button onClick={() => onFilterChange('class', null)} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 bg-slate-200 dark:bg-slate-700 rounded-full text-slate-500 hover:text-red-500 transition-colors"><X size={12} /></button>
+                        ) : (
+                            <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                         )}
                         
                         {isClassSearchOpen && !filters.class && (
-                            <div className="absolute z-10 w-full mt-1 bg-white dark:bg-slate-800 rounded-xl shadow-xl max-h-40 overflow-auto custom-scrollbar border border-slate-200 dark:border-slate-700 p-1">
-                                {availableClasses.length > 0 ? (
-                                    availableClasses.map(cls => (
-                                        <div 
-                                            key={cls.id} 
-                                            className="px-3 py-2 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-sm text-slate-700 dark:text-slate-200 cursor-pointer transition-colors"
-                                            onMouseDown={() => {
-                                                onFilterChange('class', cls);
-                                                setClassSearch('');
-                                                setIsClassSearchOpen(false);
-                                            }}
-                                        >
-                                            {cls.name}
-                                        </div>
-                                    ))
-                                ) : (
-                                    <div className="px-4 py-3 text-xs text-slate-500 italic text-center">No classes found.</div>
-                                )}
+                            <div className="absolute z-20 w-full mt-2 bg-white dark:bg-[#252529] rounded-[1.5rem] shadow-xl max-h-80 overflow-y-auto border border-slate-100 dark:border-white/5 p-1.5 custom-scrollbar">
+                                {availableClasses.length > 0 ? availableClasses.map(cls => (
+                                    <div key={cls.id} className={`px-4 py-2.5 rounded-xl cursor-pointer text-sm font-medium transition-colors ${theme.lightBg} hover:brightness-95 dark:hover:brightness-110 mb-1 last:mb-0`} 
+                                        onClick={() => { onFilterChange('class', cls); setClassSearch(''); setIsClassSearchOpen(false); }}>
+                                        {cls.name}
+                                    </div>
+                                )) : <div className="p-4 text-xs text-slate-400 text-center font-medium">No classes found</div>}
                             </div>
                         )}
                     </div>
                 </div>
-            </div>
-            
-            <div className="p-3 bg-slate-50 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700">
-                <button
-                    onClick={onClose}
-                    className="w-full px-4 py-2.5 font-bold text-sm text-white bg-gradient-to-r from-indigo-600 to-blue-600 rounded-xl shadow-lg shadow-indigo-500/30 hover:scale-[1.02] transition-all"
-                >
-                    Apply Filters
-                </button>
             </div>
         </motion.div>
     </>
   );
 };
 
-
 // --- MAIN COMPONENT ---
 const StudentManagementView = () => {
   const { firestoreService, userProfile } = useAuth();
   const { showToast } = useToast();
   const { activeOverlay } = useTheme();
-  const dynamicThemeStyle = getThemeCardStyle(activeOverlay);
-
-  const filterContainerRef = useRef(null);
+  
+  // Get Dynamic Theme
+  const theme = getThemeStyles(activeOverlay);
 
   const [allStudents, setAllStudents] = useState([]);
   const [allClasses, setAllClasses] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 25;
-
-  const [filters, setFilters] = useState({
-    name: '',
-    grade: 'All',
-    class: null,
-  });
+  const [filters, setFilters] = useState({ name: '', grade: 'All', class: null });
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selectedStudentIds, setSelectedStudentIds] = useState(new Set());
-  
   const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
 
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (isFilterOpen && filterContainerRef.current && !filterContainerRef.current.contains(event.target)) {
-        setIsFilterOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isFilterOpen]);
-
-  // ✅ UPDATED: Pass schoolId to fetch only this school's data
+  // FETCH DATA
   const fetchData = async () => {
-    // Wait for userProfile to be loaded
-    if (!userProfile?.schoolId) return;
+    // SECURITY FIX: Ensure userProfile is loaded before fetching to prevent
+    // defaulting to 'srcs_main' and leaking data to non-admin schools.
+    if (!userProfile) return;
 
     setLoading(true);
     try {
-      const [users, classes] = await Promise.all([
-        firestoreService.getAllUsers(userProfile.schoolId),     // <--- FIX HERE
-        firestoreService.getAllClasses(userProfile.schoolId)    // <--- FIX HERE
+      // Safely default to 'srcs_main' ONLY if userProfile exists but has no schoolId (legacy/admin)
+      const userSchoolId = userProfile.schoolId || 'srcs_main';
+      
+      const [users, rawClasses] = await Promise.all([
+        firestoreService.getAllUsers(userSchoolId),
+        firestoreService.getAllClasses()
       ]);
+
+      const filteredClasses = rawClasses.filter(cls => {
+         const classSchoolId = cls.schoolId || 'srcs_main';
+         return classSchoolId === userSchoolId;
+      });
+
       setAllStudents(users.filter(u => u.role === 'student' && !u.isRestricted));
-      setAllClasses(classes);
+      setAllClasses(filteredClasses);
     } catch (error) {
       console.error("Error fetching data:", error);
       showToast('Failed to fetch data.', 'error');
@@ -481,399 +345,241 @@ const StudentManagementView = () => {
     }
   };
 
-  // ✅ UPDATED: Run effect when schoolId changes
-  useEffect(() => {
-    fetchData();
-  }, [userProfile?.schoolId]);
+  // Add userProfile to dependencies to re-trigger when auth loads
+  useEffect(() => { fetchData(); }, [userProfile, userProfile?.schoolId]);
 
   const enrolledClassesMap = useMemo(() => {
     const map = new Map();
     for (const student of allStudents) {
       const classes = allClasses
         .filter(cls => Array.isArray(cls.studentIds) && cls.studentIds.includes(student.id))
-        .map(cls => cls.name)
-        .sort();
+        .map(cls => cls.name).sort();
       map.set(student.id, classes);
     }
     return map;
   }, [allStudents, allClasses]);
 
-  // Filter Logic (Runs before pagination)
   const filteredStudents = useMemo(() => {
     const lowerName = filters.name.toLowerCase();
-    const result = allStudents
+    return allStudents
       .filter(student => {
-        if (filters.class) {
-          const enrolled = enrolledClassesMap.get(student.id) || [];
-          if (!enrolled.includes(filters.class.name)) return false;
-        }
-        if (filters.grade !== 'All') {
-          if ((student.gradeLevel || 'N/A') !== filters.grade) return false;
-        }
+        if (filters.class && !(enrolledClassesMap.get(student.id) || []).includes(filters.class.name)) return false;
+        if (filters.grade !== 'All' && (student.gradeLevel || 'N/A') !== filters.grade) return false;
         return `${student.firstName} ${student.lastName}`.toLowerCase().includes(lowerName);
       })
-      // Sort: Last Name -> First Name
-      .sort((a, b) => {
-          const nameA = (a.lastName || '').toLowerCase();
-          const nameB = (b.lastName || '').toLowerCase();
-          
-          if (nameA < nameB) return -1;
-          if (nameA > nameB) return 1;
-          
-          const firstA = (a.firstName || '').toLowerCase();
-          const firstB = (b.firstName || '').toLowerCase();
-          
-          if (firstA < firstB) return -1;
-          if (firstA > firstB) return 1;
-          
-          return 0;
-      });
-      
-      return result;
+      .sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''));
   }, [allStudents, filters, enrolledClassesMap]);
   
-  useEffect(() => {
-      setCurrentPage(1);
-  }, [filters, filteredStudents.length]);
+  useEffect(() => { setCurrentPage(1); }, [filters, filteredStudents.length]);
 
   const paginatedStudents = useMemo(() => {
       const startIndex = (currentPage - 1) * itemsPerPage;
-      const endIndex = startIndex + itemsPerPage;
-      return filteredStudents.slice(startIndex, endIndex);
+      return filteredStudents.slice(startIndex, startIndex + itemsPerPage);
   }, [filteredStudents, currentPage]);
 
   const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
 
-  const handleFilterChange = (key, value) => {
-    setFilters(prev => {
-      const newFilters = { ...prev, [key]: value };
-      if (key === 'grade') newFilters.class = null; 
-      return newFilters;
-    });
-  };
-
-  const handleClearFilters = () => {
-      setFilters({
-          name: filters.name, 
-          grade: 'All',
-          class: null
-      });
-      setIsFilterOpen(false);
-      showToast('Filters cleared', 'success');
-  };
-
-  const activeFilterCount = useMemo(() => {
-    let count = 0;
-    if (filters.grade !== 'All') count++;
-    if (filters.class) count++;
-    return count;
-  }, [filters]);
-
-  const handleSelectStudent = (studentId) => {
-    setSelectedStudentIds(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(studentId)) newSet.delete(studentId);
-      else newSet.add(studentId);
-      return newSet;
-    });
-  };
-
+  const handleFilterChange = (key, value) => setFilters(prev => ({ ...prev, [key]: value, ...(key === 'grade' ? { class: null } : {}) }));
+  const handleClearFilters = () => { setFilters({ name: filters.name, grade: 'All', class: null }); setIsFilterOpen(false); showToast('Filters cleared', 'success'); };
+  const handleSelectStudent = (id) => setSelectedStudentIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const handleSelectAll = () => {
-    const allDisplayedSelected = paginatedStudents.every(s => selectedStudentIds.has(s.id));
-    
-    if (allDisplayedSelected) {
-        setSelectedStudentIds(prev => {
-            const newSet = new Set(prev);
-            paginatedStudents.forEach(s => newSet.delete(s.id));
-            return newSet;
-        });
-    } else {
-        setSelectedStudentIds(prev => {
-            const newSet = new Set(prev);
-            paginatedStudents.forEach(s => newSet.add(s.id));
-            return newSet;
-        });
-    }
+    const allSelected = paginatedStudents.every(s => selectedStudentIds.has(s.id));
+    setSelectedStudentIds(prev => {
+        const n = new Set(prev);
+        paginatedStudents.forEach(s => allSelected ? n.delete(s.id) : n.add(s.id));
+        return n;
+    });
   };
-  
   const isAllPageSelected = paginatedStudents.length > 0 && paginatedStudents.every(s => selectedStudentIds.has(s.id));
-
-  const handleEditClick = (user) => {
-    setSelectedUser(user);
-    setIsEditUserModalOpen(true);
-  };
-
-  const handleCloseModal = () => {
-    setIsEditUserModalOpen(false);
-    setSelectedUser(null);
-  };
+  const activeFilterCount = (filters.grade !== 'All' ? 1 : 0) + (filters.class ? 1 : 0);
 
   const handleUpdateUser = async (updates) => {
-    try {
-      await firestoreService.updateUserDetails(selectedUser.id, updates);
-      showToast('Student updated successfully!', 'success');
-      handleCloseModal();
-      fetchData();
-    } catch (error) {
-      showToast(`Failed to update student: ${error.message}`, 'error');
-    }
-  };
-
-  const handleUpdatePassword = async (userId, newPassword) => {
-    try {
-      await firestoreService.updateUserPassword(userId, newPassword);
-      showToast('Password updated successfully!', 'success');
-    } catch (error) {
-      showToast('Failed to update password.', 'error');
-    }
-  };
-  
-  const handleImportSuccess = () => {
-    fetchData();
-    setSelectedStudentIds(new Set());
-    setIsImportModalOpen(false);
+    try { await firestoreService.updateUserDetails(selectedUser.id, updates); showToast('Updated!', 'success'); setIsEditUserModalOpen(false); fetchData(); } 
+    catch (e) { showToast(e.message, 'error'); }
   };
 
   return (
-    <div className="flex flex-col h-full font-sans space-y-6 p-1 lg:p-0 relative z-10">
-      
-        {/* Header Section */}
-        <motion.header 
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-2"
-        >
-            <div>
-              <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-                Students
+    <div className="flex flex-col h-[calc(100vh-100px)] overflow-visible font-sans space-y-5 relative z-10 p-1">
+        
+        {/* --- FIXED HEADER --- */}
+        <div className="flex-none flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="w-full md:w-auto">
+              <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
+                  <div className={`p-2 rounded-2xl ${theme.iconBg} ${theme.accentText}`}>
+                      <GraduationCap size={28} />
+                  </div>
+                  Students
               </h1>
-              <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">
-                Manage enrollment and student profiles. <span className="text-slate-400 dark:text-slate-600">({filteredStudents.length} total)</span>
-              </p>
+              
+              <div className="flex items-center justify-between md:block mt-2 md:mt-1">
+                  <p className="text-sm font-bold text-slate-500 dark:text-slate-400">
+                    Manage enrollment. <span className={`ml-2 px-2.5 py-0.5 rounded-lg text-xs font-black bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300`}>{filteredStudents.length} Active</span>
+                  </p>
+
+                  {/* Mobile Button: Aligned with subtitle */}
+                  <button
+                    onClick={() => setIsImportModalOpen(true)}
+                    disabled={selectedStudentIds.size === 0}
+                    className={`md:hidden flex items-center gap-2 font-bold text-white px-4 py-2 rounded-[1rem] shadow-lg bg-gradient-to-r ${theme.accentGradient} active:scale-95 transition-all text-xs ml-4 disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    <UserPlus size={16} strokeWidth={2.5} />
+                    <span>Add {selectedStudentIds.size > 0 ? `(${selectedStudentIds.size})` : ''}</span>
+                  </button>
+              </div>
             </div>
-        </motion.header>
-
-        {/* Toolbar */}
-        <motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            style={dynamicThemeStyle}
-            className={`p-2 rounded-[1.25rem] border border-slate-200 dark:border-slate-700 shadow-lg flex flex-col md:flex-row gap-2 items-center justify-between relative z-50
-                ${activeOverlay === 'none' ? 'bg-white dark:bg-[#1A1D24]' : ''}`}
-        >
-            <div className="flex flex-1 w-full gap-2">
-                <div className="relative flex-1">
-                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                    <input
-                        type="text"
-                        placeholder="Search students by name..."
-                        value={filters.name}
-                        onChange={(e) => handleFilterChange('name', e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-700 dark:text-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 outline-none transition-all shadow-inner"
-                    />
-                </div>
-
-                <div className="relative" ref={filterContainerRef}>
-                    <button
-                        onClick={() => setIsFilterOpen(prev => !prev)}
-                        className={`flex items-center gap-2 px-4 py-3 rounded-xl border transition-all h-full font-bold text-xs
-                            ${isFilterOpen || activeFilterCount > 0 
-                                ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-700 text-indigo-600 dark:text-indigo-300' 
-                                : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
-                            }`}
-                    >
-                        <ListFilter className="w-4 h-4" />
-                        <span className="hidden sm:inline">Filters</span>
-                        {activeFilterCount > 0 && (
-                            <span className="flex items-center justify-center w-5 h-5 rounded-full bg-indigo-500 text-white text-[9px] font-bold shadow-sm">
-                                {activeFilterCount}
-                            </span>
-                        )}
-                    </button>
-
-                    <AnimatePresence>
-                        {isFilterOpen && (
-                            <FilterPopup
-                                allClasses={allClasses}
-                                filters={filters}
-                                onFilterChange={handleFilterChange}
-                                onClose={() => setIsFilterOpen(false)}
-                                onClear={handleClearFilters} 
-                            />
-                        )}
-                    </AnimatePresence>
-                </div>
-            </div>
-
+            
+            {/* Desktop Button */}
             <button
               onClick={() => setIsImportModalOpen(true)}
               disabled={selectedStudentIds.size === 0}
-              className="w-full md:w-auto flex justify-center items-center gap-2.5 font-bold text-white px-6 py-3.5 rounded-xl shadow-lg hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed bg-gradient-to-br from-indigo-500 via-purple-500 to-blue-500 ring-1 ring-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.3)]"
+              className={`hidden md:flex items-center gap-2 font-bold text-white px-6 py-3 rounded-[1.5rem] shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 disabled:shadow-none disabled:cursor-not-allowed bg-gradient-to-r ${theme.accentGradient}`}
             >
-              <div className="bg-white/20 rounded-full p-1">
-                <UserPlus size={16} />
-              </div>
-              <span className="whitespace-nowrap">Add {selectedStudentIds.size > 0 ? `(${selectedStudentIds.size})` : ''} to Class</span>
+              <UserPlus size={18} strokeWidth={2.5} />
+              <span>Add to Class {selectedStudentIds.size > 0 ? `(${selectedStudentIds.size})` : ''}</span>
             </button>
+        </div>
+
+        {/* --- FIXED TOOLBAR (Glassmorphism) --- */}
+        <motion.div 
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex-none p-2 rounded-[1.8rem] bg-white/60 dark:bg-[#1A1D24]/60 backdrop-blur-2xl border border-white/40 dark:border-white/5 shadow-sm flex items-center justify-between gap-3 relative z-40"
+        >
+            <div className="relative flex-1 group">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none group-focus-within:text-indigo-500 transition-colors" />
+                <input
+                    type="text"
+                    placeholder="Search by name..."
+                    value={filters.name}
+                    onChange={(e) => handleFilterChange('name', e.target.value)}
+                    className="w-full pl-12 pr-4 py-3 rounded-[1.4rem] bg-slate-100/50 dark:bg-black/20 border-none text-sm font-semibold text-slate-700 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:bg-white dark:focus:bg-black/40 focus:ring-2 focus:ring-indigo-500/10 transition-all"
+                />
+            </div>
+            <div className="relative">
+                <button
+                    onClick={() => setIsFilterOpen(prev => !prev)}
+                    className={`
+                        flex items-center gap-2 px-4 py-3 rounded-[1.4rem] font-bold text-xs transition-all active:scale-95
+                        ${isFilterOpen || activeFilterCount > 0 
+                            ? `${theme.lightBg} ${theme.accentText} shadow-sm ring-1 ring-black/5` 
+                            : 'bg-slate-100/50 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-white/10'}
+                    `}
+                >
+                    <ListFilter className="w-4 h-4" />
+                    <span className="hidden sm:inline">Filter</span>
+                    {activeFilterCount > 0 && <span className={`w-5 h-5 flex items-center justify-center rounded-full ${theme.accentBg} text-white text-[9px]`}>{activeFilterCount}</span>}
+                </button>
+                {isFilterOpen && <FilterPopup allClasses={allClasses} filters={filters} onFilterChange={handleFilterChange} onClose={() => setIsFilterOpen(false)} onClear={handleClearFilters} theme={theme} />}
+            </div>
         </motion.div>
-        
-        {/* Table / Content Area */}
-		<div className="flex-1 overflow-hidden flex flex-col min-h-0 relative z-0">
+
+        {/* --- SCROLLABLE CONTENT AREA (Liquid Surface) --- */}
+        <div className={`
+            flex-1 min-h-0 rounded-[2.5rem] 
+            bg-white/40 dark:bg-[#121212]/40 backdrop-blur-3xl backdrop-saturate-150
+            border border-white/40 dark:border-white/5 shadow-[inset_0_0_20px_rgba(255,255,255,0.2)] dark:shadow-none
+            overflow-hidden flex flex-col relative
+        `}>
             {loading ? (
                 <StudentTableSkeleton />
             ) : (
-            <div 
-                style={dynamicThemeStyle}
-                className={`flex-1 rounded-[2rem] border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden flex flex-col
-                    ${activeOverlay === 'none' ? 'bg-white dark:bg-[#1A1D24]' : ''}`}
-            >
-                {/* Desktop Table */}
-                <div className="hidden md:block overflow-x-auto custom-scrollbar flex-1">
-                <table className="min-w-full text-sm">
-                    <thead className="bg-slate-50 dark:bg-slate-800 sticky top-0 z-10">
-                    <tr>
-                        <th className="px-6 py-4 text-center w-16">
-                            <div className="relative flex items-center justify-center w-5 h-5 mx-auto">
-                                <input
-                                    type="checkbox"
-                                    checked={isAllPageSelected}
-                                    onChange={handleSelectAll}
-                                    disabled={paginatedStudents.length === 0}
-                                    className={`peer appearance-none w-5 h-5 rounded-full border-2 transition-all cursor-pointer 
-                                        ${activeOverlay !== 'none' 
-                                            ? 'border-white/40 checked:bg-white checked:border-white' 
-                                            : 'border-slate-300 dark:border-slate-600 checked:bg-indigo-500 checked:border-indigo-500'
-                                        }`}
-                                />
-                                <CheckCircleIcon className={`absolute w-5 h-5 pointer-events-none opacity-0 peer-checked:opacity-100 transition-all scale-50 peer-checked:scale-100 drop-shadow-sm 
-                                    ${activeOverlay !== 'none' ? 'text-black' : 'text-white'}`} 
-                                />
-                            </div>
-                        </th>
-                        <th className="px-6 py-4 text-left font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-xs">Name</th>
-                        <th className="px-6 py-4 text-left font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-xs">Grade</th>
-                        <th className="px-6 py-4 text-left font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-xs">Classes</th>
-                        <th className="px-6 py-4 text-right font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-xs">Edit</th>
-                    </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-[#1A1D24]">
-                    {paginatedStudents.length > 0 ? (
-                        paginatedStudents.map(user => (
-                        <StudentDesktopRow 
-                            key={user.id} 
-                            user={user} 
-                            enrolledClasses={enrolledClassesMap.get(user.id) || []}
-                            onEdit={() => handleEditClick(user)} 
-                            isSelected={selectedStudentIds.has(user.id)}
-                            onSelect={() => handleSelectStudent(user.id)}
-                        />
-                        ))
-                    ) : (
-                        <tr>
-                        <td colSpan="5" className="text-center text-slate-500 dark:text-slate-400 py-16 font-medium">
-                            No students found matching your filters.
-                        </td>
-                        </tr>
-                    )}
-                    </tbody>
-                </table>
-                </div>
-
-                {/* Mobile List */}
-                <div className="block md:hidden flex-1 overflow-y-auto p-4 custom-scrollbar">
-                {paginatedStudents.length > 0 && (
-                    <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl mb-4 border border-slate-200 dark:border-slate-700">
-                        <div className="relative flex items-center justify-center w-5 h-5">
-                            <input
-                                type="checkbox"
-                                checked={isAllPageSelected}
-                                onChange={handleSelectAll}
-                                className={`peer appearance-none w-5 h-5 rounded-full border-2 transition-all cursor-pointer 
-                                    ${activeOverlay !== 'none' 
-                                        ? 'border-white/40 checked:bg-white checked:border-white' 
-                                        : 'border-slate-300 dark:border-slate-600 checked:bg-indigo-500 checked:border-indigo-500'
-                                    }`}
-                            />
-                            <CheckCircleIcon className={`absolute w-5 h-5 pointer-events-none opacity-0 peer-checked:opacity-100 transition-all scale-50 peer-checked:scale-100 drop-shadow-sm 
-                                ${activeOverlay !== 'none' ? 'text-black' : 'text-white'}`} 
-                            />
-                        </div>
-                        <label 
-                            className="font-bold text-slate-700 dark:text-slate-200 text-sm"
-                            onClick={handleSelectAll}
-                        >
-                            Select Page ({paginatedStudents.length})
-                        </label>
+                <>
+                    {/* DESKTOP TABLE Wrapper - Only this scrolls */}
+                    <div className="hidden md:block flex-1 overflow-y-auto custom-scrollbar relative">
+                        <table className="min-w-full text-sm border-separate border-spacing-0">
+                            {/* STICKY TABLE HEADER */}
+                            <thead className="sticky top-0 z-50 backdrop-blur-xl bg-white/80 dark:bg-[#1A1D24]/90 shadow-sm supports-[backdrop-filter]:bg-white/60">
+                                <tr>
+                                    <th className="px-6 py-5 w-16 border-b border-slate-100 dark:border-white/5 first:rounded-tl-[2rem]">
+                                        <div className="relative flex items-center justify-center w-5 h-5 mx-auto">
+                                            <input
+                                                type="checkbox"
+                                                checked={isAllPageSelected}
+                                                onChange={handleSelectAll}
+                                                className={`peer appearance-none w-5 h-5 rounded-full border-2 transition-all cursor-pointer border-slate-300 dark:border-slate-600 ${theme.checkbox}`}
+                                            />
+                                            <CheckCircleIcon className="absolute w-5 h-5 pointer-events-none opacity-0 peer-checked:opacity-100 transition-all scale-50 peer-checked:scale-100 text-white" />
+                                        </div>
+                                    </th>
+                                    <th className="px-6 py-5 text-left font-bold text-slate-400 dark:text-slate-500 text-[11px] uppercase tracking-wider border-b border-slate-100 dark:border-white/5">STUDENT NAME</th>
+                                    <th className="px-6 py-5 text-left font-bold text-slate-400 dark:text-slate-500 text-[11px] uppercase tracking-wider border-b border-slate-100 dark:border-white/5">GRADE</th>
+                                    <th className="px-6 py-5 text-left font-bold text-slate-400 dark:text-slate-500 text-[11px] uppercase tracking-wider border-b border-slate-100 dark:border-white/5">CLASSES</th>
+                                    <th className="px-6 py-5 text-right font-bold text-slate-400 dark:text-slate-500 text-[11px] uppercase tracking-wider border-b border-slate-100 dark:border-white/5 last:rounded-tr-[2rem]">ACTION</th>
+                                </tr>
+                            </thead>
+                            {/* SCROLLABLE BODY */}
+                            <tbody className="bg-transparent">
+                                {paginatedStudents.length > 0 ? (
+                                    paginatedStudents.map(user => (
+                                        <StudentDesktopRow 
+                                            key={user.id} 
+                                            user={user} 
+                                            enrolledClasses={enrolledClassesMap.get(user.id) || []}
+                                            onEdit={() => { setSelectedUser(user); setIsEditUserModalOpen(true); }} 
+                                            isSelected={selectedStudentIds.has(user.id)}
+                                            onSelect={() => handleSelectStudent(user.id)}
+                                            theme={theme}
+                                        />
+                                    ))
+                                ) : (
+                                    <tr><td colSpan="5" className="text-center py-32 text-slate-400 font-medium">No students found.</td></tr>
+                                )}
+                            </tbody>
+                        </table>
                     </div>
-                )}
-                
-                {paginatedStudents.length > 0 ? (
-                    <div className="space-y-2">
+
+                    {/* MOBILE LIST Wrapper - Only this scrolls */}
+                    <div className="md:hidden flex-1 overflow-y-auto p-4 custom-scrollbar relative">
+                         {paginatedStudents.length > 0 && (
+                            <div className="flex items-center gap-3 px-5 py-4 bg-white/80 dark:bg-[#1e1e1e]/90 backdrop-blur-xl rounded-[1.5rem] mb-4 border border-white/20 dark:border-white/5 sticky top-0 z-20 shadow-sm">
+                                <div className="relative flex items-center justify-center w-5 h-5">
+                                    <input
+                                        type="checkbox"
+                                        checked={isAllPageSelected}
+                                        onChange={handleSelectAll}
+                                        className={`peer appearance-none w-5 h-5 rounded-full border-2 transition-all cursor-pointer border-slate-300 dark:border-slate-600 ${theme.checkbox}`}
+                                    />
+                                    <CheckCircleIcon className="absolute w-5 h-5 text-white pointer-events-none opacity-0 peer-checked:opacity-100 transition-all scale-50 peer-checked:scale-100" />
+                                </div>
+                                <span className="font-bold text-slate-700 dark:text-slate-200 text-sm">Select All ({paginatedStudents.length})</span>
+                            </div>
+                        )}
                         {paginatedStudents.map(user => (
-                        <StudentMobileCard 
-                            key={user.id} 
-                            user={user} 
-                            enrolledClasses={enrolledClassesMap.get(user.id) || []}
-                            onEdit={() => handleEditClick(user)} 
-                            isSelected={selectedStudentIds.has(user.id)}
-                            onSelect={() => handleSelectStudent(user.id)}
-                        />
+                            <StudentMobileCard 
+                                key={user.id} 
+                                user={user} 
+                                enrolledClasses={enrolledClassesMap.get(user.id) || []}
+                                onEdit={() => { setSelectedUser(user); setIsEditUserModalOpen(true); }} 
+                                isSelected={selectedStudentIds.has(user.id)}
+                                onSelect={() => handleSelectStudent(user.id)}
+                                theme={theme}
+                            />
                         ))}
                     </div>
-                ) : (
-                    <div className="text-center text-slate-500 dark:text-slate-400 py-12 font-medium">
-                    No students found.
-                    </div>
-                )}
-                </div>
 
-                {/* --- PAGINATION FOOTER --- */}
-                {totalPages > 1 && (
-                    <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex flex-col sm:flex-row justify-between items-center gap-4">
-                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                            Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredStudents.length)} of {filteredStudents.length} students
-                        </span>
-                        
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                                disabled={currentPage === 1}
-                                className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                            >
-                                <ChevronLeft size={16} />
-                            </button>
-                            
-                            <div className="flex items-center gap-1">
-                                <span className="text-xs font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-lg">
-                                    Page {currentPage} of {totalPages}
-                                </span>
+                    {/* FIXED FOOTER (PAGINATION) */}
+                    {totalPages > 1 && (
+                        <div className="flex-none p-4 border-t border-white/20 dark:border-white/5 bg-white/40 dark:bg-white/5 flex justify-between items-center backdrop-blur-md">
+                            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 ml-2">Page {currentPage} of {totalPages}</span>
+                            <div className="flex gap-2">
+                                <button onClick={() => setCurrentPage(p => Math.max(1, p-1))} disabled={currentPage===1} className="p-2.5 bg-white dark:bg-white/10 rounded-xl hover:bg-slate-50 dark:hover:bg-white/20 disabled:opacity-50 shadow-sm transition-all"><ChevronLeft size={16}/></button>
+                                <button onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))} disabled={currentPage===totalPages} className="p-2.5 bg-white dark:bg-white/10 rounded-xl hover:bg-slate-50 dark:hover:bg-white/20 disabled:opacity-50 shadow-sm transition-all"><ChevronRight size={16}/></button>
                             </div>
-
-                            <button
-                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                                disabled={currentPage === totalPages}
-                                className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                            >
-                                <ChevronRight size={16} />
-                            </button>
                         </div>
-                    </div>
-                )}
-            </div>
+                    )}
+                </>
             )}
-		</div>
+        </div>
 
       {/* Modals */}
       {isEditUserModalOpen && selectedUser && (
         <EditUserModal
           user={selectedUser}
           onSubmit={handleUpdateUser}
-          onUpdatePassword={handleUpdatePassword}
-          onClose={handleCloseModal}
+          onUpdatePassword={async (uid, pwd) => { await firestoreService.updateUserPassword(uid, pwd); showToast('Password updated', 'success'); }}
+          onClose={() => { setIsEditUserModalOpen(false); setSelectedUser(null); }}
         />
       )}
-
       {isImportModalOpen && (
         <ImportToClassModal
           isOpen={isImportModalOpen}
@@ -883,7 +589,7 @@ const StudentManagementView = () => {
           selectedStudentIds={Array.from(selectedStudentIds)}
           firestoreService={firestoreService}
           showToast={showToast}
-          onImportSuccess={handleImportSuccess}
+          onImportSuccess={() => { fetchData(); setSelectedStudentIds(new Set()); setIsImportModalOpen(false); }}
           userProfile={userProfile} 
         />
       )}

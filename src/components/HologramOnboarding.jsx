@@ -1,3 +1,4 @@
+// src/components/onboarding/HologramOnboarding.jsx
 import React, { useEffect, useState, useMemo } from "react";
 import { useTheme } from '../contexts/ThemeContext'; 
 
@@ -107,7 +108,7 @@ export default function HologramOnboarding({ versionInfo, onClose }) {
     }
   }, [activeOverlay]);
 
-  // --- TERMINAL MESSAGES (For Welcome/Refresh/Enter steps only) ---
+  // --- TERMINAL MESSAGES ---
   const getTerminalMessage = () => {
       if (isLoading) return `// Establishing Connection...`;
       if (currentStep === 'welcome') return `// System Update Detected...\n// Initializing Guide Protocol\n\nconsole.log("Welcome to the new version.");\nconsole.log("Ready to view changes?");`;
@@ -116,9 +117,9 @@ export default function HologramOnboarding({ versionInfo, onClose }) {
       return "";
   };
 
-  // --- TYPING EFFECT (Only runs when NOT in 'whatsNew') ---
+  // --- TYPING EFFECT ---
   useEffect(() => {
-    if (currentStep === 'whatsNew') return; // Skip typing for the list view
+    if (currentStep === 'whatsNew') return; 
 
     setTypedText("");
     let i = 0;
@@ -157,44 +158,48 @@ export default function HologramOnboarding({ versionInfo, onClose }) {
       {/* 1. BACKDROP */}
       <div className="absolute inset-0 bg-slate-200/40 dark:bg-black/60 backdrop-blur-[20px]" />
       
-      <div className={`relative z-10 flex items-center gap-8 max-w-6xl w-full ${isMobile ? 'flex-col justify-center mt-10' : 'flex-row justify-center items-end'}`}>
+      {/* Container: Centered on Mobile (No Character Space) vs Offset on Desktop */}
+      <div className={`relative z-10 flex items-center gap-8 max-w-6xl w-full ${isMobile ? 'justify-center h-full' : 'justify-center items-end'}`}>
         
-        {/* 2. CHARACTER */}
-        <div className="relative group">
-            <div className={`absolute inset-0 rounded-full blur-[60px] animate-pulse pointer-events-none ${themeStyles.glow}`} />
-            <img 
-                src="/characters/guide.png" 
-                alt="Guide" 
-                className={`relative z-10 object-contain drop-shadow-[0_10px_40px_rgba(0,0,0,0.25)] transition-transform duration-700 ease-in-out hover:scale-105 ${isMobile ? 'h-[240px]' : 'h-[550px]'}`}
-            />
-        </div>
+        {/* 2. CHARACTER (Desktop Only) */}
+        {!isMobile && (
+            <div className="relative group">
+                <div className={`absolute inset-0 rounded-full blur-[60px] animate-pulse pointer-events-none ${themeStyles.glow}`} />
+                <img 
+                    src="/characters/guide.png" 
+                    alt="Guide" 
+                    className="relative z-10 object-contain drop-shadow-[0_10px_40px_rgba(0,0,0,0.25)] transition-transform duration-700 ease-in-out hover:scale-105 h-[550px]"
+                />
+            </div>
+        )}
 
         {/* 3. THE "GLASS" WINDOW */}
-        <div className="relative w-full max-w-lg animate-in fade-in slide-in-from-bottom-8 duration-700">
+        <div className={`relative w-full max-w-lg animate-in fade-in slide-in-from-bottom-8 duration-700 ${isMobile ? 'w-[95%]' : ''}`}>
             
-            <div className="relative overflow-hidden rounded-[2.5rem] border border-white/40 dark:border-white/10 bg-white/60 dark:bg-[#121216]/60 backdrop-blur-2xl shadow-[0_30px_60px_-10px_rgba(0,0,0,0.15)] dark:shadow-[0_30px_60px_-10px_rgba(0,0,0,0.6)]">
+            {/* One UI 8.5 Panel */}
+            <div className="relative overflow-hidden rounded-[2.5rem] border border-white/40 dark:border-white/10 bg-white/70 dark:bg-[#121216]/70 backdrop-blur-3xl shadow-[0_30px_60px_-10px_rgba(0,0,0,0.15)] dark:shadow-[0_30px_60px_-10px_rgba(0,0,0,0.6)]">
                 
                 {/* Header / Traffic Lights */}
-                <div className="flex-shrink-0 flex items-center gap-2 px-6 py-5 border-b border-black/5 dark:border-white/5 bg-white/20 dark:bg-white/5">
+                <div className="flex-shrink-0 flex items-center gap-2 px-6 py-5 border-b border-black/5 dark:border-white/5 bg-white/30 dark:bg-white/5 backdrop-blur-md">
                     <div className="flex gap-2">
                         <div className="w-3 h-3 rounded-full bg-[#FF5F57] shadow-inner"></div>
                         <div className="w-3 h-3 rounded-full bg-[#FEBC2E] shadow-inner"></div>
                         <div className="w-3 h-3 rounded-full bg-[#28C840] shadow-inner"></div>
                     </div>
-                    <div className="ml-auto text-[11px] font-bold tracking-widest text-slate-400 uppercase opacity-60">
+                    <div className="ml-auto text-[11px] font-bold tracking-widest text-slate-500 dark:text-slate-400 uppercase opacity-70">
                         {currentStep === 'whatsNew' ? 'Release_Notes_v2.0' : 'Terminal_Active'}
                     </div>
                 </div>
 
                 {/* Content Area */}
-                <div className="p-6 md:p-8 flex flex-col h-[380px] md:h-[500px] max-h-[80vh] transition-all duration-500">
+                <div className={`p-6 md:p-8 flex flex-col transition-all duration-500 ${isMobile ? 'h-auto max-h-[60vh]' : 'h-[380px] md:h-[500px] max-h-[80vh]'}`}>
                     
                     {/* CONDITIONAL CONTENT RENDERING */}
                     <div className="flex-grow min-h-0 overflow-y-auto custom-scrollbar pr-2 relative">
                         
-                        {/* A. Terminal View (Welcome / Refresh / Enter) */}
+                        {/* A. Terminal View */}
                         {currentStep !== 'whatsNew' && (
-                             <div className="font-mono text-[13px] md:text-[14px] leading-relaxed text-slate-600 dark:text-slate-300">
+                             <div className="font-mono text-[13px] md:text-[14px] leading-relaxed text-slate-700 dark:text-slate-200">
                                 <span className={`${themeStyles.accentText} select-none mr-2`}>➜</span>
                                 <span className="text-purple-500 select-none mr-2">~</span>
                                 <span className="whitespace-pre-wrap">{typedText}</span>
@@ -202,26 +207,26 @@ export default function HologramOnboarding({ versionInfo, onClose }) {
                              </div>
                         )}
 
-                        {/* B. macOS 26 List View (What's New) */}
+                        {/* B. What's New List */}
                         {currentStep === 'whatsNew' && (
                             <div className="animate-in fade-in zoom-in-95 duration-500">
-                                <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-1">What's New</h3>
-                                <p className="text-xs text-slate-500 uppercase tracking-widest font-semibold mb-6">Latest Build Changes</p>
+                                <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-1 tracking-tight">What's New</h3>
+                                <p className="text-xs text-slate-500 uppercase tracking-widest font-bold mb-6">Latest Build Changes</p>
                                 
                                 <ul className="space-y-3">
                                     {releaseNotes.map((note, index) => (
                                         <li 
                                             key={index} 
-                                            className="group flex gap-4 p-4 rounded-2xl bg-white/40 dark:bg-white/5 border border-white/20 dark:border-white/5 hover:bg-white/60 dark:hover:bg-white/10 transition-all duration-300 hover:scale-[1.01] hover:shadow-sm"
+                                            className="group flex gap-4 p-4 rounded-[1.5rem] bg-white/50 dark:bg-white/5 border border-white/40 dark:border-white/5 hover:bg-white/80 dark:hover:bg-white/10 transition-all duration-300 hover:scale-[1.01] hover:shadow-sm"
                                             style={{ animationDelay: `${index * 50}ms` }}
                                         >
-                                            <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-white dark:bg-[#1a1b26] shadow-sm ${themeStyles.listIcon}`}>
-                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                                            <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-white dark:bg-[#1a1b26] shadow-sm ${themeStyles.listIcon}`}>
+                                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                                                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                                                 </svg>
                                             </div>
                                             <div className="flex flex-col justify-center">
-                                                <span className="text-[14px] font-medium text-slate-700 dark:text-slate-200 leading-snug">
+                                                <span className="text-[14px] font-bold text-slate-700 dark:text-slate-200 leading-snug">
                                                     {note}
                                                 </span>
                                             </div>
@@ -236,11 +241,11 @@ export default function HologramOnboarding({ versionInfo, onClose }) {
                     <div className="mt-6 pt-6 border-t border-black/5 dark:border-white/5 flex flex-col gap-4 flex-shrink-0">
                         
                         <div className="flex items-center justify-between group cursor-pointer" onClick={() => setDontShowAgain(!dontShowAgain)}>
-                            <span className="text-xs font-semibold tracking-wide text-slate-400 uppercase group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
+                            <span className="text-xs font-bold tracking-wide text-slate-500 dark:text-slate-400 uppercase group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-colors">
                                 Don't show again
                             </span>
-                            <div className={`relative w-10 h-6 rounded-full transition-colors duration-300 ease-in-out ${dontShowAgain ? themeStyles.toggleActive : 'bg-slate-200 dark:bg-slate-700'}`}>
-                                <div className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full shadow-sm transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${dontShowAgain ? 'translate-x-4' : 'translate-x-0'}`}></div>
+                            <div className={`relative w-12 h-7 rounded-full transition-colors duration-300 ease-in-out ${dontShowAgain ? themeStyles.toggleActive : 'bg-slate-200 dark:bg-slate-700'}`}>
+                                <div className={`absolute top-1 left-1 bg-white w-5 h-5 rounded-full shadow-md transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${dontShowAgain ? 'translate-x-5' : 'translate-x-0'}`}></div>
                             </div>
                         </div>
 
@@ -248,9 +253,9 @@ export default function HologramOnboarding({ versionInfo, onClose }) {
                             <button
                                 onClick={handleNextOrClose}
                                 disabled={isLoading}
-                                className={`w-full py-4 rounded-2xl font-bold text-[15px] text-white shadow-lg shadow-blue-500/10
+                                className={`w-full py-4 rounded-[1.5rem] font-black text-[15px] text-white shadow-xl shadow-blue-500/20
                                         bg-gradient-to-r ${themeStyles.btnGradient}
-                                        hover:shadow-blue-500/25 hover:scale-[1.02] active:scale-[0.98] 
+                                        hover:shadow-blue-500/30 hover:scale-[1.02] active:scale-[0.98] 
                                         disabled:opacity-50 disabled:cursor-not-allowed
                                         transition-all duration-300 ease-out flex items-center justify-center gap-2`}
                             >
@@ -260,13 +265,13 @@ export default function HologramOnboarding({ versionInfo, onClose }) {
                                 {!isLoading && currentStep === "refresh" && "Restart System"}
                                 {!isLoading && currentStep === "enter" && "Enter Dashboard"}
                                 
-                                <svg className={`w-4 h-4 transition-transform ${currentStep === 'refresh' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                                <svg className={`w-5 h-5 transition-transform ${currentStep === 'refresh' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
                             </button>
 
                             {currentStep === 'refresh' && (
                                 <button 
                                     onClick={handleManualClose}
-                                    className="text-xs font-medium text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors py-1"
+                                    className="text-xs font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors py-2"
                                 >
                                     Dismiss (Risk of cache errors)
                                 </button>
@@ -277,7 +282,7 @@ export default function HologramOnboarding({ versionInfo, onClose }) {
                 </div>
             </div>
 
-            {/* 4. THE GLASS ARROW (Left of box) */}
+            {/* 4. THE GLASS ARROW (Left of box - Desktop Only) */}
             {!isMobile && (
                  <div className="absolute top-[120px] -left-4 w-4 h-4 bg-white/60 dark:bg-[#121216]/60 border-l border-b border-white/40 dark:border-white/10 backdrop-blur-2xl rotate-45 transform origin-center"></div>
             )}

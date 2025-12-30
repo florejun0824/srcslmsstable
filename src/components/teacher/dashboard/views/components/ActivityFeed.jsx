@@ -1,11 +1,13 @@
 // src/components/teacher/dashboard/views/components/ActivityFeed.jsx
-import React, { useState, lazy, Suspense, memo } from 'react';
+import React, { useState, lazy, Suspense, memo, Fragment } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Megaphone, Activity } from 'lucide-react';
+import { Dialog, Transition } from '@headlessui/react'; // Added for Modal
+import { TrashIcon } from '@heroicons/react/24/outline'; // Added for Modal Icon
 import AnnouncementCard from './AnnouncementCard';
 import { useAnnouncements } from '../hooks/useAnnouncements';
 import { useReactions } from '../hooks/useReactions';
-import { useTheme } from '../../../../../contexts/ThemeContext'; // 1. Import Theme Context
+import { useTheme } from '../../../../../contexts/ThemeContext'; 
 
 import { db } from '../../../../../services/firebase';
 
@@ -100,6 +102,9 @@ const ActivityFeed = ({ userProfile, teacherAnnouncements, showToast }) => {
     const [isReactionsBreakdownModalOpen, setIsReactionsBreakdownModalOpen] = useState(false);
     const [reactionsForBreakdownModal, setReactionsForBreakdownModal] = useState(null);
 
+    // --- NEW: DELETE CONFIRMATION STATE ---
+    const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null });
+
     const openAnnouncementModal = (announcement) => {
         setSelectedAnnouncement(announcement);
         setIsAnnouncementModalOpen(true);
@@ -117,6 +122,22 @@ const ActivityFeed = ({ userProfile, teacherAnnouncements, showToast }) => {
         setReactionsForBreakdownModal(null);
     };
 
+    // --- NEW: DELETE HANDLERS ---
+    const requestDelete = (id) => {
+        setDeleteModal({ isOpen: true, id });
+    };
+
+    const confirmDelete = () => {
+        if (deleteModal.id) {
+            handleDeleteTeacherAnn(deleteModal.id);
+        }
+        setDeleteModal({ isOpen: false, id: null });
+    };
+
+    const cancelDelete = () => {
+        setDeleteModal({ isOpen: false, id: null });
+    };
+
     return (
         <div className="space-y-6 w-full relative z-10 pb-8">
             
@@ -129,7 +150,6 @@ const ActivityFeed = ({ userProfile, teacherAnnouncements, showToast }) => {
                     <h2 className={`text-2xl font-bold tracking-tight ${monetStyles ? monetStyles.textColor : 'text-slate-900 dark:text-white'}`}>
                         Announcements
                     </h2>
-                    
                 </div>
             </div>
 
@@ -151,21 +171,17 @@ const ActivityFeed = ({ userProfile, teacherAnnouncements, showToast }) => {
                                 onSave={handleUpdateTeacherAnn}
                                 onCancelEdit={handleCancelEdit}
                                 onStartEdit={handleStartEditAnn}
-                                onDelete={handleDeleteTeacherAnn}
+                                onDelete={requestDelete} // <-- CHANGED: Pass requestDelete instead of direct handler
                                 onTogglePin={handleTogglePinAnnouncement}
                                 onToggleReaction={handleTogglePostReaction}
                                 onToggleExpansion={toggleAnnouncementExpansion}
                                 onViewComments={openAnnouncementModal}
                                 onViewReactions={openReactionsBreakdownModal}
-                                // Pass monet styles down if AnnouncementCard supports it, 
-                                // otherwise the card manages its own internal styling.
-                                // Typically cards are white/slate-900, so we leave them standard 
-                                // to pop against the colored background.
                             />
                         ))}
                     </div>
                 ) : (
-                    // --- Empty State with Monet Support ---
+                    // --- Empty State ---
                     <div
                         className={`rounded-[32px] p-12 flex flex-col items-center justify-center text-center shadow-sm 
                         ${monetStyles 
@@ -194,6 +210,71 @@ const ActivityFeed = ({ userProfile, teacherAnnouncements, showToast }) => {
                 )}
             </AnimatePresence>
             
+            {/* --- ONE UI 8.5 DELETE CONFIRMATION MODAL --- */}
+            <Transition appear show={deleteModal.isOpen} as={Fragment}>
+                <Dialog as="div" className="relative z-[150]" onClose={cancelDelete}>
+                    <Transition.Child
+                        as={Fragment}
+                        enter="ease-out duration-300"
+                        enterFrom="opacity-0"
+                        enterTo="opacity-100"
+                        leave="ease-in duration-200"
+                        leaveFrom="opacity-100"
+                        leaveTo="opacity-0"
+                    >
+                        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" />
+                    </Transition.Child>
+
+                    <div className="fixed inset-0 overflow-y-auto">
+                        <div className="flex min-h-full items-center justify-center p-4 text-center">
+                            <Transition.Child
+                                as={Fragment}
+                                enter="ease-[cubic-bezier(0.19,1,0.22,1)] duration-500"
+                                enterFrom="opacity-0 scale-90 translate-y-10"
+                                enterTo="opacity-100 scale-100 translate-y-0"
+                                leave="ease-in duration-200"
+                                leaveFrom="opacity-100 scale-100 translate-y-0"
+                                leaveTo="opacity-0 scale-90 translate-y-10"
+                            >
+                                <Dialog.Panel className="w-full max-w-sm transform overflow-hidden rounded-[2.5rem] bg-white/80 dark:bg-[#1E1E1E]/80 backdrop-blur-2xl border border-white/40 dark:border-white/5 p-8 text-center align-middle shadow-2xl transition-all">
+                                    <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-500/20 text-red-500 flex items-center justify-center mx-auto mb-5 shadow-inner">
+                                        <TrashIcon className="w-8 h-8" strokeWidth={2} />
+                                    </div>
+                                    <Dialog.Title
+                                        as="h3"
+                                        className="text-2xl font-bold text-slate-900 dark:text-white mb-2 tracking-tight"
+                                    >
+                                        Delete Post?
+                                    </Dialog.Title>
+                                    <div className="mt-2">
+                                        <p className="text-slate-500 dark:text-slate-400 font-medium">
+                                            This action cannot be undone. Are you sure you want to remove this announcement?
+                                        </p>
+                                    </div>
+
+                                    <div className="mt-8 space-y-3">
+                                        <button
+                                            type="button"
+                                            className="w-full py-4 rounded-[1.2rem] bg-red-500 text-white font-bold text-lg shadow-lg shadow-red-500/30 active:scale-95 transition-transform"
+                                            onClick={confirmDelete}
+                                        >
+                                            Yes, Delete It
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="w-full py-4 rounded-[1.2rem] bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white font-bold text-lg hover:bg-slate-200 dark:hover:bg-white/10 active:scale-95 transition-transform"
+                                            onClick={cancelDelete}
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </Dialog.Panel>
+                            </Transition.Child>
+                        </div>
+                    </div>
+                </Dialog>
+            </Transition>
+
             <Suspense fallback={null}>
                 {isAnnouncementModalOpen && (
                     <AnnouncementModal

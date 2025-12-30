@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Dialog } from '@headlessui/react';
+import { Dialog, Transition } from '@headlessui/react';
 import { collection, query, where, onSnapshot, writeBatch, doc, orderBy, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { callGeminiWithLimitCheck } from '../../services/aiService';
 import { useToast } from '../../contexts/ToastContext';
 import Spinner from '../common/Spinner';
-import { XMarkIcon, DocumentTextIcon, SparklesIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, BookOpenIcon, ChevronDownIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import { SparklesIcon } from '@heroicons/react/24/solid';
 import ProgressIndicator from '../common/ProgressIndicator';
 import SourceContentSelector from '../../hooks/SourceContentSelector';
 import { marked } from 'marked';
@@ -60,8 +61,6 @@ const tryParseJson = (jsonString) => {
       .replace(/[\u0000-\u001F]+/g, ' '); // Remove control chars
 
     // 2. MATH FIX: Fix single backslashes in LaTeX that break JSON
-    // Logic: Find a backslash that is NOT followed by a valid JSON escape char (" \ / b f n r t u)
-    // Example: Turns "\frac" into "\\frac" so JSON.parse accepts it
     sanitizedString = sanitizedString.replace(/\\(?!["\\/bfnrtu])/g, '\\\\');
 
     try {
@@ -76,12 +75,26 @@ const tryParseJson = (jsonString) => {
 export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId, subjectId }) {
     const { showToast } = useToast();
 
-    // --- Styles ---
-    const iosInput = "w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl py-3 px-4 text-sm font-medium text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#007AFF]/50 focus:border-[#007AFF] transition-all resize-none";
-    const iosCard = "bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-white/10 rounded-2xl p-5 shadow-sm";
-    const iosBtnPrimary = "px-6 py-3 bg-[#007AFF] hover:bg-[#0062cc] text-white font-bold rounded-xl shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 flex items-center gap-2 justify-center";
-    const iosBtnSecondary = "px-6 py-3 bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-white font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-white/20 transition-all active:scale-95";
-    const iosLabel = "block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 ml-1";
+    // --- REFINED DESIGN TOKENS (Fixed Sizes & Layout) ---
+    const ui = {
+        card: "bg-[#F2F4F8] dark:bg-[#121212] rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]", 
+        surface: "bg-white dark:bg-[#1E1E1E] rounded-2xl p-4 shadow-sm ring-1 ring-black/5 dark:ring-white/5",
+        
+        // Compact Inputs
+        inputWrapper: "group relative bg-[#F7F9FC] dark:bg-[#2C2C2C] rounded-xl transition-all duration-300 focus-within:bg-white dark:focus-within:bg-[#3A3A3A] focus-within:ring-2 focus-within:ring-blue-500/20 border border-transparent focus-within:border-blue-500/50",
+        input: "w-full bg-transparent border-none px-4 pt-6 pb-2 text-sm text-gray-900 dark:text-white placeholder-transparent focus:ring-0 focus:outline-none transition-all resize-none",
+        floatingLabel: "absolute left-4 top-3 text-[0.65rem] font-bold text-gray-400 uppercase tracking-widest transition-all group-focus-within:text-blue-500 group-focus-within:top-1.5",
+        
+        // Sized Buttons
+        btnPrimary: "relative px-8 py-3 bg-[#007AFF] hover:bg-[#0062cc] text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-500/30 hover:shadow-blue-500/40 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2",
+        btnSecondary: "px-6 py-3 bg-white dark:bg-[#2C2C2C] text-gray-700 dark:text-white font-bold text-sm rounded-xl hover:bg-gray-50 dark:hover:bg-[#3A3A3A] transition-all active:scale-95 border border-gray-200 dark:border-white/10",
+        
+        select: "w-full bg-[#F7F9FC] dark:bg-[#2C2C2C] border-none rounded-xl py-3 px-4 text-sm text-gray-900 dark:text-white font-semibold focus:ring-2 focus:ring-blue-500/50 cursor-pointer appearance-none",
+        
+        header: "bg-white/80 dark:bg-[#121212]/80 backdrop-blur-xl border-b border-gray-200/50 dark:border-white/5 px-6 py-4 flex items-center justify-between flex-none z-10",
+        footer: "bg-white dark:bg-[#121212] border-t border-gray-200/50 dark:border-white/5 px-6 py-4 flex items-center justify-end gap-3 flex-none z-10",
+        sectionTitle: "text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3 ml-1",
+    };
 
     // --- State ---
     const [inputs, setInputs] = useState({
@@ -178,6 +191,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
         return { title, content, lessonTitles, error: null };
     }, [selectedUnitIds, unitsForSubject, lessonsForUnit, generationTarget]);
 
+    // --- FULL AI LOGIC & PROMPTS (Restored) ---
     const ulpSchemas = {
       explore: ["type", "lessonsList", "unitOverview", "hookedActivities", "mapOfConceptualChange", "essentialQuestions"],
       firmUp: ["type", "code", "competency", "learningTargets", "successIndicators", "inPersonActivity", "onlineActivity", "supportDiscussion", "assessment", "templates", "valuesIntegration"],
@@ -239,6 +253,11 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
       - Content Source: ${context.sourceLessonTitles}
       - Language: ${context.language}
       - **GRADE LEVEL:** ${context.gradeLevel} (Philippines K-12 Context)
+
+      **CRITICAL LOCALIZATION RULES (NON-NEGOTIABLE):**
+      1. **Geography & Culture:** Use Philippine settings (e.g., *barangay*, *sari-sari store*, *jeepney*, *fiesta*). Do not use US examples (e.g., *lemonade stands*, *suburbs*, *snow*).
+      2. **Currency:** All monetary values MUST be in **PHP / Pesos**.
+      3. **Names:** Use Filipino names (e.g., *Juan, Maria, Cruz, Santos*) in scenarios.
 
       ${contextInjection}
       ${verbosityRules}
@@ -419,7 +438,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
       throw new Error(`Failed to generate section '${type}' after ${maxRetries} retries.`);
     };
 
-    // --- HTML Assembler ---
+    // --- HTML Assembler (Full Logic) ---
     const assembleUlpFromComponents = (components) => {
             let tbody = '';
 
@@ -676,8 +695,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                 <tbody>${tbody}</tbody>
             </table>`;
         };
-
-    // --- Main Generation Handler (SEQUENTIAL FOR CONTEXT) ---
+        
     const handleGenerate = async () => {
         if (generationTarget === 'teacherGuide') {
             if (!inputs.contentStandard || !inputs.performanceStandard || !inputs.learningCompetencies) {
@@ -811,151 +829,206 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
     };
 
     return (
-        <Dialog open={isOpen} onClose={!isSaving && !isGenerating ? onClose : () => {}} className="relative z-[110]">
-            <div className="fixed inset-0 bg-black/20 dark:bg-black/60 backdrop-blur-sm transition-opacity" aria-hidden="true" />
-            <div className="fixed inset-0 flex w-screen items-center justify-center p-4 sm:p-6">
-                <Dialog.Panel className="relative flex flex-col w-full max-w-6xl max-h-[90vh] rounded-[2rem] bg-white dark:bg-[#1C1C1E] shadow-2xl ring-1 ring-black/5 dark:ring-white/10 overflow-hidden transition-all transform">
-                    
-                    {(isGenerating || isSaving) && (
-                        <div className="absolute inset-0 bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-sm flex flex-col justify-center items-center z-50 space-y-6">
-                            {isGenerating ? <ProgressIndicator progress={progress} /> : <Spinner />}
-                            <div className="text-center">
-                                <p className="text-lg font-bold text-gray-900 dark:text-white">{isGenerating ? 'Generating Plan' : 'Saving...'}</p>
-                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{isGenerating ? progressLabel : 'Writing to database'}</p>
-                            </div>
-                        </div>
-                    )}
+        <Transition show={isOpen} as={React.Fragment}>
+            <Dialog onClose={!isSaving && !isGenerating ? onClose : () => {}} className="relative z-[110]">
+                {/* Backdrop */}
+                <Transition.Child
+                    enter="ease-out duration-300"
+                    enterFrom="opacity-0 backdrop-blur-none"
+                    enterTo="opacity-100 backdrop-blur-xl"
+                    leave="ease-in duration-200"
+                    leaveFrom="opacity-100 backdrop-blur-xl"
+                    leaveTo="opacity-0 backdrop-blur-none"
+                >
+                    <div className="fixed inset-0 bg-black/40 transition-all" aria-hidden="true" />
+                </Transition.Child>
 
-                    <div className="flex items-center justify-between px-8 py-6 border-b border-gray-200 dark:border-white/10 bg-white dark:bg-[#1C1C1E] sticky top-0 z-20">
-                        <div className="flex items-center gap-4">
-                            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-2xl text-[#007AFF]">
-                                <DocumentTextIcon className="h-8 w-8" />
-                            </div>
-                            <div>
-                                <Dialog.Title className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">ULP Generator</Dialog.Title>
-                                <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mt-0.5">DepEd / PEAC Aligned Curriculum Builder</p>
-                            </div>
-                        </div>
-                        <button 
-                            onClick={onClose} 
-                            disabled={isSaving || isGenerating} 
-                            className="p-2 rounded-full bg-gray-100 dark:bg-white/10 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/20 transition-colors"
-                        >
-                            <XMarkIcon className="h-6 w-6" />
-                        </button>
-                    </div>
+                <div className="fixed inset-0 flex w-screen items-center justify-center p-4">
+                    <Transition.Child
+                        enter="ease-[cubic-bezier(0.19,1,0.22,1)] duration-500"
+                        enterFrom="opacity-0 scale-90 translate-y-20"
+                        enterTo="opacity-100 scale-100 translate-y-0"
+                        leave="ease-in duration-200"
+                        leaveFrom="opacity-100 scale-100 translate-y-0"
+                        leaveTo="opacity-0 scale-90 translate-y-20"
+                    >
+                        <Dialog.Panel className={`w-[95vw] md:w-[90vw] max-w-6xl h-[85vh] ${ui.card}`}>
+                            
+                            {/* --- LOADING OVERLAY --- */}
+                            {(isGenerating || isSaving) && (
+                                <div className="absolute inset-0 bg-white/80 dark:bg-black/80 backdrop-blur-md z-[60] flex flex-col justify-center items-center">
+                                    <div className="bg-white dark:bg-[#1E1E1E] p-8 rounded-3xl shadow-2xl flex flex-col items-center">
+                                        <div className="scale-125 mb-6"><ProgressIndicator progress={progress} /></div>
+                                        <h3 className="text-xl font-bold mt-4 animate-pulse">{isGenerating ? 'Drafting Blueprint' : 'Saving'}</h3>
+                                        <p className="text-gray-500 mt-2 text-sm">{isGenerating ? progressLabel : 'Writing to database...'}</p>
+                                    </div>
+                                </div>
+                            )}
 
-                    <div className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-white dark:bg-[#1C1C1E]">
-                        {!previewData ? (
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-full">
-                                <div className="space-y-8">
-                                    <section>
-                                        <h3 className="text-sm font-bold text-gray-900 dark:text-white border-b border-gray-200 dark:border-white/10 pb-3 mb-5 flex items-center gap-2">
-                                            1. Authoritative Inputs
-                                        </h3>
-                                        <div className="space-y-5">
-                                            <div>
-                                                <label className={iosLabel}>Content Standard</label>
-                                                <textarea name="contentStandard" value={inputs.contentStandard} onChange={handleInputChange} className={iosInput} rows={3} placeholder="The learner demonstrates understanding of..." />
-                                            </div>
-                                            <div>
-                                                <label className={iosLabel}>Performance Standard</label>
-                                                <textarea name="performanceStandard" value={inputs.performanceStandard} onChange={handleInputChange} className={iosInput} rows={3} placeholder="The learner is able to..." />
-                                            </div>
-                                            <div>
-                                                <label className={iosLabel}>Learning Competencies</label>
-                                                <textarea name="learningCompetencies" value={inputs.learningCompetencies} onChange={handleInputChange} className={iosInput} rows={4} placeholder="Paste competencies here..." />
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div>
-                                                    <label className={iosLabel}>Language</label>
-                                                    <div className="relative">
-                                                        <select value={selectedLanguage} onChange={(e) => setSelectedLanguage(e.target.value)} className={`${iosInput} appearance-none`}>
+                            {/* --- HEADER (Fixed) --- */}
+                            <div className={ui.header}>
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+                                        <BookOpenIcon className="h-6 w-6 text-white" />
+                                    </div>
+                                    <div>
+                                        <Dialog.Title className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+                                            Unit <span className="text-blue-500">Learning Plan</span>
+                                        </Dialog.Title>
+                                        <p className="text-[0.65rem] font-bold text-gray-400 uppercase tracking-widest">PEAC / DepEd Compliant</p>
+                                    </div>
+                                </div>
+                                <button onClick={onClose} disabled={isSaving || isGenerating} className="group p-2 rounded-full hover:bg-gray-100 dark:hover:bg-white/10 transition-all">
+                                    <XMarkIcon className="h-6 w-6 text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white transition-colors" />
+                                </button>
+                            </div>
+
+                            {/* --- BODY (Scrollable) --- */}
+                            <div className="flex-1 overflow-y-auto px-6 py-8 custom-scrollbar bg-white/50 dark:bg-[#121212]/50">
+                                {!previewData ? (
+                                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-full">
+                                        
+                                        {/* LEFT COLUMN: INPUTS */}
+                                        <div className="lg:col-span-7 space-y-6">
+                                            <section>
+                                                <h3 className={ui.sectionTitle}>1. Framework Targets</h3>
+                                                <div className="space-y-4">
+                                                    {/* Compact Content Standard */}
+                                                    <div className={ui.inputWrapper}>
+                                                        <textarea 
+                                                            name="contentStandard" 
+                                                            value={inputs.contentStandard} 
+                                                            onChange={handleInputChange} 
+                                                            className={ui.input} 
+                                                            rows={2} // Reduced rows
+                                                            placeholder=" " 
+                                                        />
+                                                        <label className={ui.floatingLabel}>Content Standard</label>
+                                                    </div>
+
+                                                    {/* Compact Performance Standard */}
+                                                    <div className={ui.inputWrapper}>
+                                                        <textarea 
+                                                            name="performanceStandard" 
+                                                            value={inputs.performanceStandard} 
+                                                            onChange={handleInputChange} 
+                                                            className={ui.input} 
+                                                            rows={2} // Reduced rows
+                                                            placeholder=" " 
+                                                        />
+                                                        <label className={ui.floatingLabel}>Performance Standard</label>
+                                                    </div>
+
+                                                    {/* Learning Competencies */}
+                                                    <div className={ui.inputWrapper}>
+                                                        <textarea 
+                                                            name="learningCompetencies" 
+                                                            value={inputs.learningCompetencies} 
+                                                            onChange={handleInputChange} 
+                                                            className={ui.input} 
+                                                            rows={3} // Reduced from 5 to 3
+                                                            placeholder=" " 
+                                                        />
+                                                        <label className={ui.floatingLabel}>Learning Competencies</label>
+                                                    </div>
+                                                </div>
+                                            </section>
+
+                                            <section>
+                                                <h3 className={ui.sectionTitle}>2. Contextualization</h3>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div className="relative group">
+                                                        <select value={selectedLanguage} onChange={(e) => setSelectedLanguage(e.target.value)} className={ui.select}>
                                                             <option>English</option>
                                                             <option>Filipino</option>
                                                         </select>
-                                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                                                        </div>
+                                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400"><ChevronDownIcon className="w-4 h-4" /></div>
                                                     </div>
-                                                </div>
-                                                <div>
-                                                    <label className={iosLabel}>Grade Level</label>
-                                                    <div className="relative">
-                                                        <select value={selectedGradeLevel} onChange={(e) => setSelectedGradeLevel(e.target.value)} className={`${iosInput} appearance-none`}>
+                                                    <div className="relative group">
+                                                        <select value={selectedGradeLevel} onChange={(e) => setSelectedGradeLevel(e.target.value)} className={ui.select}>
                                                             {PH_GRADE_LEVELS.map((grade) => (
                                                                 <option key={grade} value={grade}>{grade}</option>
                                                             ))}
                                                         </select>
-                                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                                                        </div>
+                                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400"><ChevronDownIcon className="w-4 h-4" /></div>
                                                     </div>
                                                 </div>
+                                            </section>
+                                        </div>
+
+                                        {/* RIGHT COLUMN: SOURCE SELECTOR */}
+                                        <div className="lg:col-span-5 flex flex-col">
+                                            <h3 className={ui.sectionTitle}>3. Source Material</h3>
+                                            <div className={`${ui.surface} flex-1 min-h-[300px] border border-gray-100 dark:border-white/5 flex flex-col`}>
+                                                 <SourceContentSelector
+                                                    selectedSubjectId={selectedSubjectId}
+                                                    handleSubjectChange={(e) => { setSelectedSubjectId(e.target.value); setSelectedUnitIds(new Set()); }}
+                                                    allSubjects={allSubjects}
+                                                    selectedUnitIds={selectedUnitIds}
+                                                    handleUnitSelectionChange={(id) => {
+                                                        const newSet = new Set(selectedUnitIds);
+                                                        if (newSet.has(id)) newSet.delete(id); else newSet.add(id);
+                                                        setSelectedUnitIds(newSet);
+                                                    }}
+                                                    unitsForSubject={unitsForSubject}
+                                                    loading={isLoadingSubjects}
+                                                />
                                             </div>
                                         </div>
-                                    </section>
-                                </div>
 
-                                <div className="space-y-8">
-                                    <section className="h-full flex flex-col">
-                                        <h3 className="text-sm font-bold text-gray-900 dark:text-white border-b border-gray-200 dark:border-white/10 pb-3 mb-5 flex items-center gap-2">
-                                            2. Source Content
-                                        </h3>
-                                        <div className={`${iosCard} flex-1 overflow-hidden flex flex-col`}>
-                                            <SourceContentSelector
-                                                selectedSubjectId={selectedSubjectId}
-                                                handleSubjectChange={(e) => { setSelectedSubjectId(e.target.value); setSelectedUnitIds(new Set()); }}
-                                                allSubjects={allSubjects}
-                                                selectedUnitIds={selectedUnitIds}
-                                                handleUnitSelectionChange={(id) => {
-                                                    const newSet = new Set(selectedUnitIds);
-                                                    if (newSet.has(id)) newSet.delete(id); else newSet.add(id);
-                                                    setSelectedUnitIds(newSet);
-                                                }}
-                                                unitsForSubject={unitsForSubject}
-                                                loading={isLoadingSubjects}
-                                            />
+                                    </div>
+                                ) : (
+                                    <div className="max-w-5xl mx-auto animate-fadeIn pb-10">
+                                        <div className="text-center mb-8">
+                                            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-100 text-green-700 font-bold text-xs mb-3">
+                                                <CheckCircleIcon className="w-4 h-4" /> Generation Complete
+                                            </div>
+                                            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Unit Learning Plan</h2>
+                                            <p className="text-gray-500 mt-1">{sourceInfo.title}</p>
                                         </div>
-                                    </section>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="max-w-4xl mx-auto space-y-6">
-                                <div className="text-center mb-8">
-                                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Unit Learning Plan</h2>
-                                    <p className="text-gray-500 dark:text-gray-400 mt-2">{sourceInfo.title}</p>
-                                </div>
-                                <div className="bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-white/10 rounded-2xl p-8 shadow-sm overflow-x-auto">
-                                    {previewData.generated_lessons.map((lesson, index) => (
-                                        <div key={index} className="prose prose-slate dark:prose-invert max-w-none">
-                                            <div dangerouslySetInnerHTML={{ __html: lesson.pages[0].content }} />
+                                        
+                                        <div className="bg-white dark:bg-[#1E1E1E] rounded-xl p-8 shadow-sm border border-gray-100 dark:border-white/5 overflow-x-auto">
+                                            {previewData.generated_lessons.map((lesson, index) => (
+                                                <div key={index} className="prose prose-sm prose-slate dark:prose-invert max-w-none">
+                                                    <div dangerouslySetInnerHTML={{ __html: lesson.pages[0].content }} />
+                                                </div>
+                                            ))}
                                         </div>
-                                    ))}
-                                </div>
+                                    </div>
+                                )}
                             </div>
-                        )}
-                    </div>
 
-                    <div className="flex-shrink-0 px-8 py-6 border-t border-gray-200 dark:border-white/10 bg-white dark:bg-[#1C1C1E] flex justify-end gap-3 z-20">
-                        {previewData ? (
-                            <>
-                                <button onClick={() => setPreviewData(null)} disabled={isSaving} className={iosBtnSecondary}>Back to Edit</button>
-                                <button onClick={handleSave} disabled={isSaving} className={iosBtnPrimary}>Accept & Save</button>
-                            </>
-                        ) : (
-                            <button 
-                                onClick={handleGenerate} 
-                                disabled={isGenerating || !selectedUnitIds.size} 
-                                className={iosBtnPrimary}
-                            >
-                                <SparklesIcon className="w-5 h-5" />
-                                {isGenerating ? 'Generating...' : 'Generate ULP'}
-                            </button>
-                        )}
-                    </div>
-                </Dialog.Panel>
-            </div>
-        </Dialog>
+                            {/* --- FOOTER (Fixed) --- */}
+                            <div className={ui.footer}>
+                                {previewData ? (
+                                    <>
+                                        <button onClick={() => setPreviewData(null)} disabled={isSaving} className={ui.btnSecondary}>
+                                            Back to Edit
+                                        </button>
+                                        <button onClick={handleSave} disabled={isSaving} className={ui.btnPrimary}>
+                                            Accept & Save
+                                        </button>
+                                    </>
+                                ) : (
+                                    <button 
+                                        onClick={handleGenerate} 
+                                        disabled={isGenerating || !selectedUnitIds.size} 
+                                        className={ui.btnPrimary}
+                                    >
+                                        {isGenerating ? 'Generating...' : (
+                                            <>
+                                                <SparklesIcon className="w-4 h-4" />
+                                                Generate Smart Plan
+                                            </>
+                                        )}
+                                    </button>
+                                )}
+                            </div>
+
+                        </Dialog.Panel>
+                    </Transition.Child>
+                </div>
+            </Dialog>
+        </Transition>
     );
 }

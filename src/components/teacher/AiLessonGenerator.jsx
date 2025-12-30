@@ -355,38 +355,71 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         setPreviewLessons([]);
     };
 
-    const extractTextFromFile = async (fileToProcess) => {
-        if (fileToProcess.type === 'application/pdf') {
-            const pdf = await pdfjsLib.getDocument(URL.createObjectURL(fileToProcess)).promise;
-            let text = '';
-            for (let i = 1; i <= pdf.numPages; i++) {
-                const page = await pdf.getPage(i);
-                const content = await page.getTextContent();
-                text += content.items.map((item) => item.str).join(' ') + '\n';
-            }
-            return text;
-        } else if (fileToProcess.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-            const arrayBuffer = await fileToProcess.arrayBuffer();
-            const result = await mammoth.extractRawText({ arrayBuffer });
-            return result.value;
-        } else if (fileToProcess.type === 'text/plain') {
-            return await fileToProcess.text();
-        } else {
-            throw new Error('Unsupported file type. Please use PDF, DOCX, or TXT.');
-        }
-    };
+	const extractTextFromFile = async (fileToProcess) => {
+	    // 1. Handle PDF (Smart Extraction)
+	    if (fileToProcess.type === 'application/pdf') {
+	        const pdf = await pdfjsLib.getDocument(URL.createObjectURL(fileToProcess)).promise;
+	        let fullText = '';
+        
+	        for (let i = 1; i <= pdf.numPages; i++) {
+	            const page = await pdf.getPage(i);
+	            const content = await page.getTextContent();
+            
+	            // Variable to track the vertical position of the last item
+	            let lastY = -1;
+	            let pageText = '';
+
+	            for (const item of content.items) {
+	                // Skip empty items
+	                if (!item.str || item.str.trim().length === 0) continue;
+
+	                const currentY = item.transform ? item.transform[5] : -1; // Y-coordinate
+                
+	                // DETECT NEW LINE:
+	                // If the vertical position (Y) drops significantly (> 5 units) compared to the last item,
+	                // we treat it as a new line. Otherwise, it's a continuation of the current line.
+	                if (lastY !== -1 && Math.abs(currentY - lastY) > 5) {
+	                    pageText += '\n' + item.str;
+	                } else {
+	                    // Add a space between words on the same line (unless punctuation/spacing already exists)
+	                    pageText += (pageText.endsWith(' ') || item.str.startsWith(' ') ? '' : ' ') + item.str;
+	                }
+                
+	                lastY = currentY;
+	            }
+            
+	            // Add double newline between pages to help AI distinguish page breaks
+	            fullText += pageText + '\n\n';
+	        }
+	        return fullText;
+
+	    } else if (fileToProcess.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+	        // DOCX handling (Keep existing)
+	        const arrayBuffer = await fileToProcess.arrayBuffer();
+	        const result = await mammoth.extractRawText({ arrayBuffer });
+	        return result.value;
+
+	    } else if (fileToProcess.type === 'text/plain') {
+	        // TXT handling (Keep existing)
+	        return await fileToProcess.text();
+
+	    } else {
+	        throw new Error('Unsupported file type. Please use PDF, DOCX, or TXT.');
+	    }
+	};
 
     // --- PROMPTS AND INSTRUCTIONS ---
 
     const getBasePromptContext = () => {
-        const languageAndGradeInstruction = `
-        **TARGET AUDIENCE (NON-NEGOTIABLE):**
-        - **Grade Level:** The entire output MUST be tailored for **${gradeLevel}** students.
-        - **Language:** The entire output MUST be written in **${language}**.
-        ${language === 'Filipino' ? `
-        - **CRITICAL FILIPINO LANGUAGE RULE:** You are strictly forbidden from using English or any form of code-switching (Taglish). The output must be pure, academic Filipino.
-        ` : ''}
-        `;
+	const languageAndGradeInstruction = `
+	    **TARGET AUDIENCE (NON-NEGOTIABLE):**
+	    - **Context:** Philippines K-12 Curriculum (DepEd MATATAG Standards).
+	    - **Grade Level:** Grade ${gradeLevel}. Ensure content aligns with the specific learning competencies for this grade level in the Philippines.
+	    - **Localization:** Use Filipino names (e.g., Juan, Maria), local currency (PHP/Pesos), and local examples (e.g., jeepneys, barangays) in all examples and word problems.
+	    - **Language:** The entire output MUST be written in **${language}**.
+	    ${language === 'Filipino' ? `
+	    - **CRITICAL FILIPINO LANGUAGE RULE:** Use formal, academic Filipino (Wikang Pambansa). Avoid colloquial "Taglish" unless explicitly framing it as informal dialogue.` : ''}
+	`;
 
         const selectedSubjectData = subjects.find(s => s.id === selectedSubject);
         const catholicSubjects = ["Christian Social Living 7-10", "Religious Education 11-12"];
@@ -500,6 +533,11 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         - **CRITICAL LATEX ESCAPING IN JSON:** Every single backslash \`\\\` in your LaTeX code MUST be escaped with a second backslash (\`\\\\\`).
         
         **ABSOLUTE RULE FOR CONTENT CONTINUATION (NON-NEGOTIABLE):** When a single topic or section is too long for one page and its discussion must continue onto the next page, a heading for that topic (the 'title' in the JSON) MUST ONLY appear on the very first page. ALL subsequent pages for that topic MUST have an empty string for their title: \\\`"title": ""\\\`.
+		
+		**CRITICAL TABLE HANDLING RULE:**
+   	 	- If you encounter text in the source that looks like a table (rows of data, unstructured lists), you MUST reconstruct it into a valid Markdown table.
+   	 	- **Do not** list the raw data as a jumbled paragraph.
+   	 	- **Look for patterns:** If you see "Term... Definition... Term... Definition...", format it as a 2-column table.
         `;
 
 const masterInstructions = `
@@ -600,9 +638,13 @@ const masterInstructions = `
 			                - **Current Title:** "${currentTitle}"
 			                `;
 
-			                taskInstruction = `Generate *one* core content page for this lesson.
-			                - **Page Title:** It MUST be exactly: "${currentTitle}"
-			                ${contentContextInstruction}
+							taskInstruction = `Generate *one* core content page for this lesson.
+							- **Page Title:** It MUST be exactly: "${currentTitle}"
+							${contentContextInstruction}
+
+							**CRITICAL PEDAGOGY (PHILIPPINES 4A's):**
+							- **Analysis & Abstraction:** After presenting facts, explicitly explain *why* this concept matters to a Filipino student.
+							- **Application:** Connect the concept to a local real-life scenario (e.g., "In your barangay...", "When you buy from the sari-sari store...").
                 
 			                **CONTENT GENERATION STRATEGY:**
 			                1. **Goal:** Create a **deep-dive explanation**. Assume the student is intelligent but needs the concept "unpacked" fully.
@@ -756,7 +798,7 @@ const masterInstructions = `
             // --- INCREASED TRUNCATION LIMIT FOR FULL CONTEXT ---
             // Increased to 50,000 characters (approx 12,000 tokens).
             // This covers significantly more of the file.
-            const sourceText = extractedText.substring(0, 45000); 
+            const sourceText = extractedText.substring(0, 90000); 
             
             // --- PHASE 2: PLANNING (5% -> 15%) ---
             setCurrentAction('Creating curriculum outline and lesson map...');

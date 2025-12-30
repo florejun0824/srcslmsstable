@@ -1,5 +1,5 @@
 // src/components/teacher/dashboard/views/ClassesView.jsx
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
     PlusCircleIcon, AcademicCapIcon, UserGroupIcon, ClipboardDocumentListIcon, ShieldCheckIcon,
     ClipboardIcon, PencilSquareIcon, ArchiveBoxIcon, TrashIcon, SquaresPlusIcon,
@@ -7,6 +7,9 @@ import {
 } from '@heroicons/react/24/outline';
 import { IconPower } from '@tabler/icons-react';
 import { motion } from 'framer-motion';
+
+// [ADDED] Import Auth Context to get userProfile for safe filtering
+import { useAuth } from '../../../../contexts/AuthContext'; 
 
 // --- COMPACT SKELETON COMPONENT (Mobile Optimized) ---
 const SkeletonClassCard = () => (
@@ -56,6 +59,8 @@ const ClassesView = ({
     handleStartOnlineClass, 
 	handleEndOnlineClass,      
 }) => {
+    // [ADDED] Get User Profile
+    const { userProfile } = useAuth();
     
     const auroraThemes = [
         { 
@@ -100,13 +105,33 @@ const ClassesView = ({
         },
     ];
 
-    const sortedClasses = [...(activeClasses || [])].sort((a, b) => {
-        const gradeA = parseInt(a.gradeLevel.match(/\d+/));
-        const gradeB = parseInt(b.gradeLevel.match(/\d+/));
-        if (gradeA < gradeB) return -1;
-        if (gradeA > gradeB) return 1;
-        return 0;
-    });
+    // [UPDATED] Filter activeClasses to handle legacy data (missing schoolId)
+    const filteredActiveClasses = useMemo(() => {
+        if (!activeClasses || !userProfile) return [];
+
+        const effectiveUserSchoolId = userProfile.schoolId || 'srcs_main';
+
+        return activeClasses.filter(cls => {
+            // 1. Ensure class belongs to this teacher
+            if (cls.teacherId !== userProfile.id) return false;
+
+            // 2. School Check (Default to srcs_main if missing)
+            const classSchoolId = cls.schoolId || 'srcs_main';
+            return classSchoolId === effectiveUserSchoolId;
+        });
+    }, [activeClasses, userProfile]);
+
+    const sortedClasses = useMemo(() => {
+        return [...filteredActiveClasses].sort((a, b) => {
+            // Safe grade parsing
+            const gradeA = parseInt((a.gradeLevel || '').match(/\d+/) || 0);
+            const gradeB = parseInt((b.gradeLevel || '').match(/\d+/) || 0);
+            if (gradeA < gradeB) return -1;
+            if (gradeA > gradeB) return 1;
+            return 0;
+        });
+    }, [filteredActiveClasses]);
+
 
     return (
         <motion.div 

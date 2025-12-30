@@ -360,14 +360,20 @@ const SubjectDetail = memo((props) => {
                             <ShareIcon className={`w-4 h-4 ${monet ? monet.themeText : 'text-slate-500'}`} />
                             <span className="hidden md:inline text-xs">Share</span>
                         </button>
-                        <button onClick={() => setAddUnitModalOpen(true)} className={`${getButtonClass('secondary', monet)} flex-1 sm:flex-none justify-center`}>
-                            <PlusCircleIcon className={`w-4 h-4 ${monet ? monet.themeText : 'text-emerald-500'}`} />
-                            <span className="text-xs">Add Unit</span>
-                        </button>
-                        <button onClick={() => setIsAiHubOpen(true)} className={`${getButtonClass('primary', monet)} flex-1 sm:flex-none justify-center whitespace-nowrap`}>
-                            <SparklesIcon className="w-4 h-4" />
-                            <span className="text-xs">AI Tools</span>
-                        </button>
+                        
+                        {!activeUnit && (
+                            <button onClick={() => setAddUnitModalOpen(true)} className={`${getButtonClass('secondary', monet)} flex-1 sm:flex-none justify-center`}>
+                                <PlusCircleIcon className={`w-4 h-4 ${monet ? monet.themeText : 'text-emerald-500'}`} />
+                                <span className="text-xs">Add Unit</span>
+                            </button>
+                        )}
+
+                        {activeUnit && (
+                            <button onClick={() => setIsAiHubOpen(true)} className={`${getButtonClass('primary', monet)} flex-1 sm:flex-none justify-center whitespace-nowrap`}>
+                                <SparklesIcon className="w-4 h-4" />
+                                <span className="text-xs">AI Tools</span>
+                            </button>
+                        )}
                     </div>
                 </div>
 

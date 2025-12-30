@@ -182,21 +182,32 @@ const TeacherDashboard = () => {
     }
   }, []);
 
-  // ✅ LOUNGE FETCH: Added School ID Filter
+  // ✅ FIXED: LOUNGE FETCH WITH LEGACY HANDLING
   const fetchLoungePosts = useCallback(async () => {
     if (!userProfile?.id || !userProfile?.schoolId) return;
     
     setIsLoungeLoading(true);
     
     try {
+      // 1. Fetch posts WITHOUT strict school filtering in query
       const postsQuery = query(
         collection(db, 'studentPosts'),
         where('audience', '==', 'Public'),
-        where('schoolId', '==', userProfile.schoolId), // <-- School Filter
+        // REMOVED STRICT FILTER: where('schoolId', '==', userProfile.schoolId), 
         orderBy('createdAt', 'desc')
       );
       const snapshot = await getDocs(postsQuery); 
-      const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      // 2. Filter Client-Side (Legacy Support)
+      const userSchoolId = userProfile.schoolId || 'srcs_main';
+      
+      const posts = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter(post => {
+            const postSchool = post.schoolId || 'srcs_main'; // Fallback for legacy
+            return postSchool === userSchoolId;
+        });
+
       setLoungePosts(posts);
 
       const userIdsToFetch = new Set();
@@ -210,9 +221,7 @@ const TeacherDashboard = () => {
 
     } catch (error) {
       console.error("Error fetching public posts:", error);
-      // NOTE: If this fails, it is likely due to a missing index in Firestore. 
-      // Check the console for the index creation link.
-      showToast("Could not load the Lounge feed. Index might be missing.", "error");
+      showToast("Could not load the Lounge feed.", "error");
     } finally {
       setIsLoungeLoading(false);
       setHasLoungeFetched(true); 
@@ -226,11 +235,9 @@ const TeacherDashboard = () => {
         }
     }, [userProfile, messages.length]);
 
-    // ✅ MAIN DATA FETCH: Now waits for userProfile
+    // ✅ FIXED: MAIN DATA FETCH WITH LEGACY HANDLING
     useEffect(() => {
-        // Must have BOTH user and userProfile to proceed safely with school filtering
         if (!user || !userProfile) {
-            // Keep loading if user is logged in but profile not yet ready
             if (!user) setLoading(false);
             return;
         }
@@ -239,16 +246,17 @@ const TeacherDashboard = () => {
         const teacherId = user.uid || user.id;
         const schoolId = userProfile.schoolId || DEFAULT_SCHOOL_ID;
 
-        // 1. Classes: Teacher Specific (Implicitly School Specific)
+        // 1. Classes: Fetches by TeacherID (Implicitly handles Legacy because teacher ID is constant)
         const classesQuery = query(collection(db, "classes"), where("teacherId", "==", teacherId));
         
-        // 2. Courses: Shared Content (No School Filter)
+        // 2. Courses: Shared Content (No School Filter needed usually, or same legacy logic)
         const coursesQuery = query(collection(db, "courses")); 
 
-        // 3. Announcements: School Specific
+        // 3. Announcements: REMOVED STRICT FILTER
+        // We fetch sorted announcements and filter in the callback
         const announcementsQuery = query(
             collection(db, "teacherAnnouncements"), 
-            where("schoolId", "==", schoolId),
+            // where("schoolId", "==", schoolId), <-- REMOVED
             orderBy("createdAt", "desc")
         );
 
@@ -266,14 +274,28 @@ const TeacherDashboard = () => {
             setError("Failed to load course data.");
         });
 
+        // 4. Client-Side Filtering for Announcements & Categories
         const otherQueries = [
             { query: query(collection(db, "subjectCategories"), orderBy("name")), setter: setCourseCategories },
-            { query: announcementsQuery, setter: setTeacherAnnouncements },
+            { 
+                query: announcementsQuery, 
+                setter: (data) => {
+                    // FILTER LEGACY ANNOUNCEMENTS
+                    const filtered = data.filter(ann => {
+                        const annSchool = ann.schoolId || 'srcs_main';
+                        return annSchool === schoolId;
+                    });
+                    setTeacherAnnouncements(filtered);
+                } 
+            },
         ];
 
         const otherUnsubs = otherQueries.map(({ query, setter }) =>
             onSnapshot(query, (snapshot) => {
-                setter(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                // Check if setter expects raw data or if we wrapped it
+                if (setter.name === 'setCourseCategories') setter(data); // Categories usually global
+                else setter(data); // This calls our custom filter wrapper above
             }, (err) => {
                 console.error("Firestore snapshot error:", err);
             })
@@ -287,7 +309,6 @@ const TeacherDashboard = () => {
             setLoading(false);
         }).catch(err => {
             console.error("Error during initial data fetch:", err);
-            // If announcements fail due to index, we still want to show dashboard
             setLoading(false); 
         });
 
@@ -296,22 +317,31 @@ const TeacherDashboard = () => {
             unsubCourses();
             otherUnsubs.forEach(unsub => unsub());
         };
-    }, [user, userProfile]); // Re-run when profile loads
+    }, [user, userProfile]); 
 
-    // ✅ IMPORT CLASSES LIST: School Specific
+    // ✅ FIXED: IMPORT CLASSES LIST WITH LEGACY HANDLING
     useEffect(() => {
         if (activeView === 'studentManagement' && userProfile?.schoolId) {
             setIsImportViewLoading(true);
             const fetchAllClassesForImport = async () => {
                 try {
+                    // Fetch ALL classes sorted by name (Remove strict schoolId filter)
                     const q = query(
                         collection(db, "classes"), 
-                        where("schoolId", "==", userProfile.schoolId), // <-- School Filter
+                        // where("schoolId", "==", userProfile.schoolId), <-- REMOVED
                         orderBy("name")
                     );
                     const querySnapshot = await getDocs(q);
-                    const allClassesData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    setAllLmsClasses(allClassesData);
+                    const allRawClasses = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    
+                    // Filter Client-Side for Legacy Support
+                    const userSchoolId = userProfile.schoolId || 'srcs_main';
+                    const filteredClasses = allRawClasses.filter(cls => {
+                        const clsSchool = cls.schoolId || 'srcs_main';
+                        return clsSchool === userSchoolId;
+                    });
+
+                    setAllLmsClasses(filteredClasses);
                 } catch (err) {
                     console.error("Error fetching all classes:", err);
                     showToast("Failed to load class list.", "error");

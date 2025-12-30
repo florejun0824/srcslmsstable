@@ -555,8 +555,11 @@ const getExamComponentPrompt = (guideData, generatedTos, testType, previousQuest
     **CRITICAL TONE & FACT RULES (NON-NEGOTIABLE):**
     1.  **NO META-REFERENCES (TONE):** It is strictly forbidden to use phrases that cite the source. Use an authoritative voice.
     2.  **SOURCE TRUTH:** Use the Source Material for facts, but present them as absolute truths.
-    3.  **CORRECT ANSWER:** Must be the **EXACT** string from the options (if Multiple Choice).
-	4. 	**ALTERNATIVE RESPONSE (ANSWER DISTRIBUTION):** For all True/False items generated in this batch (range ${range}), the correct answers MUST be balanced. Approximately **50% of the statements MUST be TRUE** and **50% MUST be FALSE** to maintain assessment integrity. If the total item count is odd, you may round up or down, but strive for balance.
+	3.  **PHILIPPINE CONTEXT (CRITICAL):** - **Currency:** Use **PHP / Pesos** for all money problems.
+        - **Names:** Use Filipino names (e.g., Juan, Maria, Cruz, Reyes).
+        - **Scenarios:** Use local settings (e.g., sari-sari store, barangay hall, jeepney commute) where applicable.
+    4.  **CORRECT ANSWER:** Must be the **EXACT** string from the options (if Multiple Choice).
+	5. 	**ALTERNATIVE RESPONSE (ANSWER DISTRIBUTION):** For all True/False items generated in this batch (range ${range}), the correct answers MUST be balanced. Approximately **50% of the statements MUST be TRUE** and **50% MUST be FALSE** to maintain assessment integrity. If the total item count is odd, you may round up or down, but strive for balance.
 
     **NON-NEGOTIABLE REPETITION RULE (CRITICAL CHECK):**
     - **ABSOLUTELY DO NOT REPEAT THE CONCEPT OR PHRASING** of any question listed in the section below. If a question is similar, you MUST rephrase it significantly or address a different facet of the same competency.

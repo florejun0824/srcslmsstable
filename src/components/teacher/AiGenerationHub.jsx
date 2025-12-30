@@ -1,5 +1,6 @@
+// src/components/lessons/AiGenerationHub.jsx
 import React, { useState, useEffect } from 'react';
-import { useTheme } from '../../contexts/ThemeContext'; // Import Theme Context
+import { useTheme } from '../../contexts/ThemeContext';
 import CreateLearningGuideModal from './CreateLearningGuideModal';
 import CreateUlpModal from './CreateUlpModal';
 import CreateAtgModal from './CreateAtgModal';
@@ -12,285 +13,277 @@ import {
     PencilSquareIcon,
     ArrowRightIcon,
     SparklesIcon,
-    ComputerDesktopIcon
-} from '@heroicons/react/24/outline';
+    ComputerDesktopIcon,
+    BeakerIcon,
+    ClipboardDocumentCheckIcon,
+    BookOpenIcon
+} from '@heroicons/react/24/solid'; // Switched to solid for richer One UI look
 
-// --- HELPER: MONET EFFECT COLOR EXTRACTION ---
-const getMonetStyle = (activeOverlay) => {
-    if (activeOverlay === 'christmas') return { background: 'rgba(15, 23, 66, 0.85)', borderColor: 'rgba(100, 116, 139, 0.2)' }; 
-    if (activeOverlay === 'valentines') return { background: 'rgba(60, 10, 20, 0.85)', borderColor: 'rgba(255, 100, 100, 0.15)' }; 
-    if (activeOverlay === 'graduation') return { background: 'rgba(30, 25, 10, 0.85)', borderColor: 'rgba(255, 215, 0, 0.15)' }; 
-    if (activeOverlay === 'rainy') return { background: 'rgba(20, 35, 20, 0.85)', borderColor: 'rgba(100, 150, 100, 0.2)' };
-    if (activeOverlay === 'cyberpunk') return { background: 'rgba(35, 5, 45, 0.85)', borderColor: 'rgba(180, 0, 255, 0.2)' };
-    if (activeOverlay === 'spring') return { background: 'rgba(50, 10, 20, 0.85)', borderColor: 'rgba(255, 150, 180, 0.2)' };
-    if (activeOverlay === 'space') return { background: 'rgba(5, 5, 10, 0.85)', borderColor: 'rgba(100, 100, 255, 0.15)' };
-    
-    // Default Glass Style (Standard Dark Theme)
-    return { 
-        background: 'rgba(15, 23, 42, 0.85)', 
-        borderColor: 'rgba(255, 255, 255, 0.1)' 
+// --- ONE UI 8.5 MONET ENGINE ---
+const getMonetPalette = (overlay) => {
+    // Default "Brand" Palette (Samsung Blue-ish)
+    const base = {
+        bg: "bg-white dark:bg-[#121212]",
+        modalBg: "bg-[#F7F9FC] dark:bg-[#1E1E1E]",
+        accent: "bg-blue-600",
+        accentGradient: "from-blue-500 to-indigo-600",
+        accentLight: "bg-blue-50 dark:bg-blue-900/20",
+        textPrimary: "text-slate-900 dark:text-white",
+        textSecondary: "text-slate-500 dark:text-slate-400",
+        textAccent: "text-blue-600 dark:text-blue-400",
+        border: "border-slate-200 dark:border-slate-700",
+        iconContainer: "bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-300",
+        ring: "focus:ring-blue-500",
+        hoverShadow: "hover:shadow-blue-500/10"
     };
+
+    switch (overlay) {
+        case 'christmas':
+            return {
+                ...base,
+                modalBg: "bg-[#F0FDF4] dark:bg-[#0a1f12]",
+                accent: "bg-emerald-600",
+                accentGradient: "from-emerald-500 to-green-600",
+                accentLight: "bg-emerald-50 dark:bg-emerald-900/20",
+                textAccent: "text-emerald-700 dark:text-emerald-400",
+                iconContainer: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300",
+                ring: "focus:ring-emerald-500",
+                hoverShadow: "hover:shadow-emerald-500/10"
+            };
+        case 'valentines':
+            return {
+                ...base,
+                modalBg: "bg-[#FFF1F2] dark:bg-[#2a0a10]",
+                accent: "bg-rose-600",
+                accentGradient: "from-rose-500 to-pink-600",
+                accentLight: "bg-rose-50 dark:bg-rose-900/20",
+                textAccent: "text-rose-700 dark:text-rose-400",
+                iconContainer: "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300",
+                ring: "focus:ring-rose-500",
+                hoverShadow: "hover:shadow-rose-500/10"
+            };
+        case 'graduation':
+            return {
+                ...base,
+                modalBg: "bg-[#FFFBEB] dark:bg-[#1f1a0a]",
+                accent: "bg-amber-500",
+                accentGradient: "from-amber-400 to-orange-500",
+                accentLight: "bg-amber-50 dark:bg-amber-900/20",
+                textAccent: "text-amber-700 dark:text-amber-400",
+                iconContainer: "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300",
+                ring: "focus:ring-amber-500",
+                hoverShadow: "hover:shadow-amber-500/10"
+            };
+        case 'rainy':
+            return {
+                ...base,
+                modalBg: "bg-[#F0F9FF] dark:bg-[#0a1a2a]",
+                accent: "bg-cyan-600",
+                accentGradient: "from-cyan-500 to-blue-600",
+                accentLight: "bg-cyan-50 dark:bg-cyan-900/20",
+                textAccent: "text-cyan-700 dark:text-cyan-400",
+                iconContainer: "bg-cyan-100 text-cyan-700 dark:bg-cyan-500/20 dark:text-cyan-300",
+                ring: "focus:ring-cyan-500",
+                hoverShadow: "hover:shadow-cyan-500/10"
+            };
+        default:
+            return base;
+    }
 };
 
-// --- MOBILE RESTRICTION OVERLAY (Refined) ---
-const MobileRestricted = ({ onClose }) => (
-    <div className="fixed inset-0 z-[300] bg-[#f2f2f7]/90 dark:bg-black/90 backdrop-blur-xl flex flex-col items-center justify-center p-8 text-center md:hidden animate-in fade-in duration-300">
-        <div className="w-24 h-24 rounded-[32px] bg-gradient-to-br from-slate-100 to-white dark:from-[#1c1c1e] dark:to-[#2c2c2e] shadow-2xl flex items-center justify-center mb-8 border border-white/50 dark:border-white/10 ring-1 ring-black/5">
-            <ComputerDesktopIcon className="w-10 h-10 text-slate-400 dark:text-slate-500" />
-        </div>
-        <h3 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-br from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 mb-3 tracking-tight">
-            Desktop Experience
-        </h3>
-        <p className="text-[15px] text-slate-500 dark:text-slate-400 max-w-xs leading-relaxed font-medium mb-8">
-            The AI Studio is optimized for larger canvases. Please switch to a tablet or desktop for the full magical experience.
-        </p>
-        
-        <div className="flex flex-col gap-3 w-full max-w-xs">
-            <a 
-                href="https://srcslms.netlify.app"
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="w-full py-4 rounded-[20px] bg-[#007AFF] text-white font-semibold text-[15px] shadow-lg shadow-blue-500/30 active:scale-[0.98] transition-all flex items-center justify-center gap-2 hover:brightness-110"
-            >
-                Open Desktop Version
-            </a>
-            <button 
-                onClick={onClose}
-                className="w-full py-4 rounded-[20px] bg-white dark:bg-[#1c1c1e] text-slate-900 dark:text-white font-semibold text-[15px] shadow-sm border border-black/5 dark:border-white/10 active:scale-[0.98] transition-all hover:bg-slate-50 dark:hover:bg-[#2c2c2e]"
-            >
-                Dismiss
-            </button>
-        </div>
-    </div>
-);
-
-/**
- * 🍬 AIToolButton Component (Candy/Glass Style)
- */
-const AIToolButton = ({ title, description, icon: Icon, iconColor, onClick, disabled, badge }) => {
-    // 🎨 Vibrant Candy Gradients
-    const gradientMap = {
-        'bg-blue-500': {
-            bg: 'bg-blue-50 dark:bg-blue-500/10',
-            icon: 'bg-gradient-to-br from-blue-400 to-cyan-500 shadow-blue-500/40',
-            text: 'text-blue-600 dark:text-blue-300',
-            border: 'group-hover:border-blue-500/30'
-        },
-        'bg-purple-500': {
-            bg: 'bg-purple-50 dark:bg-purple-500/10',
-            icon: 'bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-purple-500/40',
-            text: 'text-purple-600 dark:text-purple-300',
-            border: 'group-hover:border-purple-500/30'
-        },
-        'bg-teal-500': {
-            bg: 'bg-teal-50 dark:bg-teal-500/10',
-            icon: 'bg-gradient-to-br from-emerald-400 to-teal-500 shadow-teal-500/40',
-            text: 'text-teal-600 dark:text-teal-300',
-            border: 'group-hover:border-teal-500/30'
-        },
-        'bg-amber-500': {
-            bg: 'bg-orange-50 dark:bg-orange-500/10',
-            icon: 'bg-gradient-to-br from-amber-400 to-orange-500 shadow-orange-500/40',
-            text: 'text-orange-600 dark:text-orange-300',
-            border: 'group-hover:border-orange-500/30'
-        },
-    };
-    
-    const theme = gradientMap[iconColor] || gradientMap['bg-blue-500'];
-
+// --- ONE UI CARD COMPONENT ---
+const AIToolCard = ({ title, description, icon: Icon, onClick, disabled, badge, monet }) => {
     return (
         <button
-            onClick={(e) => {
-                e.stopPropagation();
-                if (!disabled) onClick();
-            }}
+            onClick={onClick}
             disabled={disabled}
-            className={`group relative p-6 rounded-[32px] text-left h-full flex flex-col transition-all duration-500 ease-out border
-                ${disabled
-                    ? 'bg-slate-50/50 dark:bg-white/5 border-transparent opacity-40 cursor-not-allowed grayscale'
-                    : `bg-white/60 dark:bg-black/20 hover:bg-white/80 dark:hover:bg-black/40 border-white/40 dark:border-white/10 ${theme.border} shadow-lg hover:shadow-xl hover:-translate-y-1 active:scale-[0.98]`
-                }`}
+            className={`
+                group relative w-full h-full flex flex-col p-6 text-left
+                rounded-[32px] border transition-all duration-300 ease-out
+                ${disabled ? 'opacity-60 cursor-not-allowed grayscale' : 'cursor-pointer hover:-translate-y-1.5'}
+                bg-white dark:bg-[#252525] 
+                ${monet.border}
+                shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none
+                ${monet.hoverShadow} hover:shadow-2xl
+            `}
         >
-            {/* Inner Glow Gradient */}
-            <div className={`absolute inset-0 rounded-[32px] opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none bg-gradient-to-br from-white/40 to-transparent dark:from-white/5`} />
-
-            <div className="flex justify-between items-start mb-6 relative z-10">
-                <div className={`w-14 h-14 rounded-[22px] flex items-center justify-center shadow-lg ${theme.icon} text-white ring-4 ring-white/50 dark:ring-white/5 group-hover:scale-110 transition-transform duration-500 ease-out`}>
-                    <Icon className="w-7 h-7 stroke-[2.5]" />
+            {/* Header: Icon & Badge */}
+            <div className="flex justify-between items-start w-full mb-5">
+                <div className={`
+                    w-16 h-16 rounded-[22px] flex items-center justify-center
+                    bg-gradient-to-br ${monet.accentGradient}
+                    text-white shadow-md transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3
+                `}>
+                    <Icon className="w-8 h-8" />
                 </div>
+                
                 {badge && (
-                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/40 dark:to-orange-900/40 text-orange-600 dark:text-orange-300 border border-orange-200/50 dark:border-orange-500/20 shadow-sm">
+                    <span className={`
+                        px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider
+                        ${monet.accentLight} ${monet.textAccent}
+                    `}>
                         {badge}
                     </span>
                 )}
             </div>
 
-            <div className="mt-auto relative z-10">
-                <h3 className="text-[19px] font-bold text-slate-800 dark:text-white tracking-tight leading-snug mb-1.5 group-hover:text-black dark:group-hover:text-white transition-colors">
+            {/* Content */}
+            <div className="flex-1 flex flex-col">
+                <h3 className={`text-xl font-bold mb-2 tracking-tight ${monet.textPrimary}`}>
                     {title}
                 </h3>
-                <p className="text-[14px] font-medium text-slate-500 dark:text-slate-300 leading-relaxed group-hover:text-slate-600 dark:group-hover:text-slate-200 transition-colors">
+                <p className={`text-sm font-medium leading-relaxed ${monet.textSecondary}`}>
                     {description}
                 </p>
             </div>
 
-            {/* Hover Action Icon */}
-            {!disabled && (
-                <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:translate-x-0 translate-x-2">
-                    <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center">
-                        <ArrowRightIcon className="w-4 h-4 text-slate-900 dark:text-white stroke-[3]" />
-                    </div>
-                </div>
-            )}
+            {/* Footer Action */}
+            <div className={`mt-6 flex items-center text-xs font-bold uppercase tracking-widest transition-colors ${monet.textAccent} group-hover:opacity-80`}>
+                <span>Launch Tool</span>
+                <ArrowRightIcon className="w-4 h-4 ml-2 transition-transform duration-300 group-hover:translate-x-1" />
+            </div>
         </button>
     );
 };
 
-/**
- * 🧠 AiGenerationHub Component
- */
-export default function AiGenerationHub({ isOpen, onClose, subjectId, unitId }) {
-    const [view, setView] = useState('menu');
-    const { activeOverlay } = useTheme(); // Access Theme
-    const monetStyle = getMonetStyle(activeOverlay); // Calculate dynamic style
+export default function AiGenerationHub({ isOpen, onClose, unitId, subjectId }) {
+    const [activeGenerator, setActiveGenerator] = useState(null);
+    const { activeOverlay } = useTheme();
+    
+    // Get Dynamic One UI Theme
+    const monet = getMonetPalette(activeOverlay);
 
-    useEffect(() => {
-        if (!isOpen) {
-            const timeout = setTimeout(() => setView('menu'), 300);
-            return () => clearTimeout(timeout);
-        }
-    }, [isOpen]);
-
-    const handleCloseAll = () => {
-        setView('menu');
-        onClose();
-    };
-
+    // --- ENHANCED OPTIONS CONFIGURATION ---
     const generatorOptions = [
         {
             title: "Learning Guide",
-            description: "Generate student-facing lessons.",
-            icon: AcademicCapIcon,
-            iconColor: "bg-blue-500",
-            action: () => setView('guide'),
-            disabled: !unitId
+            description: "Generate comprehensive, pedagogically sound lesson plans aligned with K-12 standards instantly.",
+            icon: BookOpenIcon,
+            action: () => setActiveGenerator('lesson'),
+            badge: "Most Popular",
         },
         {
-            title: "PEAC ULP",
-            description: "Comprehensive Unit Learning Plan.",
-            icon: DocumentChartBarIcon,
-            iconColor: "bg-purple-500",
-            action: () => setView('ulp'),
-            disabled: !unitId
+            title: "Unit Learning Plan",
+            description: "Structure entire learning units (ULP) with cohesive objectives, firm-up activities, and transfer tasks.",
+            icon: DocumentChartBarIcon, // Represents structure/planning
+            action: () => setActiveGenerator('ulp'),
+            badge: "Strategic",
         },
         {
-            title: "PEAC ATG",
-            description: "Detailed Adaptive Teaching Guide.",
-            icon: DocumentTextIcon,
-            iconColor: "bg-teal-500",
-            action: () => setView('atg'),
-            disabled: !unitId
+            title: "Adaptive Teaching Guide",
+            description: "Create personalized ATG guides that adapt instruction for diverse learner needs and prerequisites.",
+            icon: AcademicCapIcon, // Represents teaching mastery
+            action: () => setActiveGenerator('atg'),
         },
         {
-            title: "Exam & TOS",
-            description: "Exam with Table of Specifications.",
-            icon: PencilSquareIcon,
-            iconColor: "bg-amber-500",
-            action: () => setView('exam'),
-            disabled: !unitId,
-            badge: "BETA"
+            title: "Assessment Suite",
+            description: "Automatically construct balanced Exams and Tables of Specifications (TOS) based on your lessons.",
+            icon: ClipboardDocumentCheckIcon, // Represents checking/testing
+            action: () => setActiveGenerator('exam'),
+            badge: "High Value",
         }
     ];
 
     if (!isOpen) return null;
 
-    // Active modal selection logic
-    let ActiveGeneratorModal = null;
-    if (view === 'guide') {
-        ActiveGeneratorModal = <CreateLearningGuideModal isOpen={true} onClose={handleCloseAll} subjectId={subjectId} unitId={unitId} />;
-    } else if (view === 'ulp') {
-        ActiveGeneratorModal = <CreateUlpModal isOpen={true} onClose={handleCloseAll} subjectId={subjectId} unitId={unitId} />;
-    } else if (view === 'atg') {
-        ActiveGeneratorModal = <CreateAtgModal isOpen={true} onClose={handleCloseAll} subjectId={subjectId} unitId={unitId} />;
-    } else if (view === 'exam') {
-        ActiveGeneratorModal = <CreateExamAndTosModal isOpen={true} onClose={handleCloseAll} subjectId={subjectId} unitId={unitId} />;
-    }
+    // --- RENDER ACTIVE MODAL ---
+    const renderActiveModal = () => {
+        const commonProps = {
+            isOpen: true,
+            onClose: () => setActiveGenerator(null),
+            unitId,
+            subjectId
+        };
+
+        switch (activeGenerator) {
+            case 'lesson': return <CreateLearningGuideModal {...commonProps} />;
+            case 'ulp': return <CreateUlpModal {...commonProps} />;
+            case 'atg': return <CreateAtgModal {...commonProps} />;
+            case 'exam': return <CreateExamAndTosModal {...commonProps} />;
+            default: return null;
+        }
+    };
 
     return (
         <>
-            {view === 'menu' && (
-                <div
-                    className="fixed inset-0 z-[200] flex items-center justify-center p-4 overflow-hidden"
-                    onClick={handleCloseAll}
-                >
-                    {/* MONET BACKDROP:
-                      Replaced heavy opacity/blur with lighter glass overlay 
-                      so background animations are visible 
-                    */}
-                    <div className="absolute inset-0 bg-black/20 backdrop-blur-sm transition-opacity duration-500" />
-                    
-                    {/* Atmospheric Glow (reduced slightly to not wash out content) */}
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-indigo-500/10 dark:bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none" />
+            {/* Main Hub Modal */}
+            {!activeGenerator && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    {/* Glassmorphic Backdrop */}
+                    <div 
+                        className="fixed inset-0 bg-slate-900/40 backdrop-blur-xl transition-opacity duration-300"
+                        onClick={onClose}
+                    />
 
-                    {/* Mobile Restriction Layer (Visible < md) */}
-                    <MobileRestricted onClose={handleCloseAll} />
-
-                    {/* DESKTOP CONTAINER (Visible >= md)
-                       Applied monetStyle here and reduced backdrop-blur to 'xl'
-                    */}
-                    <div
-                        style={monetStyle}
-                        className="hidden md:flex flex-col relative w-full max-w-6xl backdrop-blur-xl rounded-[40px] shadow-2xl border p-10 animate-in zoom-in-95 duration-300 ring-1 ring-white/10 transition-colors duration-500"
-                        onClick={(e) => e.stopPropagation()}
-                    >
+                    {/* One UI Container */}
+                    <div className={`
+                        relative w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col
+                        rounded-[40px] shadow-2xl ring-1 ring-white/10
+                        ${monet.modalBg} animate-in fade-in zoom-in-95 duration-300
+                    `}>
+                        
                         {/* Header Section */}
-                        <div className="flex justify-between items-start mb-10">
-                            <div className="flex items-center gap-5">
-                                <div className="w-16 h-16 rounded-[24px] bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/25 ring-4 ring-white/20">
-                                    <SparklesIcon className="w-8 h-8 text-white stroke-[2]" />
+                        <div className="flex-shrink-0 px-8 pt-10 pb-6 flex items-start justify-between">
+                            <div className="max-w-2xl">
+                                <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-4 ${monet.accentLight} ${monet.textAccent}`}>
+                                    <SparklesIcon className="w-4 h-4" />
+                                    <span>AI Assistant Suite 8.5</span>
                                 </div>
-                                <div>
-                                    <h2 className="text-[32px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
-                                        AI Studio
-                                    </h2>
-                                    <p className="text-[16px] font-medium text-slate-500 dark:text-slate-300 mt-0.5">
-                                        Generative tools to accelerate your workflow.
-                                    </p>
-                                </div>
+                                <h2 className={`text-4xl font-black tracking-tighter mb-3 ${monet.textPrimary}`}>
+                                    What would you like to create?
+                                </h2>
+                                <p className={`text-lg font-medium ${monet.textSecondary}`}>
+                                    Select a tool below to generate high-fidelity academic content tailored to your curriculum.
+                                </p>
                             </div>
                             
-                            <button
-                                onClick={handleCloseAll}
-                                className="group p-3 rounded-full bg-slate-100/50 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 transition-all active:scale-90 border border-transparent hover:border-black/5 dark:hover:border-white/10"
+                            <button 
+                                onClick={onClose}
+                                className={`
+                                    p-3 rounded-full transition-all duration-200
+                                    hover:bg-slate-200 dark:hover:bg-white/10
+                                    ${monet.textSecondary}
+                                `}
                             >
-                                <XMarkIcon className="w-6 h-6 text-slate-500 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors stroke-[2.5]" />
+                                <XMarkIcon className="w-8 h-8" />
                             </button>
                         </div>
 
-                        {/* Bento Grid */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-                            {generatorOptions.map((option) => (
-                                <div key={option.title} className="col-span-1 min-h-[260px]">
-                                    <AIToolButton
-                                        title={option.title}
-                                        description={option.description}
-                                        icon={option.icon}
-                                        iconColor={option.iconColor}
-                                        onClick={option.action}
-                                        disabled={option.disabled}
-                                        badge={option.badge}
-                                    />
-                                </div>
-                            ))}
+                        {/* Scrollable Grid Area */}
+                        <div className="flex-1 overflow-y-auto px-8 pb-10 custom-scrollbar">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+                                {generatorOptions.map((option) => (
+                                    <div key={option.title} className="h-full min-h-[240px]">
+                                        <AIToolCard
+                                            title={option.title}
+                                            description={option.description}
+                                            icon={option.icon}
+                                            onClick={option.action}
+                                            badge={option.badge}
+                                            monet={monet}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Footer / Branding */}
+                        <div className={`
+                            px-8 py-4 text-center border-t 
+                            ${monet.border} bg-white/50 dark:bg-black/10 backdrop-blur-md
+                        `}>
+                            <p className={`text-xs font-bold uppercase tracking-widest opacity-40 ${monet.textSecondary}`}>
+                                SRCS LMS • ALL RIGHTS RESERVED
+                            </p>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Layered Modals */}
-            {ActiveGeneratorModal && (
-                <div className="relative z-[250]">
-                     {ActiveGeneratorModal}
+            {/* Nested Active Generator */}
+            {activeGenerator && (
+                <div className="relative z-[200]">
+                    {renderActiveModal()}
                 </div>
             )}
         </>
