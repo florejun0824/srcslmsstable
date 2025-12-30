@@ -11,7 +11,10 @@ const AdminBannerEditModal = lazy(() => import('../../widgets/AdminBannerEditMod
 
 const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal }) => {
     const { bannerSettings, isSpecialBannerActive, isBannerEditModalOpen, openBannerEditModal, closeBannerEditModal } = useBanner(showToast);
-    const { currentActivity } = useSchedule(showToast);
+    
+    // ✅ FIX: Pass schoolId to filter schedule events by school (Fallback to 'srcs_main')
+    const { currentActivity } = useSchedule(showToast, userProfile?.schoolId || 'srcs_main');
+    
     const [imageError, setImageError] = useState(false);
     const { monetTheme } = useTheme();
 

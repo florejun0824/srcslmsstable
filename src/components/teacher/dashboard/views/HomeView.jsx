@@ -19,7 +19,6 @@ const getSchoolName = (schoolId) => {
         'mchs_magballo': 'Magballo Catholic High School',
         'ichs_ilog': 'Ilog Catholic High School'
     };
-    // ✅ FALLBACK: If schoolId is null/undefined, assume SRCS Main
     return schools[schoolId || 'srcs_main'] || 'Your School';
 };
 
@@ -33,7 +32,6 @@ const getSchoolLogo = (schoolId) => {
         'mchs_magballo': '/logos/mchs.png',
         'ichs_ilog': '/logos/ichs.png'
     };
-    // ✅ FALLBACK: If schoolId is null/undefined, assume SRCS Main
     return logos[schoolId || 'srcs_main'] || '/logo.png';
 };
 
@@ -50,7 +48,7 @@ const HomeView = ({
     
     const [dontShowAgain, setDontShowAgain] = useState(false);
 
-    // ✅ FALLBACK in Hook Call as well
+    // ✅ FIXED: Pass schoolId to hook so specific schedules load
     const {
         scheduleActivities,
         onAddActivity,
@@ -61,13 +59,9 @@ const HomeView = ({
     // 🚀 EFFECT: Check Storage Logic
     useEffect(() => {
         if (userProfile?.id) {
-            // 1. Check if user permanently opted out (Local Storage)
             const hasOptedOut = localStorage.getItem(`welcome_opt_out_${userProfile.id}`);
-            
-            // 2. Check if user has already seen it in this specific tab/session (Session Storage)
             const hasSeenSession = sessionStorage.getItem(`welcome_seen_session_${userProfile.id}`);
 
-            // Only show if: They haven't opted out AND they haven't seen it this session
             if (!hasOptedOut && !hasSeenSession) {
                 setIsWelcomeModalOpen(true);
             }
@@ -76,10 +70,7 @@ const HomeView = ({
 
     const handleCloseWelcome = () => {
         if (userProfile?.id) {
-            // ✅ ALWAYS: Mark as seen for this session (prevents reopen on nav switch)
             sessionStorage.setItem(`welcome_seen_session_${userProfile.id}`, 'true');
-
-            // ✅ OPTIONAL: Mark as permanently opted out if checkbox selected
             if (dontShowAgain) {
                 localStorage.setItem(`welcome_opt_out_${userProfile.id}`, 'true');
             }
@@ -90,21 +81,21 @@ const HomeView = ({
     const openScheduleModal = () => setIsScheduleModalOpen(true);
     const closeScheduleModal = () => setIsScheduleModalOpen(false);
     
-    // ✅ Logic for modal content based on effective school ID
     const effectiveSchoolId = userProfile?.schoolId || 'srcs_main';
 
     return (
         <div 
-            className="w-full space-y-8 font-sans pb-32 lg:pb-8 relative z-10"
+            className="w-full space-y-6 md:space-y-8 font-sans pb-32 lg:pb-8 relative z-10"
             style={{ contentVisibility: 'auto' }} 
         >
-            <div className="flex flex-col gap-6 sm:gap-8">
+            <div className="flex flex-col gap-4 sm:gap-8">
                 <DashboardHeader
                     userProfile={userProfile}
                     showToast={showToast}
                     onOpenScheduleModal={openScheduleModal}
                 />
                 
+                {/* Note: Ensure DashboardWidgets also uses One UI styling internally */}
                 <DashboardWidgets
                     activeClasses={activeClasses}
                     handleCreateAnnouncement={handleCreateAnnouncement}
@@ -160,10 +151,10 @@ const HomeView = ({
                                 leaveFrom="opacity-100 scale-100 translate-y-0"
                                 leaveTo="opacity-0 scale-95 translate-y-4"
                             >
-                                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-[2.5rem] bg-white dark:bg-[#1c1c1e] p-8 text-left align-middle shadow-2xl transition-all border border-white/20 ring-1 ring-black/5 relative">
+                                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-[32px] bg-white dark:bg-[#1c1c1e] p-8 text-left align-middle shadow-2xl transition-all border border-white/20 ring-1 ring-black/5 relative">
                                     
-                                    {/* 🏫 Dynamic School Logo Header */}
-                                    <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-3xl bg-slate-50 dark:bg-slate-800/50 mb-6 border border-slate-100 dark:border-slate-700 shadow-sm p-4">
+                                    {/* 🏫 School Logo */}
+                                    <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-[24px] bg-slate-50 dark:bg-slate-800/50 mb-6 border border-slate-100 dark:border-slate-700 shadow-sm p-4">
                                         <img 
                                             src={getSchoolLogo(effectiveSchoolId)} 
                                             alt="School Logo" 
@@ -189,7 +180,7 @@ const HomeView = ({
                                     </div>
 
                                     {/* Privacy Info Box */}
-                                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-5 border border-slate-100 dark:border-slate-700/50 space-y-5">
+                                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded-[24px] p-5 border border-slate-100 dark:border-slate-700/50 space-y-5">
                                         
                                         <div className="flex gap-4">
                                             <div className="flex-shrink-0 mt-0.5">
@@ -224,7 +215,6 @@ const HomeView = ({
                                     </div>
 
                                     <div className="mt-8">
-                                        {/* ✅ CUSTOM CIRCULAR CHECKBOX */}
                                         <div 
                                             className="flex items-center justify-center gap-2.5 mb-5 cursor-pointer group"
                                             onClick={() => setDontShowAgain(!dontShowAgain)}

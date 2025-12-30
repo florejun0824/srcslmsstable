@@ -1,11 +1,11 @@
 // src/components/teacher/dashboard/views/CoursesView.jsx
-import React, { useState, useEffect, useMemo, memo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, memo } from 'react';
 import { Routes, Route, useParams, useNavigate, Link } from 'react-router-dom';
 import { db } from '../../../../services/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import UnitAccordion from '../../UnitAccordion';
 import Spinner from '../../../../components/common/Spinner';
-import { useTheme } from '../../../../contexts/ThemeContext'; // 1. Import Theme Context
+import { useTheme } from '../../../../contexts/ThemeContext';
 import {
     PencilSquareIcon, TrashIcon, PlusCircleIcon, ArrowUturnLeftIcon, SparklesIcon,
     BookOpenIcon, CalculatorIcon, BeakerIcon, GlobeAltIcon, MusicalNoteIcon, WrenchScrewdriverIcon,
@@ -17,250 +17,191 @@ import {
     ArrowPathIcon,
     Squares2X2Icon,
     CheckCircleIcon,
-    ArrowsUpDownIcon 
-} from '@heroicons/react/24/solid';
+    ArrowsUpDownIcon,
+    LockClosedIcon
+} from '@heroicons/react/24/outline';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 
-// --- MONET STYLE HELPER ---
+// --- ONE UI 8.0 MONET STYLES ---
 const getMonetStyles = (activeOverlay) => {
-    if (!activeOverlay) return null;
+    if (!activeOverlay || activeOverlay === 'none') return null;
 
-    const baseGlass = "backdrop-blur-xl border shadow-xl transition-all duration-300";
-    
+    // One UI uses solid accent colors for icons/buttons, not full card gradients
     switch (activeOverlay) {
         case 'christmas':
             return {
-                container: `${baseGlass} bg-[#0f172a]/80 border-emerald-500/20 shadow-emerald-900/10`,
-                text: "text-white",
-                subText: "text-emerald-100/70",
-                accent: "text-emerald-400",
-                buttonPrimary: "bg-gradient-to-r from-emerald-600 to-green-600 text-white border-emerald-700 shadow-emerald-900/20",
-                buttonSecondary: "bg-emerald-900/40 text-emerald-100 border-emerald-500/30 hover:bg-emerald-800/50",
-                cardGradient: "bg-gradient-to-br from-emerald-900/80 to-slate-900/80 border-emerald-500/20",
-                iconBox: "bg-emerald-500/20 border-emerald-400/20 text-emerald-300"
+                iconBg: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300",
+                btnPrimary: "bg-emerald-600 text-white hover:bg-emerald-700",
+                btnTonal: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-500/30",
+                badge: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400",
+                themeText: "text-emerald-700 dark:text-emerald-400"
             };
         case 'valentines':
             return {
-                container: `${baseGlass} bg-[#2c0b0e]/80 border-rose-500/20 shadow-rose-900/10`,
-                text: "text-white",
-                subText: "text-rose-100/70",
-                accent: "text-rose-400",
-                buttonPrimary: "bg-gradient-to-r from-rose-600 to-pink-600 text-white border-rose-700 shadow-rose-900/20",
-                buttonSecondary: "bg-rose-900/40 text-rose-100 border-rose-500/30 hover:bg-rose-800/50",
-                cardGradient: "bg-gradient-to-br from-rose-900/80 to-slate-900/80 border-rose-500/20",
-                iconBox: "bg-rose-500/20 border-rose-400/20 text-rose-300"
+                iconBg: "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300",
+                btnPrimary: "bg-rose-600 text-white hover:bg-rose-700",
+                btnTonal: "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300 hover:bg-rose-200 dark:hover:bg-rose-500/30",
+                badge: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400",
+                themeText: "text-rose-700 dark:text-rose-400"
             };
         case 'graduation':
             return {
-                container: `${baseGlass} bg-[#1a1400]/80 border-amber-500/20 shadow-amber-900/10`,
-                text: "text-white",
-                subText: "text-amber-100/70",
-                accent: "text-amber-400",
-                buttonPrimary: "bg-gradient-to-r from-amber-500 to-yellow-500 text-white border-amber-600 shadow-amber-900/20",
-                buttonSecondary: "bg-amber-900/40 text-amber-100 border-amber-500/30 hover:bg-amber-800/50",
-                cardGradient: "bg-gradient-to-br from-amber-900/80 to-slate-900/80 border-amber-500/20",
-                iconBox: "bg-amber-500/20 border-amber-400/20 text-amber-300"
+                iconBg: "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300",
+                btnPrimary: "bg-amber-600 text-white hover:bg-amber-700",
+                btnTonal: "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-500/30",
+                badge: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400",
+                themeText: "text-amber-700 dark:text-amber-400"
             };
         case 'rainy':
             return {
-                container: `${baseGlass} bg-[#061816]/80 border-teal-500/20 shadow-teal-900/10`,
-                text: "text-white",
-                subText: "text-teal-100/70",
-                accent: "text-teal-400",
-                buttonPrimary: "bg-gradient-to-r from-teal-600 to-cyan-600 text-white border-teal-700 shadow-teal-900/20",
-                buttonSecondary: "bg-teal-900/40 text-teal-100 border-teal-500/30 hover:bg-teal-800/50",
-                cardGradient: "bg-gradient-to-br from-teal-900/80 to-slate-900/80 border-teal-500/20",
-                iconBox: "bg-teal-500/20 border-teal-400/20 text-teal-300"
+                iconBg: "bg-teal-100 text-teal-700 dark:bg-teal-500/20 dark:text-teal-300",
+                btnPrimary: "bg-teal-600 text-white hover:bg-teal-700",
+                btnTonal: "bg-teal-100 text-teal-700 dark:bg-teal-500/20 dark:text-teal-300 hover:bg-teal-200 dark:hover:bg-teal-500/30",
+                badge: "bg-teal-50 text-teal-700 dark:bg-teal-500/10 dark:text-teal-400",
+                themeText: "text-teal-700 dark:text-teal-400"
             };
         case 'cyberpunk':
             return {
-                container: `${baseGlass} bg-[#180a20]/80 border-fuchsia-500/20 shadow-fuchsia-900/10`,
-                text: "text-white",
-                subText: "text-fuchsia-100/70",
-                accent: "text-fuchsia-400",
-                buttonPrimary: "bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white border-fuchsia-700 shadow-fuchsia-900/20",
-                buttonSecondary: "bg-fuchsia-900/40 text-fuchsia-100 border-fuchsia-500/30 hover:bg-fuchsia-800/50",
-                cardGradient: "bg-gradient-to-br from-fuchsia-900/80 to-slate-900/80 border-fuchsia-500/20",
-                iconBox: "bg-fuchsia-500/20 border-fuchsia-400/20 text-fuchsia-300"
+                iconBg: "bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-500/20 dark:text-fuchsia-300",
+                btnPrimary: "bg-fuchsia-600 text-white hover:bg-fuchsia-700",
+                btnTonal: "bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-500/20 dark:text-fuchsia-300 hover:bg-fuchsia-200 dark:hover:bg-fuchsia-500/30",
+                badge: "bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-500/10 dark:text-fuchsia-400",
+                themeText: "text-fuchsia-700 dark:text-fuchsia-400"
             };
         case 'spring':
             return {
-                container: `${baseGlass} bg-[#1f0f15]/80 border-pink-500/20 shadow-pink-900/10`,
-                text: "text-white",
-                subText: "text-pink-100/70",
-                accent: "text-pink-400",
-                buttonPrimary: "bg-gradient-to-r from-pink-500 to-rose-500 text-white border-pink-600 shadow-pink-900/20",
-                buttonSecondary: "bg-pink-900/40 text-pink-100 border-pink-500/30 hover:bg-pink-800/50",
-                cardGradient: "bg-gradient-to-br from-pink-900/80 to-slate-900/80 border-pink-500/20",
-                iconBox: "bg-pink-500/20 border-pink-400/20 text-pink-300"
+                iconBg: "bg-pink-100 text-pink-700 dark:bg-pink-500/20 dark:text-pink-300",
+                btnPrimary: "bg-pink-600 text-white hover:bg-pink-700",
+                btnTonal: "bg-pink-100 text-pink-700 dark:bg-pink-500/20 dark:text-pink-300 hover:bg-pink-200 dark:hover:bg-pink-500/30",
+                badge: "bg-pink-50 text-pink-700 dark:bg-pink-500/10 dark:text-pink-400",
+                themeText: "text-pink-700 dark:text-pink-400"
             };
         case 'space':
             return {
-                container: `${baseGlass} bg-[#020617]/80 border-indigo-500/20 shadow-indigo-900/10`,
-                text: "text-white",
-                subText: "text-indigo-100/70",
-                accent: "text-indigo-400",
-                buttonPrimary: "bg-gradient-to-r from-indigo-600 to-blue-600 text-white border-indigo-700 shadow-indigo-900/20",
-                buttonSecondary: "bg-indigo-900/40 text-indigo-100 border-indigo-500/30 hover:bg-indigo-800/50",
-                cardGradient: "bg-gradient-to-br from-indigo-900/80 to-slate-900/80 border-indigo-500/20",
-                iconBox: "bg-indigo-500/20 border-indigo-400/20 text-indigo-300"
+                iconBg: "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300",
+                btnPrimary: "bg-indigo-600 text-white hover:bg-indigo-700",
+                btnTonal: "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-500/30",
+                badge: "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400",
+                themeText: "text-indigo-700 dark:text-indigo-400"
             };
         default:
             return null;
     }
 };
 
-const commonContainerClasses = "relative h-[calc(100vh-7rem)] lg:h-[calc(100vh-8rem)] w-full p-2 sm:p-4 font-sans selection:bg-blue-500/30";
+const commonContainerClasses = "relative h-[calc(100vh-7rem)] lg:h-[calc(100vh-8rem)] w-full px-4 py-2 font-sans selection:bg-slate-200 dark:selection:bg-slate-700";
 
-// --- CANDY UI STYLE CONSTANTS (Defaults) ---
-const candyBase = `
-    relative overflow-hidden font-bold rounded-full transition-all duration-200 
-    disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 
-    active:scale-95 tracking-wide shrink-0 shadow-lg hover:shadow-xl
-    after:absolute after:inset-0 after:rounded-full after:pointer-events-none 
-    after:shadow-[inset_0_1px_0_rgba(255,255,255,0.4)]
+// --- ONE UI CARD STYLES ---
+// Clean, solid surfaces, soft shadows, super-squircle
+const elevatedCardBase = `
+    group relative flex flex-col p-5 rounded-[26px]
+    transition-all duration-300 ease-out cursor-pointer overflow-hidden
+    bg-white dark:bg-[#1C1C1E] border border-transparent dark:border-[#2C2C2E]
+    shadow-[0_2px_12px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] 
+    hover:-translate-y-1 active:scale-[0.98]
 `;
 
-// Helper to get button classes based on monet presence
+const elevatedIconBox = `
+    w-14 h-14 rounded-[20px] flex items-center justify-center mb-4
+    transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3
+`;
+
+// --- COMPACT PILL BUTTONS ---
 const getButtonClass = (type, monet) => {
-    if (monet) {
-        if (type === 'primary') return `${candyBase} px-4 py-2 sm:px-6 sm:py-2.5 text-sm ${monet.buttonPrimary}`;
-        if (type === 'secondary') return `${candyBase} px-4 py-2 sm:px-5 sm:py-2.5 text-sm ${monet.buttonSecondary}`;
-        if (type === 'icon') return `${candyBase} p-2 sm:p-2.5 aspect-square rounded-full ${monet.buttonSecondary}`;
-        if (type === 'destructive') return `${candyBase} p-2 sm:p-2.5 aspect-square rounded-full text-white bg-gradient-to-b from-red-400 to-red-600 hover:from-red-300 hover:to-red-500 border-b-[2px] border-red-700 shadow-red-500/30`;
-    }
-    // Default Candy Styles
-    if (type === 'primary') return `${candyBase} px-4 py-2 sm:px-6 sm:py-2.5 text-sm text-white bg-gradient-to-b from-blue-400 to-blue-600 hover:from-blue-300 hover:to-blue-500 border-b-[2px] border-blue-700 shadow-blue-500/40`;
-    if (type === 'secondary') return `${candyBase} px-4 py-2 sm:px-5 sm:py-2.5 text-sm text-slate-700 dark:text-white bg-gradient-to-b from-white/80 to-white/40 dark:from-slate-700/80 dark:to-slate-800/40 backdrop-blur-md border border-white/40 dark:border-white/10 shadow-slate-200/50 dark:shadow-black/30 hover:bg-white/60 dark:hover:bg-slate-700/60`;
-    if (type === 'icon') return `${candyBase} p-2 sm:p-2.5 aspect-square rounded-full text-slate-500 dark:text-slate-300 bg-gradient-to-b from-white/90 to-slate-100/50 dark:from-slate-700 dark:to-slate-800 border border-white/50 dark:border-white/5 hover:text-blue-600 dark:hover:text-blue-400`;
-    if (type === 'destructive') return `${candyBase} p-2 sm:p-2.5 aspect-square rounded-full text-white bg-gradient-to-b from-red-400 to-red-600 hover:from-red-300 hover:to-red-500 border-b-[2px] border-red-700 shadow-red-500/30`;
+    const base = "flex items-center justify-center gap-1.5 rounded-full font-bold tracking-wide transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed";
     
-    return candyBase;
+    if (monet) {
+        if (type === 'primary') return `${base} px-5 py-2.5 text-xs ${monet.btnPrimary} shadow-sm`;
+        if (type === 'secondary') return `${base} px-4 py-2 text-xs ${monet.btnTonal}`;
+        if (type === 'icon') return `${base} p-2 aspect-square ${monet.btnTonal} rounded-full`;
+        if (type === 'destructive') return `${base} p-2 aspect-square text-red-500 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-full`;
+    }
+
+    if (type === 'primary') return `${base} px-5 py-2.5 text-xs text-white bg-slate-900 hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100 shadow-sm`;
+    if (type === 'secondary') return `${base} px-4 py-2 text-xs text-slate-700 dark:text-slate-200 bg-[#F2F4F7] dark:bg-[#2C2C2E] hover:bg-[#E5E7EB] dark:hover:bg-[#3A3A3C]`;
+    if (type === 'icon') return `${base} p-2 aspect-square text-slate-500 dark:text-slate-400 bg-transparent hover:bg-slate-100 dark:hover:bg-[#2C2C2E] rounded-full`;
+    if (type === 'destructive') return `${base} p-2 aspect-square text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full`;
+    
+    return base;
 };
-
-// 2. Candy Cards (Subjects/Categories)
-const candyCardBase = `
-    group relative rounded-[2.5rem] p-6 sm:p-8 
-    transition-all duration-300 cursor-pointer overflow-hidden 
-    border border-white/20 dark:border-white/5 
-    shadow-xl hover:shadow-2xl hover:-translate-y-1 active:scale-[0.98]
-    after:absolute after:inset-0 after:rounded-[2.5rem] after:pointer-events-none 
-    after:shadow-[inset_0_1px_1px_rgba(255,255,255,0.6)]
-    after:bg-gradient-to-t after:from-black/5 after:to-white/10
-`;
-
-// Glassy Icon Container for Cards
-const candyIconBox = `
-    w-14 h-14 rounded-2xl flex items-center justify-center 
-    bg-white/40 dark:bg-black/20 backdrop-blur-md 
-    shadow-[inset_0_1px_2px_rgba(255,255,255,0.5)] dark:shadow-none
-    border border-white/40 dark:border-white/10
-`;
 
 // --- SKELETONS ---
 const SkeletonGrid = memo(() => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 animate-pulse">
         {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="h-64 rounded-[2.5rem] bg-slate-100 dark:bg-slate-800 relative p-8 border border-slate-200 dark:border-slate-700 overflow-hidden">
-                <div className="w-14 h-14 rounded-2xl bg-slate-200 dark:bg-slate-700 mb-6"></div>
-                <div className="h-8 bg-slate-200 dark:bg-slate-700 rounded-lg w-3/4 mb-3 absolute bottom-16"></div>
-                <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded-lg w-1/2 absolute bottom-8"></div>
+            <div key={i} className="h-40 rounded-[26px] bg-white dark:bg-[#1C1C1E] shadow-sm relative p-5 border border-slate-100 dark:border-[#2C2C2E]">
+                <div className="w-12 h-12 rounded-[20px] bg-slate-100 dark:bg-[#2c2c2e] mb-4"></div>
+                <div className="h-5 bg-slate-100 dark:bg-[#2c2c2e] rounded-full w-3/4 mb-2"></div>
+                <div className="h-3 bg-slate-100 dark:bg-[#2c2c2e] rounded-full w-1/3"></div>
             </div>
         ))}
     </div>
 ));
 
 const SkeletonList = memo(() => (
-    <div className="space-y-4 animate-pulse p-2">
-        <div className="h-12 bg-slate-200 dark:bg-slate-800 rounded-xl w-1/3 mb-8 mx-2"></div>
+    <div className="space-y-3 animate-pulse">
+        <div className="h-8 bg-slate-200 dark:bg-[#1c1c1e] rounded-xl w-1/4 mb-6"></div>
         {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="w-full flex items-center p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
-                <div className="h-10 w-10 flex-shrink-0 rounded-xl bg-slate-200 dark:bg-slate-700 mx-3"></div>
-                <div className="flex-grow min-w-0 space-y-2">
-                    <div className="h-4 w-1/3 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
-                    <div className="h-3 w-1/4 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
-                </div>
-            </div>
+            <div key={i} className="w-full h-16 bg-white dark:bg-[#1c1c1e] rounded-2xl shadow-sm"></div>
         ))}
     </div>
 ));
 
-// --- SUBJECT STYLING (Updated for Monet) ---
+// --- SUBJECT ICONS & COLORS (Clean Tonal) ---
 const getSubjectStyling = (subjectTitle, monet) => {
     const lowerCaseTitle = subjectTitle.toLowerCase();
     let IconComponent = BookOpenIcon;
-    let iconColor = 'text-slate-700 dark:text-white drop-shadow-sm';
-    // Default Vibrant Candy Gradients
-    let gradient = 'bg-gradient-to-br from-slate-100 via-slate-200 to-slate-300 dark:from-slate-800 dark:via-slate-800 dark:to-slate-900';
-    
-    // If Monet is active, return the unified monet gradient
+    let styleClass = "bg-slate-100 text-slate-600 dark:bg-[#2C2C2E] dark:text-slate-300";
+
+    // If Monet is active, use theme color
     if (monet) {
         return { 
-            icon: IconComponent, // Icon component logic below
-            iconColor: monet.text, // Use monet text color
-            gradient: monet.cardGradient // Use monet card gradient
+            icon: IconComponent, 
+            styleClass: monet.iconBg
         };
     }
 
     if (lowerCaseTitle.includes('math')) { 
         IconComponent = CalculatorIcon; 
-        gradient = 'bg-gradient-to-br from-blue-100 via-blue-200 to-indigo-300 dark:from-blue-900/60 dark:via-blue-800/40 dark:to-indigo-900/60'; 
-        iconColor = 'text-blue-600 dark:text-blue-100';
+        styleClass = "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400";
     }
     else if (lowerCaseTitle.includes('english') || lowerCaseTitle.includes('filipino')) { 
         IconComponent = BookOpenIcon; 
-        gradient = 'bg-gradient-to-br from-teal-100 via-emerald-200 to-green-300 dark:from-teal-900/60 dark:via-emerald-800/40 dark:to-green-900/60'; 
-        iconColor = 'text-teal-600 dark:text-teal-100';
-    }
-    else if (lowerCaseTitle.includes('religious education')) { 
-        IconComponent = BookOpenIcon; 
-        gradient = 'bg-gradient-to-br from-amber-100 via-orange-200 to-yellow-300 dark:from-amber-900/60 dark:via-orange-800/40 dark:to-yellow-900/60'; 
-        iconColor = 'text-amber-700 dark:text-amber-100';
+        styleClass = "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400";
     }
     else if (lowerCaseTitle.includes('science')) { 
         IconComponent = BeakerIcon; 
-        gradient = 'bg-gradient-to-br from-violet-100 via-purple-200 to-fuchsia-300 dark:from-violet-900/60 dark:via-purple-800/40 dark:to-fuchsia-900/60'; 
-        iconColor = 'text-purple-600 dark:text-purple-100';
+        styleClass = "bg-violet-50 text-violet-600 dark:bg-violet-900/20 dark:text-violet-400";
     }
-    else if (lowerCaseTitle.includes('araling panlipunan')) { 
+    else if (lowerCaseTitle.includes('araling')) { 
         IconComponent = GlobeAltIcon; 
-        gradient = 'bg-gradient-to-br from-rose-100 via-red-200 to-orange-300 dark:from-rose-900/60 dark:via-red-800/40 dark:to-orange-900/60'; 
-        iconColor = 'text-rose-600 dark:text-rose-100';
+        styleClass = "bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400";
     }
-    else if (lowerCaseTitle.includes('mapeh')) { 
+    else if (lowerCaseTitle.includes('music') || lowerCaseTitle.includes('art')) { 
         IconComponent = MusicalNoteIcon; 
-        gradient = 'bg-gradient-to-br from-pink-100 via-rose-200 to-red-300 dark:from-pink-900/60 dark:via-rose-800/40 dark:to-red-900/60'; 
-        iconColor = 'text-pink-600 dark:text-pink-100';
+        styleClass = "bg-pink-50 text-pink-600 dark:bg-pink-900/20 dark:text-pink-400";
     }
-    else if (lowerCaseTitle.includes('tle')) { 
+    else if (lowerCaseTitle.includes('tech')) { 
         IconComponent = WrenchScrewdriverIcon; 
-        gradient = 'bg-gradient-to-br from-orange-100 via-amber-200 to-yellow-300 dark:from-orange-900/60 dark:via-amber-800/40 dark:to-yellow-900/60'; 
-        iconColor = 'text-orange-700 dark:text-orange-100';
-    }
-    
-    // Update icon component even if monet was active (hack to fix icon reference in monet block above)
-    if (monet) {
-         // Re-running icon logic for monet block return
-         // (Not optimized but keeps logic consistent without refactoring everything)
-         return { icon: IconComponent, iconColor: monet.text, gradient: monet.cardGradient };
+        styleClass = "bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400";
     }
 
-    return { icon: IconComponent, iconColor, gradient };
+    return { icon: IconComponent, styleClass };
 };
 
-// --- COMPONENT: CONTENT SCOPE SWITCHER (DROPDOWN) ---
+// --- COMPONENT: CONTENT SCOPE SWITCHER (Pill Style) ---
 const ContentScopeSwitcher = ({ activeGroup, onSwitch, monet }) => {
     return (
-        <div className="relative inline-block w-full sm:w-auto">
+        <div className="relative inline-block w-full sm:w-auto min-w-[160px]">
             <select
                 value={activeGroup}
                 onChange={(e) => onSwitch(e.target.value)}
                 className={`
-                    appearance-none pl-10 pr-10 py-2.5 rounded-2xl 
-                    text-sm font-bold shadow-sm transition-all cursor-pointer outline-none w-full
+                    appearance-none pl-10 pr-8 py-2.5 rounded-full 
+                    text-xs font-bold transition-all cursor-pointer outline-none w-full
                     ${monet 
-                        ? 'bg-white/10 text-white border border-white/20 hover:bg-white/20 focus:ring-2 focus:ring-white/30' 
-                        : 'bg-white dark:bg-white/5 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/10 focus:ring-2 focus:ring-blue-500/20 shadow-slate-200/50 dark:shadow-none'
+                        ? `${monet.btnTonal} border-none` 
+                        : 'bg-[#F2F4F7] dark:bg-[#2C2C2E] text-slate-700 dark:text-slate-200 hover:bg-[#E5E7EB] dark:hover:bg-[#3A3A3C] border-none'
                     }
                 `}
             >
@@ -269,13 +210,13 @@ const ContentScopeSwitcher = ({ activeGroup, onSwitch, monet }) => {
             </select>
             
             {/* Left Icon */}
-            <div className={`absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none ${monet ? 'text-white/70' : 'text-slate-500 dark:text-slate-400'}`}>
+            <div className={`absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none ${monet ? monet.themeText : 'text-slate-500 dark:text-slate-400'}`}>
                 {activeGroup === 'learner' ? <LearnerIcon className="w-4 h-4"/> : <TeacherIcon className="w-4 h-4"/>}
             </div>
 
             {/* Right Chevron */}
-            <div className={`absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none ${monet ? 'text-white/50' : 'text-slate-400'}`}>
-                <ArrowsUpDownIcon className="w-4 h-4" />
+            <div className={`absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none ${monet ? monet.themeText : 'text-slate-400'}`}>
+                <ArrowsUpDownIcon className="w-3.5 h-3.5" />
             </div>
         </div>
     );
@@ -305,15 +246,6 @@ const SubjectDetail = memo((props) => {
     const [selectedLessons, setSelectedLessons] = useState(new Set());
     const [showLessonPicker, setShowLessonPicker] = useState(false);
     const [activeUnitForPicker, setActiveUnitForPicker] = useState(null);
-
-    // Dynamic Classes
-    const containerClasses = monet 
-        ? `relative z-10 h-full flex flex-col rounded-3xl sm:rounded-[2rem] w-full max-w-7xl mx-auto overflow-hidden ${monet.container}`
-        : "relative z-10 h-full flex flex-col bg-white/90 dark:bg-[#1A1D24]/95 rounded-3xl sm:rounded-[2rem] shadow-xl shadow-slate-200/60 dark:shadow-black/50 border border-slate-200 dark:border-slate-800 w-full max-w-7xl mx-auto overflow-hidden";
-
-const headerClasses = monet
-        ? `flex-none flex flex-col md:flex-row justify-between items-start md:items-center py-3 px-4 sm:px-6 gap-4 border-b border-white/10 z-20`
-        : "flex-none flex flex-col md:flex-row justify-between items-start md:items-center py-3 px-4 sm:px-6 gap-4 border-b border-slate-200/60 dark:border-white/5 bg-white/80 dark:bg-[#1A1D24]/80 z-20";
 
     useEffect(() => {
         if (activeSubject) {
@@ -387,61 +319,63 @@ const headerClasses = monet
 
     if (subjectId && !activeSubject && isLoadingUnitsAndLessons) return (
         <div className={commonContainerClasses}>
-            <div className={containerClasses}>
-                <SkeletonList />
-            </div>
+            <SkeletonList />
         </div>
     );
 
     if (!activeSubject) return <Spinner />;
 
+    // One UI Header: Clean, Solid Surface
+    const headerClasses = monet
+        ? `flex-none flex flex-col md:flex-row justify-between items-start md:items-center py-5 px-6 gap-4 border-b border-transparent z-20 bg-white dark:bg-[#1C1C1E]`
+        : "flex-none flex flex-col md:flex-row justify-between items-start md:items-center py-5 px-6 gap-4 border-b border-slate-100 dark:border-[#2c2c2e] z-20 bg-white dark:bg-[#1c1c1e]";
+
 	return (
-	        <div className={commonContainerClasses}>
-	            <div className={containerClasses}>
+        <div className={commonContainerClasses}>
+            <div className={`h-full flex flex-col rounded-[32px] overflow-hidden bg-white dark:bg-[#1c1c1e] border border-slate-100 dark:border-[#2c2c2e] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-black/20`}>
                 
-	                {/* HEADER */}
-	                <div className={headerClasses}>
-	                    <div className="flex items-center gap-2 sm:gap-3 flex-wrap w-full md:w-auto">
-	                        <button onClick={handleBackNavigation} className={getButtonClass('secondary', monet)}>
-	                            {activeUnit ? <Squares2X2Icon className="w-4 h-4" /> : <ArrowUturnLeftIcon className="w-4 h-4" />}
-	                            <span className="hidden sm:inline font-bold">{activeUnit ? 'All Units' : 'Back'}</span>
-	                        </button>
-                        
-	                        <div className={`h-6 w-px mx-1 hidden sm:block ${monet ? 'bg-white/20' : 'bg-slate-200 dark:bg-slate-700'}`}></div>
-                        
-	                        <h2 className={`text-lg sm:text-xl font-bold tracking-tight truncate max-w-[180px] sm:max-w-sm ${monet ? monet.text : 'text-slate-800 dark:text-slate-100'}`}>
-	                            {activeSubject.title}
-	                        </h2>
-                        
-	                        {/* Edit/Delete Icons */}
-	                        <div className="flex items-center ml-auto sm:ml-2 space-x-1">
-	                            <button onClick={() => handleOpenEditSubject(activeSubject)} className={getButtonClass('icon', monet)} title="Edit Subject Name"><PencilSquareIcon className="w-4 h-4" /></button>
-	                            <button onClick={() => handleInitiateDelete('subject', activeSubject.id, activeSubject.title)} className={getButtonClass('destructive', monet)} title="Delete Subject"><TrashIcon className="w-4 h-4" /></button>
-	                        </div>
-	                    </div>
+                {/* HEADER */}
+                <div className={headerClasses}>
+                    <div className="flex items-center gap-3 flex-wrap w-full md:w-auto">
+                        <button onClick={handleBackNavigation} className={getButtonClass('secondary', monet)}>
+                            {activeUnit ? <Squares2X2Icon className="w-4 h-4" /> : <ArrowUturnLeftIcon className="w-4 h-4" />}
+                            <span className="hidden sm:inline">{activeUnit ? 'All Units' : 'Back'}</span>
+                        </button>
+                    
+                        <div className={`h-6 w-px mx-1 hidden sm:block ${monet ? 'bg-slate-200' : 'bg-slate-200 dark:bg-slate-700'}`}></div>
+                    
+                        <h2 className={`text-lg sm:text-xl font-bold tracking-tight truncate max-w-[200px] sm:max-w-md ${monet ? monet.themeText : 'text-slate-900 dark:text-white'}`}>
+                            {activeSubject.title}
+                        </h2>
+                    
+                        {/* Edit/Delete Icons */}
+                        <div className="flex items-center ml-auto sm:ml-3 space-x-1">
+                            <button onClick={() => handleOpenEditSubject(activeSubject)} className={getButtonClass('icon', monet)} title="Edit Subject Name"><PencilSquareIcon className="w-4 h-4" /></button>
+                            <button onClick={() => handleInitiateDelete('subject', activeSubject.id, activeSubject.title)} className={getButtonClass('destructive', monet)} title="Delete Subject"><TrashIcon className="w-4 h-4" /></button>
+                        </div>
+                    </div>
 
-	                    <div className="flex gap-2 sm:gap-3 flex-wrap w-full md:w-auto">
-	                        <button onClick={() => setShareContentModalOpen(true)} className={`${getButtonClass('secondary', monet)} flex-1 sm:flex-none justify-center`}>
-	                            <ShareIcon className={`w-4 h-4 ${monet ? monet.accent : 'text-slate-500'}`} />
-	                            <span className="hidden md:inline text-xs sm:text-sm">Share</span>
-	                        </button>
-	                        <button onClick={() => setAddUnitModalOpen(true)} className={`${getButtonClass('secondary', monet)} flex-1 sm:flex-none justify-center`}>
-	                            <PlusCircleIcon className={`w-4 h-4 ${monet ? monet.accent : 'text-emerald-500'}`} />
-	                            <span className="text-xs sm:text-sm">Add Unit</span>
-	                        </button>
-	                        {/* New Unique AI Button Style */}
-	                        <button onClick={() => setIsAiHubOpen(true)} className={`${getButtonClass(monet ? 'primary' : 'ai', monet)} flex-1 sm:flex-none justify-center whitespace-nowrap`}>
-	                            <SparklesIcon className="w-4 h-4 text-white/90" />
-	                            <span className="text-sm text-white">AI Tools</span>
-	                        </button>
-	                    </div>
-	                </div>
+                    <div className="flex gap-2 flex-wrap w-full md:w-auto">
+                        <button onClick={() => setShareContentModalOpen(true)} className={`${getButtonClass('secondary', monet)} flex-1 sm:flex-none justify-center`}>
+                            <ShareIcon className={`w-4 h-4 ${monet ? monet.themeText : 'text-slate-500'}`} />
+                            <span className="hidden md:inline text-xs">Share</span>
+                        </button>
+                        <button onClick={() => setAddUnitModalOpen(true)} className={`${getButtonClass('secondary', monet)} flex-1 sm:flex-none justify-center`}>
+                            <PlusCircleIcon className={`w-4 h-4 ${monet ? monet.themeText : 'text-emerald-500'}`} />
+                            <span className="text-xs">Add Unit</span>
+                        </button>
+                        <button onClick={() => setIsAiHubOpen(true)} className={`${getButtonClass('primary', monet)} flex-1 sm:flex-none justify-center whitespace-nowrap`}>
+                            <SparklesIcon className="w-4 h-4" />
+                            <span className="text-xs">AI Tools</span>
+                        </button>
+                    </div>
+                </div>
 
-	                {/* CONTENT AREA */}
-	                <div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar p-0"> {/* Removed padding here to let accordion control spacing */}
-	                    {isLoadingUnitsAndLessons ? (
-	                        <div className="p-4"><SkeletonList /></div>
-	                    ) : (
+                {/* CONTENT AREA */}
+                <div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar pt-0 bg-[#F8F9FA] dark:bg-[#151517]">
+                    {isLoadingUnitsAndLessons ? (
+                        <div className="p-6"><SkeletonList /></div>
+                    ) : (
                         <UnitAccordion
                             subject={activeSubject}
                             onInitiateDelete={handleInitiateDelete}
@@ -453,14 +387,14 @@ const headerClasses = monet
                             selectedLessons={selectedLessons}
                             onLessonSelect={handleLessonSelect}
                             handleGenerateQuizForLesson={handleGenerateQuizForLesson}
-                            monet={monet} // Pass monet styles down
+                            monet={monet} 
                             renderGeneratePptButton={(unit) => (
                                 <button
                                     onClick={() => { setSelectedLessons(new Set()); setActiveUnitForPicker(unit); setShowLessonPicker(true); }}
-                                    className={`${getButtonClass('secondary', monet)} !px-3 !py-1.5 text-xs border-slate-200 shadow-sm`}
+                                    className={`${getButtonClass('secondary', monet)} !px-3 !py-1.5 text-[10px] shadow-none border border-slate-200/50`}
                                     disabled={isAiGenerating}
                                 >
-                                    {isAiGenerating ? <ArrowPathIcon className="w-4 h-4 animate-spin text-blue-500" /> : <PresentationChartBarIcon className={`w-4 h-4 ${monet ? monet.accent : 'text-blue-500'}`} />}
+                                    {isAiGenerating ? <ArrowPathIcon className="w-3 h-3 animate-spin text-blue-500" /> : <PresentationChartBarIcon className={`w-3 h-3 ${monet ? monet.themeText : 'text-blue-500'}`} />}
                                     <span>{isAiGenerating ? 'Wait...' : 'PPT'}</span>
                                 </button>
                             )}
@@ -470,34 +404,30 @@ const headerClasses = monet
             </div>
 
             <style>{`
-              .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+              .custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
               .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-              .custom-scrollbar::-webkit-scrollbar-thumb { background-color: ${monet ? 'rgba(255,255,255,0.2)' : '#cbd5e1'}; border-radius: 999px; }
-              .dark .custom-scrollbar::-webkit-scrollbar-thumb { background-color: ${monet ? 'rgba(255,255,255,0.2)' : '#475569'}; }
+              .custom-scrollbar::-webkit-scrollbar-thumb { background-color: ${monet ? 'rgba(0,0,0,0.1)' : '#d1d5db'}; border-radius: 999px; }
+              .dark .custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(255,255,255,0.15); }
             `}</style>
 
             {/* --- LESSON PICKER MODAL --- */}
             {showLessonPicker && activeUnitForPicker && (
-                <div className="fixed inset-0 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm z-[5000] p-4 transition-all duration-300">
-                    <div className={`relative w-full max-w-lg max-h-[85vh] flex flex-col rounded-[2rem] overflow-hidden animate-in fade-in zoom-in-95 ${monet ? monet.container : 'bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-slate-700 shadow-2xl'}`}>
+                <div className="fixed inset-0 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm z-[5000] p-6 transition-all duration-300">
+                    <div className={`relative w-full max-w-lg max-h-[85vh] flex flex-col rounded-[2rem] overflow-hidden animate-in fade-in zoom-in-95 bg-white dark:bg-[#1c1c1e] border border-slate-100 dark:border-[#2c2c2e] shadow-2xl`}>
                         
-                        <div className={`px-8 py-6 border-b flex justify-between items-start ${monet ? 'border-white/10 bg-transparent' : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#1A1D24]'}`}>
+                        <div className={`px-6 py-5 border-b flex justify-between items-center border-slate-100 dark:border-[#2c2c2e] bg-slate-50/50 dark:bg-[#151517]`}>
                             <div>
-                                <div className={`flex items-center gap-2 mb-1 ${monet ? monet.accent : 'text-blue-600 dark:text-blue-400'}`}>
-                                    <SparklesIcon className="w-4 h-4" />
-                                    <span className="text-xs font-bold uppercase tracking-wider">AI Generator</span>
-                                </div>
-                                <h2 className={`text-2xl font-black tracking-tight ${monet ? monet.text : 'text-slate-800 dark:text-white'}`}>Select Content</h2>
-                                <p className={`text-sm mt-1 font-medium ${monet ? monet.subText : 'text-slate-500 dark:text-slate-400'}`}>
-                                    Choose lessons from <span className={`font-bold ${monet ? monet.text : 'text-slate-700 dark:text-slate-200'}`}>"{activeUnitForPicker.title}"</span>
+                                <h2 className={`text-lg font-black tracking-tight ${monet ? monet.themeText : 'text-slate-900 dark:text-white'}`}>Select Content</h2>
+                                <p className={`text-xs font-bold ${monet ? 'text-slate-500' : 'text-slate-500 dark:text-slate-400'}`}>
+                                    From <span className="font-extrabold">"{activeUnitForPicker.title}"</span>
                                 </p>
                             </div>
-                            <button onClick={() => setShowLessonPicker(false)} className={`${getButtonClass('icon', monet)} !p-1.5`}>
+                            <button onClick={() => setShowLessonPicker(false)} className={`${getButtonClass('icon', monet)}`}>
                                 <XMarkIcon className="w-5 h-5" />
                             </button>
                         </div>
 
-                        <div className={`flex-1 overflow-y-auto px-6 py-6 space-y-3 custom-scrollbar ${monet ? 'bg-transparent' : 'bg-white dark:bg-[#1A1D24]'}`}>
+                        <div className={`flex-1 overflow-y-auto px-6 py-6 space-y-2 custom-scrollbar bg-white dark:bg-[#1c1c1e]`}>
                             {(() => {
                                 const lessonsInUnit = allLessonsForSubject
                                     .filter((lesson) => lesson.unitId === activeUnitForPicker.id)
@@ -505,11 +435,9 @@ const headerClasses = monet
                                 
                                 if (lessonsInUnit.length === 0) {
                                     return (
-                                        <div className="flex flex-col items-center justify-center py-16 text-center opacity-60">
-                                            <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${monet ? monet.iconBox : 'bg-slate-100 dark:bg-slate-800'}`}>
-                                                <BookOpenIcon className={`w-8 h-8 ${monet ? 'text-white' : 'text-slate-400'}`} />
-                                            </div>
-                                            <p className={`font-medium ${monet ? monet.subText : 'text-slate-500 dark:text-slate-400'}`}>No lessons found in this unit.</p>
+                                        <div className="flex flex-col items-center justify-center py-12 text-center opacity-60">
+                                            <BookOpenIcon className={`w-12 h-12 mb-3 ${monet ? monet.themeText : 'text-slate-300'}`} />
+                                            <p className={`text-sm font-bold ${monet ? 'text-slate-500' : 'text-slate-500 dark:text-slate-400'}`}>No lessons found.</p>
                                         </div>
                                     );
                                 }
@@ -519,31 +447,26 @@ const headerClasses = monet
                                     return (
                                         <label 
                                             key={lesson.id} 
-                                            className={`group flex items-center justify-between p-4 rounded-2xl cursor-pointer border transition-all duration-200 relative overflow-hidden active:scale-[0.98] ${
+                                            className={`group flex items-center justify-between p-3 rounded-2xl cursor-pointer border transition-all duration-200 ${
                                                 isSelected 
-                                                ? (monet ? `bg-white/20 border-white/30` : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700 shadow-inner') 
-                                                : (monet ? `bg-white/5 border-transparent hover:bg-white/10` : 'bg-slate-50 dark:bg-slate-800/50 border-transparent hover:bg-slate-100 dark:hover:bg-slate-800 shadow-sm')
+                                                ? (monet ? `${monet.btnTonal} border-transparent` : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800') 
+                                                : (monet ? `hover:bg-slate-50 dark:hover:bg-[#2c2c2e] border-slate-100 dark:border-[#2c2c2e]` : 'bg-white dark:bg-[#1c1c1e] border-slate-100 dark:border-[#2c2c2e] hover:bg-slate-50 dark:hover:bg-[#2c2c2e]')
                                             }`}
                                         >
-                                            <div className="min-w-0 pr-4 relative z-10">
-                                                <div className={`font-bold text-sm transition-colors ${isSelected ? (monet ? monet.accent : 'text-blue-700 dark:text-blue-200') : (monet ? monet.text : 'text-slate-700 dark:text-slate-200')}`}>
+                                            <div className="min-w-0 pr-4">
+                                                <div className={`font-bold text-sm ${isSelected ? (monet ? monet.themeText : 'text-blue-700 dark:text-blue-200') : (monet ? 'text-slate-700 dark:text-slate-200' : 'text-slate-700 dark:text-slate-200')}`}>
                                                     {lesson.title}
                                                 </div>
-                                                {lesson.subtitle && (
-                                                    <div className={`text-xs mt-0.5 truncate font-medium ${monet ? monet.subText : 'text-slate-400 dark:text-slate-500'}`}>
-                                                        {lesson.subtitle}
-                                                    </div>
-                                                )}
                                             </div>
                                             
-                                            <div className="relative flex items-center justify-center w-6 h-6 z-10">
+                                            <div className="relative flex items-center justify-center w-5 h-5">
                                                 <input 
                                                     type="checkbox" 
                                                     checked={isSelected} 
                                                     onChange={() => handleLessonSelect(lesson.id)} 
-                                                    className={`peer appearance-none w-6 h-6 rounded-full border-2 transition-all cursor-pointer ${monet ? 'border-white/40 checked:bg-white checked:border-white' : 'border-slate-300 dark:border-slate-600 checked:bg-blue-500 checked:border-blue-500'}`} 
+                                                    className={`peer appearance-none w-5 h-5 rounded-full border-[2.5px] transition-all cursor-pointer ${monet ? `border-slate-300 dark:border-slate-600 checked:bg-current` : 'border-slate-300 dark:border-slate-600 checked:bg-blue-600 checked:border-blue-600'}`} 
                                                 />
-                                                <CheckCircleIcon className={`absolute w-6 h-6 pointer-events-none opacity-0 peer-checked:opacity-100 transition-all scale-50 peer-checked:scale-100 drop-shadow-sm ${monet ? 'text-black' : 'text-blue-500'}`} />
+                                                <CheckCircleIcon className={`absolute w-5 h-5 pointer-events-none opacity-0 peer-checked:opacity-100 transition-all scale-75 peer-checked:scale-100 text-white`} />
                                             </div>
                                         </label>
                                     );
@@ -551,8 +474,8 @@ const headerClasses = monet
                             })()}
                         </div>
 
-                        <div className={`px-8 py-5 border-t flex justify-between items-center ${monet ? 'border-white/10 bg-transparent' : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#1A1D24]'}`}>
-                            <span className={`text-xs font-bold uppercase tracking-wide ${monet ? monet.subText : 'text-slate-400'}`}>
+                        <div className={`px-6 py-5 border-t flex justify-between items-center border-slate-100 dark:border-[#2c2c2e] bg-slate-50 dark:bg-[#151517]`}>
+                            <span className={`text-xs font-black uppercase tracking-wider ${monet ? monet.themeText : 'text-slate-500'}`}>
                                 {selectedLessons.size} Selected
                             </span>
                             <div className="flex gap-3">
@@ -564,8 +487,8 @@ const headerClasses = monet
                                     className={getButtonClass('primary', monet)}
                                     disabled={selectedLessons.size === 0 || isAiGenerating}
                                 >
-                                    {isAiGenerating ? <ArrowPathIcon className="w-5 h-5 animate-spin" /> : <PresentationChartBarIcon className="w-5 h-5" />}
-                                    <span>{isAiGenerating ? 'Processing...' : 'Generate Deck'}</span>
+                                    {isAiGenerating ? <ArrowPathIcon className="w-4 h-4 animate-spin" /> : <PresentationChartBarIcon className="w-4 h-4" />}
+                                    <span>Generate Deck</span>
                                 </button>
                             </div>
                         </div>
@@ -578,28 +501,23 @@ const headerClasses = monet
 
 // --- LEVEL 2: SUBJECT LIST VIEW (MEMOIZED) ---
 const SubjectList = memo((props) => {
-    const { courses, handleInitiateDelete, onAddSubjectClick, setActiveSubject, handleCategoryClick, loading } = props;
+    const { courses, handleInitiateDelete, onAddSubjectClick, setActiveSubject, handleCategoryClick, loading, userProfile } = props;
     const { contentGroup, categoryName } = useParams();
     const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState('');
     const decodedCategoryName = decodeURIComponent(categoryName);
     
-    // Theme
     const { activeOverlay } = useTheme();
     const monet = getMonetStyles(activeOverlay);
 
-    // Classes
-    const containerClasses = monet 
-        ? `relative z-10 h-full flex flex-col rounded-3xl sm:rounded-[2rem] w-full max-w-7xl mx-auto overflow-hidden ${monet.container}`
-        : "relative z-10 h-full flex flex-col bg-white/90 dark:bg-[#1A1D24]/95 rounded-3xl sm:rounded-[2rem] shadow-xl shadow-slate-200/60 dark:shadow-black/50 border border-slate-200 dark:border-slate-800 w-full max-w-7xl mx-auto overflow-hidden";
+    const containerClasses = `bg-white dark:bg-[#1c1c1e] border border-slate-100 dark:border-[#2c2c2e] rounded-[32px] w-full max-w-7xl mx-auto h-full flex flex-col shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-black/20 overflow-hidden`;
 
-    const headerClasses = monet
-        ? `flex-none flex flex-col md:flex-row justify-between items-start md:items-end gap-4 p-5 sm:p-8 border-b border-white/10 z-20`
-        : "flex-none flex flex-col md:flex-row justify-between items-start md:items-end gap-4 p-5 sm:p-8 border-b border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-[#1A1D24]/80 z-20";
+    const headerClasses = `flex-none flex flex-col md:flex-row justify-between items-start md:items-end gap-6 p-6 border-b border-transparent bg-white dark:bg-[#1c1c1e]`;
 
+    // One UI Search Input: Deep Field
     const searchInputClass = monet 
-        ? `w-full sm:max-w-md p-2.5 pl-10 rounded-2xl focus:outline-none focus:ring-2 focus:ring-white/30 border border-white/10 bg-black/20 backdrop-blur-sm text-white placeholder:text-white/40 shadow-inner transition-all`
-        : `w-full sm:max-w-md p-2.5 pl-10 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-black/20 backdrop-blur-sm text-slate-800 dark:text-slate-200 placeholder:text-slate-400 shadow-inner transition-all`;
+        ? `w-full sm:max-w-xs p-3 pl-10 rounded-full focus:outline-none focus:ring-1 focus:ring-white/20 border-none ${monet.btnTonal} transition-all font-bold text-sm`
+        : `w-full sm:max-w-xs p-3 pl-10 rounded-full focus:outline-none focus:ring-2 focus:ring-slate-200 dark:focus:ring-slate-700 border-none bg-[#F2F4F7] dark:bg-[#2C2C2E] text-slate-900 dark:text-white placeholder:text-slate-400 transition-all font-bold text-sm`;
 
     useEffect(() => {
         handleCategoryClick(decodedCategoryName);
@@ -607,65 +525,92 @@ const SubjectList = memo((props) => {
         return () => handleCategoryClick(null);
     }, [decodedCategoryName, handleCategoryClick, setActiveSubject]);
 
+    // ✅ STRICT SCHOOL FILTERING
     const filteredCourses = useMemo(() => {
         if (!courses) return [];
-        const categoryCourses = courses.filter(c => c.category === decodedCategoryName);
+        const userSchoolId = userProfile?.schoolId || 'srcs_main';
+
+        const categoryCourses = courses.filter(c => 
+            c.category === decodedCategoryName &&
+            (c.schoolId === 'global' || !c.schoolId || c.schoolId === userSchoolId)
+        );
         categoryCourses.sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' }));
         return categoryCourses.filter(course => course.title.toLowerCase().includes(searchTerm.toLowerCase()));
-    }, [courses, decodedCategoryName, searchTerm]);
-
-    const handleSwitchGroup = (newGroup) => {
-        navigate(`/dashboard/courses/${newGroup}`);
-    };
+    }, [courses, decodedCategoryName, searchTerm, userProfile]);
 
     return (
         <div className={commonContainerClasses}>
-            {/* NO AuroraBackground */}
             <div className={containerClasses}>
                 {/* Header */}
                 <div className={headerClasses}>
                     <div className="flex flex-col gap-2 w-full md:w-auto">
                         <div className="w-full flex items-center gap-3 mb-1">
-                            <button onClick={() => navigate(`/dashboard/courses/${contentGroup}`)} className={`${getButtonClass('icon', monet)} !p-2`} title="Back to Categories">
+                            <button onClick={() => navigate(`/dashboard/courses/${contentGroup}`)} className={`${getButtonClass('icon', monet)} !p-1.5`} title="Back to Categories">
                                 <ArrowUturnLeftIcon className="w-4 h-4" />
                             </button>
-                            <ContentScopeSwitcher activeGroup={contentGroup} onSwitch={handleSwitchGroup} monet={monet} />
+                            <ContentScopeSwitcher activeGroup={contentGroup} onSwitch={(val) => navigate(`/dashboard/courses/${val}`)} monet={monet} />
                         </div>
-                        <h1 className={`text-2xl sm:text-4xl font-black tracking-tight leading-tight ${monet ? monet.text : 'text-slate-800 dark:text-white'}`}>
+                        <h1 className={`text-2xl font-black tracking-tight pl-1 ${monet ? monet.themeText : 'text-slate-900 dark:text-white'}`}>
                             {decodedCategoryName.replace(/\s\((Teacher|Learner)'s Content\)/i, '')}
                         </h1>
                     </div>
-                    <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                    <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto items-center">
                         <div className="relative w-full sm:w-64">
-                            <MagnifyingGlassIcon className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none ${monet ? 'text-white/50' : 'text-slate-400'}`} />
-                            <input type="text" placeholder="Filter subjects..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className={searchInputClass} />
+                            <MagnifyingGlassIcon className={`w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none ${monet ? monet.themeText : 'text-slate-400'}`} />
+                            {/* ✅ FIX: autoComplete="off" and name attribute to prevent password autofill */}
+                            <input 
+                                type="text" 
+                                id="search-subjects"
+                                name="search_subjects_query"
+                                placeholder="Filter subjects..." 
+                                value={searchTerm} 
+                                onChange={e => setSearchTerm(e.target.value)} 
+                                className={searchInputClass} 
+                                autoComplete="off"
+                                data-lpignore="true"
+                            />
                         </div>
-                        <button onClick={() => onAddSubjectClick && onAddSubjectClick(decodedCategoryName)} className={getButtonClass('primary', monet)}><PlusCircleIcon className="w-5 h-5" />New Subject</button>
+                        <button onClick={() => onAddSubjectClick && onAddSubjectClick(decodedCategoryName)} className={getButtonClass('primary', monet)}><PlusCircleIcon className="w-4 h-4" />New Subject</button>
                     </div>
                 </div>
 
                 {/* Scrollable List */}
-                <div className="flex-1 overflow-y-auto p-4 sm:p-8 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-[#F8F9FA] dark:bg-[#151517]">
                     {loading || (!courses && filteredCourses.length === 0) ? (
                         <SkeletonGrid />
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                             {filteredCourses.map((course) => {
-                                const { icon: Icon, iconColor, gradient } = getSubjectStyling(course.title, monet);
+                                const { icon: Icon, styleClass } = getSubjectStyling(course.title, monet);
                                 const unitCount = course.unitCount || 0;
                                 return (
-                                    <Link key={course.id} to={course.id} className={`${candyCardBase} ${gradient}`}>
+                                    <Link key={course.id} to={course.id} className={`${elevatedCardBase}`}>
                                         <div className="relative z-10 flex flex-col h-full justify-between">
                                             <div className="flex justify-between items-start">
-                                                <div className={`${candyIconBox} ${monet ? monet.iconBox : ''}`}><Icon className={`w-8 h-8 ${iconColor}`} /></div>
-                                                <div className="flex gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200 scale-95 group-hover:scale-100">
+                                                <div className={`${elevatedIconBox} ${styleClass}`}>
+                                                    <Icon className="w-7 h-7" />
+                                                </div>
+                                                <div className="flex gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-300 transform sm:translate-x-4 sm:group-hover:translate-x-0">
                                                     <button onClick={(e) => {e.preventDefault(); props.handleOpenEditSubject(course)}} className={getButtonClass('icon', monet)} title="Edit"><PencilSquareIcon className="w-4 h-4"/></button> 
                                                     <button onClick={(e)=>{e.preventDefault(); handleInitiateDelete('subject', course.id, course.title)}} className={getButtonClass('destructive', monet)} title="Delete"><TrashIcon className="w-4 h-4"/></button>
                                                 </div>
                                             </div>
-                                            <div className="mt-8">
-                                                <h2 className={`text-xl font-bold mb-2 leading-tight drop-shadow-sm ${monet ? monet.text : 'text-slate-800 dark:text-white'}`}>{course.title}</h2>
-                                                <span className={`px-3 py-1 rounded-full text-xs font-bold border backdrop-blur-sm shadow-sm ${monet ? 'bg-black/30 text-white border-white/20' : 'bg-white/40 dark:bg-black/20 text-slate-700 dark:text-slate-200 border-white/20'}`}>{unitCount} {unitCount === 1 ? 'Unit' : 'Units'}</span>
+                                            <div className="mt-4">
+                                                <h2 className={`text-lg font-bold mb-2 leading-tight tracking-tight text-slate-900 dark:text-white`}>{course.title}</h2>
+                                                
+                                                {/* ✅ Privacy Badge */}
+                                                {course.isSchoolSpecific && (
+                                                    <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider mb-3 ${monet ? monet.badge : 'bg-slate-100 text-slate-700 border border-slate-200 dark:bg-[#2c2c2e] dark:text-slate-300 dark:border-[#3a3a3c]'}`}>
+                                                        <LockClosedIcon className="w-3 h-3" />
+                                                        {course.schoolId === 'srcs_main' ? 'SRCS Only' : 'School Only'}
+                                                    </div>
+                                                )}
+
+                                                <div className="flex items-center">
+                                                    <span className={`px-3 py-1.5 rounded-full text-xs font-bold border-none ${monet ? monet.badge : 'bg-[#F2F4F7] text-slate-600 dark:bg-[#2c2c2e] dark:text-slate-300'}`}>
+                                                        {unitCount} {unitCount === 1 ? 'Unit' : 'Units'}
+                                                    </span>
+                                                </div>
                                             </div>
                                         </div>
                                     </Link>
@@ -681,22 +626,16 @@ const SubjectList = memo((props) => {
 
 // --- LEVEL 1: CATEGORY LIST VIEW (MEMOIZED) ---
 const CategoryList = memo((props) => {
-    const { courseCategories, courses, setCreateCategoryModalOpen, handleEditCategory, handleInitiateDelete, handleCategoryClick, setActiveSubject, loading } = props;
+    const { courseCategories, courses, setCreateCategoryModalOpen, handleEditCategory, handleInitiateDelete, handleCategoryClick, setActiveSubject, loading, userProfile } = props;
     const { contentGroup } = useParams();
     const navigate = useNavigate();
     
-    // Theme
     const { activeOverlay } = useTheme();
     const monet = getMonetStyles(activeOverlay);
 
-    // Classes
-    const containerClasses = monet 
-        ? `relative z-10 h-full flex flex-col rounded-3xl sm:rounded-[2rem] w-full max-w-7xl mx-auto overflow-hidden ${monet.container}`
-        : "relative z-10 h-full flex flex-col bg-white/90 dark:bg-[#1A1D24]/95 rounded-3xl sm:rounded-[2rem] shadow-xl shadow-slate-200/60 dark:shadow-black/50 border border-slate-200 dark:border-slate-800 w-full max-w-7xl mx-auto overflow-hidden";
+    const containerClasses = `bg-white dark:bg-[#1c1c1e] border border-slate-100 dark:border-[#2c2c2e] rounded-[32px] w-full max-w-7xl mx-auto h-full flex flex-col shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-black/20 overflow-hidden`;
 
-    const headerClasses = monet
-        ? `flex-none flex flex-col sm:flex-row justify-between items-end gap-4 p-6 sm:p-10 border-b border-white/10 z-20`
-        : "flex-none flex flex-col sm:flex-row justify-between items-end gap-4 p-6 sm:p-10 border-b border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-[#1A1D24]/80 z-20";
+    const headerClasses = `flex-none flex flex-col sm:flex-row justify-between items-end gap-6 p-8 border-b border-transparent bg-white dark:bg-[#1c1c1e]`;
 
     useEffect(() => {
         setActiveSubject(null);
@@ -707,14 +646,29 @@ const CategoryList = memo((props) => {
     const title = isLearner ? "Learner's Space" : "Teacher's Space";
     const subtitle = isLearner ? "Access your curated learning materials" : "Manage your curriculum and resources";
     
+    // ✅ STRICT SCHOOL FILTERING
     const categoriesToShow = useMemo(() => {
         if (!courseCategories) return [];
+        const userSchoolId = userProfile?.schoolId || 'srcs_main';
+
+        const visibleCoursesSet = new Set();
+        if (courses) {
+            courses.forEach(c => {
+                const isVisible = c.schoolId === 'global' || !c.schoolId || c.schoolId === userSchoolId;
+                if (isVisible && c.category) {
+                    visibleCoursesSet.add(c.category);
+                }
+            });
+        }
+
         const filtered = courseCategories.filter(cat => {
             const lowerName = cat.name.toLowerCase();
-            return isLearner ? !lowerName.includes("(teacher's content)") : lowerName.includes("teacher's content");
+            const matchesGroup = isLearner ? !lowerName.includes("(teacher's content)") : lowerName.includes("teacher's content");
+            const hasVisibleContent = visibleCoursesSet.has(cat.name);
+            return matchesGroup && hasVisibleContent;
         });
         return filtered.sort((a, b) => a.name.localeCompare(b.name));
-    }, [courseCategories, isLearner]);
+    }, [courseCategories, isLearner, courses, userProfile]);
 
     const handleSwitchGroup = (newGroup) => {
         navigate(`/dashboard/courses/${newGroup}`);
@@ -722,47 +676,56 @@ const CategoryList = memo((props) => {
 
     return (
         <div className={commonContainerClasses}>
-            {/* NO AuroraBackground */}
             <div className={containerClasses}>
                 <div className={headerClasses}>
                     <div className="w-full">
                         <div className="flex items-center gap-3 mb-2">
-                            <button onClick={() => navigate('/dashboard/courses')} className={`${getButtonClass('icon', monet)} !p-2`} title="Back to Selection">
+                            <button onClick={() => navigate('/dashboard/courses')} className={`${getButtonClass('icon', monet)} !p-1.5`} title="Back to Selection">
                                 <ArrowUturnLeftIcon className="w-4 h-4" />
                             </button>
                             <ContentScopeSwitcher activeGroup={contentGroup} onSwitch={handleSwitchGroup} monet={monet} />
                         </div>
                         
-                        <h1 className={`text-3xl sm:text-5xl font-black tracking-tighter leading-tight ${monet ? monet.text : 'text-slate-800 dark:text-white'}`}>{title}</h1>
-                        <p className={`text-base sm:text-lg mt-1 font-light ${monet ? monet.subText : 'text-slate-500 dark:text-slate-400'}`}>{subtitle}</p>
+                        <h1 className={`text-3xl sm:text-4xl font-black tracking-tight leading-tight pl-1 ${monet ? monet.themeText : 'text-slate-900 dark:text-white'}`}>{title}</h1>
+                        <p className={`text-sm mt-1 font-bold pl-1 ${monet ? 'text-slate-500 dark:text-slate-400' : 'text-slate-500 dark:text-slate-400'}`}>{subtitle}</p>
                     </div>
-                    <button onClick={() => setCreateCategoryModalOpen(true)} className={`${getButtonClass('primary', monet)} w-full sm:w-auto`}><PlusCircleIcon className="w-5 h-5" />New Category</button>
+                    <button onClick={() => setCreateCategoryModalOpen(true)} className={`${getButtonClass('primary', monet)} w-full sm:w-auto`}><PlusCircleIcon className="w-4 h-4" />New Category</button>
                 </div>
                 
-                <div className="flex-1 overflow-y-auto p-6 sm:p-10 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-[#F8F9FA] dark:bg-[#151517]">
                     {loading || (!courseCategories && categoriesToShow.length === 0) ? (
                         <SkeletonGrid />
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {categoriesToShow.map((cat) => {
                                 const courseCount = courses ? courses.filter(c => c.category === cat.name).length : 0; 
-                                const { icon: Icon, iconColor, gradient } = getSubjectStyling(cat.name, monet);
+                                const { icon: Icon, styleClass } = getSubjectStyling(cat.name, monet);
                                 const cleanName = cat.name.replace(/\s\((Teacher|Learner)'s Content\)/i, '');
                                 
                                 return (
-                                    <Link key={cat.id} to={encodeURIComponent(cat.name)} className={`${candyCardBase} ${gradient}`}>
+                                    <Link key={cat.id} to={encodeURIComponent(cat.name)} className={`${elevatedCardBase}`}>
                                         <div className="relative z-10 flex flex-col h-full">
                                             <div className="flex justify-between items-start mb-6">
-                                                <div className={`${candyIconBox} ${monet ? monet.iconBox : ''}`}><Icon className={`w-8 h-8 ${iconColor}`} /></div>
-                                                <div className="flex gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200 scale-95 group-hover:scale-100">
+                                                <div className={`${elevatedIconBox} ${styleClass}`}>
+                                                    <Icon className="w-7 h-7" />
+                                                </div>
+                                                <div className="flex gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-300 transform sm:translate-x-4 sm:group-hover:translate-x-0">
                                                     <button onClick={(e) => {e.preventDefault(); handleEditCategory(cat)}} className={getButtonClass('icon', monet)}><PencilSquareIcon className="w-4 h-4"/></button> 
                                                     <button onClick={(e)=>{e.preventDefault(); handleInitiateDelete('category', cat.id, cat.name)}} className={getButtonClass('destructive', monet)}><TrashIcon className="w-4 h-4"/></button>
                                                 </div>
                                             </div>
                                             <div className="mt-auto">
-                                                <h2 className={`text-2xl font-bold mb-2 tracking-tight drop-shadow-sm ${monet ? monet.text : 'text-slate-800 dark:text-white'}`}>{cleanName}</h2>
-                                                <div className={`flex items-center gap-2 font-medium ${monet ? monet.subText : 'text-slate-700 dark:text-slate-300'}`}>
-                                                    <span className={`w-2 h-2 rounded-full shadow-sm ${monet ? 'bg-white' : 'bg-slate-500 dark:bg-slate-400'}`}></span>
+                                                <h2 className={`text-xl font-bold mb-2 tracking-tight text-slate-900 dark:text-white`}>{cleanName}</h2>
+                                                
+                                                {/* ✅ Privacy Badge (One UI Style) */}
+                                                {cat.isSchoolSpecific && (
+                                                    <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider mb-3 ${monet ? monet.badge : 'bg-slate-100 text-slate-700 border border-slate-200 dark:bg-[#2c2c2e] dark:text-slate-300 dark:border-[#3a3a3c]'}`}>
+                                                        <LockClosedIcon className="w-3.5 h-3.5" />
+                                                        Private
+                                                    </div>
+                                                )}
+
+                                                <div className={`flex items-center gap-2 text-sm font-bold ${monet ? 'text-slate-500 dark:text-slate-400' : 'text-slate-500 dark:text-slate-400'}`}>
                                                     {courseCount} {courseCount === 1 ? 'Subject' : 'Subjects'}
                                                 </div>
                                             </div>
@@ -789,57 +752,41 @@ const ContentGroupSelector = memo((props) => {
         props.handleBackToCategoryList();
     }, [props.setActiveSubject, props.handleBackToCategoryList]);
 
-    // Card Gradients for Selector
-    const learnerGradient = monet ? monet.cardGradient : 'bg-gradient-to-br from-sky-50 via-blue-50 to-indigo-50 dark:from-sky-900/20 dark:to-blue-900/10';
-    const teacherGradient = monet ? monet.cardGradient : 'bg-gradient-to-br from-emerald-50 via-teal-50 to-green-50 dark:from-emerald-900/20 dark:to-teal-900/10';
-    
-    // Icon Colors
-    const learnerIconColor = monet ? monet.text : 'text-sky-600 dark:text-sky-300';
-    const teacherIconColor = monet ? monet.text : 'text-emerald-600 dark:text-emerald-300';
-    const accentText = monet ? monet.accent : 'text-sky-600 dark:text-sky-400';
-    const accentText2 = monet ? monet.accent : 'text-emerald-600 dark:text-emerald-400';
-
     return (
         <div className={commonContainerClasses}>
-            {/* NO AuroraBackground */}
-
             <div className="relative z-10 flex items-center justify-center h-full">
                 <div className="w-full max-w-6xl mx-auto">
-                    <div className="text-center mb-8 sm:mb-12">
-                         <h1 className={`text-3xl sm:text-5xl font-black tracking-tight mb-4 leading-tight ${monet ? monet.text : 'text-slate-800 dark:text-white'}`}>Who is learning today?</h1>
-                         <p className={`text-lg sm:text-xl ${monet ? monet.subText : 'text-slate-500 dark:text-slate-400'}`}>Select your portal to access content.</p>
+                    <div className="text-center mb-16">
+                         <h1 className={`text-3xl sm:text-4xl font-black tracking-tight mb-3 ${monet ? monet.themeText : 'text-slate-900 dark:text-white'}`}>Who is learning today?</h1>
+                         <p className={`text-lg font-bold ${monet ? 'text-slate-500 dark:text-slate-400' : 'text-slate-500 dark:text-slate-400'}`}>Select your portal to access content.</p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-12 px-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 px-6">
                         {/* Learner Card */}
-                        <Link to="learner" className={`${candyCardBase} ${learnerGradient}`}>
-                            <div className="relative z-10 flex flex-col h-full items-start">
-                                <div className={`${candyIconBox} ${monet ? monet.iconBox : ''} w-16 h-16 rounded-[1.2rem] mb-6 sm:mb-8`}>
-                                    <LearnerIcon className={`w-8 h-8 sm:w-10 sm:h-10 drop-shadow-sm ${learnerIconColor}`} />
-                                </div>
-                                <h2 className={`text-2xl sm:text-4xl font-bold tracking-tight mb-3 ${monet ? monet.text : 'text-slate-800 dark:text-white'}`}>Learner</h2>
-                                <p className={`text-base sm:text-lg leading-relaxed mb-8 sm:mb-10 ${monet ? monet.subText : 'text-slate-700 dark:text-slate-300'}`}>
-                                    Dive into your subjects, track your progress, and explore interactive lessons designed just for you.
-                                </p>
-                                <div className={`mt-auto flex items-center gap-2 font-bold group-hover:gap-4 transition-all text-sm sm:text-base ${accentText}`}>
-                                    Enter Portal <span className="text-lg sm:text-xl">→</span>
-                                </div>
+                        <Link to="learner" className={`${elevatedCardBase} h-72 flex flex-col justify-center items-center text-center`}>
+                            <div className={`w-20 h-20 rounded-[24px] flex items-center justify-center mb-8 bg-sky-100 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400`}>
+                                <LearnerIcon className={`w-10 h-10`} />
+                            </div>
+                            <h2 className={`text-2xl font-black mb-3 tracking-tight text-slate-900 dark:text-white`}>Learner</h2>
+                            <p className={`text-sm max-w-sm mx-auto mb-8 font-bold text-slate-500 dark:text-slate-400`}>
+                                Access student-facing materials, assignments, and public resources.
+                            </p>
+                            <div className={`text-sm font-bold flex items-center gap-2 uppercase tracking-wider text-sky-600 dark:text-sky-400`}>
+                                Enter Portal <span>→</span>
                             </div>
                         </Link>
 
                         {/* Teacher Card */}
-                        <Link to="teacher" className={`${candyCardBase} ${teacherGradient}`}>
-                            <div className="relative z-10 flex flex-col h-full items-start">
-                                <div className={`${candyIconBox} ${monet ? monet.iconBox : ''} w-16 h-16 rounded-[1.2rem] mb-6 sm:mb-8`}>
-                                    <TeacherIcon className={`w-8 h-8 sm:w-10 sm:h-10 drop-shadow-sm ${teacherIconColor}`} />
-                                </div>
-                                <h2 className={`text-2xl sm:text-4xl font-bold tracking-tight mb-3 ${monet ? monet.text : 'text-slate-800 dark:text-white'}`}>Teacher</h2>
-                                <p className={`text-base sm:text-lg leading-relaxed mb-8 sm:mb-10 ${monet ? monet.subText : 'text-slate-700 dark:text-slate-300'}`}>
-                                    Manage curriculum, create engaging units, and organize educational resources efficiently.
-                                </p>
-                                <div className={`mt-auto flex items-center gap-2 font-bold group-hover:gap-4 transition-all text-sm sm:text-base ${accentText2}`}>
-                                    Manage Content <span className="text-lg sm:text-xl">→</span>
-                                </div>
+                        <Link to="teacher" className={`${elevatedCardBase} h-72 flex flex-col justify-center items-center text-center`}>
+                            <div className={`w-20 h-20 rounded-[24px] flex items-center justify-center mb-8 bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400`}>
+                                <TeacherIcon className={`w-10 h-10`} />
+                            </div>
+                            <h2 className={`text-2xl font-black mb-3 tracking-tight text-slate-900 dark:text-white`}>Teacher</h2>
+                            <p className={`text-sm max-w-sm mx-auto mb-8 font-bold text-slate-500 dark:text-slate-400`}>
+                                Manage curriculum, create engaging units, and organize resources.
+                            </p>
+                            <div className={`text-sm font-bold flex items-center gap-2 uppercase tracking-wider text-emerald-600 dark:text-emerald-400`}>
+                                Manage Content <span>→</span>
                             </div>
                         </Link>
                     </div>

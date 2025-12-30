@@ -1,32 +1,27 @@
 // src/components/teacher/EditSubjectModal.js
 
-import React, { useState, useEffect } from 'react';
-import { Dialog } from '@headlessui/react';
+import React, { useState, useEffect, Fragment } from 'react';
+import { Dialog, Transition } from '@headlessui/react';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useToast } from '../../contexts/ToastContext';
-import { PencilSquareIcon } from '@heroicons/react/24/solid';
-import { useTheme } from '../../contexts/ThemeContext'; // [Added] Theme Context
+import { PencilSquareIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { useTheme } from '../../contexts/ThemeContext'; 
 
-// --- [ADDED] Helper: Monet/Theme Background Extraction ---
-const getThemeModalStyle = (activeOverlay) => {
+// --- ONE UI 8.0 MONET STYLES ---
+const getOneUIStyle = (activeOverlay) => {
+    if (!activeOverlay || activeOverlay === 'none') return null;
+    
+    // One UI uses solid colors or subtle tonal tints, not heavy gradients
     switch (activeOverlay) {
-        case 'christmas': 
-            return { background: 'linear-gradient(to bottom, rgba(15, 23, 66, 0.95), rgba(15, 23, 66, 0.9))', borderColor: 'rgba(100, 116, 139, 0.2)' };
-        case 'valentines': 
-            return { background: 'linear-gradient(to bottom, rgba(60, 10, 20, 0.95), rgba(60, 10, 20, 0.9))', borderColor: 'rgba(255, 100, 100, 0.15)' };
-        case 'graduation': 
-            return { background: 'linear-gradient(to bottom, rgba(30, 25, 10, 0.95), rgba(30, 25, 10, 0.9))', borderColor: 'rgba(255, 215, 0, 0.15)' };
-        case 'rainy': 
-            return { background: 'linear-gradient(to bottom, rgba(20, 35, 20, 0.95), rgba(20, 35, 20, 0.9))', borderColor: 'rgba(100, 150, 100, 0.2)' };
-        case 'cyberpunk': 
-            return { background: 'linear-gradient(to bottom, rgba(35, 5, 45, 0.95), rgba(35, 5, 45, 0.9))', borderColor: 'rgba(180, 0, 255, 0.2)' };
-        case 'spring': 
-            return { background: 'linear-gradient(to bottom, rgba(50, 10, 20, 0.95), rgba(50, 10, 20, 0.9))', borderColor: 'rgba(255, 150, 180, 0.2)' };
-        case 'space': 
-            return { background: 'linear-gradient(to bottom, rgba(5, 5, 10, 0.95), rgba(5, 5, 10, 0.9))', borderColor: 'rgba(100, 100, 255, 0.15)' };
-        default: 
-            return {}; 
+        case 'christmas': return { iconBg: 'bg-emerald-100 text-emerald-700', btnPrimary: 'bg-emerald-600 text-white', ring: 'focus:ring-emerald-500/50' }; 
+        case 'valentines': return { iconBg: 'bg-rose-100 text-rose-700', btnPrimary: 'bg-rose-600 text-white', ring: 'focus:ring-rose-500/50' }; 
+        case 'graduation': return { iconBg: 'bg-amber-100 text-amber-700', btnPrimary: 'bg-amber-600 text-white', ring: 'focus:ring-amber-500/50' }; 
+        case 'rainy': return { iconBg: 'bg-teal-100 text-teal-700', btnPrimary: 'bg-teal-600 text-white', ring: 'focus:ring-teal-500/50' }; 
+        case 'cyberpunk': return { iconBg: 'bg-fuchsia-100 text-fuchsia-700', btnPrimary: 'bg-fuchsia-600 text-white', ring: 'focus:ring-fuchsia-500/50' }; 
+        case 'spring': return { iconBg: 'bg-pink-100 text-pink-700', btnPrimary: 'bg-pink-600 text-white', ring: 'focus:ring-pink-500/50' }; 
+        case 'space': return { iconBg: 'bg-indigo-100 text-indigo-700', btnPrimary: 'bg-indigo-600 text-white', ring: 'focus:ring-indigo-500/50' };
+        default: return null;
     }
 };
 
@@ -35,9 +30,8 @@ export default function EditSubjectModal({ isOpen, onClose, subject }) {
   const [isSaving, setIsSaving] = useState(false);
   const { showToast } = useToast();
   
-  // [Added] Theme Context
   const { activeOverlay } = useTheme();
-  const dynamicThemeStyle = getThemeModalStyle(activeOverlay);
+  const oneUiTheme = getOneUIStyle(activeOverlay);
 
   useEffect(() => {
     if (subject?.title) {
@@ -78,114 +72,126 @@ export default function EditSubjectModal({ isOpen, onClose, subject }) {
   
   if (!isOpen) return null;
 
-  return (
-    <Dialog 
-      open={isOpen} 
-      onClose={onClose} 
-      className="relative z-[6000]"
-    >
-      {/* Backdrop with deep blur */}
-      <div className="fixed inset-0 bg-slate-900/30 dark:bg-black/60 backdrop-blur-md transition-opacity duration-300" aria-hidden="true" />
+  // --- STYLES ---
+  
+  // Container: Solid surface, subtle shadow, large radius
+  const containerClass = `w-full max-w-sm transform overflow-hidden rounded-[32px] bg-white dark:bg-[#1C1C1E] p-6 text-left align-middle shadow-2xl transition-all border border-transparent dark:border-[#2C2C2E]`;
 
-      <div className="fixed inset-0 flex items-center justify-center p-4">
-        {/* Modal Panel - Ultra-Glass Style */}
-        <Dialog.Panel 
-          style={dynamicThemeStyle} // [Applied Theme]
-          className={`w-full max-w-md transform overflow-hidden rounded-[2.5rem] 
-                     backdrop-blur-3xl 
-                     p-8 text-left align-middle shadow-2xl shadow-slate-400/20 dark:shadow-black/60 
-                     border border-white/60 dark:border-white/5 
-                     ring-1 ring-slate-900/5 transition-all animate-in fade-in zoom-in-95 duration-300 scale-100
-                     ${activeOverlay === 'none' ? 'bg-white/90 dark:bg-[#16181D]/90' : ''}`}
-        >
-          
-          {/* Icon Header with Ambient Bloom */}
-          <div className="flex flex-col items-center mb-8">
-            <div className="relative group">
-                {/* Bloom behind icon */}
-                <div className="absolute inset-0 bg-blue-500 rounded-2xl blur-xl opacity-20 group-hover:opacity-40 transition-opacity duration-500"></div>
-                <div className="relative h-16 w-16 rounded-[1.2rem] bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30 ring-1 ring-white/20">
-                    <PencilSquareIcon className="h-8 w-8 text-white drop-shadow-sm" />
+  // Input: Tonal background, no border, centered text
+  const inputClass = `w-full px-5 py-4 rounded-[22px] bg-[#F2F4F7] dark:bg-[#252527] border-none text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:bg-white dark:focus:bg-[#2C2C2E] transition-all text-center font-bold text-lg ${oneUiTheme ? oneUiTheme.ring : 'focus:ring-blue-500/20'}`;
+
+  // Primary Button: Solid color pill
+  const primaryBtnClass = oneUiTheme
+      ? `w-full inline-flex justify-center items-center gap-2 rounded-[26px] px-6 py-3.5 text-sm font-bold shadow-sm transition-all active:scale-95 disabled:opacity-50 disabled:scale-100 ${oneUiTheme.btnPrimary}`
+      : `w-full inline-flex justify-center items-center gap-2 rounded-[26px] px-6 py-3.5 text-sm font-bold text-white bg-slate-900 dark:bg-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-200 shadow-sm transition-all active:scale-95 disabled:opacity-50 disabled:scale-100`;
+
+  // Cancel Button: Tonal pill
+  const cancelBtnClass = `w-full inline-flex justify-center rounded-[26px] px-6 py-3.5 text-sm font-bold text-slate-600 dark:text-slate-300 bg-[#F2F4F7] dark:bg-[#2C2C2E] hover:bg-[#E5E7EB] dark:hover:bg-[#3A3A3C] transition-all active:scale-95`;
+
+  // Icon Box: Squircle shape
+  const iconBoxClass = oneUiTheme
+      ? `mb-4 h-16 w-16 rounded-[22px] flex items-center justify-center ${oneUiTheme.iconBg}`
+      : `mb-4 h-16 w-16 rounded-[22px] flex items-center justify-center bg-slate-100 dark:bg-[#2C2C2E] text-slate-900 dark:text-white`;
+
+  return (
+    <Transition appear show={isOpen} as={Fragment}>
+        <Dialog as="div" className="relative z-[6000]" onClose={onClose}>
+            {/* Smooth Backdrop */}
+            <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0"
+                enterTo="opacity-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100"
+                leaveTo="opacity-0"
+            >
+                <div className="fixed inset-0 bg-slate-900/40 dark:bg-black/80 backdrop-blur-sm" />
+            </Transition.Child>
+
+            <div className="fixed inset-0 overflow-y-auto">
+                <div className="flex min-h-full items-center justify-center p-4 text-center">
+                    <Transition.Child
+                        as={Fragment}
+                        enter="ease-out duration-300"
+                        enterFrom="opacity-0 scale-95 translate-y-8"
+                        enterTo="opacity-100 scale-100 translate-y-0"
+                        leave="ease-in duration-200"
+                        leaveFrom="opacity-100 scale-100 translate-y-0"
+                        leaveTo="opacity-0 scale-95 translate-y-8"
+                    >
+                        <Dialog.Panel className={containerClass}>
+                            
+                            {/* Header Section */}
+                            <div className="flex flex-col items-center relative mb-6">
+                                <button 
+                                    onClick={onClose}
+                                    className="absolute -top-2 -right-2 p-2 rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-[#3A3A3C] dark:text-slate-500 transition-colors"
+                                >
+                                    <XMarkIcon className="w-5 h-5 stroke-[2.5]" />
+                                </button>
+
+                                {/* Floating Squircle Icon */}
+                                <div className={iconBoxClass}>
+                                    <PencilSquareIcon className="h-7 w-7 stroke-2" />
+                                </div>
+
+                                <Dialog.Title as="h3" className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+                                    Rename Subject
+                                </Dialog.Title>
+                                <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">
+                                    Give your course a new title.
+                                </p>
+                            </div>
+
+                            {/* Tonal Input Field */}
+                            <div className="mb-8">
+                                <input
+                                    type="text"
+                                    value={subjectName}
+                                    onChange={(e) => setSubjectName(e.target.value)}
+                                    placeholder="Subject Name"
+                                    className={inputClass}
+                                    autoFocus
+                                />
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex flex-col gap-3">
+                                <button
+                                    type="button"
+                                    onClick={handleSave}
+                                    disabled={isSaving}
+                                    className={primaryBtnClass}
+                                >
+                                    {isSaving ? (
+                                        <>
+                                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            Saving...
+                                        </>
+                                    ) : (
+                                        "Save Changes"
+                                    )}
+                                </button>
+                                
+                                <button
+                                    type="button"
+                                    onClick={onClose}
+                                    disabled={isSaving}
+                                    className={cancelBtnClass}
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+
+                        </Dialog.Panel>
+                    </Transition.Child>
                 </div>
             </div>
-            <Dialog.Title as="h3" className="mt-5 text-2xl font-bold text-slate-900 dark:text-white tracking-tight text-center">
-              Edit Subject
-            </Dialog.Title>
-            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400 text-center font-medium">
-              Update the course title below.
-            </p>
-          </div>
-
-          {/* Input Field - Recessed "Deep Field" Look */}
-          <div className="mb-8">
-            <div className="relative group">
-                <input
-                type="text"
-                value={subjectName}
-                onChange={(e) => setSubjectName(e.target.value)}
-                placeholder="Enter subject name..."
-                className="w-full px-5 py-4 rounded-2xl 
-                            bg-slate-100/80 dark:bg-black/40 
-                            border border-transparent focus:border-blue-500/50 
-                            text-slate-900 dark:text-white text-center font-semibold text-lg
-                            placeholder:text-slate-400 dark:placeholder:text-slate-600 placeholder:font-normal
-                            focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white dark:focus:bg-black/60
-                            transition-all duration-300 shadow-inner group-hover:bg-slate-100 dark:group-hover:bg-black/50"
-                />
-            </div>
-          </div>
-
-          {/* Buttons - "Gem" & "Glass" Styles */}
-          <div className="grid grid-cols-2 gap-4">
-            {/* Cancel: Frosted Glass */}
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSaving}
-              className="inline-flex justify-center rounded-full px-4 py-3.5 text-sm font-bold 
-                         text-slate-600 dark:text-slate-300 
-                         bg-white/50 dark:bg-white/5 
-                         hover:bg-white/80 dark:hover:bg-white/10 
-                         border border-slate-200/60 dark:border-white/10 
-                         shadow-sm hover:shadow-md backdrop-blur-sm
-                         transition-all duration-200 active:scale-[0.98] 
-                         disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Cancel
-            </button>
-
-            {/* Save: Aurora Gem */}
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={isSaving}
-              className="relative inline-flex justify-center rounded-full px-4 py-3.5 text-sm font-bold 
-                         text-white 
-                         bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600
-                         hover:from-blue-500 hover:via-indigo-500 hover:to-purple-500
-                         shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 
-                         border border-white/20 
-                         transition-all duration-300 active:scale-[0.98] 
-                         disabled:opacity-70 disabled:cursor-not-allowed disabled:shadow-none overflow-hidden"
-            >
-              {/* Shine effect overlay */}
-              <div className="absolute inset-0 bg-gradient-to-t from-transparent to-white/20 pointer-events-none"></div>
-              
-              {isSaving ? (
-                <span className="flex items-center gap-2 relative z-10">
-                  <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Saving...
-                </span>
-              ) : (
-                <span className="relative z-10">Save Changes</span>
-              )}
-            </button>
-          </div>
-        </Dialog.Panel>
-      </div>
-    </Dialog>
+        </Dialog>
+    </Transition>
   );
 }

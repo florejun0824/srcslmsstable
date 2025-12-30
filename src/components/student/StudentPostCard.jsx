@@ -1,15 +1,14 @@
 import React, { useState, useRef, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PencilIcon, TrashIcon, GlobeAltIcon, LockClosedIcon } from '@heroicons/react/24/solid';
+import { PencilIcon, TrashIcon, GlobeAltIcon, LockClosedIcon, BuildingLibraryIcon } from '@heroicons/react/24/solid';
 import { ChatBubbleLeftIcon, HandThumbUpIcon } from '@heroicons/react/24/outline';
 import UserInitialsAvatar from '../common/UserInitialsAvatar'; 
 import Linkify from 'react-linkify';
 import { Link } from 'react-router-dom';
-import { useTheme } from '../../contexts/ThemeContext'; // [Added] Theme Context
+import { useTheme } from '../../contexts/ThemeContext'; 
 
 // --- Design Helpers ---
 
-// [Added] Theme Color Helper
 const getThemeCardStyle = (activeOverlay) => {
     switch (activeOverlay) {
         case 'christmas': 
@@ -102,27 +101,34 @@ const StudentPostCard = ({
     const [isReactionPickerOpen, setIsReactionPickerOpen] = useState(false);
     const pickerTimerRef = useRef(null);
 
-    // [Added] Theme Context
+    // Theme Context
     const { activeOverlay } = useTheme();
     const dynamicThemeStyle = getThemeCardStyle(activeOverlay);
     const isStandardTheme = activeOverlay === 'none';
 
     const postReactions = post.reactions || {};
     const currentUserReaction = postReactions[userProfile.id];
-    const isAuthor = userProfile.id === post.authorId;
+    
+    // ✅ CRASH FIX: Robustly determine ID and Name (Legacy Support)
+    const postOwnerId = post.authorId || post.teacherId;
+    const rawName = post.authorName || post.teacherName || 'Unknown Student';
+    
+    // Check if current user is the author
+    const isAuthor = userProfile.id === postOwnerId;
     const isTruncated = post.content && post.content.length > POST_TRUNCATE_LENGTH;
     const commentCount = post.commentsCount || 0;
 
+    // ✅ CRASH FIX: Handle name splitting safely
     const postAuthor = author || {
-        id: post.authorId,
-        firstName: post.authorName.split(' ')[0],
-        lastName: post.authorName.split(' ')[1] || '',
-        photoURL: post.authorPhotoURL
+        id: postOwnerId,
+        firstName: rawName.split(' ')[0] || 'Unknown',
+        lastName: rawName.split(' ').slice(1).join(' ') || '',
+        photoURL: post.authorPhotoURL || post.teacherPhoto // Legacy photo field support
     };
 
     const profileLink = isAuthor
         ? (userProfile.role === 'student' ? '/student/profile' : '/dashboard/profile')
-        : (userProfile.role === 'student' ? `/student/profile/${post.authorId}` : `/dashboard/profile/${post.authorId}`);
+        : (userProfile.role === 'student' ? `/student/profile/${postOwnerId}` : `/dashboard/profile/${postOwnerId}`);
     
     // --- Handlers ---
     const openReactionPicker = () => {
@@ -195,7 +201,7 @@ const StudentPostCard = ({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.5, type: "spring", bounce: 0.3 }}
-            style={dynamicThemeStyle} // [Applied Theme Style]
+            style={dynamicThemeStyle} 
             className={`
                 relative group mb-5
                 backdrop-blur-2xl 
@@ -231,16 +237,24 @@ const StudentPostCard = ({
                         <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-400 dark:text-slate-500">
                             <span>{post.createdAt ? new Date(post.createdAt.toDate()).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Now'}</span>
                             <span className="w-0.5 h-0.5 rounded-full bg-slate-300 dark:bg-slate-600"></span>
+                            
+                            {/* ✅ Updated Logic: Public = School Wide */}
                             {post.audience === 'Public' ? (
-                                <GlobeAltIcon className="w-3 h-3 opacity-80" />
+                                <div className="flex items-center gap-1" title="Visible to School">
+                                    <BuildingLibraryIcon className="w-3 h-3 opacity-80" />
+                                    <span>School</span>
+                                </div>
                             ) : (
-                                <LockClosedIcon className="w-3 h-3 opacity-80" />
+                                <div className="flex items-center gap-1" title="Visible to friends">
+                                    <LockClosedIcon className="w-3 h-3 opacity-80" />
+                                    <span>Private</span>
+                                </div>
                             )}
                         </div>
                     </div>
                 </div>
 
-                {/* Actions (Visible on Hover) */}
+                {/* Actions */}
                 {isAuthor && (
                     <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0">
                         <motion.button 
@@ -261,9 +275,8 @@ const StudentPostCard = ({
                 )}
             </div>
 
-            {/* Content (Reduced Top/Bottom Margin) */}
+            {/* Content */}
             <div className="px-1 mb-2">
-                {/* 1. Text Content Area */}
                 {isEditing ? (
                     <motion.div 
                         initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
@@ -314,10 +327,9 @@ const StudentPostCard = ({
                     )
                 )}
 
-                {/* 2. Image Content Area */}
+                {/* Images */}
                 {(post.images?.length > 0 || post.imageURL) && (
                     <div className="mt-2 rounded-2xl overflow-hidden border border-slate-100 dark:border-white/10">
-                        {/* A. Multiple Images Grid */}
                         {post.images && post.images.length > 1 ? (
                             <div className={`grid gap-0.5 ${
                                 post.images.length === 2 ? 'grid-cols-2' :
@@ -347,7 +359,6 @@ const StudentPostCard = ({
                                 ))}
                             </div>
                         ) : (
-                            /* B. Single Image */
                             <div className="relative bg-slate-100 dark:bg-white/5">
                                 <img 
                                     src={post.images ? post.images[0] : post.imageURL} 
@@ -361,7 +372,7 @@ const StudentPostCard = ({
                 )}
             </div>
 
-            {/* Stats Bar (Compact) */}
+            {/* Stats Bar */}
             <div className="flex justify-between items-center mt-2 px-1">
                 {formatReactionCount()}
                 
@@ -375,7 +386,7 @@ const StudentPostCard = ({
                 </div>
             </div>
 
-            {/* Action Deck - Compact */}
+            {/* Action Deck */}
             {canReact ? (
                 <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-indigo-100/50 dark:border-white/5 relative">
                     

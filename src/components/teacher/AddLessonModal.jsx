@@ -1,10 +1,12 @@
-import React, { useState, useCallback, Suspense, lazy } from 'react';
+import React, { useState, useCallback, Suspense, lazy, useEffect } from 'react';
 import { Dialog } from '@headlessui/react';
 import {
     XMarkIcon, SparklesIcon, DocumentPlusIcon, ChevronRightIcon, BookOpenIcon
 } from '@heroicons/react/24/outline';
 import Spinner from '../common/Spinner';
-import { useTheme } from '../../contexts/ThemeContext'; // 1. Import Theme Context
+import { useTheme } from '../../contexts/ThemeContext';
+import { db } from '../../services/firebase'; // ✅ Added db import
+import { doc, getDoc } from 'firebase/firestore'; // ✅ Added firestore imports
 
 // Lazy load the main panel components
 const AiLessonGenerator = lazy(() => import('./AiLessonGenerator'));
@@ -32,49 +34,49 @@ const getMonetStyles = (activeOverlay) => {
             return {
                 ...base,
                 container: `${base.container} bg-[#0f172a]/95 border-emerald-500/20 shadow-emerald-900/20`,
-                solidBg: "bg-[#020617]", // Deepest Blue/Green
+                solidBg: "bg-[#020617]", 
                 accentIcon: "text-emerald-400",
             };
         case 'valentines':
             return {
                 ...base,
                 container: `${base.container} bg-[#2c0b0e]/95 border-rose-500/20 shadow-rose-900/20`,
-                solidBg: "bg-[#1f0508]", // Deepest Red
+                solidBg: "bg-[#1f0508]",
                 accentIcon: "text-rose-400",
             };
         case 'graduation':
             return {
                 ...base,
                 container: `${base.container} bg-[#1a1400]/95 border-amber-500/20 shadow-amber-900/20`,
-                solidBg: "bg-[#140f00]", // Deepest Gold
+                solidBg: "bg-[#140f00]",
                 accentIcon: "text-amber-400",
             };
         case 'rainy':
             return {
                 ...base,
                 container: `${base.container} bg-[#061816]/95 border-teal-500/20 shadow-teal-900/20`,
-                solidBg: "bg-[#020909]", // Deepest Teal
+                solidBg: "bg-[#020909]",
                 accentIcon: "text-teal-400",
             };
         case 'cyberpunk':
             return {
                 ...base,
                 container: `${base.container} bg-[#180a20]/95 border-fuchsia-500/20 shadow-fuchsia-900/20`,
-                solidBg: "bg-[#0d0312]", // Deepest Purple
+                solidBg: "bg-[#0d0312]",
                 accentIcon: "text-fuchsia-400",
             };
         case 'spring':
             return {
                 ...base,
                 container: `${base.container} bg-[#1f0f15]/95 border-pink-500/20 shadow-pink-900/20`,
-                solidBg: "bg-[#120509]", // Deepest Pink
+                solidBg: "bg-[#120509]",
                 accentIcon: "text-pink-400",
             };
         case 'space':
             return {
                 ...base,
                 container: `${base.container} bg-[#020617]/95 border-indigo-500/20 shadow-indigo-900/20`,
-                solidBg: "bg-[#00020a]", // Deepest Void
+                solidBg: "bg-[#00020a]",
                 accentIcon: "text-indigo-400",
             };
         default:
@@ -171,10 +173,34 @@ const ModeSelection = ({ onSelect, monet }) => {
 
 export default function AddLessonModal({ isOpen, onClose, unitId, subjectId, setIsAiGenerating }) {
     const [creationMode, setCreationMode] = useState(null);
+    const [targetSchoolId, setTargetSchoolId] = useState(null); // ✅ STATE: Holds inherited privacy
     
     // Theme Context
     const { activeOverlay } = useTheme();
     const monet = getMonetStyles(activeOverlay);
+
+    // ✅ EFFECT: Fetch the Course to check for schoolId
+    useEffect(() => {
+        const fetchCoursePrivacy = async () => {
+            if (!subjectId) return;
+            try {
+                const courseRef = doc(db, 'courses', subjectId);
+                const courseSnap = await getDoc(courseRef);
+                if (courseSnap.exists()) {
+                    const data = courseSnap.data();
+                    // If the course has a schoolId, we use it. Otherwise default to 'global' (or null)
+                    // You might use 'global' to denote public, or undefined for legacy.
+                    setTargetSchoolId(data.schoolId || 'global');
+                }
+            } catch (err) {
+                console.error("Failed to fetch course privacy settings:", err);
+            }
+        };
+
+        if (isOpen) {
+            fetchCoursePrivacy();
+        }
+    }, [isOpen, subjectId]);
 
     const handleClose = useCallback(() => {
         setTimeout(() => {
@@ -203,9 +229,26 @@ export default function AddLessonModal({ isOpen, onClose, unitId, subjectId, set
     const renderContent = () => {
         switch (creationMode) {
             case 'ai':
-                return <AiLessonGenerator onClose={handleClose} onBack={() => setCreationMode(null)} unitId={unitId} subjectId={subjectId} setIsAiGenerating={setIsAiGenerating} />;
+                return (
+                    <AiLessonGenerator 
+                        onClose={handleClose} 
+                        onBack={() => setCreationMode(null)} 
+                        unitId={unitId} 
+                        subjectId={subjectId} 
+                        setIsAiGenerating={setIsAiGenerating}
+                        schoolId={targetSchoolId} // ✅ PASS THE SCHOOL ID
+                    />
+                );
             case 'manual':
-                return <ManualLessonCreator onClose={handleClose} onBack={() => setCreationMode(null)} unitId={unitId} subjectId={subjectId} />;
+                return (
+                    <ManualLessonCreator 
+                        onClose={handleClose} 
+                        onBack={() => setCreationMode(null)} 
+                        unitId={unitId} 
+                        subjectId={subjectId} 
+                        schoolId={targetSchoolId} // ✅ PASS THE SCHOOL ID
+                    />
+                );
             default:
                 return <ModeSelection onSelect={setCreationMode} monet={monet} />;
         }

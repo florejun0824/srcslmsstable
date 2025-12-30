@@ -127,11 +127,9 @@ const ActivityFeed = ({ userProfile, teacherAnnouncements, showToast }) => {
                 </div>
                 <div>
                     <h2 className={`text-2xl font-bold tracking-tight ${monetStyles ? monetStyles.textColor : 'text-slate-900 dark:text-white'}`}>
-                        Activity Feed
+                        Announcements
                     </h2>
-                    <p className={`text-sm font-medium ${monetStyles ? 'text-slate-200' : 'text-slate-500 dark:text-slate-400'}`}>
-                        Latest updates from your classes
-                    </p>
+                    
                 </div>
             </div>
 

@@ -2,9 +2,8 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { db } from '../../../../../services/firebase'; 
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, where } from 'firebase/firestore'; // ✅ Added query, where
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, where } from 'firebase/firestore'; 
 
-// ✅ Accept schoolId as the second argument
 export const useSchedule = (showToast, schoolId) => {
     const [scheduleActivities, setScheduleActivities] = useState([]);
     const [currentActivityIndex, setCurrentActivityIndex] = useState(0);
@@ -12,11 +11,11 @@ export const useSchedule = (showToast, schoolId) => {
 
     // Real-time listener for schedule updates from Firestore
     useEffect(() => {
-        // ✅ Only listen if we have a schoolId
-        if (!schoolId) return;
+        // ✅ Legacy Support: Default to 'srcs_main' if no schoolId provided
+        const targetSchoolId = schoolId || 'srcs_main';
 
         // ✅ Filter by School ID
-        const q = query(scheduleCollectionRef, where("schoolId", "==", schoolId));
+        const q = query(scheduleCollectionRef, where("schoolId", "==", targetSchoolId));
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const fetchedSchedules = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
@@ -29,15 +28,20 @@ export const useSchedule = (showToast, schoolId) => {
         });
 
         return () => unsubscribe();
-    }, [showToast, schoolId]); // ✅ Re-run if schoolId changes
+    }, [showToast, schoolId]); 
 
     // CRUD operations
     const handleAddScheduleActivity = async (newActivity) => {
         try {
-            // ✅ Tag new activity with schoolId
-            await addDoc(scheduleCollectionRef, { ...newActivity, schoolId });
+            // ✅ Enforce School ID on Creation
+            await addDoc(scheduleCollectionRef, { 
+                ...newActivity, 
+                schoolId: schoolId || 'srcs_main' 
+            });
+            if (showToast) showToast("Activity added to schedule.", "success");
         } catch (error) {
             console.error("Error adding schedule activity:", error);
+            if (showToast) showToast("Failed to add activity.", "error");
         }
     };
 
@@ -46,8 +50,10 @@ export const useSchedule = (showToast, schoolId) => {
             const activityDocRef = doc(db, 'schedules', updatedActivity.id);
             const { id, ...dataToUpdate } = updatedActivity;
             await updateDoc(activityDocRef, dataToUpdate);
+            if (showToast) showToast("Activity updated.", "success");
         } catch (error) {
             console.error("Error updating schedule activity:", error);
+            if (showToast) showToast("Failed to update activity.", "error");
         }
     };
 
@@ -55,13 +61,15 @@ export const useSchedule = (showToast, schoolId) => {
         try {
             const activityDocRef = doc(db, 'schedules', id);
             await deleteDoc(activityDocRef);
+            if (showToast) showToast("Activity deleted.", "info");
         }
         catch (error) {
             console.error("Error deleting schedule activity:", error);
+            if (showToast) showToast("Failed to delete activity.", "error");
         }
     };
 
-    // --- FIXED: Memoized calculation to filter expired dates correctly ---
+    // Filter for valid dates (Future or Today)
     const filteredScheduleActivitiesForDisplay = useMemo(() => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -75,7 +83,7 @@ export const useSchedule = (showToast, schoolId) => {
         });
     }, [scheduleActivities]);
 
-    // Memoized calculation to get today's upcoming activities for the header
+    // Get Today's Activities for the Header Widget
     const todayActivities = useMemo(() => {
         const now = new Date();
         const offset = now.getTimezoneOffset() * 60000;
@@ -109,7 +117,7 @@ export const useSchedule = (showToast, schoolId) => {
         });
     }, [scheduleActivities]);
     
-    // Cycle through today's activities
+    // Rotate through today's activities
     useEffect(() => {
         if (todayActivities.length > 1) {
             const interval = setInterval(() => {

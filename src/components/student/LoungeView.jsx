@@ -1,7 +1,7 @@
 // src/components/student/LoungeView.jsx
 import React from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useTheme } from '../../contexts/ThemeContext'; // [Added] Theme Context
+import { useTheme } from '../../contexts/ThemeContext';
 import { AnimatePresence } from 'framer-motion';
 
 // Import the post components
@@ -14,7 +14,7 @@ import {
     SparklesIcon
 } from '@heroicons/react/24/solid';
 
-// --- CUSTOM CSS: MAC OS 26 UTILS ---
+// --- CUSTOM CSS ---
 const loungeStyles = `
   .glass-panel {
     background: rgba(255, 255, 255, 0.7);
@@ -50,7 +50,6 @@ const loungeStyles = `
   }
 `;
 
-// --- [ADDED] Helper: Monet/Theme Color Extraction ---
 const getThemeCardStyle = (activeOverlay) => {
     switch (activeOverlay) {
         case 'christmas': 
@@ -72,10 +71,8 @@ const getThemeCardStyle = (activeOverlay) => {
     }
 };
 
-// --- SKELETON LOADER COMPONENT ---
 const PostSkeleton = () => (
     <div className="glass-panel rounded-[2rem] p-6 w-full animate-pulse">
-        {/* Header: Avatar & Name */}
         <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700/50"></div>
             <div className="space-y-2 flex-1">
@@ -83,15 +80,11 @@ const PostSkeleton = () => (
                 <div className="h-2 w-20 bg-slate-200 dark:bg-slate-700/50 rounded-md"></div>
             </div>
         </div>
-        
-        {/* Body Text Lines */}
         <div className="space-y-3 mb-6">
             <div className="h-3 w-full bg-slate-200 dark:bg-slate-700/50 rounded-md"></div>
             <div className="h-3 w-5/6 bg-slate-200 dark:bg-slate-700/50 rounded-md"></div>
             <div className="h-3 w-4/6 bg-slate-200 dark:bg-slate-700/50 rounded-md"></div>
         </div>
-
-        {/* Footer Actions */}
         <div className="flex items-center justify-between pt-4 border-t border-slate-200/30 dark:border-white/5">
              <div className="flex gap-3">
                 <div className="h-8 w-16 bg-slate-200 dark:bg-slate-700/50 rounded-full"></div>
@@ -127,10 +120,15 @@ const LoungeView = ({
   fetchPublicPosts
 }) => {
   const { userProfile } = useAuth();
-  
-  // [Added] Get Theme
   const { activeOverlay } = useTheme();
   const dynamicThemeStyle = getThemeCardStyle(activeOverlay);
+
+  // ✅ PRE-FILTERING: Ensure userProfile matches post schoolId
+  const userSchoolId = userProfile?.schoolId || 'srcs_main';
+  const displayPosts = sortedPosts?.filter(post => {
+      if (post.schoolId) return post.schoolId === userSchoolId;
+      return userSchoolId === 'srcs_main'; // Show legacy posts only to SRCS
+  }) || [];
 
   return (
     <>
@@ -138,13 +136,11 @@ const LoungeView = ({
 
       <div className="max-w-4xl mx-auto w-full space-y-8 px-4 sm:px-6 lg:px-8 pb-32">
         
-        {/* --- Header Section (Aero Glass - Compact & Themed) --- */}
+        {/* --- Header Section --- */}
         <div 
             className="relative glass-panel rounded-[2rem] p-4 sm:p-5 overflow-hidden group transition-colors duration-500"
-            style={dynamicThemeStyle} // [Applied Theme]
+            style={dynamicThemeStyle}
         >
-            
-            {/* Background Mesh Gradient (Opacity reduced slightly for readability over themes) */}
             <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-gradient-to-br from-blue-400/10 to-purple-400/10 rounded-full blur-[80px] pointer-events-none -translate-y-1/2 translate-x-1/3"></div>
             <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-gradient-to-tr from-orange-400/10 to-pink-400/10 rounded-full blur-[80px] pointer-events-none translate-y-1/3 -translate-x-1/3"></div>
 
@@ -158,7 +154,6 @@ const LoungeView = ({
                     </p>
                 </div>
 
-                {/* Refresh Button - Compact */}
                 <button
                     onClick={() => fetchPublicPosts()}
                     disabled={isPostsLoading}
@@ -172,18 +167,17 @@ const LoungeView = ({
 
         {/* --- Post Feed --- */}
         <div className="space-y-6 relative z-0">
-            {/* SKELETON LOADING STATE */}
-            {isPostsLoading && (!publicPosts || publicPosts.length === 0) ? (
+            {isPostsLoading && (!displayPosts || displayPosts.length === 0) ? (
                 <div className="space-y-6">
                     {[1, 2, 3].map((i) => (
                         <PostSkeleton key={i} />
                     ))}
                 </div>
-            ) : (!sortedPosts || sortedPosts.length === 0) ? (
-                // Empty State - Glass Card (Themed)
+            ) : (displayPosts.length === 0) ? (
+                // Empty State
                 <div 
                     className="glass-panel rounded-[2.5rem] p-12 text-center flex flex-col items-center justify-center transition-colors duration-500"
-                    style={dynamicThemeStyle} // [Applied Theme]
+                    style={dynamicThemeStyle}
                 >
                     <div className="w-24 h-24 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mb-6 shadow-inner">
                         <ChatBubbleLeftRightIcon className="w-10 h-10 text-slate-300 dark:text-slate-600" />
@@ -199,8 +193,8 @@ const LoungeView = ({
             ) : (
                 // Feed Items
                 <div className="space-y-6">
-                    {sortedPosts.map(post => {
-                        const authorDetails = usersMap[post.authorId];
+                    {displayPosts.map(post => {
+                        const authorDetails = usersMap[post.authorId] || usersMap[post.teacherId];
                         const isPrivilegedUser = userProfile.role === 'teacher' || userProfile.role === 'admin';
 
                         return (
