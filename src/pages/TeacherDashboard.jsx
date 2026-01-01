@@ -571,72 +571,150 @@ const TeacherDashboard = () => {
     }, [showToast]);
 
 	const handleGeneratePresentationPreview = useCallback(async (lessonIds, lessonsData, unitsData) => {
-	        if (!activeSubject) { 
-	            showToast("No active subject selected.", "warning"); 
-	            return; 
-	        }
-        
-	        const selectedLessons = lessonsData.filter(l => lessonIds.includes(l.id));
-	        if (selectedLessons.length === 0) {
-	            showToast("No lesson found.", "error");
-	            return;
-	        }
-        
-	        const targetLesson = selectedLessons[0];
-	        const validPages = (targetLesson.pages || []).filter(p => p.content && p.content.trim().length > 0);
-        
-	        if (validPages.length === 0) {
-	            showToast("This lesson has no content.", "error");
-	            return;
-	        }
+	    // 1. Validation
+	    if (!activeSubject) { 
+	        showToast("No active subject selected.", "warning"); 
+	        return; 
+	    }
 
-	        setIsAiGenerating(true);
-        
-	        let accumulatedSlides = [
+	    const selectedLessons = lessonsData.filter(l => lessonIds.includes(l.id));
+	    if (selectedLessons.length === 0) {
+	        showToast("No lesson found.", "error");
+	        return;
+	    }
+
+	    // Target the first selected lesson
+	    const targetLesson = selectedLessons[0];
+	    const validPages = (targetLesson.pages || []).filter(p => p.content && p.content.trim().length > 0);
+
+	    if (validPages.length === 0) {
+	        showToast("This lesson has no content.", "error");
+	        return;
+	    }
+
+	    setIsAiGenerating(true);
+
+	    // 2. Start with ONE Master Title Slide
+	    let accumulatedSlides = [
+	        {
+	            title: targetLesson.title,
+	            body: `Subject: ${activeSubject.title}`,
+	            notes: { talkingPoints: "Introduction to the lesson topic.", interactiveElement: "N/A", slideTiming: "1 min" }
+	        }
+	    ];
+
+	    // 3. SEQUENTIAL LOOP
+	    for (let i = 0; i < validPages.length; i++) {
+	        const page = validPages[i];
+	        showToast(`Generating slides for section ${i + 1} of ${validPages.length}...`, "info");
+
+	        // --- MERGED PROMPT: STRICT BEHAVIOR + DETAILED CONTENT RULES ---
+	        const prompt = `
+	            SYSTEM: You are a JSON-only API. You are NOT a chatbot.
+	            INSTRUCTION: Convert the educational content below into a Google Slides JSON structure.
+
+	            STRICT BEHAVIORAL CONSTRAINTS:
+	            1. Output ONLY valid JSON.
+	            2. DO NOT write introductions (e.g., "Here is the JSON", "Sure", "Excellent").
+	            3. DO NOT write conclusions.
+	            4. Start the response immediately with '{' and end with '}'.
+
+	            ROLE & CONTENT RULES:
+	            You are an expert Educational Content Developer.
+            
+	            **SOURCE MATERIAL:**
+	            The text below is **Part ${i + 1}** of a lesson titled "${targetLesson.title}".
+            
+	            **TASK:** Convert the provided text into 1-3 Google Slides.
+
+	            **STRICT CONTENT RULES:**
+	            1. **ACCURACY:** Do not invent, hallucinate, or bring in outside knowledge. Use **ONLY** the provided text.
+	            2. **SUMMARIES:** If the text is a "Lesson Summary" or "Wrap-up", bullet point the key takeaways exactly as stated in the text. Do not rewrite them into a generic conclusion.
+	            3. **ASSESSMENTS & ANSWER KEYS:** - If the text is a Quiz, Assessment, or Answer Key, **DO NOT** summarize it or create an explanation paragraph. 
+	               - List the questions and answers exactly as they appear (e.g., "1. Question - Answer").
+	               - Make sure the Answer Key is clearly distinct from the questions.
+
+	            **SPEAKER NOTES (TALKING POINTS) REQUIREMENTS:**
+	            - The "talkingPoints" must be **detailed, paragraph-form explanations** suitable for a teacher to read or paraphrase while presenting.
+	            - **DO NOT** just summarize the slide bullet points.
+	            - **DO** elaborate on the concepts, provide context, or suggest how to explain the specific bullet points to students.
+	            - If the slide is an Answer Key, the talking points should simply say "Review the answers with the class."
+
+	            **STRUCTURE INSTRUCTIONS:**
+	            1. If the content is text-heavy, put it in the "body" field.
+	            2. **IF** the content contains structured data (e.g., a schedule, a comparison chart, a list of dates/events, or a quiz key), **DO NOT** put it in the "body". Instead, format it into the "tableData" field.
+	            3. If using "tableData", you can leave "body" empty or use it for a very short intro sentence.
+
+	            **REQUIRED JSON SCHEMA:**
 	            {
-	                title: targetLesson.title,
-	                body: `Subject: ${activeSubject.title}`,
-	                notes: { talkingPoints: "Introduction to the lesson topic.", interactiveElement: "N/A", slideTiming: "1 min" }
-	            }
-	        ];
-
-	        for (let i = 0; i < validPages.length; i++) {
-	            const page = validPages[i];
-	            showToast(`Generating slides for section ${i + 1} of ${validPages.length}...`, "info");
-
-	            const prompt = `You are an expert Educational Content Developer... (Prompt truncated for brevity) ... ${page.content}`;
-	            try {
-	                const aiResponseText = await callGeminiWithLimitCheck(prompt);
-	                const jsonText = aiResponseText.match(/```json\s*([\s\S]*?)\s*```/)?.[1] || aiResponseText;
-	                const parsed = JSON.parse(jsonText);
-
-	                if (parsed.slides && Array.isArray(parsed.slides)) {
-	                    accumulatedSlides = [...accumulatedSlides, ...parsed.slides];
+	              "slides": [
+	                {
+	                  "title": "Slide Title",
+	                  "body": "Text content (or empty if using tableData)...", 
+	                  "tableData": {
+	                      "headers": ["Column 1", "Column 2"],
+	                      "rows": [
+	                          ["Row 1 Data", "Row 1 Data"],
+	                          ["Row 2 Data", "Row 2 Data"]
+	                      ]
+	                  },
+	                  "notes": { 
+	                    "talkingPoints": "Comprehensive script for the teacher...", 
+	                    "interactiveElement": "A quick question...", 
+	                    "slideTiming": "e.g. 2 mins" 
+	                  }
 	                }
-	            } catch (err) {
-	                console.error(`Error on part ${i + 1}:`, err);
-	                showToast(`Skipped section ${i + 1} due to an error.`, "warning");
+	              ]
 	            }
+
+	            **CONTENT TO PROCESS:**
+	            ${page.content}
+	        `;
+
+	        try {
+	            const aiResponseText = await callGeminiWithLimitCheck(prompt);
+            
+	            // --- ROBUST PARSING LOGIC ---
+	            // Find the absolute start '{' and end '}' to ignore any "Here is your JSON" text
+	            let jsonText = aiResponseText;
+	            const firstBrace = aiResponseText.indexOf('{');
+	            const lastBrace = aiResponseText.lastIndexOf('}');
+            
+	            if (firstBrace !== -1 && lastBrace !== -1) {
+	                jsonText = aiResponseText.substring(firstBrace, lastBrace + 1);
+	            }
+
+	            const parsed = JSON.parse(jsonText);
+
+	            if (parsed.slides && Array.isArray(parsed.slides)) {
+	                accumulatedSlides = [...accumulatedSlides, ...parsed.slides];
+	            }
+	        } catch (err) {
+	            console.error(`Error on part ${i + 1}:`, err);
+	            // Log the failing text to the console for easier debugging
+	            console.log("Failed Response Text:", err.message);
+	            showToast(`Skipped section ${i + 1} due to generation error.`, "warning");
 	        }
+	    }
 
-	        if (accumulatedSlides.length <= 1) {
-	            showToast("Failed to generate slides. Please check lesson content.", "error");
-	            setIsAiGenerating(false);
-	            return;
-	        }
+	    if (accumulatedSlides.length <= 1) {
+	        showToast("Failed to generate slides. Please check lesson content.", "error");
+	        setIsAiGenerating(false);
+	        return;
+	    }
 
-	        showToast("Presentation generation complete!", "success");
+	    showToast("Presentation generation complete!", "success");
 
-	        setPresentationPreviewData({ 
-	            slides: accumulatedSlides, 
-	            lessonIds, 
-	            lessonsData, 
-	            unitsData 
-	        });
-        
-	        setPresentationPreviewModalOpen(true);
-	        setIsAiGenerating(false); 
-	    }, [activeSubject, showToast]);
+	    setPresentationPreviewData({ 
+	        slides: accumulatedSlides, 
+	        lessonIds, 
+	        lessonsData, 
+	        unitsData 
+	    });
+    
+	    setPresentationPreviewModalOpen(true);
+	    setIsAiGenerating(false); 
+	}, [activeSubject, showToast]);
 
     const handleConfirmBetaWarning = useCallback((neverShowAgain) => {
         if (neverShowAgain) { localStorage.setItem('hidePresentationBetaWarning', 'true'); }
