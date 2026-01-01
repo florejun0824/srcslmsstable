@@ -608,16 +608,13 @@ const TeacherDashboard = () => {
 	        const page = validPages[i];
 	        showToast(`Generating slides for section ${i + 1} of ${validPages.length}...`, "info");
 
-	        // --- MERGED PROMPT: STRICT BEHAVIOR + DETAILED CONTENT RULES ---
 	        const prompt = `
 	            SYSTEM: You are a JSON-only API. You are NOT a chatbot.
 	            INSTRUCTION: Convert the educational content below into a Google Slides JSON structure.
 
 	            STRICT BEHAVIORAL CONSTRAINTS:
 	            1. Output ONLY valid JSON.
-	            2. DO NOT write introductions (e.g., "Here is the JSON", "Sure", "Excellent").
-	            3. DO NOT write conclusions.
-	            4. Start the response immediately with '{' and end with '}'.
+	            2. DO NOT write introductions. Start immediately with '{' and end with '}'.
 
 	            ROLE & CONTENT RULES:
 	            You are an expert Educational Content Developer.
@@ -625,43 +622,44 @@ const TeacherDashboard = () => {
 	            **SOURCE MATERIAL:**
 	            The text below is **Part ${i + 1}** of a lesson titled "${targetLesson.title}".
             
-	            **TASK:** Convert the provided text into 1-3 Google Slides.
+	            **TASK:** Convert the provided text into 1-4 Google Slides.
 
-	            **STRICT CONTENT RULES:**
-	            1. **ACCURACY:** Do not invent, hallucinate, or bring in outside knowledge. Use **ONLY** the provided text.
-	            2. **SUMMARIES:** If the text is a "Lesson Summary" or "Wrap-up", bullet point the key takeaways exactly as stated in the text. Do not rewrite them into a generic conclusion.
-	            3. **ASSESSMENTS & ANSWER KEYS:** - If the text is a Quiz, Assessment, or Answer Key, **DO NOT** summarize it or create an explanation paragraph. 
-	               - List the questions and answers exactly as they appear (e.g., "1. Question - Answer").
-	               - Make sure the Answer Key is clearly distinct from the questions.
+	            **CRITICAL: CONTENT DISTRIBUTION RULES**
+	            1. **NO VAGUE SUMMARIES:** Do not create slides that just say "There are three types of X." You MUST list the types on the slide.
+	            2. **SUB-COMPONENTS IN BODY:** If the text explains multiple concepts (e.g., "Metaphors, Similes, Personification"), you must **LIST THEM IN THE SLIDE BODY** with their definitions and short examples.
+	            3. **USE MULTIPLE SLIDES:** If the content is too long to list all sub-components on one slide, generate multiple slides.
+	            4. **BODY vs NOTES:** - **Slide Body:** MUST contain the "What" (The Definitions, The Types, The Examples, The Lists).
+	               - **Speaker Notes:** MUST contain the "How" and "Why" (Context, elaboration, how to explain it to the class).
+	               - **NEVER** hide the main definitions in the notes while leaving the body empty or vague.
 
-	            **SPEAKER NOTES (TALKING POINTS) REQUIREMENTS:**
-	            - The "talkingPoints" must be **detailed, paragraph-form explanations** suitable for a teacher to read or paraphrase while presenting.
-	            - **DO NOT** just summarize the slide bullet points.
-	            - **DO** elaborate on the concepts, provide context, or suggest how to explain the specific bullet points to students.
-	            - If the slide is an Answer Key, the talking points should simply say "Review the answers with the class."
+	            **SPECIAL CONTENT HANDLING (STRICT):**
+            
+	            1. **REFERENCES / WORKS CITED:**
+	               - **FORMAT:** Use a simple bulleted list in the "body" field.
+	               - **NO TABLES:** Do not create a "Source | Key Contribution" table.
+	               - **NO EXPLANATIONS:** List ONLY the citation (Author, Title, Date). Do not explain what the book is about.
 
-	            **STRUCTURE INSTRUCTIONS:**
-	            1. If the content is text-heavy, put it in the "body" field.
-	            2. **IF** the content contains structured data (e.g., a schedule, a comparison chart, a list of dates/events, or a quiz key), **DO NOT** put it in the "body". Instead, format it into the "tableData" field.
-	            3. If using "tableData", you can leave "body" empty or use it for a very short intro sentence.
+	            2. **ASSESSMENTS / QUIZZES:**
+	               - **SPLIT REQUIRED:** You MUST generate separate slides for Questions and Answers.
+	               - **SLIDE A (Questions):** List ONLY the questions and options. **DO NOT** include the answer here. Title it "Assessment" or "Quiz".
+	               - **SLIDE B (Answers):** Create a separate slide immediately following the questions titled "Answer Key". List the correct answers here (e.g., "1. B", "2. A").
+	               - **NO SIDE-BY-SIDE:** Do not put Questions and Answers in the same table row.
+	               - **NO HALLUCINATED REVIEWS:** If the section is a Quiz, END with the Answer Key. Do not generate a "Review Assessment" or "Summary" slide after the Answer Key.
 
 	            **REQUIRED JSON SCHEMA:**
 	            {
 	              "slides": [
 	                {
 	                  "title": "Slide Title",
-	                  "body": "Text content (or empty if using tableData)...", 
+	                  "body": "**Concept 1**: Definition.\\n\\n**Concept 2**: Definition.", 
 	                  "tableData": {
-	                      "headers": ["Column 1", "Column 2"],
-	                      "rows": [
-	                          ["Row 1 Data", "Row 1 Data"],
-	                          ["Row 2 Data", "Row 2 Data"]
-	                      ]
+	                      "headers": [],
+	                      "rows": []
 	                  },
 	                  "notes": { 
-	                    "talkingPoints": "Comprehensive script for the teacher...", 
-	                    "interactiveElement": "A quick question...", 
-	                    "slideTiming": "e.g. 2 mins" 
+	                    "talkingPoints": "Elaborate on the concepts...", 
+	                    "interactiveElement": "Ask students...", 
+	                    "slideTiming": "3 mins" 
 	                  }
 	                }
 	              ]
@@ -675,7 +673,6 @@ const TeacherDashboard = () => {
 	            const aiResponseText = await callGeminiWithLimitCheck(prompt);
             
 	            // --- ROBUST PARSING LOGIC ---
-	            // Find the absolute start '{' and end '}' to ignore any "Here is your JSON" text
 	            let jsonText = aiResponseText;
 	            const firstBrace = aiResponseText.indexOf('{');
 	            const lastBrace = aiResponseText.lastIndexOf('}');
@@ -691,7 +688,7 @@ const TeacherDashboard = () => {
 	            }
 	        } catch (err) {
 	            console.error(`Error on part ${i + 1}:`, err);
-	            // Log the failing text to the console for easier debugging
+	            // Log failing text for debugging
 	            console.log("Failed Response Text:", err.message);
 	            showToast(`Skipped section ${i + 1} due to generation error.`, "warning");
 	        }
