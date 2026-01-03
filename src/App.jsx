@@ -29,6 +29,7 @@ const StudentDashboard = lazy(() => import('./pages/StudentDashboard'));
 const AdminSignup = lazy(() => import('./pages/AdminSignup'));
 const TestPage = lazy(() => import('./pages/TestPage'));
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
+const TermsPage = lazy(() => import('./pages/TermsPage'));
 
 const AVERAGE_BUILD_SECONDS = 300;
 
@@ -283,6 +284,7 @@ const AppRouter = () => {
         <Route path="/create-admin-xyz" element={<AdminSignup />} />
         
         <Route path="/privacy" element={<PrivacyPage />} />
+	  <Route path="/terms" element={<TermsPage />} />
 
         <Route 
             path="/login" 

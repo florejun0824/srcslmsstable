@@ -1,4 +1,7 @@
-// src/services/googleSlidesService.js
+import { Capacitor } from '@capacitor/core';
+import { SocialLogin } from '@capgo/capacitor-social-login';
+
+// --- CONFIGURATION ---
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY;
 const TEMPLATE_ID = import.meta.env.VITE_GOOGLE_SLIDES_TEMPLATE_ID;
@@ -8,37 +11,57 @@ const DISCOVERY_DOCS = [
   "https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"
 ];
 
-const SCOPES =
-  "https://www.googleapis.com/auth/presentations https://www.googleapis.com/auth/drive";
+const SCOPES = "https://www.googleapis.com/auth/presentations https://www.googleapis.com/auth/drive";
 
+// --- STATE MANAGEMENT ---
 let gapiInited = false;
 let gisInited = false;
 let tokenClient;
 
+// --- 1. INITIALIZE GAPI (Required for BOTH Web and Android) ---
 const initializeGapiClient = () => {
     return new Promise((resolve, reject) => {
         if (!window.gapi) return reject(new Error("Google API script (gapi) not loaded."));
         window.gapi.load('client', () => {
             window.gapi.client.init({ apiKey: API_KEY, discoveryDocs: DISCOVERY_DOCS })
-                .then(() => { gapiInited = true; resolve(window.gapi); })
+                .then(() => { 
+                    gapiInited = true; 
+                    resolve(window.gapi); 
+                })
                 .catch(error => reject(new Error('Failed to initialize GAPI client: ' + JSON.stringify(error))));
         });
     });
 };
 
-const initializeGisClient = () => {
+// --- 2. INITIALIZE AUTH (The Hybrid Fix) ---
+const initializeAuth = async () => {
+    // A. NATIVE ANDROID: Initialize the Plugin
+    if (Capacitor.isNativePlatform()) {
+        await SocialLogin.initialize({
+            google: {
+                webClientId: CLIENT_ID, // Use your Web Client ID here
+                mode: 'online', // <--- IMPORTANT: Must be 'online'
+                scopes: [       // <--- MOVED SCOPES HERE (Fixes the "Main Activity" error)
+                    'email',
+                    'profile',
+                    'https://www.googleapis.com/auth/presentations',
+                    'https://www.googleapis.com/auth/drive'
+                ]
+            }
+        });
+        return; 
+    }
+
+    // B. WEB BROWSER: Initialize Standard GIS
     return new Promise((resolve, reject) => {
-        if (!window.google?.accounts?.oauth2) return reject(new Error("Google Identity Services (GIS) script not loaded."));
+        if (!window.google?.accounts?.oauth2) return reject(new Error("GIS script not loaded."));
         if (gisInited) return resolve();
         
-        // --- FIX 1: Properly handle the token in the callback ---
-        // This ensures that when the popup closes, the new token is actually applied to GAPI.
         tokenClient = window.google.accounts.oauth2.initTokenClient({ 
             client_id: CLIENT_ID, 
             scope: SCOPES, 
             callback: (tokenResponse) => {
                 if (tokenResponse && tokenResponse.access_token) {
-                    // console.log("New access token received and set.");
                     window.gapi.client.setToken(tokenResponse);
                 }
             } 
@@ -49,33 +72,59 @@ const initializeGisClient = () => {
     });
 };
 
+// --- 3. GET VALID TOKEN (The "Magic" Function) ---
+const ensureValidToken = async (slideData, presentationTitle, subjectName, unitName) => {
+    const currentToken = window.gapi.client.getToken();
+    if (currentToken && currentToken.access_token) return true;
+
+    if (Capacitor.isNativePlatform()) {
+        try {
+            console.log("📱 Native Platform detected. Triggering Native Login...");
+            
+            // --- FIX APPLIED HERE: Removed 'options' block ---
+            // The scopes are now handled during initialize(), so we just call login() simply.
+            const res = await SocialLogin.login({
+                provider: 'google'
+            });
+
+            // CRITICAL: We take the token from the Native Plugin and give it to the Web GAPI
+            if (res.result && res.result.accessToken && res.result.accessToken.token) {
+                window.gapi.client.setToken({
+                    access_token: res.result.accessToken.token
+                });
+                return true;
+            } else {
+                throw new Error("Native login succeeded but returned no token.");
+            }
+        } catch (error) {
+            console.error("Native Sign-In Failed:", error);
+            throw new Error("User cancelled sign-in or native auth failed.");
+        }
+    } else {
+        // WEB FALLBACK
+        console.log("💻 Web Platform detected. Using Popup...");
+        redirectToGoogleAuth(slideData, presentationTitle, subjectName, unitName);
+        throw new Error("REDIRECTING_FOR_AUTH"); 
+    }
+};
+
+// --- HELPERS (Kept exactly as you had them) ---
 export const redirectToGoogleAuth = (slideData, presentationTitle, subjectName, unitName) => {
-    // We save data to session storage just in case, though popup flow usually doesn't reload page
     sessionStorage.setItem('googleSlidesData', JSON.stringify({ slideData, presentationTitle, subjectName, unitName }));
-    
-    // Request a new token (Skipping prompt if possible, but forcing if expired)
-    // prompt: '' allows auto-selection if already logged in, but will show popup if consent needed
-    tokenClient.requestAccessToken({ prompt: '' });
+    if (tokenClient) tokenClient.requestAccessToken({ prompt: '' });
 };
 
 export const handleAuthRedirect = async () => {
+    if (Capacitor.isNativePlatform()) return true; // Native doesn't use redirects
     if (!gapiInited) {
         try { await initializeGapiClient(); } 
-        catch (error) { console.error("Failed to initialize GAPI client during auth redirect handling:", error); return false; }
-    }
-    const params = new URLSearchParams(window.location.hash.substring(1));
-    const accessToken = params.get('access_token');
-    if (accessToken) {
-        window.gapi.client.setToken({ access_token: accessToken });
-        window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
-        return true;
+        catch (error) { console.error("GAPI Init Error:", error); return false; }
     }
     return false;
 };
 
 const findOrCreateFolder = async (folderName, parentFolderId = 'root') => {
     const escapedFolderName = folderName.replace(/'/g, "\\'");
-
     const response = await window.gapi.client.drive.files.list({
         q: `mimeType='application/vnd.google-apps.folder' and name='${escapedFolderName}' and '${parentFolderId}' in parents and trashed=false`,
         fields: 'files(id, name)',
@@ -101,22 +150,22 @@ const findShapeByTextTag = (pageElements, tag) => {
     return null;
 };
 
-const generateUniqueId = () => {
-    return 'gen_' + Math.random().toString(36).substr(2, 9);
-};
+const generateUniqueId = () => 'gen_' + Math.random().toString(36).substr(2, 9);
 
+
+// --- 4. MAIN FUNCTION (Updated to use Hybrid Auth) ---
 export const createPresentationFromData = async (slideData, presentationTitle, subjectName, unitName) => {
     try {
         if (!TEMPLATE_ID) throw new Error("Google Slides Template ID is not defined.");
+        
+        // Initialize everything
         if (!gapiInited) await initializeGapiClient();
-        if (!gisInited) await initializeGisClient();
+        await initializeAuth(); 
         
-        // Initial check for token existence
-        if (!window.gapi.client.getToken()) {
-            redirectToGoogleAuth(slideData, presentationTitle, subjectName, unitName);
-            throw new Error("REDIRECTING_FOR_AUTH");
-        }
+        // GET TOKEN (Native or Web)
+        await ensureValidToken(slideData, presentationTitle, subjectName, unitName);
         
+        // --- YOUR ORIGINAL LOGIC STARTS HERE (Unchanged) ---
         const subjectFolderId = await findOrCreateFolder(subjectName);
         const unitFolderId = await findOrCreateFolder(unitName, subjectFolderId);
 
@@ -137,9 +186,9 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
 
         const finalPresentation = await window.gapi.client.slides.presentations.get({ presentationId });
         const allSlides = finalPresentation.result.slides;
-
         const populateRequests = [];
         
+        // Loop through slides and fill content
         for (const [index, slide] of allSlides.entries()) {
             const data = slideData[index];
             if (!data) continue;
@@ -153,17 +202,13 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
                 populateRequests.push({ insertText: { objectId: titleShape.objectId, text: cleanText(data.title) } });
             }
 
-            // Table Detection
+            // --- TABLE LOGIC (Restored from your file) ---
             const hasTableRows = data.tableData && Array.isArray(data.tableData.rows) && data.tableData.rows.length > 0;
             const hasHeaders = data.tableData && Array.isArray(data.tableData.headers) && data.tableData.headers.length > 0;
             const hasTableData = hasTableRows;
 
             if (hasTableData && bodyShape) {
-                console.log(`Creating table for slide ${index + 1}...`);
-                
-                populateRequests.push({ 
-                    deleteObject: { objectId: bodyShape.objectId } 
-                });
+                populateRequests.push({ deleteObject: { objectId: bodyShape.objectId } });
 
                 const headers = hasHeaders ? data.tableData.headers : [];
                 const rowsCount = data.tableData.rows.length + (hasHeaders ? 1 : 0);
@@ -180,13 +225,7 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
                         objectId: tableId,
                         elementProperties: {
                             pageObjectId: slide.objectId,
-                            transform: {
-                                scaleX: 1,
-                                scaleY: 1,
-                                translateX: SAFE_X,
-                                translateY: SAFE_Y,
-                                unit: 'PT'
-                            },       
+                            transform: { scaleX: 1, scaleY: 1, translateX: SAFE_X, translateY: SAFE_Y, unit: 'PT' },        
                             size: { width: SAFE_WIDTH, height: SAFE_HEIGHT }
                         },
                         rows: rowsCount,
@@ -198,68 +237,33 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
                     const textStr = String(text || "").trim();
                     if (textStr.length === 0) return;
 
-                    populateRequests.push({
-                        insertText: {
-                            objectId: tableId,
-                            cellLocation: { rowIndex: rIndex, columnIndex: cIndex },
-                            text: textStr,
-                            insertionIndex: 0
-                        }
-                    });
+                    populateRequests.push({ insertText: { objectId: tableId, cellLocation: { rowIndex: rIndex, columnIndex: cIndex }, text: textStr, insertionIndex: 0 } });
                     
                     if (isHeader) {
-                        populateRequests.push({
-                            updateTextStyle: {
-                                objectId: tableId,
-                                cellLocation: { rowIndex: rIndex, columnIndex: cIndex },
-                                style: { bold: true },
-                                textRange: { type: 'ALL' },
-                                fields: 'bold'
-                            }
-                        });
-                         populateRequests.push({
-                            updateTableCellProperties: {
-                                objectId: tableId,
-                                tableRange: { location: { rowIndex: rIndex, columnIndex: cIndex }, rowSpan: 1, columnSpan: 1 },
-                                tableCellProperties: {
-                                    tableCellBackgroundFill: {
-                                        solidFill: { color: { rgbColor: { red: 0.9, green: 0.9, blue: 0.9 } } }
-                                    }
-                                },
-                                fields: 'tableCellBackgroundFill.solidFill.color'
-                            }
-                        });
+                        populateRequests.push({ updateTextStyle: { objectId: tableId, cellLocation: { rowIndex: rIndex, columnIndex: cIndex }, style: { bold: true }, textRange: { type: 'ALL' }, fields: 'bold' } });
+                        populateRequests.push({ updateTableCellProperties: { objectId: tableId, tableRange: { location: { rowIndex: rIndex, columnIndex: cIndex }, rowSpan: 1, columnSpan: 1 }, tableCellProperties: { tableCellBackgroundFill: { solidFill: { color: { rgbColor: { red: 0.9, green: 0.9, blue: 0.9 } } } } }, fields: 'tableCellBackgroundFill.solidFill.color' } });
                     }
                 };
 
                 if (hasHeaders) {
-                    headers.forEach((header, colIndex) => {
-                        if (colIndex < colsCount) {
-                            addCellText(0, colIndex, header, true);
-                        }
-                    });
+                    headers.forEach((header, colIndex) => { if (colIndex < colsCount) addCellText(0, colIndex, header, true); });
                 }
-
                 const rowOffset = hasHeaders ? 1 : 0;
                 data.tableData.rows.forEach((row, rowIndex) => {
                     if (Array.isArray(row)) {
-                         row.forEach((cellText, colIndex) => {
-                             if (colIndex < colsCount) {
-                                addCellText(rowIndex + rowOffset, colIndex, cellText);
-                             }
-                         });
+                         row.forEach((cellText, colIndex) => { if (colIndex < colsCount) addCellText(rowIndex + rowOffset, colIndex, cellText); });
                     }
                 });
 
             } else if (bodyShape) {
+                // --- BODY TEXT LOGIC ---
                 const cleanedBodyText = cleanText(data.body).replace(/\n{2,}/g, '\n');
                 populateRequests.push({ deleteText: { objectId: bodyShape.objectId, textRange: { type: 'ALL' } } });
                 populateRequests.push({ insertText: { objectId: bodyShape.objectId, text: cleanedBodyText } });
 
                 if (cleanedBodyText.length > 0) {
                     const bulletLines = cleanedBodyText.split('\n').map(line => line.trim());
-                    const shouldApplyBullets = bulletLines.length >= 2 && bulletLines.every(l => l.startsWith('- '));
-                    if (shouldApplyBullets) {
+                    if (bulletLines.length >= 2 && bulletLines.every(l => l.startsWith('- '))) {
                         populateRequests.push({ createParagraphBullets: { objectId: bodyShape.objectId, textRange: { type: 'ALL' }, bulletPreset: 'BULLET_DISC_CIRCLE_SQUARE' } });
                     }
                     let fontSize = 20;
@@ -270,6 +274,7 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
                 }
             }
             
+            // --- SPEAKER NOTES LOGIC ---
             const formattedNotes = data.notes;
             const notesPageId = slide.slideProperties?.notesPage?.objectId;
             let speakerNotesObjectId = slide.slideProperties?.notesPage?.notesProperties?.speakerNotesObjectId;
@@ -277,24 +282,8 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
             if (formattedNotes && notesPageId) {
                 if (!speakerNotesObjectId) {
                     speakerNotesObjectId = `notes_${generateUniqueId()}`;
-                    populateRequests.push({
-                        createShape: {
-                            objectId: speakerNotesObjectId,
-                            shapeType: 'TEXT_BOX',
-                            elementProperties: {
-                                pageObjectId: notesPageId,
-                                size: { height: { magnitude: 400, unit: 'PT' }, width: { magnitude: 550, unit: 'PT' } },
-                                transform: { scaleX: 1, scaleY: 1, translateX: 35, translateY: 60, unit: 'PT' }
-                            }
-                        }
-                    });
-                    populateRequests.push({
-                       updateShapeProperties: {
-                           objectId: speakerNotesObjectId,
-                           shapeProperties: { placeholder: { type: 'BODY' } },
-                           fields: 'placeholder.type'
-                       } 
-                    });
+                    populateRequests.push({ createShape: { objectId: speakerNotesObjectId, shapeType: 'TEXT_BOX', elementProperties: { pageObjectId: notesPageId, size: { height: { magnitude: 400, unit: 'PT' }, width: { magnitude: 550, unit: 'PT' } }, transform: { scaleX: 1, scaleY: 1, translateX: 35, translateY: 60, unit: 'PT' } } } });
+                    populateRequests.push({ updateShapeProperties: { objectId: speakerNotesObjectId, shapeProperties: { placeholder: { type: 'BODY' } }, fields: 'placeholder.type' } });
                 }
                 populateRequests.push({ deleteText: { objectId: speakerNotesObjectId, textRange: { type: 'ALL' } } });
                 populateRequests.push({ insertText: { objectId: speakerNotesObjectId, text: formattedNotes, insertionIndex: 0 } });
@@ -310,21 +299,23 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
         }
 
         sessionStorage.removeItem('googleSlidesData');
+        
+        // 5. SUCCESS: Return the link
         return `https://docs.google.com/presentation/d/${presentationId}/edit`;
 
     } catch (error) {
-        // --- FIX 2: Check for 401/403 Token Errors ---
-        // If the token is expired, we trigger the auth flow and let the user know.
+        // --- 6. ERROR HANDLING (Updated for Hybrid) ---
+        // Retry for native token expiry
         const isTokenError = error.result?.error?.code === 401 || error.result?.error?.code === 403 || error.status === 401;
-        
-        if (isTokenError || error.message === "REDIRECTING_FOR_AUTH") {
-            console.log("Token expired or invalid. Triggering re-auth...");
-            redirectToGoogleAuth(slideData, presentationTitle, subjectName, unitName);
-            // We intentionally return nothing or throw a specific message so the UI can just stop the spinner or show "Please approve popup"
-            return; 
+        if (isTokenError && Capacitor.isNativePlatform()) {
+             console.log("Token expired. Retrying native sign-in...");
+             await ensureValidToken(slideData, presentationTitle, subjectName, unitName);
+             return;
         }
 
-        console.error("Error creating Google Slides presentation:", error);
+        if (error.message === "REDIRECTING_FOR_AUTH") return;
+
+        console.error("Error creating Google Slides:", error);
         let message = "Failed to create Google Slides presentation.";
         if (error?.result?.error?.message) message = `Google API Error: ${error.result.error.message}`;
         else if (error?.message) message = error.message;

@@ -1,4 +1,3 @@
-// src/components/teacher/dashboard/views/HomeView.jsx
 import React, { useState, lazy, Suspense, memo, useEffect, Fragment } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { ShieldCheck, Share2, CheckCircle2, Check } from 'lucide-react'; 
@@ -7,9 +6,12 @@ import DashboardWidgets from './components/DashboardWidgets';
 import ActivityFeed from './components/ActivityFeed';
 import { useSchedule } from './hooks/useSchedule';
 
+// --- IMPORT BRANDING HANDLER ---
+import SchoolBrandingHandler from '../../../common/SchoolBrandingHandler';
+
 const ScheduleModal = lazy(() => import('../widgets/ScheduleModal'));
 
-// 🏫 School Name Helper
+// (Keep getSchoolName and getSchoolLogo helpers here...)
 const getSchoolName = (schoolId) => {
     const schools = {
         'srcs_main': 'San Ramon Catholic School',
@@ -22,7 +24,6 @@ const getSchoolName = (schoolId) => {
     return schools[schoolId || 'srcs_main'] || 'Your School';
 };
 
-// 🏫 School Logo Helper
 const getSchoolLogo = (schoolId) => {
     const logos = {
         'srcs_main': '/logo.png',
@@ -44,11 +45,15 @@ const HomeView = ({
     handleViewChange
 }) => {
     const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
-    const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(false);
     
+    // --- DIALOG STATES ---
+    const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(false);
     const [dontShowAgain, setDontShowAgain] = useState(false);
 
-    // ✅ FIXED: Pass schoolId to hook so specific schedules load
+    // --- RACE CONDITION FIX ---
+    // 1. Starts FALSE. SchoolBrandingHandler is blocked.
+    const [readyForBranding, setReadyForBranding] = useState(false);
+
     const {
         scheduleActivities,
         onAddActivity,
@@ -56,18 +61,26 @@ const HomeView = ({
         onDeleteActivity,
     } = useSchedule(showToast, userProfile?.schoolId || 'srcs_main');
 
-    // 🚀 EFFECT: Check Storage Logic
+    // 2. CHECK IF WELCOME MODAL IS NEEDED
     useEffect(() => {
-        if (userProfile?.id) {
-            const hasOptedOut = localStorage.getItem(`welcome_opt_out_${userProfile.id}`);
-            const hasSeenSession = sessionStorage.getItem(`welcome_seen_session_${userProfile.id}`);
+        if (!userProfile?.id) return;
 
-            if (!hasOptedOut && !hasSeenSession) {
-                setIsWelcomeModalOpen(true);
-            }
+        const hasOptedOut = localStorage.getItem(`welcome_opt_out_${userProfile.id}`);
+        const hasSeenSession = sessionStorage.getItem(`welcome_seen_session_${userProfile.id}`);
+        
+        // Logic:
+        // If they need to see Welcome -> Show Welcome, KEEP Branding BLOCKED (false).
+        // If they DON'T need Welcome -> Show Branding IMMEDIATELY (true).
+        
+        if (!hasOptedOut && !hasSeenSession) {
+            setIsWelcomeModalOpen(true);
+            setReadyForBranding(false); // Ensure it's blocked
+        } else {
+            setReadyForBranding(true);  // Unblock immediately
         }
     }, [userProfile?.id]);
 
+    // 3. WHEN WELCOME MODAL CLOSES
     const handleCloseWelcome = () => {
         if (userProfile?.id) {
             sessionStorage.setItem(`welcome_seen_session_${userProfile.id}`, 'true');
@@ -76,6 +89,12 @@ const HomeView = ({
             }
         }
         setIsWelcomeModalOpen(false);
+
+        // 4. NOW we unblock the branding check
+        // We use a small timeout to ensure the modal animation clears first
+        setTimeout(() => {
+            setReadyForBranding(true);
+        }, 300);
     };
 
     const openScheduleModal = () => setIsScheduleModalOpen(true);
@@ -88,6 +107,10 @@ const HomeView = ({
             className="w-full space-y-6 md:space-y-8 font-sans pb-32 lg:pb-8 relative z-10"
             style={{ contentVisibility: 'auto' }} 
         >
+            {/* --- PASSIVE BRANDING HANDLER --- */}
+            {/* This will NOT run until readyForBranding turns TRUE */}
+            <SchoolBrandingHandler shouldCheck={readyForBranding} />
+
             <div className="flex flex-col gap-4 sm:gap-8">
                 <DashboardHeader
                     userProfile={userProfile}
@@ -95,7 +118,6 @@ const HomeView = ({
                     onOpenScheduleModal={openScheduleModal}
                 />
                 
-                {/* Note: Ensure DashboardWidgets also uses One UI styling internally */}
                 <DashboardWidgets
                     activeClasses={activeClasses}
                     handleCreateAnnouncement={handleCreateAnnouncement}
@@ -153,7 +175,7 @@ const HomeView = ({
                             >
                                 <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-[32px] bg-white dark:bg-[#1c1c1e] p-8 text-left align-middle shadow-2xl transition-all border border-white/20 ring-1 ring-black/5 relative">
                                     
-                                    {/* 🏫 School Logo */}
+                                    {/* Modal Content... */}
                                     <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-[24px] bg-slate-50 dark:bg-slate-800/50 mb-6 border border-slate-100 dark:border-slate-700 shadow-sm p-4">
                                         <img 
                                             src={getSchoolLogo(effectiveSchoolId)} 
@@ -181,7 +203,6 @@ const HomeView = ({
 
                                     {/* Privacy Info Box */}
                                     <div className="bg-slate-50 dark:bg-slate-800/50 rounded-[24px] p-5 border border-slate-100 dark:border-slate-700/50 space-y-5">
-                                        
                                         <div className="flex gap-4">
                                             <div className="flex-shrink-0 mt-0.5">
                                                 <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl">
@@ -195,9 +216,7 @@ const HomeView = ({
                                                 </p>
                                             </div>
                                         </div>
-
                                         <div className="w-full h-px bg-slate-200 dark:bg-slate-700/50" />
-
                                         <div className="flex gap-4">
                                             <div className="flex-shrink-0 mt-0.5">
                                                 <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl">
@@ -211,7 +230,6 @@ const HomeView = ({
                                                 </p>
                                             </div>
                                         </div>
-
                                     </div>
 
                                     <div className="mt-8">

@@ -1,5 +1,6 @@
 // src/pages/LoginPage.jsx
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom'; // Added Link import
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import {
@@ -176,8 +177,13 @@ const LoginPage = () => {
                     <h2 className="text-[28px] font-bold tracking-tight text-gray-900 dark:text-white leading-tight">
                       SRCS LEARNING PORTAL
                     </h2>
+                    
+                    {/* [ADDED]: App Purpose Description */}
+                    <p className="mt-3 text-sm text-gray-600 dark:text-gray-300 max-w-[280px] mx-auto leading-relaxed">
+                        A centralized learning management system enabling students and teachers to collaborate, track progress, and access educational resources efficiently.
+                    </p>
                    
-                    <p className="text-[15px] font-medium text-gray-500 dark:text-gray-400 flex items-center justify-center gap-1.5 opacity-90">
+                    <p className="mt-4 text-[15px] font-medium text-gray-500 dark:text-gray-400 flex items-center justify-center gap-1.5 opacity-90">
                       Please Login to Continue
                     </p>
                 </div>
@@ -293,6 +299,16 @@ const LoginPage = () => {
 
         {/* Minimal Footer */}
         <div className="mt-10 text-center animate-fade-in-up animation-delay-500">
+             {/* [ADDED]: Privacy Policy Link */}
+             <div className="flex justify-center gap-6 mb-4">
+                 <Link to="/privacy" className="text-[13px] font-medium text-gray-500 hover:text-blue-500 dark:text-gray-400 dark:hover:text-blue-400 transition-colors">
+                     Privacy Policy
+                 </Link>
+			 {/* [UPDATED] Link to the real Terms page */}
+			                  <Link to="/terms" className="text-[13px] font-medium text-gray-500 hover:text-blue-500 dark:text-gray-400 dark:hover:text-blue-400 transition-colors">
+			                      Terms of Service
+			                  </Link>
+             </div>
             <p className="text-[12px] font-bold tracking-wider text-gray-400/80 dark:text-white/20 uppercase">
                 © 2025 SRCS Learning Portal
             </p>

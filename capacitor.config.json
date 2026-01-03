@@ -20,6 +20,11 @@
       "spinnerColor": "#999999",
       "splashFullScreen": true,
       "splashImmersive": true
+    },
+    "SocialLogin": {
+      "google": {
+        "webClientId": "1016390403599-1lbujun6pgss0k4mn6i85iv2sd211b3t.apps.googleusercontent.com"
+      }
     }
   }
 }

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 // Import the new combined component
 import HologramOnboarding from "./HologramOnboarding"; 
 // --- ADDED: Import the new BiometricPrompt component ---
-import BiometricPrompt from "./common/BiometricPrompt"; // <-- Adjust path if you save it elsewhere
+import BiometricPrompt from "./common/BiometricPrompt"; 
 
 // --- 1. IMPORT YOUR NEW PRIVACY MODAL ---
 import PrivacyAgreementModal from "./common/PrivacyAgreementModal";
@@ -25,8 +25,18 @@ export default function PostLoginExperience({ children }) {
         const lastSeenVersion = localStorage.getItem("lastSeenVersion");
         const skipHologramVersion = localStorage.getItem("skipHologramVersion");
 
-        // Show the onboarding flow if the version is new and not skipped
-        if (data.version !== lastSeenVersion && data.version !== skipHologramVersion) {
+        // --- NEW CHECK: PREVENT OVERLAP ---
+        // We check if the "SchoolBrandingHandler" has flagged that a theme restart is pending.
+        // If it is 'true', we DO NOT show onboarding, because the Restart Dialog is already visible.
+        const isThemePending = sessionStorage.getItem("theme_update_pending");
+
+        // Show the onboarding flow ONLY if:
+        // 1. Version is new
+        // 2. User hasn't skipped this version
+        // 3. We are NOT waiting for a theme restart
+        if (data.version !== lastSeenVersion && 
+            data.version !== skipHologramVersion && 
+            !isThemePending) { 
           setShowOnboarding(true);
         }
       } catch (err) {
@@ -52,12 +62,7 @@ export default function PostLoginExperience({ children }) {
 
   return (
     <>
-      {/* --- 2. ADD THE PRIVACY MODAL HERE ---
-        It will render first and appear on top of everything
-        (including the HologramOnboarding) because its `z-index`
-        is set higher. It must be accepted before the user
-        can interact with anything else.
-      */}
+      {/* --- 2. PRIVACY MODAL --- */}
       <PrivacyAgreementModal />
 
       {showOnboarding && (
@@ -67,11 +72,7 @@ export default function PostLoginExperience({ children }) {
         />
       )}
       
-      {/* --- MODIFIED SECTION ---
-        Once onboarding is hidden, we render the children (the dashboard)
-        AND our new BiometricPrompt. It will handle its own logic
-        and show a modal *on top* of the dashboard if needed.
-      */}
+      {/* --- DASHBOARD & BIOMETRICS --- */}
       {!showOnboarding && (
         <>
           <BiometricPrompt />
