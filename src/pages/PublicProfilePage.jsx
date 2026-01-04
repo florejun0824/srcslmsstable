@@ -27,15 +27,16 @@ import AboutInfoModal from '../components/student/AboutInfoModal';
 
 // InfoRowPreview component
 const InfoRowPreview = ({ icon: Icon, label, value }) => (
-    <div className="flex items-start gap-4">
-        <Icon className="w-6 h-6 text-slate-500 dark:text-slate-400 flex-shrink-0 mt-0.5" />
-        <div className="flex-grow min-w-0">
-            <p className="font-medium text-slate-800 dark:text-slate-100 truncate">{value}</p>
-            <p className="text-sm text-slate-500 dark:text-slate-400">{label}</p>
+    <div className="flex items-start gap-4 p-2">
+        <div className="p-2 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+             <Icon className="w-5 h-5" />
+        </div>
+        <div className="flex-grow min-w-0 pt-1">
+            <p className="font-semibold text-slate-800 dark:text-slate-100 truncate text-[15px]">{value}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{label}</p>
         </div>
     </div>
 );
-
 
 const PublicProfilePage = () => {
     const { userProfile: currentUserProfile } = useAuth();
@@ -70,13 +71,8 @@ const PublicProfilePage = () => {
 
         const profileDataFromState = location.state?.profileData;
 
-        // --- THIS IS THE FIX ---
         // Check if the passed state data is a *complete* profile.
-        // A complete profile will have properties like 'role', 'xp', or 'education'.
-        // The partial object only has { id, firstName, lastName, photoURL }.
-        // We'll check for 'role' as it's a reliable field on all full user objects.
         const isProfileDataComplete = profileDataFromState && profileDataFromState.hasOwnProperty('role');
-        // --- END OF FIX ---
 
         // Check if the state data matches the URL ID *AND* is complete
         if (profileDataFromState && profileDataFromState.id === userId && isProfileDataComplete) {
@@ -103,7 +99,7 @@ const PublicProfilePage = () => {
                 setLoadingProfile(false);
             });
         }
-    }, [userId, location.state, navigate, showToast]); // <-- Add userId as dependency
+    }, [userId, location.state, navigate, showToast]); 
 
     // Fetch *only* public posts for this user
     useEffect(() => {
@@ -127,7 +123,7 @@ const PublicProfilePage = () => {
         });
 
         return () => unsubscribe();
-    }, [userId, showToast]); // <-- Add userId as dependency
+    }, [userId, showToast]);
 
     // useStudentPosts hook
     const {
@@ -150,7 +146,7 @@ const PublicProfilePage = () => {
         handleCloseReactions,
         handleViewComments,
         handleCloseComments,
-    } = useStudentPosts(publicPosts, setPublicPosts, currentUserProfile?.id, showToast); // Pass setPublicPosts
+    } = useStudentPosts(publicPosts, setPublicPosts, currentUserProfile?.id, showToast); 
 
     // canReact logic
     const canReact = currentUserProfile?.role === 'teacher' || currentUserProfile?.role === 'admin' || currentUserProfile?.canReact;
@@ -168,7 +164,7 @@ const PublicProfilePage = () => {
 
     if (loadingProfile) {
         return (
-            <div className="flex h-screen items-center justify-center bg-neumorphic-base dark:bg-neumorphic-base-dark">
+            <div className="flex h-screen items-center justify-center bg-slate-50 dark:bg-slate-900">
                 <Spinner size="lg" />
             </div>
         );
@@ -179,25 +175,30 @@ const PublicProfilePage = () => {
     }
 
     return (
-        <>
-            {/* "Back" button */}
-            <div className="sticky top-0 z-30 p-4 bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic dark:shadow-neumorphic-dark">
-                <button
-                    onClick={() => navigate(-1)} // Go back to the previous page (Lounge)
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-slate-700 dark:text-slate-200 font-semibold shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition-all"
-                >
-                    <ArrowLeftIcon className="w-5 h-5" />
-                    Back
-                </button>
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
+            {/* "Back" button - Floating Glassmorphic Header */}
+            <div className="sticky top-0 z-30 px-4 py-3 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50">
+                <div className="max-w-7xl mx-auto w-full">
+                    <button
+                        onClick={() => navigate(-1)} 
+                        className="group flex items-center gap-3 px-1 pr-4 py-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200"
+                    >
+                        <div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full group-hover:bg-white dark:group-hover:bg-slate-700 shadow-sm transition-all">
+                             <ArrowLeftIcon className="w-5 h-5 text-slate-700 dark:text-slate-200" />
+                        </div>
+                        <span className="text-slate-700 dark:text-slate-200 font-bold text-lg">Profile</span>
+                    </button>
+                </div>
             </div>
 
             <div className="max-w-7xl mx-auto w-full space-y-8 sm:space-y-10 py-6 sm:py-8 px-4 font-sans">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                     {/* --- Profile Card (Left Column) --- */}
                     <div className="lg:col-span-1 lg:sticky lg:top-24">
-                        <div className="bg-neumorphic-base rounded-2xl shadow-neumorphic dark:bg-neumorphic-base-dark dark:shadow-lg overflow-hidden">
+                        <div className="bg-white dark:bg-slate-800 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden relative">
+                            
                             {/* Cover Photo */}
-                            <div className="relative h-48 sm:h-64 w-full">
+                            <div className="relative h-48 sm:h-56 w-full">
                                 {profile?.coverPhotoURL ? (
                                     <div
                                         className="w-full h-full"
@@ -209,33 +210,34 @@ const PublicProfilePage = () => {
                                         }}
                                     />
                                 ) : (
-                                    <div className="w-full h-full bg-slate-300 dark:bg-slate-700" />
+                                    <div className="w-full h-full bg-slate-200 dark:bg-slate-700" />
                                 )}
+                                {/* Fade gradient at bottom of cover for smooth avatar transition */}
+                                <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-white/10 dark:from-slate-800/10 to-transparent" />
                             </div>
 
                             {/* Avatar */}
-                            <div className="relative flex justify-center -mt-16 z-10">
-                                <div className="relative w-32 h-32 rounded-full p-1 bg-neumorphic-base shadow-neumorphic dark:bg-neumorphic-base-dark dark:shadow-lg">
+                            <div className="relative px-6">
+                                <div className="-mt-16 w-32 h-32 rounded-full p-1.5 bg-white dark:bg-slate-800 shadow-lg mx-auto lg:mx-0">
                                     <UserInitialsAvatar user={profile} size="full" />
-                                    {/* NO EDIT BUTTON */}
                                 </div>
                             </div>
 
                             {/* Name, Title & Bio */}
-                            <div className="text-center p-6 pt-4">
-                                <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100">
+                            <div className="p-6 pt-4 text-center lg:text-left">
+                                <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
                                     {profile?.firstName} {profile?.lastName}
                                 </h2>
                                 {profile?.customBio && (
-                                    <p className="mt-4 text-sm text-left text-slate-600 dark:text-slate-300 px-2 break-words">
+                                    <p className="mt-3 text-base leading-relaxed text-slate-600 dark:text-slate-300 break-words">
                                         {profile.customBio}
                                     </p>
                                 )}
                             </div>
 
-                            {/* MODIFIED Public "About" Info */}
-                            <div className="border-t border-neumorphic-shadow-dark/30 dark:border-slate-700 p-4">
-                                <div className="space-y-5">
+                            {/* Public "About" Info */}
+                            <div className="p-4 mx-2 mb-2 bg-slate-50 dark:bg-slate-800/50 rounded-3xl">
+                                <div className="space-y-2">
                                     {aboutInfoPreview.length > 0 ? (
                                         aboutInfoPreview.map(item => (
                                             <InfoRowPreview 
@@ -246,17 +248,17 @@ const PublicProfilePage = () => {
                                             />
                                         ))
                                     ) : (
-                                        <p className="text-slate-400 dark:text-slate-500 italic text-sm text-center">
-                                            This user hasn't added any public "About" info.
+                                        <p className="py-4 text-slate-400 dark:text-slate-500 italic text-sm text-center">
+                                            No public info added.
                                         </p>
                                     )}
                                 </div>
                                 {aboutInfoPreviewList.length > 3 && (
                                     <button 
                                         onClick={() => setIsAboutModalOpen(true)}
-                                        className="mt-6 w-full px-5 py-2.5 rounded-xl bg-neumorphic-base dark:bg-neumorphic-base-dark text-slate-700 dark:text-slate-200 font-semibold shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark transition-all"
+                                        className="mt-4 w-full py-3 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors text-sm"
                                     >
-                                        See all about info
+                                        See all details
                                     </button>
                                 )}
                             </div>
@@ -267,15 +269,17 @@ const PublicProfilePage = () => {
                     <div className="lg:col-span-2 space-y-6">
                         {/* "Public Posts" Feed */}
                         <div>
-                            <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 px-2 mb-3">Public Posts</h2>
+                            <h2 className="text-2xl font-bold text-slate-800 dark:text-white px-2 mb-4 tracking-tight">Public Posts</h2>
                             <div className="space-y-6">
                                 {loadingPosts ? (
                                     <div className="flex justify-center py-10"><Spinner /></div>
                                 ) : sortedPosts.length === 0 ? (
-                                    <div className="bg-neumorphic-base rounded-2xl p-6 shadow-neumorphic-inset dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark text-center">
-                                        <PencilSquareIcon className="w-12 h-12 mx-auto text-slate-400 dark:text-slate-500" />
-                                        <h3 className="mt-2 text-lg font-semibold text-slate-700 dark:text-slate-200">No Public Posts</h3>
-                                        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">This user hasn't made any public posts yet.</p>
+                                    <div className="bg-white dark:bg-slate-800 rounded-[2rem] p-10 text-center shadow-sm border border-slate-100 dark:border-slate-700">
+                                        <div className="w-16 h-16 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                                            <PencilSquareIcon className="w-8 h-8 text-slate-400 dark:text-slate-500" />
+                                        </div>
+                                        <h3 className="text-lg font-bold text-slate-800 dark:text-white">No Public Posts</h3>
+                                        <p className="mt-2 text-slate-500 dark:text-slate-400">This user hasn't shared any public updates yet.</p>
                                     </div>
                                 ) : (
                                     sortedPosts.map(post => {
@@ -342,7 +346,7 @@ const PublicProfilePage = () => {
                     />
                 )}
             </AnimatePresence>
-        </>
+        </div>
     );
 };
 

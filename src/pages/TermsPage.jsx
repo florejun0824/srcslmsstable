@@ -28,7 +28,7 @@ const TermsPage = () => {
 
            <h3>2. Educational Use Only</h3>
            <p>
-             This platform is intended solely for educational purposes related to Santa Rita Catholic School (SRCS). Unauthorized commercial use or distribution of platform content is strictly prohibited.
+             This platform is intended solely for educational purposes related to San Ramon Catholic School, Inc. (SRCS). Unauthorized commercial use or distribution of platform content is strictly prohibited.
            </p>
 
            <h3>3. User Accounts & Security</h3>
