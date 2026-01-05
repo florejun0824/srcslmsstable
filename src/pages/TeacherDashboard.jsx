@@ -616,54 +616,49 @@ const TeacherDashboard = () => {
 		    1. Output ONLY valid JSON.
 		    2. DO NOT write introductions. Start immediately with '{' and end with '}'.
 
-		    ROLE & CONTENT RULES:
-		    You are an expert **Instructional Designer & Textbook Adaptor**.
-		    Your goal is to create **comprehensive, study-ready slides** that retain the technical depth of the source text.
+		    ROLE:
+		    You are an expert **Instructional Designer & Textbook Adaptor**. 
+		    **MINDSET:** You are NOT creating a presentation for a speech. You are creating **Self-Paced Learning Slides** (like a slide-doc). The student must be able to learn the material fully by reading the slide body alone, without a speaker.
 
 		    **SOURCE MATERIAL:**
 		    The text below is **Part ${i + 1}** of a lesson titled "${targetLesson.title}".
 
-		    **TASK:** Convert the provided text into a series of Google Slides. 
-		    **Do NOT limit the number of slides.** Create as many slides as necessary to fully explain the concepts.
+		    **CRITICAL: ANTI-HALLUCINATION & SOURCE GROUNDING**
+		    1. **STRICT ADHERENCE:** Use ONLY the provided source text. Do NOT add external facts, "fun facts," or outside knowledge not present in the text.
+		    2. **NO INVENTION:** If a specific detail is missing, do not invent it.
+		    3. **QUOTES:** If a concept is complex, you may quote the source text directly to ensure accuracy.
 
-		    **CRITICAL: CONTENT DISTRIBUTION & SPLITTING RULES**
+		    **CRITICAL: CONTENT DENSITY & FORMATTING RULES**
     
-		    1. **NO LOSS OF DATA:** Never summarize complex paragraphs into a single sentence. You must retain the specific details, numbers, and terminology.
+		    1. **NO "NAKED" BULLETS:** Never output a bullet point that is just a keyword (e.g., "- Photosynthesis").
+		       - **BAD:** "- Photosynthesis"
+		       - **GOOD:** "- **Photosynthesis**: The process by which green plants use sunlight to synthesize foods from carbon dioxide and water."
     
-		    2. **ONE CONCEPT PER SLIDE:** If the text covers multiple heavy topics, split them.
+		    2. **EXPLANATION IS MANDATORY:** Every slide body must include full sentences and detailed explanations.
+		       - If the source text has a paragraph, the slide must retain the **full meaning** of that paragraph, not just a summary.
     
-		    3. **HANDLING PROCESSES & LISTS (CRITICAL):**
-		       - **Short Descriptions:** If a list of steps has short descriptions (1 sentence each), list them all on one slide.
-		       - **Long Descriptions:** If a step has a **long description** (2+ sentences, or requires deep explanation), you MUST:
-		         a. Create one **Overview Slide** listing the steps.
-		         b. Create **Individual Slides** for each step (e.g., Title: "Step 1: Preparation", Body: [Full details of step 1]).
-		       - **DO NOT CRAM:** Never force a 5-step process with long text onto a single slide.
+		    3. **SPLITTING HEAVY CONTENT:**
+		       - **Rule:** If a section of text is longer than 3 sentences, split it across multiple slides or use a "Concept + Explanation" structure.
+		       - **Process:** If there is a multi-step process described in detail, create one slide PER STEP.
 
-		    4. **BODY vs NOTES:** - **Slide Body:** Must contain the **detailed content**. The student should be able to pass a test reading ONLY the slides.
-		       - **Speaker Notes:** Context, analogies, and engagement cues.
-
-		    **SPECIAL CONTENT HANDLING (STRICT):**
-    
-		    1. **REFERENCES / WORKS CITED:**
-		       - Format as a bulleted list in the body. List ONLY citation (Author, Title, Date).
-
-		    2. **ASSESSMENTS / QUIZZES:**
-		       - **SLIDE A (Questions):** Questions and options only. Title: "Assessment".
-		       - **SLIDE B (Answers):** Separate slide immediately after. Title: "Answer Key".
+		    4. **ASSESSMENT & REVIEW LOGIC:**
+		       - **IGNORE** mid-text reviews or small "check your knowledge" prompts.
+		       - **ONLY** generate an "Assessment" section if the source text explicitly contains a final quiz or test at the very end.
+		       - If no specific questions are in the text, DO NOT create an assessment.
 
 		    **REQUIRED JSON SCHEMA:**
 		    {
 		      "slides": [
 		        {
-		          "title": "Slide Title (e.g., 'Photosynthesis: Step 1 - Light Absorption')",
-		          "body": "**Definition**: ... \\n\\n**Key Details**: ...", 
+		          "title": "Slide Title (Descriptive, e.g., 'The Three Stages of Cellular Respiration')",
+		          "body": "**Core Concept**: [Full definition] \\n\\n**Detailed Explanation**: [2-3 sentences explaining the how/why from the text] \\n\\n**Examples**: [Specific examples from text]", 
 		          "tableData": {
 		              "headers": [],
 		              "rows": []
 		          },
 		          "notes": { 
-		            "talkingPoints": "Elaborate on...", 
-		            "interactiveElement": "Ask...", 
+		            "talkingPoints": "Emphasize key terms...", 
+		            "interactiveElement": "Ask students to identify...", 
 		            "slideTiming": "3 mins" 
 		          }
 		        }
