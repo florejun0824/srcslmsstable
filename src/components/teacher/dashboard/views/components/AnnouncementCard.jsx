@@ -88,24 +88,27 @@ const ANNOUNCEMENT_TRUNCATE_LENGTH = 300;
 const getMonetCardStyle = (activeOverlay) => {
     if (!activeOverlay) return null;
 
+    // Base glass style
     const base = {
-        card: "backdrop-blur-xl shadow-lg border text-white",
+        card: "backdrop-blur-3xl shadow-xl border border-white/20 text-white",
         textTitle: "text-white",
-        textMeta: "text-white/60",
-        textBody: "text-slate-100",
+        textMeta: "text-white/70",
+        textBody: "text-white/90",
         divider: "border-white/10",
-        button: "bg-white/10 hover:bg-white/20 text-white",
-        pinned: "bg-white/20 border-white/20 text-white",
+        button: "bg-white/10 hover:bg-white/20 text-white border border-white/5",
+        pinned: "bg-white/20 border-white/20 text-white backdrop-blur-md",
+        input: "bg-black/20 text-white placeholder:text-white/50 border-white/10",
+        image: "bg-black/20 border-white/10"
     };
 
     switch (activeOverlay) {
-        case 'christmas': return { ...base, card: `${base.card} bg-[#0f172a]/80 border-emerald-500/30 shadow-emerald-900/10` };
-        case 'valentines': return { ...base, card: `${base.card} bg-[#2c0b0e]/80 border-rose-500/30 shadow-rose-900/10` };
-        case 'graduation': return { ...base, card: `${base.card} bg-[#1a1400]/80 border-amber-500/30 shadow-amber-900/10` };
-        case 'rainy': return { ...base, card: `${base.card} bg-[#061816]/80 border-teal-500/30 shadow-teal-900/10` };
-        case 'cyberpunk': return { ...base, card: `${base.card} bg-[#180a20]/80 border-fuchsia-500/30 shadow-fuchsia-900/10` };
-        case 'spring': return { ...base, card: `${base.card} bg-[#1f0f15]/80 border-pink-500/30 shadow-pink-900/10` };
-        case 'space': return { ...base, card: `${base.card} bg-[#020617]/80 border-indigo-500/30 shadow-indigo-900/10` };
+        case 'christmas': return { ...base, card: `${base.card} bg-slate-900/60 border-emerald-500/20 shadow-emerald-900/20` };
+        case 'valentines': return { ...base, card: `${base.card} bg-[#2c0b0e]/70 border-rose-500/20 shadow-rose-900/20` };
+        case 'graduation': return { ...base, card: `${base.card} bg-[#1a1400]/70 border-amber-500/20 shadow-amber-900/20` };
+        case 'rainy': return { ...base, card: `${base.card} bg-[#061816]/70 border-teal-500/20 shadow-teal-900/20` };
+        case 'cyberpunk': return { ...base, card: `${base.card} bg-[#180a20]/70 border-fuchsia-500/20 shadow-fuchsia-900/20` };
+        case 'spring': return { ...base, card: `${base.card} bg-[#1f0f15]/70 border-pink-500/20 shadow-pink-900/20` };
+        case 'space': return { ...base, card: `${base.card} bg-[#020617]/70 border-indigo-500/20 shadow-indigo-900/20` };
         default: return null;
     }
 };
@@ -132,7 +135,7 @@ const AnnouncementCard = forwardRef(({
 }, ref) => {
     const [isReactionOptionsVisible, setReactionOptionsVisible] = useState(false);
     const [hoveredReaction, setHoveredReaction] = useState(null);
-    const [isHoveringCount, setIsHoveringCount] = useState(false); // <--- NEW STATE FOR COUNT HOVER
+    const [isHoveringCount, setIsHoveringCount] = useState(false);
     const hoverTimeoutRef = useRef(null);
     const longPressTimerRef = useRef(null);
 
@@ -173,7 +176,7 @@ const AnnouncementCard = forwardRef(({
         </a>
     );
 
-    // --- REACTION GROUPING LOGIC (With Hover Animation) ---
+    // --- REACTION GROUPING LOGIC ---
     const formatReactionCount = () => {
         const reactionsValues = Object.values(postReactions);
         const totalReactions = reactionsValues.length;
@@ -185,26 +188,26 @@ const AnnouncementCard = forwardRef(({
         const sortedTypes = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
         const isUniform = sortedTypes.length === 1; 
         
-        // MIXED: Stacked Images
+        // MIXED
         if (!isUniform) {
             const typesToShow = sortedTypes.slice(0, 3);
             return (
                 <div 
-                    className="flex items-center gap-2 cursor-pointer group" 
+                    className="flex items-center gap-2 cursor-pointer group select-none" 
                     onClick={(e) => { e.stopPropagation(); onViewReactions(postReactions, usersMap); }}
-                    onMouseEnter={() => setIsHoveringCount(true)} // <--- HOVER START
-                    onMouseLeave={() => setIsHoveringCount(false)} // <--- HOVER END
+                    onMouseEnter={() => setIsHoveringCount(true)}
+                    onMouseLeave={() => setIsHoveringCount(false)}
                 >
-                    <div className="flex items-center -space-x-2">
-                        {typesToShow.map((type) => {
+                    <div className="flex items-center -space-x-2.5">
+                        {typesToShow.map((type, index) => {
                             const conf = reactionIconsHomeView[type];
                             if (!conf) return null;
+                            const zIndex = 30 - index;
                             return (
-                                <div key={type} className={`
-                                    relative w-6 h-6 flex items-center justify-center rounded-full ring-[2px] z-10 shadow-sm overflow-hidden
+                                <div key={type} style={{ zIndex }} className={`
+                                    relative w-6 h-6 flex items-center justify-center rounded-full ring-[2px] shadow-sm overflow-hidden transition-transform
                                     ${monet ? 'bg-slate-800 ring-slate-700' : 'bg-white dark:bg-slate-800 ring-white dark:ring-slate-900'}
                                 `}>
-                                    {/* SWITCHES TO GIF ON HOVER */}
                                     <img 
                                         src={isHoveringCount ? conf.animated : conf.static} 
                                         alt={conf.label}
@@ -214,34 +217,38 @@ const AnnouncementCard = forwardRef(({
                             );
                         })}
                     </div>
-                    <span className={`text-xs font-bold transition-colors ml-1 ${monet ? 'text-slate-300 group-hover:text-white' : 'text-slate-500 dark:text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400'}`}>
+                    <span className={`text-xs font-bold transition-colors ml-0.5 ${monet ? 'text-slate-300 group-hover:text-white' : 'text-slate-500 dark:text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400'}`}>
                         {totalReactions}
                     </span>
                 </div>
             );
         }
 
-        // UNIFORM: Single Large Image
+        // UNIFORM
         const singleType = sortedTypes[0];
         const conf = reactionIconsHomeView[singleType];
         
         return (
             <div 
-                className="flex items-center gap-1.5 cursor-pointer group" 
+                className="flex items-center gap-2 cursor-pointer group select-none" 
                 onClick={(e) => { e.stopPropagation(); onViewReactions(postReactions, usersMap); }}
-                onMouseEnter={() => setIsHoveringCount(true)} // <--- HOVER START
-                onMouseLeave={() => setIsHoveringCount(false)} // <--- HOVER END
+                onMouseEnter={() => setIsHoveringCount(true)}
+                onMouseLeave={() => setIsHoveringCount(false)}
             >
-                {conf ? (
-                    // SWITCHES TO GIF ON HOVER
-                    <img 
-                        src={isHoveringCount ? conf.animated : conf.static} 
-                        alt={conf.label} 
-                        className="w-5 h-5 object-contain" 
-                    />
-                ) : (
-                    <ThumbsUp className="w-4 h-4" />
-                )}
+                <div className={`
+                    w-6 h-6 rounded-full flex items-center justify-center shadow-sm
+                    ${monet ? 'bg-white/10' : 'bg-blue-50 dark:bg-slate-800'}
+                `}>
+                    {conf ? (
+                        <img 
+                            src={isHoveringCount ? conf.animated : conf.static} 
+                            alt={conf.label} 
+                            className="w-5 h-5 object-contain" 
+                        />
+                    ) : (
+                        <ThumbsUp className="w-4 h-4" />
+                    )}
+                </div>
                 <span className={`text-xs font-bold ${conf?.color || (monet ? 'text-slate-300' : 'text-slate-600 dark:text-slate-400')}`}>
                     {totalReactions}
                 </span>
@@ -252,52 +259,62 @@ const AnnouncementCard = forwardRef(({
     return (
         <motion.div
             ref={ref}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.98 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-            className={`rounded-[32px] p-6 relative group transition-shadow duration-200 font-sans 
-                ${monet ? monet.card : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md'}`}
+            layout
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+            className={`rounded-[2.5rem] p-7 relative group transition-all duration-300 font-sans backdrop-blur-3xl
+                ${monet ? monet.card : 'bg-white/80 dark:bg-[#121212]/80 border border-white/50 dark:border-white/5 shadow-xl hover:shadow-2xl'}`}
         >
+            {/* PINNED BADGE */}
             {post.isPinned && (
-                <div className={`absolute top-6 left-6 flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold z-10 border 
-                    ${monet ? monet.pinned : 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-100 dark:border-blue-800'}`}>
-                    <Pin className="w-3 h-3" strokeWidth={2.5} />
-                    <span>Pinned</span>
+                <div className={`absolute top-7 left-7 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold z-10 border shadow-sm
+                    ${monet ? monet.pinned : 'bg-blue-50/80 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 border-blue-100 dark:border-blue-500/20 backdrop-blur-md'}`}>
+                    <Pin className="w-3 h-3" strokeWidth={3} />
+                    <span>PINNED</span>
                 </div>
             )}
             
-            <div className={`flex items-start mb-4 ${post.isPinned ? 'pt-10' : ''}`}>
-                <div className={`w-12 h-12 flex-shrink-0 rounded-2xl shadow-sm overflow-hidden border 
-                    ${monet ? 'bg-white/10 border-white/10' : 'bg-slate-100 dark:bg-slate-800 border-slate-100 dark:border-slate-700'}`}>
-                    <UserInitialsAvatar user={authorProfile} size="full" className="w-full h-full text-xs font-bold" />
+            {/* HEADER */}
+            <div className={`flex items-center mb-5 ${post.isPinned ? 'pt-10' : ''}`}>
+                {/* ONE UI: Squircle Avatar Container */}
+                <div className={`w-[3.25rem] h-[3.25rem] flex-shrink-0 rounded-[1.4rem] shadow-sm overflow-hidden border 
+                    ${monet ? 'bg-white/10 border-white/10' : 'bg-slate-100 dark:bg-slate-800 border-slate-100 dark:border-white/5'}`}>
+                    <UserInitialsAvatar user={authorProfile} size="full" className="w-full h-full text-sm font-bold" />
                 </div>
-                <div className="ml-4 flex-1">
-                    <h3 className={`font-bold text-base ${monet ? monet.textTitle : 'text-slate-900 dark:text-slate-100'}`}>{post.teacherName}</h3>
-                    <p className={`text-xs font-medium mt-0.5 ${monet ? monet.textMeta : 'text-slate-500 dark:text-slate-400'}`}>
-                        {post.createdAt ? new Date(post.createdAt.toDate()).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : ''}
+                
+                <div className="ml-4 flex-1 min-w-0">
+                    <h3 className={`font-bold text-[1.05rem] tracking-tight truncate ${monet ? monet.textTitle : 'text-slate-900 dark:text-slate-100'}`}>
+                        {post.teacherName}
+                    </h3>
+                    <p className={`text-xs font-semibold mt-0.5 tracking-wide uppercase ${monet ? monet.textMeta : 'text-slate-400 dark:text-slate-500'}`}>
+                        {post.createdAt ? new Date(post.createdAt.toDate()).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' }) : ''}
                     </p>
                 </div>
                 
+                {/* HEADER ACTIONS (Floating Bubbles) */}
                 {canModify && (
-                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                          {userProfile?.role === 'admin' && (
                             <button 
                                 onClick={(e) => { e.stopPropagation(); onTogglePin(post.id, post.isPinned); }} 
-                                className={`p-2 rounded-full transition-colors ${post.isPinned ? 'bg-blue-100 text-blue-600' : (monet ? monet.button : 'bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400')}`}
+                                className={`p-2.5 rounded-[1rem] transition-all active:scale-90 ${post.isPinned 
+                                    ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' 
+                                    : (monet ? monet.button : 'bg-slate-100/50 text-slate-500 hover:bg-slate-100 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/10')}`}
                             >
                                 <Pin className="w-4 h-4" />
                             </button>
                         )}
                         <button 
                             onClick={(e) => { e.stopPropagation(); onStartEdit(post); }} 
-                            className={`p-2 rounded-full transition-colors ${monet ? monet.button : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'}`}
+                            className={`p-2.5 rounded-[1rem] transition-all active:scale-90 ${monet ? monet.button : 'bg-slate-100/50 text-slate-600 hover:bg-slate-100 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10'}`}
                         >
                             <Pencil className="w-4 h-4" />
                         </button>
                         <button 
                             onClick={(e) => { e.stopPropagation(); onDelete(post.id); }} 
-                            className={`p-2 rounded-full transition-colors ${monet ? 'bg-red-500/20 text-red-300 hover:bg-red-500/30' : 'bg-red-50 text-red-500 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40'}`}
+                            className={`p-2.5 rounded-[1rem] transition-all active:scale-90 ${monet ? 'bg-red-500/20 text-red-300 hover:bg-red-500/30' : 'bg-red-50/50 text-red-500 hover:bg-red-50 dark:bg-red-900/10 dark:text-red-400 dark:hover:bg-red-900/20'}`}
                         >
                             <Trash2 className="w-4 h-4" />
                         </button>
@@ -305,26 +322,28 @@ const AnnouncementCard = forwardRef(({
                 )}
             </div>
 
-            <div className="pl-0 md:pl-16">
+            {/* CONTENT */}
+            <div className="pl-1">
                 {isEditing ? (
-                    <div className={`p-4 rounded-3xl border mb-4 ${monet ? 'bg-black/20 border-white/10' : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800'}`}>
+                    <div className={`p-5 rounded-[1.8rem] border mb-4 shadow-inner ${monet ? monet.input : 'bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-white/10'}`}>
                         <textarea
-                            className={`w-full bg-transparent resize-none mb-3 focus:outline-none text-sm font-medium leading-relaxed ${monet ? 'text-white placeholder:text-white/40' : 'text-slate-900 dark:text-slate-100'}`}
+                            className={`w-full bg-transparent resize-none mb-2 focus:outline-none text-[0.95rem] font-medium leading-relaxed custom-scrollbar ${monet ? 'text-white' : 'text-slate-800 dark:text-slate-100'}`}
                             rows="4"
                             value={editingText}
                             onChange={(e) => onTextChange(e.target.value)}
                             onClick={(e) => e.stopPropagation()}
-                            placeholder="Edit your announcement..."
+                            placeholder="What's on your mind?"
+                            autoFocus
                         />
-                        <div className="flex justify-end gap-3">
+                        <div className="flex justify-end gap-3 mt-2">
                             <button 
-                                className={`px-4 py-2 rounded-full text-xs font-bold transition-colors ${monet ? 'text-slate-300 hover:text-white hover:bg-white/10' : 'text-slate-600 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-800'}`}
+                                className={`px-5 py-2.5 rounded-[1rem] text-xs font-bold transition-colors ${monet ? 'text-slate-300 hover:bg-white/10' : 'text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-white/10'}`}
                                 onClick={(e) => { e.stopPropagation(); onCancelEdit(); }}
                             >
                                 Cancel
                             </button>
                             <button 
-                                className="px-5 py-2 rounded-full text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-all" 
+                                className="px-6 py-2.5 rounded-[1rem] text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:scale-95 shadow-lg shadow-blue-500/30 transition-all" 
                                 onClick={(e) => { e.stopPropagation(); onSave(); }}
                             >
                                 Save Changes
@@ -333,13 +352,13 @@ const AnnouncementCard = forwardRef(({
                     </div>
                 ) : (
                     post.content && (
-                        <div className={`text-sm leading-7 whitespace-pre-wrap break-words ${monet ? monet.textBody : 'text-slate-800 dark:text-slate-200'}`}>
+                        <div className={`text-[0.95rem] leading-relaxed whitespace-pre-wrap break-words tracking-wide ${monet ? monet.textBody : 'text-slate-700 dark:text-slate-200'}`}>
                             {isTruncated && !isExpanded ? (
                                 <>
                                     <Linkify componentDecorator={componentDecorator}>
                                         {post.content.substring(0, ANNOUNCEMENT_TRUNCATE_LENGTH)}
                                     </Linkify>
-                                    <span className={monet ? 'text-slate-400' : 'text-slate-400'}>...</span>
+                                    <span className="opacity-60">...</span>
                                 </>
                             ) : (
                                 <Linkify componentDecorator={componentDecorator}>
@@ -355,35 +374,36 @@ const AnnouncementCard = forwardRef(({
                     )
                 )}
                 
+                {/* PHOTO ATTACHMENT */}
                 {post.photoURL && !isEditing && (
-                    <div className={`mt-4 rounded-3xl overflow-hidden shadow-sm border ${monet ? 'border-white/10' : 'border-slate-100 dark:border-slate-800'}`}>
+                    <div className={`mt-5 rounded-[2rem] overflow-hidden shadow-sm border ${monet ? monet.image : 'border-slate-100 dark:border-white/5'}`}>
                         <img 
                             loading="lazy"
                             src={post.photoURL} 
                             alt="Announcement" 
-                            className={`w-full max-h-[400px] object-cover ${monet ? 'bg-black/20' : 'bg-slate-50 dark:bg-slate-900'}`}
+                            className={`w-full max-h-[450px] object-cover hover:scale-[1.01] transition-transform duration-500 ${monet ? '' : 'bg-slate-50 dark:bg-slate-900'}`}
                             onError={(e) => { e.target.style.display = 'none'; }}
                         />
                         {post.caption && (
-                            <div className={`px-4 py-2 border-t ${monet ? 'bg-black/20 border-white/10' : 'bg-slate-50 dark:bg-slate-950 border-slate-100 dark:border-slate-800'}`}>
-                                <p className={`text-xs font-medium italic ${monet ? 'text-slate-300' : 'text-slate-500 dark:text-slate-400'}`}>{post.caption}</p>
+                            <div className={`px-5 py-3 border-t backdrop-blur-md ${monet ? 'bg-black/30 border-white/10' : 'bg-white/80 dark:bg-black/40 border-slate-100 dark:border-white/5'}`}>
+                                <p className={`text-xs font-medium italic ${monet ? 'text-slate-300' : 'text-slate-600 dark:text-slate-400'}`}>{post.caption}</p>
                             </div>
                         )}
                     </div>
                 )}
 
-                {/* Engagement Stats */}
-                <div className={`flex justify-between items-center mt-6 pt-4 border-t ${monet ? monet.divider : 'border-slate-100 dark:border-slate-800'}`}>
+                {/* STATS BAR */}
+                <div className={`flex justify-between items-center mt-6 pt-4 border-t ${monet ? monet.divider : 'border-slate-100 dark:border-white/5'}`}>
                     {formatReactionCount() || <div />} 
                     <button 
-                        className={`text-xs font-bold transition-colors ${monet ? 'text-slate-300 hover:text-white' : 'text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400'}`}
+                        className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-colors ${monet ? 'text-slate-300 hover:bg-white/10' : 'text-slate-500 hover:bg-slate-100 hover:text-blue-600 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-blue-400'}`}
                         onClick={() => onViewComments(post)}
                     >
-                        {post.commentsCount > 0 ? `${post.commentsCount} Comments` : '0 Comments'}
+                        {post.commentsCount > 0 ? `${post.commentsCount} comments` : '0 comments'}
                     </button>
                 </div>
 
-                {/* Reaction Actions */}
+                {/* ACTION BUTTONS (One UI 8.5 Style) */}
                 <div className="grid grid-cols-2 gap-3 mt-4">
                     <div
                         className="relative"
@@ -394,79 +414,75 @@ const AnnouncementCard = forwardRef(({
                         onTouchMove={handleTouchMove}
                     >
                         <button
-                            className={`flex items-center justify-center gap-2 py-2.5 rounded-xl w-full transition-all duration-200 ${
+                            className={`flex items-center justify-center gap-2.5 py-3 rounded-[1.2rem] w-full transition-all duration-200 active:scale-95 ${
                                 currentUserReaction 
-                                    ? (monet ? 'bg-white/20 text-white' : 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300') 
-                                    : (monet ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700')
+                                    ? (monet ? 'bg-white/20 text-white shadow-inner' : 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300') 
+                                    : (monet ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-slate-50 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/10')
                             }`}
                             onClick={() => onToggleReaction(post.id, 'like')}
                         >
                             {currentUserReaction ? (
                                 <>
-                                    {/* Active State with Animation on Hover */}
                                     {currentReactionConfig && (
                                         <img 
-                                            // SWITCHES TO GIF WHEN DOCK IS OPEN (HOVER)
                                             src={isReactionOptionsVisible ? currentReactionConfig.animated : currentReactionConfig.static} 
                                             alt={currentReactionConfig.label} 
                                             className="w-5 h-5 object-contain" 
                                         />
                                     )}
-                                    <span className={`text-xs font-bold ${monet ? 'text-white' : reactionColor}`}>{reactionLabel}</span>
+                                    <span className={`text-[13px] font-bold capitalize ${monet ? 'text-white' : reactionColor}`}>{reactionLabel}</span>
                                 </>
                             ) : (
                                 <>
-                                    <ThumbsUp className="h-4 w-4" />
-                                    <span className="text-xs font-bold">Like</span>
+                                    <ThumbsUp className="h-[18px] w-[18px]" />
+                                    <span className="text-[13px] font-bold">Like</span>
                                 </>
                             )}
                         </button>
 
-                        {/* --- ANIMATED STICKER DOCK --- */}
+                        {/* --- GLASS DOCK --- */}
                         <AnimatePresence>
                             {isReactionOptionsVisible && (
                                 <motion.div
-                                    initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                                    initial={{ opacity: 0, y: 15, scale: 0.8 }}
                                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                                    exit={{ opacity: 0, y: 10, scale: 0.9 }}
-                                    transition={{ duration: 0.2, type: "spring", stiffness: 300, damping: 20 }}
-                                    className={`absolute bottom-full mb-3 left-0 rounded-full shadow-2xl px-2 py-1.5 flex gap-1 z-50 
-                                        ${monet ? 'bg-[#1e1e1e] border border-white/20' : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 ring-1 ring-black/5'}`}
+                                    exit={{ opacity: 0, y: 15, scale: 0.8 }}
+                                    transition={{ type: "spring", bounce: 0.4, duration: 0.5 }}
+                                    className={`absolute bottom-full mb-3 left-0 rounded-[2rem] px-2.5 py-2 flex gap-1.5 z-50 backdrop-blur-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)]
+                                        ${monet ? 'bg-black/60 border border-white/20' : 'bg-white/90 dark:bg-[#1E1E1E]/90 border border-white/20 dark:border-white/10'}`}
                                     onMouseEnter={handleReactionOptionsMouseEnter}
                                     onMouseLeave={handleReactionOptionsMouseLeave}
                                 >
                                     {Object.entries(reactionIconsHomeView).map(([type, config], index) => (
                                         <motion.div
                                             key={type}
-                                            initial={{ opacity: 0, y: 10 }}
+                                            initial={{ opacity: 0, y: 20 }}
                                             animate={{ opacity: 1, y: 0 }}
-                                            transition={{ delay: index * 0.05 }} 
+                                            transition={{ delay: index * 0.04 }} 
                                             className="relative group"
                                         >
                                             <motion.div
-                                                className={`w-10 h-10 flex items-center justify-center rounded-full cursor-pointer origin-bottom transition-all
+                                                className={`w-10 h-10 flex items-center justify-center rounded-full cursor-pointer origin-bottom transition-all relative
                                                     ${hoveredReaction === type ? 'z-50' : 'z-10'}`}
-                                                whileHover={{ scale: 1.5, y: -5 }} // Magnification
-                                                animate={hoveredReaction === type ? config.animation : {}} // Unique Physics Animation
+                                                whileHover={{ scale: 1.45, y: -8 }} 
+                                                animate={hoveredReaction === type ? config.animation : {}} 
                                                 onHoverStart={() => setHoveredReaction(type)}
                                                 onHoverEnd={() => setHoveredReaction(null)}
                                                 onClick={() => handleReactionOptionClick(type)}
                                             >
-                                                {/* SWITCH SRC ON HOVER */}
                                                 <img 
                                                     src={hoveredReaction === type ? config.animated : config.static} 
                                                     alt={config.label}
-                                                    className="w-full h-full object-contain filter drop-shadow-sm" 
+                                                    className="w-full h-full object-contain filter drop-shadow-md" 
                                                 />
                                             </motion.div>
                                             
-                                            {/* Tooltip Label */}
+                                            {/* Minimal Tooltip */}
                                             {hoveredReaction === type && (
                                                 <motion.div
-                                                    initial={{ opacity: 0, y: 5 }}
-                                                    animate={{ opacity: 1, y: -20 }}
-                                                    className={`absolute -top-6 left-1/2 -translate-x-1/2 px-2 py-0.5 text-[10px] font-bold rounded-md whitespace-nowrap pointer-events-none shadow-sm
-                                                        ${monet ? 'bg-black text-white' : 'bg-slate-800 text-white'}`}
+                                                    initial={{ opacity: 0, y: 0 }}
+                                                    animate={{ opacity: 1, y: -24 }}
+                                                    className="absolute -top-4 left-1/2 -translate-x-1/2 px-2.5 py-1 text-[10px] font-bold rounded-full whitespace-nowrap pointer-events-none bg-black text-white shadow-lg z-50"
                                                 >
                                                     {config.label}
                                                 </motion.div>
@@ -479,12 +495,12 @@ const AnnouncementCard = forwardRef(({
                     </div>
 
                     <button
-                        className={`flex items-center justify-center gap-2 py-2.5 rounded-xl transition-all duration-200 w-full 
-                            ${monet ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+                        className={`flex items-center justify-center gap-2.5 py-3 rounded-[1.2rem] w-full transition-all duration-200 active:scale-95 
+                            ${monet ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-slate-50 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/10'}`}
                         onClick={() => onViewComments(post)}
                     >
-                        <MessageCircle className="h-4 w-4" />
-                        <span className="text-xs font-bold">Comment</span>
+                        <MessageCircle className="h-[18px] w-[18px]" />
+                        <span className="text-[13px] font-bold">Comment</span>
                     </button>
                 </div>
             </div>

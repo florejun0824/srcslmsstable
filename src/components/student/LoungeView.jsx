@@ -14,82 +14,38 @@ import {
     SparklesIcon
 } from '@heroicons/react/24/solid';
 
-// --- CUSTOM CSS ---
-const loungeStyles = `
-  .glass-panel {
-    background: rgba(255, 255, 255, 0.7);
-    backdrop-filter: blur(25px) saturate(180%);
-    -webkit-backdrop-filter: blur(25px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.5);
-    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
-    transition: background-color 0.5s ease, border-color 0.5s ease;
-  }
-  .dark .glass-panel {
-    background: rgba(30, 41, 59, 0.65);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
-  }
-  
-  .glass-button {
-    background: rgba(255, 255, 255, 0.6);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.4);
-    transition: all 0.3s ease;
-  }
-  .glass-button:hover {
-    background: rgba(255, 255, 255, 0.9);
-    transform: translateY(-1px);
-    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-  }
-  .dark .glass-button {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-  }
-  .dark .glass-button:hover {
-    background: rgba(255, 255, 255, 0.15);
-  }
-`;
-
 const getThemeCardStyle = (activeOverlay) => {
+    // Return subtle tint classes or styles based on theme
     switch (activeOverlay) {
         case 'christmas': 
-            return { backgroundColor: 'rgba(15, 23, 66, 0.6)', borderColor: 'rgba(100, 116, 139, 0.2)' };
+            return "bg-slate-900/5 border-slate-900/10 dark:bg-blue-900/20 dark:border-blue-800/30";
         case 'valentines': 
-            return { backgroundColor: 'rgba(60, 10, 20, 0.6)', borderColor: 'rgba(255, 100, 100, 0.15)' };
+            return "bg-red-50/50 border-red-100 dark:bg-red-900/10 dark:border-red-900/30";
         case 'graduation': 
-            return { backgroundColor: 'rgba(30, 25, 10, 0.6)', borderColor: 'rgba(255, 215, 0, 0.15)' };
-        case 'rainy': 
-            return { backgroundColor: 'rgba(20, 35, 20, 0.6)', borderColor: 'rgba(100, 150, 100, 0.2)' };
-        case 'cyberpunk': 
-            return { backgroundColor: 'rgba(35, 5, 45, 0.6)', borderColor: 'rgba(180, 0, 255, 0.2)' };
-        case 'spring': 
-            return { backgroundColor: 'rgba(50, 10, 20, 0.6)', borderColor: 'rgba(255, 150, 180, 0.2)' };
-        case 'space': 
-            return { backgroundColor: 'rgba(5, 5, 10, 0.6)', borderColor: 'rgba(100, 100, 255, 0.15)' };
+            return "bg-yellow-50/50 border-yellow-100 dark:bg-yellow-900/10 dark:border-yellow-900/30";
+        // Default clean surface
         default: 
-            return {}; 
+            return "bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700"; 
     }
 };
 
 const PostSkeleton = () => (
-    <div className="glass-panel rounded-[2rem] p-6 w-full animate-pulse">
+    <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-6 w-full shadow-sm border border-slate-100 dark:border-slate-700 animate-pulse">
         <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700/50"></div>
+            <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-700"></div>
             <div className="space-y-2 flex-1">
-                <div className="h-3 w-32 bg-slate-200 dark:bg-slate-700/50 rounded-md"></div>
-                <div className="h-2 w-20 bg-slate-200 dark:bg-slate-700/50 rounded-md"></div>
+                <div className="h-4 w-32 bg-slate-100 dark:bg-slate-700 rounded-lg"></div>
+                <div className="h-3 w-20 bg-slate-100 dark:bg-slate-700 rounded-lg"></div>
             </div>
         </div>
         <div className="space-y-3 mb-6">
-            <div className="h-3 w-full bg-slate-200 dark:bg-slate-700/50 rounded-md"></div>
-            <div className="h-3 w-5/6 bg-slate-200 dark:bg-slate-700/50 rounded-md"></div>
-            <div className="h-3 w-4/6 bg-slate-200 dark:bg-slate-700/50 rounded-md"></div>
+            <div className="h-3 w-full bg-slate-100 dark:bg-slate-700 rounded-lg"></div>
+            <div className="h-3 w-5/6 bg-slate-100 dark:bg-slate-700 rounded-lg"></div>
+            <div className="h-3 w-4/6 bg-slate-100 dark:bg-slate-700 rounded-lg"></div>
         </div>
-        <div className="flex items-center justify-between pt-4 border-t border-slate-200/30 dark:border-white/5">
-             <div className="flex gap-3">
-                <div className="h-8 w-16 bg-slate-200 dark:bg-slate-700/50 rounded-full"></div>
-                <div className="h-8 w-16 bg-slate-200 dark:bg-slate-700/50 rounded-full"></div>
-             </div>
+        <div className="flex gap-3">
+             <div className="h-8 w-20 bg-slate-100 dark:bg-slate-700 rounded-full"></div>
+             <div className="h-8 w-20 bg-slate-100 dark:bg-slate-700 rounded-full"></div>
         </div>
     </div>
 );
@@ -121,7 +77,9 @@ const LoungeView = ({
 }) => {
   const { userProfile } = useAuth();
   const { activeOverlay } = useTheme();
-  const dynamicThemeStyle = getThemeCardStyle(activeOverlay);
+  
+  // Use a string class helper instead of inline styles for cleaner One UI look
+  const themeClasses = getThemeCardStyle(activeOverlay);
 
   // ✅ PRE-FILTERING: Ensure userProfile matches post schoolId
   const userSchoolId = userProfile?.schoolId || 'srcs_main';
@@ -132,34 +90,37 @@ const LoungeView = ({
 
   return (
     <>
-      <style>{loungeStyles}</style>
-
       <div className="max-w-4xl mx-auto w-full space-y-8 px-4 sm:px-6 lg:px-8 pb-32">
         
-        {/* --- Header Section --- */}
-        <div 
-            className="relative glass-panel rounded-[2rem] p-4 sm:p-5 overflow-hidden group transition-colors duration-500"
-            style={dynamicThemeStyle}
-        >
-            <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-gradient-to-br from-blue-400/10 to-purple-400/10 rounded-full blur-[80px] pointer-events-none -translate-y-1/2 translate-x-1/3"></div>
-            <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-gradient-to-tr from-orange-400/10 to-pink-400/10 rounded-full blur-[80px] pointer-events-none translate-y-1/3 -translate-x-1/3"></div>
+        {/* --- Header Section (Floating Surface) --- */}
+        <div className={`relative rounded-[2.5rem] p-6 sm:p-8 overflow-hidden shadow-sm border transition-colors duration-500 ${themeClasses}`}>
+            {/* Subtle Gradient decoration for One UI feel */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-blue-400/5 to-purple-400/5 dark:from-white/5 dark:to-white/0 rounded-full blur-3xl pointer-events-none -translate-y-1/2 translate-x-1/3"></div>
 
-            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
                 <div>
-                    <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight leading-none mb-1">
+                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
                        Lounge
                     </h1>
-                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium leading-relaxed max-w-md">
-                        Connect, share, and learn with your peers across campus.
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 font-medium">
+                        Connect, share, and learn with your peers.
                     </p>
                 </div>
 
                 <button
                     onClick={() => fetchPublicPosts()}
                     disabled={isPostsLoading}
-                    className="glass-button self-start sm:self-center px-4 py-2 rounded-lg flex-shrink-0 flex items-center gap-2 text-slate-600 dark:text-slate-300 font-bold text-[10px] uppercase tracking-wide shadow-sm hover:text-blue-600 dark:hover:text-blue-400 disabled:opacity-50"
+                    className="
+                        group self-start sm:self-center px-6 py-3 rounded-full 
+                        bg-slate-100 dark:bg-slate-700/50 
+                        hover:bg-slate-200 dark:hover:bg-slate-700
+                        text-slate-700 dark:text-slate-200 
+                        font-bold text-sm tracking-wide 
+                        transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100
+                        flex items-center gap-2.5
+                    "
                 >
-                    <ArrowPathIcon className={`w-4 h-4 ${isPostsLoading ? 'animate-spin' : ''}`} />
+                    <ArrowPathIcon className={`w-4 h-4 transition-transform group-hover:rotate-180 ${isPostsLoading ? 'animate-spin' : ''}`} strokeWidth={2.5} />
                     <span>Refresh</span>
                 </button>
             </div>
@@ -175,20 +136,20 @@ const LoungeView = ({
                 </div>
             ) : (displayPosts.length === 0) ? (
                 // Empty State
-                <div 
-                    className="glass-panel rounded-[2.5rem] p-12 text-center flex flex-col items-center justify-center transition-colors duration-500"
-                    style={dynamicThemeStyle}
-                >
-                    <div className="w-24 h-24 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mb-6 shadow-inner">
-                        <ChatBubbleLeftRightIcon className="w-10 h-10 text-slate-300 dark:text-slate-600" />
+                <div className={`rounded-[2.5rem] p-12 text-center flex flex-col items-center justify-center border transition-colors duration-500 ${themeClasses}`}>
+                    <div className="w-20 h-20 bg-slate-100 dark:bg-slate-700/50 rounded-full flex items-center justify-center mb-6">
+                        <ChatBubbleLeftRightIcon className="w-8 h-8 text-slate-400 dark:text-slate-500" />
                     </div>
                     <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">The Lounge is Quiet</h3>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs mx-auto leading-relaxed">
-                        Be the first to spark a conversation! Create a public post from your profile.
+                    <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs mx-auto leading-relaxed mb-8">
+                        Be the first to spark a conversation!
                     </p>
-                    <div className="mt-6 flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-xs font-bold uppercase tracking-wide border border-blue-100 dark:border-blue-500/20">
-                        <SparklesIcon className="w-4 h-4" /> Start Posting
-                    </div>
+                    
+                    {/* One UI Pill Button */}
+                    <button className="flex items-center gap-2 px-6 py-3 rounded-full bg-blue-600 text-white text-sm font-bold shadow-lg shadow-blue-500/20 hover:bg-blue-700 transition-all active:scale-95">
+                        <SparklesIcon className="w-4 h-4" /> 
+                        Start Posting
+                    </button>
                 </div>
             ) : (
                 // Feed Items

@@ -1,6 +1,6 @@
 // src/pages/LoginPage.jsx
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom'; // Added useLocation
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import {
@@ -59,12 +59,26 @@ const LoginPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const { showToast } = useToast();
+  const location = useLocation(); // Added hook
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [showBiometricButton, setShowBiometricButton] = useState(false);
   const [hasAgreed, setHasAgreed] = useState(false);
+
+  // 1. Restore state from navigation (if returning from Terms/Privacy)
+  useEffect(() => {
+    if (location.state?.formData) {
+        const { email, password, role, hasAgreed } = location.state.formData;
+        if (email) setEmail(email);
+        if (password) setPassword(password);
+        if (role) setSelectedRole(role);
+        // We preserve the "hasAgreed" status too if they come back
+        if (hasAgreed) setHasAgreed(hasAgreed);
+    }
+  }, [location.state]);
 
   useEffect(() => {
     const checkBiometricSupport = async () => {
@@ -131,6 +145,14 @@ const LoginPage = () => {
     }
   };
 
+  // Helper to package current state for links
+  const currentFormData = {
+      email,
+      password,
+      role: selectedRole,
+      hasAgreed
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 relative overflow-hidden font-sans antialiased selection:bg-blue-500/30 selection:text-blue-900">
       <MeshGradientBackground role={selectedRole} />
@@ -148,7 +170,7 @@ const LoginPage = () => {
           p-8 sm:p-10
           transition-all duration-700 ease-out
         ">
-            
+            {/* Logo Section */}
             <div className="flex flex-col items-center justify-center mb-10 relative">
                 <div className="absolute -top-10 inset-x-0 h-32 bg-gradient-to-b from-white/40 to-transparent dark:from-white/5 pointer-events-none blur-xl"></div>
                 
@@ -178,6 +200,7 @@ const LoginPage = () => {
                 </div>
             </div>
 
+            {/* Role Switcher */}
             <div className="mb-8 p-1.5 bg-gray-100/80 dark:bg-[#252528] border border-white/40 dark:border-white/5 rounded-[2rem] flex items-center relative backdrop-blur-md shadow-[inset_0_2px_4px_rgba(0,0,0,0.03)]">
                 <div 
                     className={`absolute top-1.5 bottom-1.5 rounded-[1.6rem] bg-white dark:bg-[#3A3A3C] shadow-[0_4px_12px_rgba(0,0,0,0.08)] border border-black/5 dark:border-white/5 transition-all duration-500 cubic-bezier(0.2, 0.8, 0.2, 1) w-[calc(50%-6px)] ${selectedRole === 'student' ? 'left-1.5' : 'left-[calc(50%)]'}`} 
@@ -238,8 +261,9 @@ const LoginPage = () => {
                   `}>
                     <CheckIcon className={`w-4 h-4 text-white transition-opacity duration-200 ${hasAgreed ? 'opacity-100' : 'opacity-0'}`} strokeWidth={3} />
                   </div>
+                  {/* UPDATE: Pass state in Link components */}
                   <label className="text-xs font-medium text-slate-800 dark:text-slate-200 cursor-pointer pointer-events-none">
-                    I agree to the <Link to="/terms" className="text-blue-600 dark:text-blue-400 hover:underline pointer-events-auto">Terms of Service</Link> and <Link to="/privacy" className="text-blue-600 dark:text-blue-400 hover:underline pointer-events-auto">Privacy Policy</Link>.
+                    I agree to the <Link to="/terms" state={{ formData: currentFormData }} className="text-blue-600 dark:text-blue-400 hover:underline pointer-events-auto">Terms of Service</Link> and <Link to="/privacy" state={{ formData: currentFormData }} className="text-blue-600 dark:text-blue-400 hover:underline pointer-events-auto">Privacy Policy</Link>.
                   </label>
                 </div>
 
@@ -305,12 +329,13 @@ const LoginPage = () => {
 
         <div className="mt-10 text-center animate-fade-in-up animation-delay-500">
              <div className="flex justify-center gap-6 mb-4">
-                 <Link to="/privacy" className="text-[13px] font-medium text-gray-500 hover:text-blue-500 dark:text-gray-400 dark:hover:text-blue-400 transition-colors">
+                 {/* UPDATE: Pass state in Link components */}
+                 <Link to="/privacy" state={{ formData: currentFormData }} className="text-[13px] font-medium text-gray-500 hover:text-blue-500 dark:text-gray-400 dark:hover:text-blue-400 transition-colors">
                      Privacy Policy
                  </Link>
-			                  <Link to="/terms" className="text-[13px] font-medium text-gray-500 hover:text-blue-500 dark:text-gray-400 dark:hover:text-blue-400 transition-colors">
-			                      Terms of Service
-			                  </Link>
+			     <Link to="/terms" state={{ formData: currentFormData }} className="text-[13px] font-medium text-gray-500 hover:text-blue-500 dark:text-gray-400 dark:hover:text-blue-400 transition-colors">
+			         Terms of Service
+			     </Link>
              </div>
             <p className="text-[12px] font-bold tracking-wider text-gray-400/80 dark:text-white/20 uppercase">
                 © 2025 SRCS Learning Portal

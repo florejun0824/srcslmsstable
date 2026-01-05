@@ -608,66 +608,71 @@ const TeacherDashboard = () => {
 	        const page = validPages[i];
 	        showToast(`Generating slides for section ${i + 1} of ${validPages.length}...`, "info");
 
-	        const prompt = `
-	            SYSTEM: You are a JSON-only API. You are NOT a chatbot.
-	            INSTRUCTION: Convert the educational content below into a Google Slides JSON structure.
+		const prompt = `
+		    SYSTEM: You are a JSON-only API. You are NOT a chatbot.
+		    INSTRUCTION: Convert the educational content below into a Google Slides JSON structure.
 
-	            STRICT BEHAVIORAL CONSTRAINTS:
-	            1. Output ONLY valid JSON.
-	            2. DO NOT write introductions. Start immediately with '{' and end with '}'.
+		    STRICT BEHAVIORAL CONSTRAINTS:
+		    1. Output ONLY valid JSON.
+		    2. DO NOT write introductions. Start immediately with '{' and end with '}'.
 
-	            ROLE & CONTENT RULES:
-	            You are an expert Educational Content Developer.
-            
-	            **SOURCE MATERIAL:**
-	            The text below is **Part ${i + 1}** of a lesson titled "${targetLesson.title}".
-            
-	            **TASK:** Convert the provided text into 1-4 Google Slides.
+		    ROLE & CONTENT RULES:
+		    You are an expert **Instructional Designer & Textbook Adaptor**.
+		    Your goal is to create **comprehensive, study-ready slides** that retain the technical depth of the source text.
 
-	            **CRITICAL: CONTENT DISTRIBUTION RULES**
-	            1. **NO VAGUE SUMMARIES:** Do not create slides that just say "There are three types of X." You MUST list the types on the slide.
-	            2. **SUB-COMPONENTS IN BODY:** If the text explains multiple concepts (e.g., "Metaphors, Similes, Personification"), you must **LIST THEM IN THE SLIDE BODY** with their definitions and short examples.
-	            3. **USE MULTIPLE SLIDES:** If the content is too long to list all sub-components on one slide, generate multiple slides.
-	            4. **BODY vs NOTES:** - **Slide Body:** MUST contain the "What" (The Definitions, The Types, The Examples, The Lists).
-	               - **Speaker Notes:** MUST contain the "How" and "Why" (Context, elaboration, how to explain it to the class).
-	               - **NEVER** hide the main definitions in the notes while leaving the body empty or vague.
+		    **SOURCE MATERIAL:**
+		    The text below is **Part ${i + 1}** of a lesson titled "${targetLesson.title}".
 
-	            **SPECIAL CONTENT HANDLING (STRICT):**
-            
-	            1. **REFERENCES / WORKS CITED:**
-	               - **FORMAT:** Use a simple bulleted list in the "body" field.
-	               - **NO TABLES:** Do not create a "Source | Key Contribution" table.
-	               - **NO EXPLANATIONS:** List ONLY the citation (Author, Title, Date). Do not explain what the book is about.
+		    **TASK:** Convert the provided text into a series of Google Slides. 
+		    **Do NOT limit the number of slides.** Create as many slides as necessary to fully explain the concepts.
 
-	            2. **ASSESSMENTS / QUIZZES:**
-	               - **SPLIT REQUIRED:** You MUST generate separate slides for Questions and Answers.
-	               - **SLIDE A (Questions):** List ONLY the questions and options. **DO NOT** include the answer here. Title it "Assessment" or "Quiz".
-	               - **SLIDE B (Answers):** Create a separate slide immediately following the questions titled "Answer Key". List the correct answers here (e.g., "1. B", "2. A").
-	               - **NO SIDE-BY-SIDE:** Do not put Questions and Answers in the same table row.
-	               - **NO HALLUCINATED REVIEWS:** If the section is a Quiz, END with the Answer Key. Do not generate a "Review Assessment" or "Summary" slide after the Answer Key.
+		    **CRITICAL: CONTENT DISTRIBUTION & SPLITTING RULES**
+    
+		    1. **NO LOSS OF DATA:** Never summarize complex paragraphs into a single sentence. You must retain the specific details, numbers, and terminology.
+    
+		    2. **ONE CONCEPT PER SLIDE:** If the text covers multiple heavy topics, split them.
+    
+		    3. **HANDLING PROCESSES & LISTS (CRITICAL):**
+		       - **Short Descriptions:** If a list of steps has short descriptions (1 sentence each), list them all on one slide.
+		       - **Long Descriptions:** If a step has a **long description** (2+ sentences, or requires deep explanation), you MUST:
+		         a. Create one **Overview Slide** listing the steps.
+		         b. Create **Individual Slides** for each step (e.g., Title: "Step 1: Preparation", Body: [Full details of step 1]).
+		       - **DO NOT CRAM:** Never force a 5-step process with long text onto a single slide.
 
-	            **REQUIRED JSON SCHEMA:**
-	            {
-	              "slides": [
-	                {
-	                  "title": "Slide Title",
-	                  "body": "**Concept 1**: Definition.\\n\\n**Concept 2**: Definition.", 
-	                  "tableData": {
-	                      "headers": [],
-	                      "rows": []
-	                  },
-	                  "notes": { 
-	                    "talkingPoints": "Elaborate on the concepts...", 
-	                    "interactiveElement": "Ask students...", 
-	                    "slideTiming": "3 mins" 
-	                  }
-	                }
-	              ]
-	            }
+		    4. **BODY vs NOTES:** - **Slide Body:** Must contain the **detailed content**. The student should be able to pass a test reading ONLY the slides.
+		       - **Speaker Notes:** Context, analogies, and engagement cues.
 
-	            **CONTENT TO PROCESS:**
-	            ${page.content}
-	        `;
+		    **SPECIAL CONTENT HANDLING (STRICT):**
+    
+		    1. **REFERENCES / WORKS CITED:**
+		       - Format as a bulleted list in the body. List ONLY citation (Author, Title, Date).
+
+		    2. **ASSESSMENTS / QUIZZES:**
+		       - **SLIDE A (Questions):** Questions and options only. Title: "Assessment".
+		       - **SLIDE B (Answers):** Separate slide immediately after. Title: "Answer Key".
+
+		    **REQUIRED JSON SCHEMA:**
+		    {
+		      "slides": [
+		        {
+		          "title": "Slide Title (e.g., 'Photosynthesis: Step 1 - Light Absorption')",
+		          "body": "**Definition**: ... \\n\\n**Key Details**: ...", 
+		          "tableData": {
+		              "headers": [],
+		              "rows": []
+		          },
+		          "notes": { 
+		            "talkingPoints": "Elaborate on...", 
+		            "interactiveElement": "Ask...", 
+		            "slideTiming": "3 mins" 
+		          }
+		        }
+		      ]
+		    }
+
+		    **CONTENT TO PROCESS:**
+		    ${page.content}
+		`;
 
 	        try {
 	            const aiResponseText = await callGeminiWithLimitCheck(prompt);

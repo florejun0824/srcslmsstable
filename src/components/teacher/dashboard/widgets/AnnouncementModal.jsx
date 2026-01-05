@@ -27,11 +27,11 @@ import Linkify from 'react-linkify'
 
 const reactionTypes = ['like', 'heart', 'haha', 'wow', 'sad', 'angry', 'care']
 
-// --- UPDATED CONFIG: STATIC VS ANIMATED PATHS ---
+// --- CONFIG: STATIC VS ANIMATED PATHS ---
 const reactionIcons = {
   like: {
-    static: '/emojis/like.png',      // Static Image
-    animated: '/emojis/like.gif',    // Animated GIF
+    static: '/emojis/like.png',
+    animated: '/emojis/like.gif',
     color: 'text-blue-600',
     label: 'Like',
   },
@@ -99,25 +99,21 @@ const AnnouncementModal = ({
 }) => {
   // state
   const [comments, setComments] = useState([])
-  const [liveCommentCount, setLiveCommentCount] = useState(
-    announcement?.commentsCount || 0,
-  )
+  const [liveCommentCount, setLiveCommentCount] = useState(announcement?.commentsCount || 0)
   const [newCommentText, setNewCommentText] = useState('')
   const [replyToCommentId, setReplyToCommentId] = useState(null)
   const [replyToUserName, setReplyToUserName] = useState('')
   const [commentReactions, setCommentReactions] = useState({})
-  const [hoveredReactionData, setHoveredReactionData] = useState(null)
   
-  // Track specifically which emoji inside the picker is being hovered
+  // Hover & Picker State
+  const [hoveredReactionData, setHoveredReactionData] = useState(null)
   const [hoveredPickerEmoji, setHoveredPickerEmoji] = useState(null)
-
   const [activeReactionPicker, setActiveReactionPicker] = useState(null)
+  
   const [editingCommentId, setEditingCommentId] = useState(null)
   const [editingCommentText, setEditingCommentText] = useState('')
-  const [isReactionsBreakdownModalOpen, setIsReactionsBreakdownModalOpen] =
-    useState(false)
-  const [reactionsForBreakdownModal, setReactionsForBreakdownModal] =
-    useState(null)
+  const [isReactionsBreakdownModalOpen, setIsReactionsBreakdownModalOpen] = useState(false)
+  const [reactionsForBreakdownModal, setReactionsForBreakdownModal] = useState(null)
 
   const timeoutRef = useRef(null)
   const commentInputRef = useRef(null)
@@ -132,16 +128,10 @@ const AnnouncementModal = ({
   // Close modal on Escape
   useEffect(() => {
     const handleEsc = (event) => {
-      if (event.key === 'Escape') {
-        onClose()
-      }
+      if (event.key === 'Escape') onClose()
     }
-    if (isOpen) {
-      document.addEventListener('keydown', handleEsc)
-    }
-    return () => {
-      document.removeEventListener('keydown', handleEsc)
-    }
+    if (isOpen) document.addEventListener('keydown', handleEsc)
+    return () => document.removeEventListener('keydown', handleEsc)
   }, [isOpen, onClose])
 
   // Time utils
@@ -161,7 +151,7 @@ const AnnouncementModal = ({
     if (!date) return ''
     const now = new Date()
     const seconds = Math.floor((now - date) / 1000)
-    if (seconds < 60) return `now`
+    if (seconds < 60) return `Just now`
     const minutes = Math.floor(seconds / 60)
     if (minutes < 60) return `${minutes}m`
     const hours = Math.floor(minutes / 60)
@@ -218,7 +208,6 @@ const AnnouncementModal = ({
     return () => {
       if (unsubscribeComments) unsubscribeComments()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, announcement?.id])
 
   const handlePostComment = async () => {
@@ -306,12 +295,7 @@ const AnnouncementModal = ({
   }
 
   const handleDeleteComment = async (commentId) => {
-    if (
-      !window.confirm(
-        'Are you sure you want to delete this comment? This action cannot be undone.',
-      )
-    )
-      return
+    if (!window.confirm('Are you sure you want to delete this comment?')) return
 
     const commentRef = doc(
       db,
@@ -327,20 +311,13 @@ const AnnouncementModal = ({
         if (!annDoc.exists()) throw 'Announcement does not exist!'
 
         const deleteCount = 1 + repliesToDelete.length
-        const newCount = Math.max(
-          0,
-          (annDoc.data().commentsCount || 0) - deleteCount,
-        )
+        const newCount = Math.max(0, (annDoc.data().commentsCount || 0) - deleteCount)
 
         transaction.update(announcementRef, { commentsCount: newCount })
         transaction.delete(commentRef)
 
         for (const reply of repliesToDelete) {
-          const replyRef = doc(
-            db,
-            `teacherAnnouncements/${announcement.id}/comments`,
-            reply.id,
-          )
+          const replyRef = doc(db, `teacherAnnouncements/${announcement.id}/comments`, reply.id)
           transaction.delete(replyRef)
         }
       })
@@ -350,10 +327,7 @@ const AnnouncementModal = ({
   }
 
   const toggleReactionPicker = (entityId, type) => {
-    if (
-      activeReactionPicker?.id === entityId &&
-      activeReactionPicker?.type === type
-    ) {
+    if (activeReactionPicker?.id === entityId && activeReactionPicker?.type === type) {
       setActiveReactionPicker(null)
     } else {
       setActiveReactionPicker({ id: entityId, type })
@@ -376,18 +350,15 @@ const AnnouncementModal = ({
   const handleReactionOptionsMouseLeave = () => {
     timeoutRef.current = setTimeout(() => {
       setHoveredReactionData(null)
-      setHoveredPickerEmoji(null) // Reset hovered emoji
+      setHoveredPickerEmoji(null) 
     }, 300)
   }
 
   // --- Components ---
 
-  // --- UPDATED: Horizontal Picker with Hover Logic ---
   const renderReactionPicker = (entityId, type, onSelect) => {
-    const isActive =
-      activeReactionPicker?.id === entityId && activeReactionPicker?.type === type
-    const isHovered =
-      hoveredReactionData?.id === entityId && hoveredReactionData?.type === type
+    const isActive = activeReactionPicker?.id === entityId && activeReactionPicker?.type === type
+    const isHovered = hoveredReactionData?.id === entityId && hoveredReactionData?.type === type
 
     if (!isActive && !isHovered) return null
 
@@ -401,7 +372,7 @@ const AnnouncementModal = ({
                     visible: { opacity: 1, y: 0, scale: 1, transition: { staggerChildren: 0.04 } },
                     hidden: { opacity: 0, y: 10, scale: 0.9, transition: { staggerChildren: 0.02, staggerDirection: -1 } }
                 }}
-                className="absolute bottom-full mb-3 left-0 glass-panel rounded-full p-1.5 flex items-center gap-1 z-50 shadow-2xl border border-white/40 dark:border-white/10 min-w-max"
+                className="absolute bottom-full mb-3 left-0 bg-white/90 dark:bg-[#1E1E1E]/95 backdrop-blur-xl rounded-full p-2 flex items-center gap-1.5 z-50 shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-white/20 dark:border-white/10 min-w-max"
                 onMouseEnter={() => handleReactionOptionsMouseEnter(entityId, type)}
                 onMouseLeave={handleReactionOptionsMouseLeave}
             >
@@ -416,10 +387,9 @@ const AnnouncementModal = ({
                                 hidden: { opacity: 0, y: 15, scale: 0.5 },
                                 visible: { opacity: 1, y: 0, scale: 1 }
                             }}
-                            whileHover={{ scale: 1.3, y: -5 }}
+                            whileHover={{ scale: 1.35, y: -6 }}
                             whileTap={{ scale: 0.9 }}
-                            className="p-1 rounded-full hover:bg-white/50 dark:hover:bg-white/10 transition-colors relative group/emoji"
-                            // Track individual hover for this specific emoji button
+                            className="p-1.5 rounded-full relative group/emoji"
                             onMouseEnter={() => setHoveredPickerEmoji(rType)}
                             onMouseLeave={() => setHoveredPickerEmoji(null)}
                             onClick={() => {
@@ -428,14 +398,13 @@ const AnnouncementModal = ({
                                 onSelect(rType)
                             }}
                         >
-                            {/* LOGIC: Show GIF if hovered, otherwise PNG */}
                             <img 
                                 src={isEmojiHovered ? icon.animated : icon.static} 
                                 alt={icon.label}
-                                className="w-8 h-8 object-contain" 
+                                className="w-9 h-9 object-contain drop-shadow-sm" 
                             />
                             {/* Tooltip */}
-                            <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-slate-900/90 text-white text-[10px] font-bold px-2 py-1 rounded-md opacity-0 group-hover/emoji:opacity-100 transition-opacity whitespace-nowrap shadow-lg pointer-events-none backdrop-blur-sm">
+                            <div className="absolute -top-9 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] font-bold px-2.5 py-1 rounded-full opacity-0 group-hover/emoji:opacity-100 transition-opacity whitespace-nowrap shadow-lg pointer-events-none">
                                 {icon.label}
                             </div>
                         </motion.button>
@@ -446,7 +415,6 @@ const AnnouncementModal = ({
     )
   }
 
-  // --- UPDATED: Reaction Count (Always Static) ---
   const renderReactionCount = (reactions) => {
     if (!reactions || Object.keys(reactions).length === 0) return null
 
@@ -454,20 +422,18 @@ const AnnouncementModal = ({
     Object.values(reactions).forEach((type) => {
       counts[type] = (counts[type] || 0) + 1
     })
-    const sortedUniqueReactions = Object.entries(counts).sort(
-      ([, a], [, b]) => b - a,
-    )
+    const sortedUniqueReactions = Object.entries(counts).sort(([, a], [, b]) => b - a)
     const totalReactions = Object.keys(reactions).length
 
     return (
       <div
-        className="flex items-center space-x-1 cursor-pointer"
+        className="flex items-center gap-1.5 cursor-pointer group"
         onClick={(e) => {
           e.stopPropagation()
           openReactionsBreakdownModal(reactions)
         }}
       >
-        <div className="flex items-center">
+        <div className="flex items-center -space-x-2">
           {sortedUniqueReactions.map(([type], index) => {
             const reactionConfig = reactionIcons[type] || reactionIcons['like'];
             const zIndex = sortedUniqueReactions.length - index;
@@ -475,22 +441,19 @@ const AnnouncementModal = ({
             return (
               <div
                 key={type}
-                className={`relative w-5 h-5 flex items-center justify-center rounded-full bg-white dark:bg-slate-800 ring-2 ring-white dark:ring-slate-900 ${
-                  index > 0 ? '-ml-1.5' : ''
-                }`}
+                className="relative w-5 h-5 flex items-center justify-center rounded-full bg-white dark:bg-slate-800 ring-[1.5px] ring-white dark:ring-slate-900 shadow-sm overflow-hidden"
                 style={{ zIndex: zIndex }}
               >
-                 {/* ALWAYS STATIC */}
                  <img 
                     src={reactionConfig.static} 
                     alt={reactionConfig.label}
-                    className="w-full h-full object-contain p-0.5"
+                    className="w-full h-full object-contain p-[2px]"
                  />
               </div>
             )
           })}
         </div>
-        <span className="text-xs font-bold text-slate-500 dark:text-slate-400 ml-1.5 hover:text-blue-500 transition-colors">
+        <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 group-hover:text-blue-500 transition-colors">
           {totalReactions}
         </span>
       </div>
@@ -498,95 +461,111 @@ const AnnouncementModal = ({
   }
 
   const topLevelComments = comments.filter((comment) => !comment.parentId)
-  const getReplies = (commentId) =>
-    comments.filter((comment) => comment.parentId === commentId)
+  const getReplies = (commentId) => comments.filter((comment) => comment.parentId === commentId)
 
   const handleBackdropClick = (e) => {
-    if (e.target === e.currentTarget) {
-      onClose()
-    }
+    if (e.target === e.currentTarget) onClose()
   }
 
   if (!isOpen || !announcement) return null;
 
+  // --- MAIN RENDER ---
+  // Fix: Check if "post" reaction is currently being hovered or picker is active
+  const isPostReactionActive = 
+    (hoveredReactionData?.id === announcement.id && hoveredReactionData?.type === 'post') ||
+    (activeReactionPicker?.id === announcement.id && activeReactionPicker?.type === 'post');
+
   return createPortal(
-    <div
-      className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/30 backdrop-blur-md p-4 font-sans"
-      onClick={handleBackdropClick}
+    <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/40 backdrop-blur-md p-4 font-sans"
+        onClick={handleBackdropClick}
     >
-      <div className="glass-panel bg-white/80 dark:bg-slate-900/80 rounded-[2.5rem] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.3)] w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col border border-white/40 dark:border-white/10">
+      <motion.div 
+        initial={{ scale: 0.95, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.95, opacity: 0, y: 20 }}
+        transition={{ type: "spring", stiffness: 350, damping: 25 }}
+        className="relative w-full max-w-2xl max-h-[85vh] bg-[#FDFDFD] dark:bg-[#121212] rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden border border-white/50 dark:border-white/5"
+      >
         
-        {/* Header */}
-        <div className="flex items-center justify-center p-4 border-b border-slate-200/50 dark:border-white/5 relative">
-          <h2 className="text-base font-black text-slate-800 dark:text-slate-100 tracking-tight pt-1">
-            Announcement Details
+        {/* Header - Minimalist */}
+        <div className="flex items-center justify-between px-8 py-5 border-b border-slate-100 dark:border-white/5 bg-white/50 dark:bg-[#121212]/50 backdrop-blur-sm z-10">
+          <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 tracking-tight">
+            Post Details
           </h2>
           <button
             onClick={onClose}
-            className="absolute top-3.5 right-4 p-2 rounded-full bg-slate-100/50 dark:bg-white/5 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-all active:scale-90"
+            className="p-2.5 rounded-full bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 transition-all active:scale-90"
           >
-            <FaTimes className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+            <FaTimes className="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" />
           </button>
         </div>
 
-        {/* Body - scrollable */}
-        <div className="p-6 overflow-y-auto flex-grow custom-scrollbar">
-          <div className="flex items-center mb-5">
-            <div className="w-12 h-12 mr-4 flex-shrink-0 rounded-full shadow-sm ring-2 ring-white dark:ring-white/10">
-              <UserInitialsAvatar
-                user={usersMap[announcement.teacherId]}
-                size="full"
-                className="w-full h-full text-sm"
-              />
+        {/* Scrollable Content */}
+        <div className="flex-grow overflow-y-auto custom-scrollbar bg-slate-50/50 dark:bg-black/20">
+          <div className="p-8 pb-32"> {/* Added ample bottom padding for scroll */}
+            
+            {/* Author Section */}
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-14 h-14 rounded-[1.2rem] shadow-sm overflow-hidden border border-slate-100 dark:border-white/5">
+                <UserInitialsAvatar
+                  user={usersMap[announcement.teacherId]}
+                  size="full"
+                  className="w-full h-full text-base font-bold"
+                />
+              </div>
+              <div className="flex flex-col">
+                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                  {usersMap[announcement.teacherId]?.firstName} {usersMap[announcement.teacherId]?.lastName}
+                </h3>
+                <span className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide">
+                  {formatRelativeTime(convertTimestampToDate(announcement.createdAt))}
+                </span>
+              </div>
             </div>
-            <div>
-              <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">
-                {usersMap[announcement.teacherId]?.firstName}{' '}
-                {usersMap[announcement.teacherId]?.lastName}
-              </p>
-              <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mt-0.5">
-                {formatRelativeTime(convertTimestampToDate(announcement.createdAt))}
+
+            {/* Post Content */}
+            <div className="mb-8">
+              <p className="text-[15px] leading-7 text-slate-700 dark:text-slate-300 whitespace-pre-wrap break-words font-medium">
+                <Linkify componentDecorator={componentDecorator}>
+                  {announcement.content}
+                </Linkify>
               </p>
             </div>
-          </div>
 
-          <div className="mb-6">
-            <p className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed whitespace-pre-wrap break-words tracking-wide">
-              <Linkify componentDecorator={componentDecorator}>
-                {announcement.content}
-              </Linkify>
-            </p>
-          </div>
-
-          <div>
-            <div className="flex justify-between items-center text-xs font-bold text-slate-500 dark:text-slate-400 border-y border-slate-100/50 dark:border-white/5 py-3 my-2 max-w-lg px-2">
+            {/* Engagement Stats Bar */}
+            <div className="flex justify-between items-center py-4 border-t border-b border-slate-100 dark:border-white/5 mb-6">
               <div>{renderReactionCount(postReactions)}</div>
-              <span className="hover:text-blue-500 cursor-pointer transition-colors">
-                {liveCommentCount} {liveCommentCount === 1 ? 'Comment' : 'Comments'}
+              <span className="text-xs font-bold text-slate-400 dark:text-slate-500">
+                {liveCommentCount} comments
               </span>
             </div>
 
-            {/* Action buttons */}
-            <div className="flex justify-around items-center py-2 mb-6 max-w-lg">
+            {/* Big Action Buttons */}
+            <div className="grid grid-cols-2 gap-3 mb-10">
               <div
-                className="relative flex justify-center flex-1"
-                onMouseEnter={() =>
-                  handleReactionOptionsMouseEnter(announcement.id, 'post')
-                }
+                className="relative"
+                onMouseEnter={() => handleReactionOptionsMouseEnter(announcement.id, 'post')}
                 onMouseLeave={handleReactionOptionsMouseLeave}
               >
                 <button
-                  className={`flex items-center justify-center py-2 px-6 rounded-xl font-bold text-xs transition-all w-full hover:bg-slate-50 dark:hover:bg-white/5 ${
+                  className={`flex items-center justify-center w-full py-3.5 rounded-2xl font-bold text-sm transition-all duration-200 active:scale-95 ${
                     postReactions[currentUserId]
-                      ? (reactionIcons[postReactions[currentUserId]]?.color || 'text-slate-600 dark:text-slate-400')
-                      : 'text-slate-500 dark:text-slate-400'
+                      ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                      : 'bg-white dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/10 shadow-sm'
                   }`}
                   onClick={() => toggleReactionPicker(announcement.id, 'post')}
                 >
-                  {/* ALWAYS STATIC HERE (Active State) */}
                   {postReactions[currentUserId] ? (
                     <img
-                        src={(reactionIcons[postReactions[currentUserId]] || reactionIcons['like']).static}
+                        // FIX: Now uses the boolean we calculated earlier
+                        src={isPostReactionActive 
+                            ? (reactionIcons[postReactions[currentUserId]] || reactionIcons['like']).animated 
+                            : (reactionIcons[postReactions[currentUserId]] || reactionIcons['like']).static
+                        }
                         alt="reaction"
                         className="w-5 h-5 mr-2 object-contain"
                     />
@@ -597,90 +576,84 @@ const AnnouncementModal = ({
                     {postReactions[currentUserId] || 'Like'}
                   </span>
                 </button>
-                {renderReactionPicker(announcement.id, 'post', (type) =>
-                  onToggleReaction(announcement.id, type),
-                )}
+                {renderReactionPicker(announcement.id, 'post', (type) => onToggleReaction(announcement.id, type))}
               </div>
+
               <button
-                className="flex items-center justify-center py-2 px-6 rounded-xl font-bold text-xs text-slate-500 dark:text-slate-400 transition-all flex-1 hover:bg-slate-50 dark:hover:bg-white/5"
+                className="flex items-center justify-center w-full py-3.5 rounded-2xl font-bold text-sm bg-white dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/10 shadow-sm transition-all duration-200 active:scale-95"
                 onClick={() => commentInputRef.current?.focus()}
               >
-                <FaComment className="h-4 w-4 mr-2" />
+                <FaComment className="h-4 w-4 mr-2 opacity-70" />
                 Comment
               </button>
             </div>
 
-            {/* Comment list */}
-            <div className="space-y-5 pl-2 sm:pl-4">
+            {/* Comments List */}
+            <div className="space-y-6">
               {topLevelComments.length === 0 && (
-                <div className="text-center py-8 bg-slate-50/50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/5">
-                    <p className="text-xs font-bold text-slate-400 dark:text-slate-500">No comments yet.</p>
-                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Be the first to start the conversation.</p>
+                <div className="flex flex-col items-center justify-center py-12 opacity-60">
+                    <div className="w-16 h-16 bg-slate-100 dark:bg-white/5 rounded-full flex items-center justify-center mb-3">
+                        <FaComment className="w-6 h-6 text-slate-300 dark:text-slate-500" />
+                    </div>
+                    <p className="text-sm font-bold text-slate-400 dark:text-slate-500">No comments yet</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500">Start the conversation!</p>
                 </div>
               )}
+              
               {topLevelComments.map((comment) => {
                 const isCurrentUserComment = comment.userId === currentUserId
                 const isBeingEdited = editingCommentId === comment.id
-                const currentUserCommentReaction =
-                  commentReactions[comment.id]?.[currentUserId]
+                const currentUserCommentReaction = commentReactions[comment.id]?.[currentUserId]
 
                 return (
-                  <div key={comment.id} className="flex items-start space-x-3">
-                    <div className="w-8 h-8 flex-shrink-0 mt-1 rounded-full shadow-sm">
-                      <UserInitialsAvatar
-                        user={usersMap[comment.userId]}
-                        size="full"
-                        className="w-full h-full text-[10px]"
-                      />
+                  <div key={comment.id} className="flex gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="flex-shrink-0 mt-1">
+                        <UserInitialsAvatar
+                            user={usersMap[comment.userId]}
+                            size={36}
+                            className="rounded-[12px] text-xs font-bold shadow-sm"
+                        />
                     </div>
+                    
                     <div className="flex-1 min-w-0">
-                      <div className="max-w-lg group">
-                        <div className="relative bg-slate-100/70 dark:bg-white/5 p-3.5 rounded-2xl rounded-tl-none">
-                          {isCurrentUserComment && !isBeingEdited && (
-                            <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button
-                                onClick={() => handleStartEditing(comment)}
-                                className="p-1.5 rounded-full hover:bg-white/50 dark:hover:bg-white/10 text-slate-400 hover:text-blue-500 transition-colors"
-                                title="Edit"
-                              >
-                                <FaEdit className="w-3 h-3" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteComment(comment.id)}
-                                className="p-1.5 rounded-full hover:bg-white/50 dark:hover:bg-white/10 text-slate-400 hover:text-red-500 transition-colors"
-                                title="Delete"
-                              >
-                                <FaTrash className="w-3 h-3" />
-                              </button>
-                            </div>
-                          )}
+                      <div className="group relative">
+                        {/* Comment Bubble */}
+                        <div className={`p-4 rounded-[1.2rem] rounded-tl-none relative ${
+                            isCurrentUserComment 
+                                ? 'bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-500/20' 
+                                : 'bg-white dark:bg-[#1E1E1E] border border-slate-100 dark:border-white/5 shadow-sm'
+                        }`}>
+                          
+                          {/* Header */}
+                          <div className="flex justify-between items-start mb-1">
+                            <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                                {usersMap[comment.userId]?.firstName} {usersMap[comment.userId]?.lastName}
+                            </span>
+                            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">
+                                {formatRelativeTime(comment.createdAt)}
+                            </span>
+                          </div>
 
-                          <p className="text-xs font-bold text-slate-900 dark:text-slate-100 mb-1">
-                            {usersMap[comment.userId]?.firstName}{' '}
-                            {usersMap[comment.userId]?.lastName}
-                          </p>
-
+                          {/* Content or Edit Mode */}
                           {isBeingEdited ? (
                             <div className="mt-2">
                               <textarea
-                                className="w-full p-3 text-xs rounded-xl bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 focus:ring-2 focus:ring-blue-500/50 outline-none resize-none"
+                                className="w-full p-3 text-sm rounded-xl bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
                                 rows="3"
                                 value={editingCommentText}
-                                onChange={(e) =>
-                                  setEditingCommentText(e.target.value)
-                                }
+                                onChange={(e) => setEditingCommentText(e.target.value)}
                                 autoFocus
                               />
-                              <div className="flex items-center justify-end gap-2 mt-2">
+                              <div className="flex justify-end gap-2 mt-2">
                                 <button
                                   onClick={handleCancelEditing}
-                                  className="px-3 py-1 text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10 rounded-lg transition-colors"
+                                  className="px-3 py-1.5 text-xs font-bold text-slate-500 hover:bg-slate-200 dark:hover:bg-white/10 rounded-lg transition-colors"
                                 >
                                   Cancel
                                 </button>
                                 <button
                                   onClick={handleSaveEdit}
-                                  className="px-3 py-1 text-[10px] font-bold text-white bg-blue-500 hover:bg-blue-600 rounded-lg shadow-md transition-all disabled:opacity-50"
+                                  className="px-3 py-1.5 text-xs font-bold text-white bg-blue-500 hover:bg-blue-600 rounded-lg shadow-sm"
                                   disabled={!editingCommentText.trim()}
                                 >
                                   Save
@@ -688,177 +661,126 @@ const AnnouncementModal = ({
                               </div>
                             </div>
                           ) : (
-                            <p className="text-xs text-slate-600 dark:text-slate-300 whitespace-pre-wrap leading-relaxed break-words">
+                            <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap break-words">
                               <Linkify componentDecorator={componentDecorator}>
                                 {comment.commentText}
                               </Linkify>
                             </p>
                           )}
+
+                          {/* Edit/Delete Actions (Hidden until hover) */}
+                          {isCurrentUserComment && !isBeingEdited && (
+                            <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button onClick={() => handleStartEditing(comment)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full text-slate-400 hover:text-blue-500 transition-colors">
+                                <FaEdit className="w-3 h-3" />
+                              </button>
+                              <button onClick={() => handleDeleteComment(comment.id)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full text-slate-400 hover:text-red-500 transition-colors">
+                                <FaTrash className="w-3 h-3" />
+                              </button>
+                            </div>
+                          )}
                         </div>
-                        
-                        <div className="flex items-center text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-1.5 pl-2 space-x-3">
-                          <span>{formatRelativeTime(comment.createdAt)}</span>
-                          <div
-                            className="relative"
-                            onMouseEnter={() =>
-                              handleReactionOptionsMouseEnter(comment.id, 'comment')
-                            }
-                            onMouseLeave={handleReactionOptionsMouseLeave}
-                          >
-                            <button
-                              className={`hover:underline transition-colors ${
-                                currentUserCommentReaction ? 'text-blue-500 dark:text-blue-400' : 'hover:text-slate-600 dark:hover:text-slate-300'
-                              }`}
-                              onClick={() =>
-                                toggleReactionPicker(comment.id, 'comment')
-                              }
+
+                        {/* Comment Footer Actions */}
+                        <div className="flex items-center gap-4 mt-1.5 pl-2">
+                            <div
+                                className="relative"
+                                onMouseEnter={() => handleReactionOptionsMouseEnter(comment.id, 'comment')}
+                                onMouseLeave={handleReactionOptionsMouseLeave}
                             >
-                              <span className="capitalize">
-                                {currentUserCommentReaction || 'Like'}
-                              </span>
+                                <button
+                                    className={`text-xs font-bold transition-colors ${
+                                        currentUserCommentReaction ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
+                                    }`}
+                                    onClick={() => toggleReactionPicker(comment.id, 'comment')}
+                                >
+                                    {currentUserCommentReaction || 'Like'}
+                                </button>
+                                {renderReactionPicker(comment.id, 'comment', (type) => handleToggleCommentReaction(comment.id, type))}
+                            </div>
+                            
+                            <button
+                                className="text-xs font-bold text-slate-500 dark:text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 transition-colors"
+                                onClick={() => handleSetReplyTo(comment)}
+                            >
+                                Reply
                             </button>
-                            {renderReactionPicker(
-                              comment.id,
-                              'comment',
-                              (type) => handleToggleCommentReaction(comment.id, type),
-                            )}
-                          </div>
-                          <button
-                            className="hover:text-slate-600 dark:hover:text-slate-300 hover:underline transition-colors"
-                            onClick={() => handleSetReplyTo(comment)}
-                          >
-                            Reply
-                          </button>
-                          {renderReactionCount(commentReactions[comment.id] || {})}
+                            
+                            {renderReactionCount(commentReactions[comment.id] || {})}
                         </div>
                       </div>
 
                       {/* Replies */}
-                      {getReplies(comment.id).map((reply) => {
-                        const isCurrentUserReply = reply.userId === currentUserId
-                        const isReplyBeingEdited = editingCommentId === reply.id
-                        const currentUserReplyReaction =
-                          commentReactions[reply.id]?.[currentUserId]
-                        return (
-                          <div
-                            key={reply.id}
-                            className="flex items-start space-x-3 mt-3 pl-4 relative"
-                          >
-                            {/* Connector Line */}
-                            <div className="absolute left-0 top-[-10px] bottom-4 w-4 border-l-2 border-b-2 border-slate-100 dark:border-white/5 rounded-bl-xl pointer-events-none" />
+                      <div className="mt-3 pl-3 border-l-2 border-slate-100 dark:border-white/5 space-y-4">
+                        {getReplies(comment.id).map((reply) => {
+                            const isCurrentUserReply = reply.userId === currentUserId
+                            const isReplyBeingEdited = editingCommentId === reply.id
+                            const currentUserReplyReaction = commentReactions[reply.id]?.[currentUserId]
                             
-                            <div className="w-6 h-6 flex-shrink-0 mt-1 rounded-full shadow-sm z-10">
-                              <UserInitialsAvatar
-                                user={usersMap[reply.userId]}
-                                size="full"
-                                className="w-full h-full text-[8px]"
-                              />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <div className="max-w-lg group">
-                                  <div className="relative bg-slate-50 dark:bg-white/5 p-3 rounded-2xl rounded-tl-none border border-slate-100 dark:border-white/5">
-                                    {isCurrentUserReply && !isReplyBeingEdited && (
-                                      <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button
-                                          onClick={() => handleStartEditing(reply)}
-                                          className="p-1 rounded-full hover:bg-white/50 dark:hover:bg-white/10 text-slate-400 hover:text-blue-500 transition-colors"
-                                        >
-                                          <FaEdit className="w-2.5 h-2.5" />
-                                        </button>
-                                        <button
-                                          onClick={() => handleDeleteComment(reply.id)}
-                                          className="p-1 rounded-full hover:bg-white/50 dark:hover:bg-white/10 text-slate-400 hover:text-red-500 transition-colors"
-                                        >
-                                          <FaTrash className="w-2.5 h-2.5" />
-                                        </button>
-                                      </div>
-                                    )}
-                                    
-                                    <p className="text-xs font-bold text-slate-900 dark:text-slate-100 mb-0.5">
-                                      {usersMap[reply.userId]?.firstName}{' '}
-                                      {usersMap[reply.userId]?.lastName}
-                                    </p>
-
-                                    {isReplyBeingEdited ? (
-                                      <div className="mt-2">
-                                        <textarea
-                                          className="w-full p-2 text-xs rounded-lg bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 focus:ring-2 focus:ring-blue-500/50 outline-none resize-none"
-                                          rows="2"
-                                          value={editingCommentText}
-                                          onChange={(e) =>
-                                            setEditingCommentText(e.target.value)
-                                          }
-                                          autoFocus
-                                        />
-                                        <div className="flex items-center justify-end gap-2 mt-2">
-                                          <button
-                                            onClick={handleCancelEditing}
-                                            className="px-2 py-1 text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10 rounded-md"
-                                          >
-                                            Cancel
-                                          </button>
-                                          <button
-                                            onClick={handleSaveEdit}
-                                            className="px-2 py-1 text-[10px] font-bold text-white bg-blue-500 hover:bg-blue-600 rounded-md shadow-sm disabled:opacity-50"
-                                            disabled={!editingCommentText.trim()}
-                                          >
-                                            Save
-                                          </button>
-                                        </div>
-                                      </div>
-                                    ) : (
-                                      <p className="text-xs text-slate-600 dark:text-slate-300 whitespace-pre-wrap leading-relaxed break-words">
-                                        <Linkify componentDecorator={componentDecorator}>
-                                          {reply.commentText}
-                                        </Linkify>
-                                      </p>
-                                    )}
-                                  </div>
-
-                                  <div className="flex items-center text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-1 pl-2 space-x-3">
-                                    <span>{formatRelativeTime(reply.createdAt)}</span>
-
-                                    <div
-                                      className="relative"
-                                      onMouseEnter={() =>
-                                        handleReactionOptionsMouseEnter(
-                                          reply.id,
-                                          'reply',
-                                        )
-                                      }
-                                      onMouseLeave={handleReactionOptionsMouseLeave}
-                                    >
-                                      <button
-                                        className={`hover:underline transition-colors ${
-                                            currentUserReplyReaction ? 'text-blue-500 dark:text-blue-400' : 'hover:text-slate-600 dark:hover:text-slate-300'
-                                        }`}
-                                        onClick={() =>
-                                          toggleReactionPicker(reply.id, 'reply')
-                                        }
-                                      >
-                                        <span className="capitalize">
-                                          {currentUserReplyReaction || 'Like'}
-                                        </span>
-                                      </button>
-                                      {renderReactionPicker(reply.id, 'reply', (type) =>
-                                        handleToggleCommentReaction(reply.id, type),
-                                      )}
+                            return (
+                                <div key={reply.id} className="flex gap-3 group/reply relative pl-3">
+                                    <div className="flex-shrink-0 mt-1">
+                                        <UserInitialsAvatar user={usersMap[reply.userId]} size={28} className="rounded-[10px] text-[10px] font-bold shadow-sm" />
                                     </div>
-                                    <button
-                                      className="hover:text-slate-600 dark:hover:text-slate-300 hover:underline transition-colors"
-                                      onClick={() => handleSetReplyTo(reply)}
-                                    >
-                                      Reply
-                                    </button>
-                                    {renderReactionCount(
-                                      commentReactions[reply.id] || {},
-                                    )}
-                                  </div>
+                                    <div className="flex-1">
+                                        <div className="bg-slate-50 dark:bg-white/5 p-3 rounded-2xl rounded-tl-none relative">
+                                            {/* Reply Header */}
+                                            <div className="flex justify-between items-start mb-1">
+                                                <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                                                    {usersMap[reply.userId]?.firstName} {usersMap[reply.userId]?.lastName}
+                                                </span>
+                                                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">
+                                                    {formatRelativeTime(reply.createdAt)}
+                                                </span>
+                                            </div>
+
+                                            {isReplyBeingEdited ? (
+                                                <div className="mt-2">
+                                                    <textarea
+                                                        className="w-full p-2 text-xs rounded-lg bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
+                                                        rows="2"
+                                                        value={editingCommentText}
+                                                        onChange={(e) => setEditingCommentText(e.target.value)}
+                                                        autoFocus
+                                                    />
+                                                    <div className="flex justify-end gap-2 mt-2">
+                                                        <button onClick={handleCancelEditing} className="px-2 py-1 text-[10px] font-bold text-slate-500 hover:bg-slate-200 rounded">Cancel</button>
+                                                        <button onClick={handleSaveEdit} className="px-2 py-1 text-[10px] font-bold text-white bg-blue-500 hover:bg-blue-600 rounded">Save</button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap break-words">
+                                                    <Linkify componentDecorator={componentDecorator}>{reply.commentText}</Linkify>
+                                                </p>
+                                            )}
+
+                                            {isCurrentUserReply && !isReplyBeingEdited && (
+                                                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover/reply:opacity-100 transition-opacity">
+                                                    <button onClick={() => handleStartEditing(reply)} className="p-1 hover:bg-black/5 dark:hover:bg-white/10 rounded-full text-slate-400 hover:text-blue-500"><FaEdit className="w-2.5 h-2.5" /></button>
+                                                    <button onClick={() => handleDeleteComment(reply.id)} className="p-1 hover:bg-black/5 dark:hover:bg-white/10 rounded-full text-slate-400 hover:text-red-500"><FaTrash className="w-2.5 h-2.5" /></button>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Reply Actions */}
+                                        <div className="flex items-center gap-3 mt-1 pl-2">
+                                             <div className="relative" onMouseEnter={() => handleReactionOptionsMouseEnter(reply.id, 'reply')} onMouseLeave={handleReactionOptionsMouseLeave}>
+                                                <button 
+                                                    className={`text-[10px] font-bold transition-colors ${currentUserReplyReaction ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}
+                                                    onClick={() => toggleReactionPicker(reply.id, 'reply')}
+                                                >
+                                                    {currentUserReplyReaction || 'Like'}
+                                                </button>
+                                                {renderReactionPicker(reply.id, 'reply', (type) => handleToggleCommentReaction(reply.id, type))}
+                                             </div>
+                                             <button className="text-[10px] font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 transition-colors" onClick={() => handleSetReplyTo(reply)}>Reply</button>
+                                             {renderReactionCount(commentReactions[reply.id] || {})}
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                          </div>
-                        )
-                      })}
+                            )
+                        })}
+                      </div>
                     </div>
                   </div>
                 )
@@ -867,66 +789,53 @@ const AnnouncementModal = ({
           </div>
         </div>
 
-        {/* Input Section */}
-        <div className="p-4 border-t border-slate-200/50 dark:border-white/5 bg-white/50 dark:bg-black/20 backdrop-blur-md">
-          <div>
+        {/* Floating Input Section */}
+        <div className="absolute bottom-0 left-0 right-0 p-5 bg-white/80 dark:bg-[#121212]/80 backdrop-blur-xl border-t border-slate-100 dark:border-white/5 z-20">
+          <div className="max-w-3xl mx-auto">
             {replyToCommentId && (
-              <div className="mb-2 text-[10px] font-bold text-slate-500 dark:text-slate-400 flex items-center justify-between px-3 max-w-lg pl-10 bg-blue-50/50 dark:bg-blue-900/10 py-1.5 rounded-lg border border-blue-100 dark:border-blue-500/20">
-                <span>
+              <div className="flex items-center justify-between px-4 py-2 mb-2 bg-blue-50 dark:bg-blue-900/20 rounded-2xl border border-blue-100 dark:border-blue-500/10">
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
                     Replying to <span className="text-blue-600 dark:text-blue-400">{replyToUserName}</span>
                 </span>
-                <button
-                  onClick={() => {
-                    setReplyToCommentId(null)
-                    setReplyToUserName('')
-                  }}
-                  className="p-1 rounded-full hover:bg-blue-100 dark:hover:bg-white/10 text-slate-400 hover:text-slate-600 transition-colors"
-                >
+                <button onClick={() => { setReplyToCommentId(null); setReplyToUserName(''); }} className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-slate-400">
                   <FaTimes className="w-3 h-3" />
                 </button>
               </div>
             )}
-            <div className="flex items-end space-x-3">
-              <div className="w-8 h-8 flex-shrink-0 mb-1 rounded-full shadow-sm ring-2 ring-white dark:ring-white/10">
-                <UserInitialsAvatar
-                  user={userProfile}
-                  size="full"
-                  className="w-full h-full text-xs"
-                />
+            
+            <div className="flex items-end gap-3">
+              <div className="flex-shrink-0 mb-1">
+                 <UserInitialsAvatar user={userProfile} size={40} className="rounded-[14px] text-xs font-bold shadow-sm" />
               </div>
-              <div className="relative flex-grow">
-                <div className="max-w-lg relative">
-                  <textarea
-                    ref={commentInputRef}
-                    className="w-full pl-4 pr-12 py-3 rounded-2xl bg-white dark:bg-black/30 border border-slate-200 dark:border-white/10 text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-blue-500/50 focus:border-transparent outline-none resize-none leading-relaxed shadow-inner"
-                    rows="1"
-                    placeholder="Write a comment..."
-                    value={newCommentText}
-                    onChange={(e) => setNewCommentText(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault()
-                        handlePostComment()
-                      }
-                    }}
-                  />
-                  <button
-                    onClick={handlePostComment}
-                    className={`absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-300 ${
-                        newCommentText.trim() 
-                        ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30 hover:scale-105 active:scale-95' 
-                        : 'bg-slate-100 dark:bg-white/5 text-slate-300 dark:text-slate-600 cursor-not-allowed'
-                    }`}
-                    disabled={!newCommentText.trim()}
-                  >
-                    <FaPaperPlane className="w-3.5 h-3.5 ml-0.5" />
-                  </button>
-                </div>
+              
+              <div className="flex-grow relative">
+                <textarea
+                  ref={commentInputRef}
+                  className="w-full pl-5 pr-14 py-3.5 rounded-[1.5rem] bg-slate-100 dark:bg-white/5 border-none text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500/50 resize-none shadow-inner"
+                  rows="1"
+                  placeholder="Add a comment..."
+                  value={newCommentText}
+                  onChange={(e) => setNewCommentText(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handlePostComment(); } }}
+                />
+                
+                <button
+                  onClick={handlePostComment}
+                  disabled={!newCommentText.trim()}
+                  className={`absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full transition-all duration-300 ${
+                    newCommentText.trim() 
+                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30 hover:scale-105 active:scale-95' 
+                        : 'bg-transparent text-slate-400 cursor-not-allowed'
+                  }`}
+                >
+                  <FaPaperPlane className="w-4 h-4" />
+                </button>
               </div>
             </div>
           </div>
         </div>
-      </div>
+
+      </motion.div>
 
       <ReactionsBreakdownModal
         isOpen={isReactionsBreakdownModalOpen}
@@ -934,7 +843,7 @@ const AnnouncementModal = ({
         reactionsData={reactionsForBreakdownModal}
         usersMap={usersMap}
       />
-    </div>,
+    </motion.div>,
     document.body 
   )
 }

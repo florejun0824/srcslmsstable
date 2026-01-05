@@ -21,7 +21,7 @@ const PrivacyAgreementModal = () => {
 
     // Open if the version has changed or hasn't been accepted yet
     if (!isLocalVersionCurrent && !isProfileVersionCurrent) {
-      setIsOpen(true);
+      setIsOpen(false);
     }
   }, [userProfile]);
 

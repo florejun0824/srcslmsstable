@@ -1,17 +1,46 @@
-SRCS LMS RELEASE NOTE (DECEMBER 26 PATCH) v 2.0
- 
-- Optimized Loading Performance
-- Enhanced Security
-- Added Support for Multiple Schools
-- Fixed some Minor Issues that causes the system to crash
-- Fixed issue with scrolling on mobile devices
-- Added support for new User Profile API
-- Fixed export functions
-- Updated AI versions
-- Enhanced Prompts
-- Enhanced Overall Fluidity
-- Fixed Memory Leaks
-- Fixed Errors in Lesson, ULP, ATG, Exam, TOS creations
-- Added Monet Theming alongside themes overlay
-- Disabled some AI features in mobile mode to ensure stability
-- Enhanced Editing UI
+📣 SRCS LMS – Release v.9.3 (Hotfix)
+
+"The Smartest Classroom Assistant Just Got Smarter."
+
+We are excited to roll out our biggest update yet! This release focuses on stability, speed, and seamless integration with the tools you use every day. Whether you are at SRCS, HRA, KCC, or our partner schools, the app now feels like it was built just for you.
+
+✨ Headlining Features
+1. 🎨 Dynamic School Branding (It knows where you belong!) No more generic interfaces. Once you log in, the app automatically transforms to match your school's identity.
+
+SRCS, HRA, KCC, ICA, MCHS, & ICHS: The app icon, name, and color themes now update instantly to reflect your specific campus.
+
+Smart Updates: The app handles these changes quietly in the background—no interruptions to your workflow.
+
+2. 📊 Instant Google Slides Generator (Fixed & Faster) We’ve completely overhauled the "Text-to-Presentation" engine.
+
+Seamless Login: Connect your school Google account with a single tap. No more "Sign-in Cancelled" errors!
+
+Native Performance: We now use the phone's native security to authenticate you, making slide generation faster and more reliable than ever.
+
+Speaker Notes & Tables: Your AI-generated slides now come with formatted tables and speaker notes automatically included.
+
+3. 🛡️ Iron-Clad Security & Stability
+
+Google Play Protect Certified: We’ve signed the app with robust encryption to meet modern Android security standards.
+
+Crash Fixes: Resolved the "White Screen" freeze during startup and fixed the overlap issues with the "Welcome Back" dialog.
+
+🧪 For Our Testers: What to Try?
+We need your help validating these key flows:
+
+The "Magic" Login: Sign in with your specific school account and watch the app icon and colors change on your home screen. (Note: You may need to close and reopen the app once).
+
+The Creator Test: Go to the Teacher Dashboard and generate a new Lesson Presentation. Confirm that it opens directly in the Google Slides app without asking you to log in repeatedly.
+
+Offline Resilience: Try opening the app with spotty internet—verify that your dashboard still loads your cached schedule.
+
+🚀 How to Install
+Update: If you have the old version, please Uninstall it first to ensure a clean slate for the new security keys.
+
+Download the App.
+
+Login: Use your standard faculty credentials.
+
+Thank you for helping us build the future of Learning Management Systems!
+
+Note: If you see a 'Play Protect' warning, click 'More Details' -> 'Install Anyway

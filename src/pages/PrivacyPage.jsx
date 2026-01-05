@@ -1,9 +1,17 @@
+// src/pages/PrivacyPage.jsx
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom'; // Import useLocation
 import PrivacyPolicyContent, { POLICY_VERSION } from '../components/PrivacyPolicyContent';
 
 const PrivacyPage = () => {
   const navigate = useNavigate();
+  const location = useLocation(); // Hook to get incoming state
+  const previousFormData = location.state?.formData; // Get the data
+
+  const handleBack = () => {
+     // Navigate back to login, passing the data we received back to it
+     navigate('/login', { state: { formData: previousFormData } });
+  };
 
   return (
     <div className="min-h-screen w-full bg-slate-50 dark:bg-slate-950 px-4 py-8 md:py-12">
@@ -27,7 +35,7 @@ const PrivacyPage = () => {
         {/* Footer / Back Button */}
         <div className="flex justify-center border-t border-slate-100 dark:border-slate-800 pt-6">
           <button
-            onClick={() => navigate('/login')}
+            onClick={handleBack} // Updated Handler
             className="rounded-lg bg-blue-600 px-6 py-2.5 font-semibold text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
           >
             Back to Login
