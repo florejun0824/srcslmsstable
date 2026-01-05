@@ -647,6 +647,12 @@ const TeacherDashboard = () => {
 		    1. **Detailed Explanations:** Do not summarize. Retain specific terminology, lists, and logical arguments from the source.
 		    2. **No Naked Bullets:** Never use a bullet point without a full sentence explanation.
 		    3. **Source Grounding:** Use ONLY the provided text.
+			
+			**CRITICAL: SPEAKER NOTES STRATEGY (THE "CHEAT SHEET")**
+   		 	1. **NO GENERIC INSTRUCTIONS:** Do not just say "Explain X." You must **Provide the Explanation**.
+   		 	2. **ASSUME THE TEACHER NEEDS HELP:** The teacher might not know the details. The notes must contain the hard facts, dates, definitions, and "answers" to the slide.
+    		- **BAD:** "Discuss the conflict between Greek logic and faith."
+    		- **GOOD:** "CONTEXT: The core conflict is that Greek logic (Aristotle) relies on empirical reason, while Christian doctrine relies on divine revelation. Aquinas's innovation was arguing these are NOT contradictory, but compatible paths to the same Truth."
 
 		    **REQUIRED JSON SCHEMA:**
 		    {
@@ -658,10 +664,10 @@ const TeacherDashboard = () => {
 		              "headers": [],
 		              "rows": []
 		          },
-		          "notes": { 
-		            "talkingPoints": "Emphasize the difference between intent and action.", 
-		            "interactiveElement": "Ask: Have you ever meant well but caused harm?", 
-		            "slideTiming": "3 mins" 
+				  "notes": { 
+				              "talkingPoints": "TEACHER CONTEXT: Aquinas adapted Aristotle's view of the 'Will'. While Aristotle saw the Will as rational desire, Aquinas added that the Will is driven by a desire for the 'Universal Good' (God). Explain that 'Intellect' identifies the good, but 'Will' chooses it.", 
+				              "interactiveElement": "Ask: Can you think of a time your head (Intellect) knew the right thing, but your heart (Will) wanted something else?", 
+				              "slideTiming": "3 mins"
 		          }
 		        }
 		      ]
