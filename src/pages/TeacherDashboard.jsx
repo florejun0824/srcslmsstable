@@ -609,58 +609,63 @@ const TeacherDashboard = () => {
 	        showToast(`Generating slides for section ${i + 1} of ${validPages.length}...`, "info");
 
 		const prompt = `
-		    SYSTEM: You are a JSON-only API. 
-		    INSTRUCTION: Convert the source text into Google Slides JSON.
+		    SYSTEM: You are a JSON-only API. You are NOT a chatbot.
+		    INSTRUCTION: Convert the educational content below into a Google Slides JSON structure.
 
 		    STRICT BEHAVIORAL CONSTRAINTS:
 		    1. Output ONLY valid JSON.
-		    2. Start immediately with '{'.
+		    2. DO NOT write introductions or explanations. Start immediately with '{' and end with '}'.
+		    3. NO MARKDOWN formatting outside the JSON string (no \`\`\`json wrappers).
 
-		    ROLE:
-		    You are an **Engaging Academic Lecturer**.
-		    **TONE:** Direct, Educational, and Substantive.
-		    **GOAL:** Teach the material directly to the student.
+		    ROLE & MINDSET:
+		    You are an **Expert Instructional Designer**.
+		    Your goal is to create **Self-Paced Learning Material**. The slides must be readable as a standalone "textbook-on-slides."
 
-		    **CRITICAL: TONE & VOICE RULES**
-		    1. **DIRECT ADDRESS ("YOU") IS REQUIRED:** - Speak directly to the learner.
-		       - **Examples:** "When you make a choice...", "Imagine you are...", "In this scenario..."
+		    **CRITICAL: FORMATTING RULES (NO LABELS)**
+		    1. **NO META-LABELS IN BODY:**
+		       - **Strictly Forbidden:** Do not use bold headers to categorize the text inside the slide body.
+		       - **BANNED:** "**Scenario**: Imagine you are..."
+		       - **BANNED:** "**Definition**: Ethics is..."
+		       - **BANNED:** "**Academic Relevance**: This matters because..."
     
-		    2. **SCENARIO HANDLING (STRICT):**
-		       - If the text contains a story, case study, or hypothetical situation, **TELL THE STORY**. Do not summarize it abstractly.
-		       - **Structure:** Present the scenario first, THEN explain its academic relevance.
-		       - **Example:** "Imagine you find a wallet. [Scenario Details]. This situation tests your ethical framework..."
+		    2. **NATURAL FLOW:**
+		       - Just write the text. Use paragraph breaks (\\n\\n) to separate ideas.
+		       - **GOOD:** "Imagine you are sitting with a journal... \\n\\nThis exercise allows you to apply the framework..."
 
-		    3. **NO "EMPTY" INTROS:** - While you can say "This lesson helps you...", do not STOP there. You must immediately provide the definitions and facts.
-		       - **BAD:** "This lesson explores St. Thomas Aquinas." (Too empty)
-		       - **GOOD:** "This lesson explores St. Thomas Aquinas, who defined moral acts through three specific determinants..."
+		    **CRITICAL: TONE AND VOICE**
+		    1. **Direct Address ("You"):**
+		       - You must address the learner directly.
+		       - Use phrases like: "Imagine you are...", "When you decide...", "This helps you understand..."
+    
+		    2. **Scenario Handling:**
+		       - If the text contains a story/scenario, write the **full story** first using "You".
+		       - Add a double line break (\\n\\n).
+		       - Immediately follow with the academic explanation/analysis. 
+		       - Do NOT label them as "Scenario" or "Analysis". Just let the text flow naturally.
 
-		    **CRITICAL: CONTENT EXTRACTION**
-		    1. **Detail is King:** Ensure definitions, lists, and philosophical arguments are fully written out. Do not summarize complex points into one word.
-		    2. **One Concept Per Slide:** If the scenario is long, put the Scenario on one slide and the Analysis on the next.
+		    **CRITICAL: CONTENT DENSITY**
+		    1. **Detailed Explanations:** Do not summarize. Retain specific terminology, lists, and logical arguments from the source.
+		    2. **No Naked Bullets:** Never use a bullet point without a full sentence explanation.
+		    3. **Source Grounding:** Use ONLY the provided text.
 
 		    **REQUIRED JSON SCHEMA:**
 		    {
 		      "slides": [
 		        {
-		          "title": "Slide Title (e.g., 'The Moral Dilemma')",
-		          "body": "**Scenario**: [Direct storytelling: 'Imagine you are...'] \\n\\n**Analysis**: [Academic explanation: 'This demonstrates the conflict between...'] \\n\\n**Key Terminology**: [Definitions from text]", 
+		          "title": "Slide Title (e.g., 'The Decision Making Process')",
+		          "body": "Imagine you are sitting with a journal, reflecting on a significant decision you made recently. You are asked to look back and analyze that moment using your internal compass. \\n\\nThis exercise is not about judgment, but is the first step in applying Thomas Aquinas's framework to your own life. By deconstructing your own decision-making process, you prepare to understand the complex interplay of intellect and will.", 
 		          "tableData": {
 		              "headers": [],
 		              "rows": []
 		          },
 		          "notes": { 
-		            "talkingPoints": "Ask the audience what they would do...", 
-		            "interactiveElement": "Poll: Keep it or return it?", 
+		            "talkingPoints": "Emphasize the difference between intent and action.", 
+		            "interactiveElement": "Ask: Have you ever meant well but caused harm?", 
 		            "slideTiming": "3 mins" 
 		          }
 		        }
 		      ]
 		    }
-
-		    **EXAMPLES OF CORRECTION:**
-		    * **Source:** "Imagine you find a wallet. This tests your ethics."
-		    * **BAD Output:** "A scenario regarding lost property is discussed." (Too abstract).
-		    * **GOOD Output:** "**Scenario**: Imagine you are holding a wallet you found on the street. No one is watching. \\n\\n**Relevance**: This specific moment helps you decide what to do based on your internal moral compass rather than external pressure."
 
 		    **CONTENT TO PROCESS:**
 		    ${page.content}
