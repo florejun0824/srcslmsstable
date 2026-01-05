@@ -609,61 +609,58 @@ const TeacherDashboard = () => {
 	        showToast(`Generating slides for section ${i + 1} of ${validPages.length}...`, "info");
 
 		const prompt = `
-		    SYSTEM: You are a JSON-only API. You are NOT a chatbot.
-		    INSTRUCTION: Convert the educational content below into a Google Slides JSON structure.
+		    SYSTEM: You are a JSON-only API. 
+		    INSTRUCTION: Convert the source text into Google Slides JSON.
 
 		    STRICT BEHAVIORAL CONSTRAINTS:
 		    1. Output ONLY valid JSON.
-		    2. DO NOT write introductions. Start immediately with '{' and end with '}'.
+		    2. Start immediately with '{'.
 
 		    ROLE:
-		    You are an expert **Instructional Designer & Textbook Adaptor**. 
-		    **MINDSET:** You are NOT creating a presentation for a speech. You are creating **Self-Paced Learning Slides** (like a slide-doc). The student must be able to learn the material fully by reading the slide body alone, without a speaker.
+		    You are an **Engaging Academic Lecturer**.
+		    **TONE:** Direct, Educational, and Substantive.
+		    **GOAL:** Teach the material directly to the student.
 
-		    **SOURCE MATERIAL:**
-		    The text below is **Part ${i + 1}** of a lesson titled "${targetLesson.title}".
-
-		    **CRITICAL: ANTI-HALLUCINATION & SOURCE GROUNDING**
-		    1. **STRICT ADHERENCE:** Use ONLY the provided source text. Do NOT add external facts, "fun facts," or outside knowledge not present in the text.
-		    2. **NO INVENTION:** If a specific detail is missing, do not invent it.
-		    3. **QUOTES:** If a concept is complex, you may quote the source text directly to ensure accuracy.
-
-		    **CRITICAL: CONTENT DENSITY & FORMATTING RULES**
+		    **CRITICAL: TONE & VOICE RULES**
+		    1. **DIRECT ADDRESS ("YOU") IS REQUIRED:** - Speak directly to the learner.
+		       - **Examples:** "When you make a choice...", "Imagine you are...", "In this scenario..."
     
-		    1. **NO "NAKED" BULLETS:** Never output a bullet point that is just a keyword (e.g., "- Photosynthesis").
-		       - **BAD:** "- Photosynthesis"
-		       - **GOOD:** "- **Photosynthesis**: The process by which green plants use sunlight to synthesize foods from carbon dioxide and water."
-    
-		    2. **EXPLANATION IS MANDATORY:** Every slide body must include full sentences and detailed explanations.
-		       - If the source text has a paragraph, the slide must retain the **full meaning** of that paragraph, not just a summary.
-    
-		    3. **SPLITTING HEAVY CONTENT:**
-		       - **Rule:** If a section of text is longer than 3 sentences, split it across multiple slides or use a "Concept + Explanation" structure.
-		       - **Process:** If there is a multi-step process described in detail, create one slide PER STEP.
+		    2. **SCENARIO HANDLING (STRICT):**
+		       - If the text contains a story, case study, or hypothetical situation, **TELL THE STORY**. Do not summarize it abstractly.
+		       - **Structure:** Present the scenario first, THEN explain its academic relevance.
+		       - **Example:** "Imagine you find a wallet. [Scenario Details]. This situation tests your ethical framework..."
 
-		    4. **ASSESSMENT & REVIEW LOGIC:**
-		       - **IGNORE** mid-text reviews or small "check your knowledge" prompts.
-		       - **ONLY** generate an "Assessment" section if the source text explicitly contains a final quiz or test at the very end.
-		       - If no specific questions are in the text, DO NOT create an assessment.
+		    3. **NO "EMPTY" INTROS:** - While you can say "This lesson helps you...", do not STOP there. You must immediately provide the definitions and facts.
+		       - **BAD:** "This lesson explores St. Thomas Aquinas." (Too empty)
+		       - **GOOD:** "This lesson explores St. Thomas Aquinas, who defined moral acts through three specific determinants..."
+
+		    **CRITICAL: CONTENT EXTRACTION**
+		    1. **Detail is King:** Ensure definitions, lists, and philosophical arguments are fully written out. Do not summarize complex points into one word.
+		    2. **One Concept Per Slide:** If the scenario is long, put the Scenario on one slide and the Analysis on the next.
 
 		    **REQUIRED JSON SCHEMA:**
 		    {
 		      "slides": [
 		        {
-		          "title": "Slide Title (Descriptive, e.g., 'The Three Stages of Cellular Respiration')",
-		          "body": "**Core Concept**: [Full definition] \\n\\n**Detailed Explanation**: [2-3 sentences explaining the how/why from the text] \\n\\n**Examples**: [Specific examples from text]", 
+		          "title": "Slide Title (e.g., 'The Moral Dilemma')",
+		          "body": "**Scenario**: [Direct storytelling: 'Imagine you are...'] \\n\\n**Analysis**: [Academic explanation: 'This demonstrates the conflict between...'] \\n\\n**Key Terminology**: [Definitions from text]", 
 		          "tableData": {
 		              "headers": [],
 		              "rows": []
 		          },
 		          "notes": { 
-		            "talkingPoints": "Emphasize key terms...", 
-		            "interactiveElement": "Ask students to identify...", 
+		            "talkingPoints": "Ask the audience what they would do...", 
+		            "interactiveElement": "Poll: Keep it or return it?", 
 		            "slideTiming": "3 mins" 
 		          }
 		        }
 		      ]
 		    }
+
+		    **EXAMPLES OF CORRECTION:**
+		    * **Source:** "Imagine you find a wallet. This tests your ethics."
+		    * **BAD Output:** "A scenario regarding lost property is discussed." (Too abstract).
+		    * **GOOD Output:** "**Scenario**: Imagine you are holding a wallet you found on the street. No one is watching. \\n\\n**Relevance**: This specific moment helps you decide what to do based on your internal moral compass rather than external pressure."
 
 		    **CONTENT TO PROCESS:**
 		    ${page.content}
