@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Dialog } from '@headlessui/react';
+// src/components/teacher/dashboard/views/components/ViewLessonModal.jsx
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { Dialog, Menu } from '@headlessui/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     XMarkIcon,
     ArrowLeftIcon,
     ArrowRightIcon,
     QueueListIcon,
-    ArrowDownTrayIcon,
     QuestionMarkCircleIcon,
     CheckCircleIcon,
     PencilSquareIcon,
@@ -27,45 +27,42 @@ import { db } from '../../services/firebase';
 import { useToast } from '../../contexts/ToastContext';
 import { useTheme } from '../../contexts/ThemeContext';
 
-// --- COLOROS 15 AQUAMORPHIC STYLES ---
-const getAquamorphicStyle = (activeOverlay) => {
-    if (!activeOverlay) return null;
+// --- ONE UI 8.5 MONET STYLES ---
+const getMonetStyles = (activeOverlay) => {
+    if (!activeOverlay || activeOverlay === 'none') return null;
     
     switch (activeOverlay) {
-        case 'christmas': return { background: 'rgba(10, 25, 47, 0.85)', accent: 'text-emerald-400', border: 'border-emerald-500/20', fill: 'bg-emerald-500/10' }; 
-        case 'valentines': return { background: 'rgba(40, 10, 20, 0.85)', accent: 'text-rose-400', border: 'border-rose-500/20', fill: 'bg-rose-500/10' }; 
-        case 'graduation': return { background: 'rgba(30, 25, 5, 0.85)', accent: 'text-amber-400', border: 'border-amber-500/20', fill: 'bg-amber-500/10' }; 
-        case 'rainy': return { background: 'rgba(10, 25, 25, 0.85)', accent: 'text-teal-400', border: 'border-teal-500/20', fill: 'bg-teal-500/10' }; 
-        case 'cyberpunk': return { background: 'rgba(25, 5, 35, 0.85)', accent: 'text-fuchsia-400', border: 'border-fuchsia-500/20', fill: 'bg-fuchsia-500/10' }; 
-        case 'spring': return { background: 'rgba(35, 10, 20, 0.85)', accent: 'text-pink-400', border: 'border-pink-500/20', fill: 'bg-pink-500/10' }; 
-        case 'space': return { background: 'rgba(5, 5, 20, 0.85)', accent: 'text-indigo-400', border: 'border-indigo-500/20', fill: 'bg-indigo-500/10' };
+        case 'christmas': return { text: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-200 dark:border-emerald-800' };
+        case 'valentines': return { text: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-900/20', border: 'border-rose-200 dark:border-rose-800' };
+        case 'graduation': return { text: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/20', border: 'border-amber-200 dark:border-amber-800' };
+        case 'rainy': return { text: 'text-teal-600 dark:text-teal-400', bg: 'bg-teal-50 dark:bg-teal-900/20', border: 'border-teal-200 dark:border-teal-800' };
+        case 'cyberpunk': return { text: 'text-fuchsia-600 dark:text-fuchsia-400', bg: 'bg-fuchsia-50 dark:bg-fuchsia-900/20', border: 'border-fuchsia-200 dark:border-fuchsia-800' };
+        case 'spring': return { text: 'text-pink-600 dark:text-pink-400', bg: 'bg-pink-50 dark:bg-pink-900/20', border: 'border-pink-200 dark:border-pink-800' };
+        case 'space': return { text: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-900/20', border: 'border-indigo-200 dark:border-indigo-800' };
         default: return null;
     }
 };
 
-// --- ANIMATION VARIANTS ---
+// --- OPTIMIZED ANIMATIONS ---
+const backdropVariants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { duration: 0.2 } },
+    exit: { opacity: 0, transition: { duration: 0.15 } }
+};
+
 const modalVariants = {
-    hidden: { opacity: 0, scale: 0.92, y: 40, borderRadius: "40px" },
+    hidden: { opacity: 0, scale: 0.96, y: 30 },
     visible: { 
-        opacity: 1, scale: 1, y: 0, borderRadius: "32px",
-        transition: { type: "spring", damping: 20, stiffness: 300, mass: 0.8 } 
+        opacity: 1, scale: 1, y: 0, 
+        transition: { type: "spring", damping: 30, stiffness: 350, mass: 0.5 } 
     },
-    exit: { opacity: 0, scale: 0.95, y: 20, transition: { duration: 0.25, ease: "anticipate" } },
+    exit: { opacity: 0, scale: 0.98, y: 15, transition: { duration: 0.15 } },
 };
 
-const pageTransitionVariants = {
-    hidden: { opacity: 0, y: 20, filter: "blur(8px)" },
-    visible: { 
-        opacity: 1, y: 0, filter: "blur(0px)",
-        transition: { type: "spring", stiffness: 200, damping: 20 }
-    },
-    exit: { opacity: 0, y: -20, filter: "blur(5px)", transition: { duration: 0.15 } },
-};
-
-const navMenuVariants = {
-    hidden: { opacity: 0, y: -15, scale: 0.9, transformOrigin: "top left" },
-    visible: { opacity: 1, y: 0, scale: 1, transition: { type: "spring", stiffness: 400, damping: 25 } },
-    exit: { opacity: 0, scale: 0.95, transition: { duration: 0.1 } }
+const pageVariants = {
+    hidden: { opacity: 0, y: 10 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.25, ease: "easeOut" } },
+    exit: { opacity: 0, y: -10, transition: { duration: 0.15 } }
 };
 
 export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, className }) {
@@ -76,14 +73,17 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
     const { showToast } = useToast();
     const { activeOverlay } = useTheme(); 
     const [isFinalizing, setIsFinalizing] = useState(false);
+    
+    // Page Nav Dropdown State
     const [isPageNavOpen, setIsPageNavOpen] = useState(false);
     
     const contentRef = useRef(null);
     const lessonPageRef = useRef(null);
 
-    const aquaStyle = getAquamorphicStyle(activeOverlay);
+    const monet = useMemo(() => getMonetStyles(activeOverlay), [activeOverlay]);
 
     useEffect(() => { setCurrentLesson(lesson); }, [lesson]);
+    
     useEffect(() => { 
         if (isOpen) { 
             setCurrentPage(0); 
@@ -93,12 +93,13 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
     }, [isOpen]);
 
     const lessonTitle = currentLesson?.lessonTitle || currentLesson?.title || 'Untitled Lesson';
-    const pages = currentLesson?.pages || [];
-    const objectives = currentLesson?.learningObjectives || currentLesson?.objectives || [];
+    const pages = useMemo(() => currentLesson?.pages || [], [currentLesson]);
+    const objectives = useMemo(() => currentLesson?.learningObjectives || currentLesson?.objectives || [], [currentLesson]);
     const totalPages = pages.length;
     const objectivesLabel = currentLesson?.language === 'Filipino' ? "Mga Layunin" : "Objectives";
     const progressPercentage = totalPages > 0 ? ((currentPage + 1) / totalPages) * 100 : 0;
-    const pageData = pages[currentPage];
+    
+    const pageData = useMemo(() => pages[currentPage], [pages, currentPage]);
 
     // Navigation
     const goToNextPage = useCallback(() => { 
@@ -174,303 +175,302 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
 
     if (!isOpen || !currentLesson) return null;
 
-    // --- COLOROS 15 DESIGN TOKENS ---
-    const containerClass = aquaStyle 
-        ? `relative w-full max-w-6xl h-[100dvh] md:h-[90vh] flex flex-col overflow-hidden md:rounded-[32px] backdrop-blur-3xl shadow-2xl transition-colors duration-500`
-        : `relative w-full max-w-6xl h-[100dvh] md:h-[90vh] flex flex-col overflow-hidden md:rounded-[32px] bg-[#F5F7FA]/90 dark:bg-[#000000]/90 backdrop-blur-3xl shadow-2xl transition-colors duration-500`;
-
-    const containerStyle = aquaStyle 
-        ? { background: aquaStyle.background, border: `1px solid ${aquaStyle.border.replace('border-', '')}` }
-        : {};
-
-    // ✅ UPDATED: Added py-5 for more breather, items-start to allow text wrapping without centering issues
-    const headerClass = aquaStyle
-        ? `relative z-20 flex justify-between items-start px-6 py-6 mx-4 mt-4 rounded-[24px] bg-white/10 border border-white/10 backdrop-blur-md shadow-sm overflow-hidden`
-        : `relative z-20 flex justify-between items-start px-6 py-6 mx-4 mt-4 rounded-[24px] bg-white/60 dark:bg-[#1C1C1E]/60 border border-white/40 dark:border-white/5 backdrop-blur-md shadow-sm overflow-hidden`;
-
+    // --- ONE UI DESIGN TOKENS ---
     const capsuleBtn = `
-        flex items-center justify-center gap-2 px-4 py-2.5 rounded-[20px] 
-        transition-all duration-300 active:scale-90 hover:scale-105
-        font-bold text-xs tracking-wide shadow-sm
+        flex items-center justify-center gap-2 px-5 py-2.5 rounded-[1.5rem] 
+        transition-all duration-200 active:scale-95 hover:scale-[1.02]
+        font-bold text-[13px] tracking-wide shadow-sm
     `;
 
-    const tonalBtn = aquaStyle
-        ? `${capsuleBtn} bg-white/10 text-white hover:bg-white/20 border border-white/10`
-        : `${capsuleBtn} bg-white dark:bg-[#2C2C2E] text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#3A3A3C] border border-slate-200 dark:border-white/5`;
+    const tonalBtn = monet
+        ? `${capsuleBtn} ${monet.bg} ${monet.text} hover:opacity-80 border ${monet.border}`
+        : `${capsuleBtn} bg-slate-100 dark:bg-[#3A3A3C] text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-[#48484A] border border-transparent`;
 
-    const primaryBtn = aquaStyle
-        ? `${capsuleBtn} bg-white text-slate-900 hover:bg-slate-100 shadow-lg shadow-white/10`
-        : `${capsuleBtn} bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 shadow-lg shadow-slate-900/20`;
+    const primaryBtn = monet
+        ? `${capsuleBtn} bg-slate-900 text-white dark:bg-white dark:text-black shadow-lg`
+        : `${capsuleBtn} bg-[#007AFF] hover:bg-[#0062cc] text-white shadow-lg shadow-blue-500/30`;
+
+    // Updated Icon Button to be "Emphasized Circle" with background
+    const iconBtn = `
+        w-10 h-10 flex items-center justify-center rounded-full transition-all active:scale-90
+        shadow-sm border border-transparent
+    `;
 
     return (
-        <Dialog open={isOpen} onClose={onClose} className={`fixed inset-0 z-[100] flex items-center justify-center font-sans ${className}`}>
+        <Dialog open={isOpen} onClose={onClose} className={`fixed inset-0 z-[5000] flex items-center justify-center font-sans ${className}`}>
+            
+            {/* Optimized Backdrop */}
             <motion.div 
-                initial={{ opacity: 0 }} 
-                animate={{ opacity: 1 }} 
-                exit={{ opacity: 0 }} 
-                className="fixed inset-0 bg-slate-900/40 dark:bg-black/80 backdrop-blur-xl transition-all duration-500" 
+                variants={backdropVariants}
+                initial="hidden" animate="visible" exit="exit"
+                className="fixed inset-0 bg-black/40 backdrop-blur-md will-change-opacity" 
                 aria-hidden="true" 
+                onClick={onClose}
             />
             
+            {/* Main Container - FLEX COLUMN for Layout Stability */}
             <Dialog.Panel 
                 as={motion.div} 
                 variants={modalVariants} 
-                initial="hidden" 
-                animate="visible" 
-                exit="exit"
-                style={containerStyle}
-                className={containerClass}
+                initial="hidden" animate="visible" exit="exit"
+                className="relative w-full max-w-6xl h-[95vh] md:h-[90vh] flex flex-col rounded-[2.5rem] bg-[#F9F9F9] dark:bg-[#101010] shadow-2xl border border-white/40 dark:border-white/10 transform-gpu will-change-transform"
+                style={{ overflow: 'visible' }}
             >
-                
-                <header className={headerClass}>
+                {/* Inner Wrapper for Rounded Corners Clipping */}
+                <div className="flex flex-col h-full w-full overflow-hidden rounded-[2.5rem]">
                     
-                    {/* Progress Fill Layer (Horizontal Mode Only) */}
-                    {readingMode === 'horizontal' && (
-                        <motion.div 
-                            initial={{ width: 0 }} 
-                            animate={{ width: `${progressPercentage}%` }}
-                            transition={{ duration: 0.5, ease: "circOut" }}
-                            className={`absolute inset-y-0 left-0 z-0 ${aquaStyle ? aquaStyle.fill : 'bg-slate-200/50 dark:bg-white/10'}`}
-                        />
-                    )}
-
-                    {/* ✅ UPDATED: flex-1 min-w-0, removed 'truncate' to allow wrapping, increased gap-1.5 */}
-                    <div className="relative z-10 flex flex-col justify-center gap-1.5 overflow-hidden flex-1 min-w-0 mr-4 self-center">
-                        <Dialog.Title className={`text-xl font-bold tracking-tight leading-tight line-clamp-2 ${aquaStyle ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
-                            {lessonTitle}
-                        </Dialog.Title>
+                    {/* --- HEADER --- */}
+                    <header className="relative z-20 flex justify-between items-center px-6 py-4 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-black/5 dark:border-white/5 flex-shrink-0">
                         
-                        {readingMode === 'horizontal' ? (
-                            <button 
-                                onClick={() => setIsPageNavOpen(!isPageNavOpen)}
-                                className={`group flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider transition-all ${aquaStyle ? 'text-white/70 hover:text-white' : 'text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400'}`}
+                        {/* Progress Line */}
+                        {readingMode === 'horizontal' && (
+                            <motion.div 
+                                initial={{ width: 0 }} 
+                                animate={{ width: `${progressPercentage}%` }}
+                                transition={{ duration: 0.5, ease: "circOut" }}
+                                className={`absolute bottom-0 left-0 h-[2px] z-30 ${monet ? 'bg-current ' + monet.text : 'bg-[#007AFF]'}`}
+                            />
+                        )}
+
+                        {/* Title Block */}
+                        <div className="flex flex-col gap-0.5 relative">
+                            <h2 className="text-[17px] font-bold tracking-tight text-slate-900 dark:text-white line-clamp-1 max-w-md">
+                                {lessonTitle}
+                            </h2>
+                            
+                            {readingMode === 'horizontal' ? (
+                                <div className="relative inline-block">
+                                    <button 
+                                        onClick={() => setIsPageNavOpen(!isPageNavOpen)}
+                                        className={`group flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider transition-colors ${monet ? monet.text : 'text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400'}`}
+                                    >
+                                        <span>{totalPages > 0 ? `Page ${currentPage + 1} of ${totalPages}` : 'Empty'}</span>
+                                        <ChevronDownIcon className={`w-3 h-3 transition-transform duration-200 ${isPageNavOpen ? 'rotate-180' : ''}`} />
+                                    </button>
+
+                                    {/* Page Dropdown */}
+                                    <AnimatePresence>
+                                        {isPageNavOpen && (
+                                            <>
+                                                <div className="fixed inset-0 z-40" onClick={() => setIsPageNavOpen(false)} />
+                                                <motion.div 
+                                                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                                    transition={{ duration: 0.2 }}
+                                                    className="absolute top-full left-0 mt-3 w-64 p-4 rounded-[1.5rem] bg-white/95 dark:bg-[#2C2C2E]/95 shadow-[0_20px_50px_rgba(0,0,0,0.2)] dark:shadow-black/50 border border-black/5 dark:border-white/10 z-50 backdrop-blur-xl"
+                                                >
+                                                    <div className="flex items-center justify-between mb-3 px-1 text-slate-400">
+                                                        <span className="text-[10px] font-bold uppercase tracking-widest">Jump to Page</span>
+                                                        <Squares2X2Icon className="w-4 h-4" />
+                                                    </div>
+                                                    <div className="grid grid-cols-5 gap-2 max-h-48 overflow-y-auto custom-scrollbar">
+                                                        {pages.map((_, idx) => (
+                                                            <button
+                                                                key={idx}
+                                                                onClick={() => jumpToPage(idx)}
+                                                                className={`aspect-square flex items-center justify-center rounded-[12px] text-xs font-bold transition-all ${
+                                                                    currentPage === idx
+                                                                    ? (monet ? `bg-slate-900 text-white dark:bg-white dark:text-black` : 'bg-[#007AFF] text-white shadow-md')
+                                                                    : 'bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/20'
+                                                                }`}
+                                                            >
+                                                                {idx + 1}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </motion.div>
+                                            </>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                                    <BookOpenIcon className="w-3 h-3" />
+                                    <span>Scroll Mode</span>
+                                </div>
+                            )}
+                        </div>
+                        
+                        {/* Header Controls (Emphasized Circles) */}
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={() => setReadingMode(prev => prev === 'horizontal' ? 'vertical' : 'horizontal')}
+                                className={`${iconBtn} bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/20`}
+                                title={readingMode === 'horizontal' ? "Switch to Scroll Mode" : "Switch to Page Mode"}
                             >
-                                <span>{totalPages > 0 ? `Page ${currentPage + 1} of ${totalPages}` : 'Empty'}</span>
-                                <ChevronDownIcon className={`w-3 h-3 transition-transform duration-300 ${isPageNavOpen ? 'rotate-180' : 'group-hover:translate-y-0.5'}`} />
+                                {readingMode === 'horizontal' ? <ArrowsUpDownIcon className="w-5 h-5 stroke-[2]" /> : <ArrowsRightLeftIcon className="w-5 h-5 stroke-[2]" />}
                             </button>
-                        ) : (
-                            <div className={`flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider ${aquaStyle ? 'text-white/70' : 'text-slate-500 dark:text-slate-400'}`}>
-                                <BookOpenIcon className="w-3 h-3" />
-                                <span>Continuous Scroll</span>
-                            </div>
-                        )}
-                    </div>
+
+                            <button 
+                                onClick={onClose} 
+                                className={`${iconBtn} bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 hover:bg-red-100 hover:text-red-500 dark:hover:bg-red-900/30 dark:hover:text-red-400`}
+                            >
+                                <XMarkIcon className="w-5 h-5 stroke-[2.5]" />
+                            </button>
+                        </div>
+                    </header>
                     
-                    {/* Controls */}
-                    <div className="relative z-10 flex items-center gap-2 sm:gap-3 flex-shrink-0 self-center">
-                        <button
-                            onClick={() => setReadingMode(prev => prev === 'horizontal' ? 'vertical' : 'horizontal')}
-                            className={tonalBtn}
-                            title={readingMode === 'horizontal' ? "Switch to Scroll Mode" : "Switch to Page Mode"}
-                        >
-                            {readingMode === 'horizontal' ? <ArrowsUpDownIcon className="w-4 h-4" /> : <ArrowsRightLeftIcon className="w-4 h-4" />}
-                            <span className="hidden sm:inline">{readingMode === 'horizontal' ? 'Scroll' : 'Pages'}</span>
-                        </button>
+                    {/* --- MAIN CONTENT (Scrollable Area) --- */}
+                    <main 
+                        ref={contentRef} 
+                        className="flex-1 overflow-y-auto custom-scrollbar p-6 sm:p-10 relative transform-gpu bg-[#F9F9F9] dark:bg-[#101010]"
+                    >
+                        <div className="max-w-3xl mx-auto min-h-full pb-10"> 
+                            
+                            {/* --- MODE: HORIZONTAL (Paged) --- */}
+                            {readingMode === 'horizontal' ? (
+                                <AnimatePresence mode="wait">
+                                    <motion.div 
+                                        key={currentPage} 
+                                        variants={pageVariants} 
+                                        initial="hidden" animate="visible" exit="exit" 
+                                        className="w-full min-h-full"
+                                    >
+                                        {/* Objectives */}
+                                        {currentPage === 0 && objectives.length > 0 && (
+                                            <div className={`mb-8 p-6 rounded-[2rem] border ${monet ? `${monet.bg} ${monet.border}` : 'bg-white dark:bg-[#1E1E1E] border-slate-100 dark:border-white/5'} shadow-sm`}>
+                                                <h3 className="flex items-center gap-3 text-[15px] font-bold mb-4 text-slate-900 dark:text-white">
+                                                    <div className={`p-2 rounded-xl ${monet ? 'bg-white/50 text-current' : 'bg-slate-100 dark:bg-white/10 text-blue-500'}`}>
+                                                        <QueueListIcon className="h-5 w-5" />
+                                                    </div>
+                                                    {objectivesLabel}
+                                                </h3>
+                                                <ul className="space-y-3">
+                                                    {objectives.map((objective, index) => (
+                                                        <li key={index} className="flex items-start gap-3 text-[14px] font-medium text-slate-700 dark:text-slate-300">
+                                                            <CheckCircleSolid className={`h-5 w-5 flex-shrink-0 mt-0.5 ${monet ? 'opacity-80' : 'text-blue-500'}`} />
+                                                            <span><ContentRenderer text={objective} /></span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
 
-                        <div className={`h-6 w-px mx-1 ${aquaStyle ? 'bg-white/20' : 'bg-slate-200 dark:bg-white/10'}`} />
-
-                        <button onClick={onClose} className={`p-2.5 rounded-full transition-all active:scale-90 ${aquaStyle ? 'bg-white/10 text-white hover:bg-white/20' : 'bg-white dark:bg-[#2C2C2E] text-slate-500 hover:bg-slate-100 dark:hover:bg-[#3A3A3C] shadow-sm'}`}>
-                            <XMarkIcon className="w-5 h-5 stroke-[2.5]" />
-                        </button>
-                    </div>
-
-                    {/* Page Navigation Dropdown */}
-                    <AnimatePresence>
-                        {isPageNavOpen && readingMode === 'horizontal' && (
-                            <>
-                                <motion.div 
-                                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                                    className="fixed inset-0 z-20 bg-transparent" 
-                                    onClick={() => setIsPageNavOpen(false)}
-                                />
-                                <motion.div 
-                                    variants={navMenuVariants}
-                                    initial="hidden" animate="visible" exit="exit"
-                                    className={`absolute top-full left-0 mt-4 w-72 p-4 rounded-[28px] shadow-2xl z-30 ring-1 ring-black/5 ${aquaStyle ? 'bg-[#0f172a]/90 backdrop-blur-xl border border-white/10' : 'bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-xl border border-white/40 dark:border-white/5'}`}
-                                >
-                                    <div className={`flex items-center justify-between mb-3 px-1 ${aquaStyle ? 'text-white/80' : 'text-slate-500 dark:text-slate-400'}`}>
-                                        <span className="text-xs font-bold uppercase tracking-widest">Jump to</span>
-                                        <Squares2X2Icon className="w-4 h-4" />
-                                    </div>
-                                    <div className="grid grid-cols-5 gap-2 max-h-48 overflow-y-auto custom-scrollbar p-1">
-                                        {pages.map((_, idx) => (
-                                            <button
-                                                key={idx}
-                                                onClick={() => jumpToPage(idx)}
-                                                className={`aspect-square flex items-center justify-center rounded-[14px] text-sm font-bold transition-all ${
-                                                    currentPage === idx
-                                                    ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30 scale-105'
-                                                    : (aquaStyle ? 'bg-white/10 text-white hover:bg-white/20' : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10')
-                                                }`}
-                                            >
-                                                {idx + 1}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </motion.div>
-                            </>
-                        )}
-                    </AnimatePresence>
-                </header>
-                
-                {/* Content Container (Fluid Layout) */}
-                <main 
-                    ref={contentRef} 
-                    className={`flex-grow overflow-y-auto custom-scrollbar flex flex-col items-center p-4 sm:p-6 md:p-8 pb-32 sm:pb-24 relative ${aquaStyle ? 'text-white' : 'text-slate-900 dark:text-slate-100'}`}
-                >
-                    <div className="w-full max-w-4xl flex-grow">
-                        
-                        {/* --- MODE: HORIZONTAL (Paged) --- */}
-                        {readingMode === 'horizontal' ? (
-                            <AnimatePresence initial={false} mode="wait">
-                                <motion.div key={currentPage} variants={pageTransitionVariants} initial="hidden" animate="visible" exit="exit" className="w-full min-h-full">
-                                    {currentPage === 0 && objectives.length > 0 && (
-                                        <motion.div 
-                                            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-                                            className={`mb-8 p-6 sm:p-8 rounded-[28px] border shadow-sm ${aquaStyle ? 'bg-white/10 border-white/20' : 'bg-white dark:bg-[#1E212B] border-slate-100 dark:border-white/5'}`}
-                                        >
-                                            <h3 className="flex items-center gap-3 text-lg font-bold mb-4">
-                                                <div className={`p-2 rounded-[14px] ${aquaStyle ? 'bg-white/20 text-white' : 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300'}`}>
-                                                    <QueueListIcon className="h-5 w-5 stroke-2" />
+                                        {pageData ? (
+                                            <div className="prose prose-sm sm:prose-base dark:prose-invert max-w-none">
+                                                {pageData.title && (
+                                                    <h1 className="text-2xl sm:text-3xl font-black mb-6 tracking-tight text-slate-900 dark:text-white">
+                                                        {pageData.title}
+                                                    </h1>
+                                                )}
+                                                <div className="text-slate-700 dark:text-slate-300 leading-relaxed">
+                                                    <LessonPage
+                                                        ref={lessonPageRef}
+                                                        page={pageData}
+                                                        isEditable={true}
+                                                        onFinalizeDiagram={handleFinalizeDiagram}
+                                                        onRevertDiagram={handleRevertDiagramToEditable}
+                                                        isFinalizing={isFinalizing}
+                                                    />
                                                 </div>
-                                                {objectivesLabel}
+                                            </div>
+                                        ) : (
+                                            currentPage === 0 && objectives.length > 0 ? null : ( 
+                                                <div className="flex flex-col items-center justify-center text-center opacity-40 h-64">
+                                                    <QuestionMarkCircleIcon className="w-16 h-16 stroke-1 mb-4" />
+                                                    <p className="text-base font-bold">Empty Page</p>
+                                                </div>
+                                            )
+                                        )}
+                                    </motion.div>
+                                </AnimatePresence>
+                            ) : (
+                                /* --- MODE: VERTICAL (Scroll) --- */
+                                <div className="space-y-16">
+                                    {objectives.length > 0 && (
+                                        <div className={`p-6 rounded-[2rem] border ${monet ? `${monet.bg} ${monet.border}` : 'bg-white dark:bg-[#1E1E1E] border-slate-100 dark:border-white/5'} shadow-sm`}>
+                                            <h3 className="text-base font-bold mb-4 flex items-center gap-2 text-slate-900 dark:text-white">
+                                                <QueueListIcon className="w-5 h-5" /> {objectivesLabel}
                                             </h3>
-                                            <ul className={`grid gap-3 font-medium leading-relaxed opacity-90 text-sm sm:text-base`}>
+                                            <ul className="space-y-3">
                                                 {objectives.map((objective, index) => (
-                                                    <li key={index} className="flex items-start gap-3">
-                                                        <CheckCircleSolid className={`h-5 w-5 flex-shrink-0 mt-0.5 ${aquaStyle ? 'text-white' : 'text-blue-500'}`} />
-                                                        <div className="flex-1"><ContentRenderer text={objective} /></div>
+                                                    <li key={index} className="flex items-start gap-3 text-sm font-medium text-slate-700 dark:text-slate-300">
+                                                        <CheckCircleSolid className={`h-5 w-5 flex-shrink-0 ${monet ? 'opacity-80' : 'text-blue-500'}`} />
+                                                        <span><ContentRenderer text={objective} /></span>
                                                     </li>
                                                 ))}
                                             </ul>
-                                        </motion.div>
+                                        </div>
                                     )}
 
-                                    {pageData ? (
-                                        <div className={`
-                                            prose prose-lg dark:prose-invert max-w-none text-justify [&_p]:indent-8 
-                                            ${aquaStyle ? 'prose-headings:text-white prose-p:text-white/90 prose-strong:text-white prose-li:text-white/90' : ''}
-                                        `}>
-                                            {pageData.title && (
-                                                <motion.h1 
-                                                    initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }}
-                                                    className="text-3xl sm:text-4xl font-black mb-8 tracking-tighter leading-tight indent-0"
-                                                >
-                                                    {pageData.title}
-                                                </motion.h1>
-                                            )}
-                                            <LessonPage
-                                                ref={lessonPageRef}
-                                                page={pageData}
-                                                isEditable={true}
-                                                onFinalizeDiagram={handleFinalizeDiagram}
-                                                onRevertDiagram={handleRevertDiagramToEditable}
-                                                isFinalizing={isFinalizing}
-                                            />
-                                        </div>
-                                    ) : (
-                                        currentPage === 0 && objectives.length > 0 ? null : ( 
-                                            <div className="flex flex-col items-center justify-center text-center opacity-50 h-64">
-                                                <QuestionMarkCircleIcon className="w-16 h-16 stroke-1 mb-4" />
-                                                <p className="text-lg font-medium">This page is empty.</p>
+                                    {pages.map((pData, idx) => (
+                                        <div key={idx} className="relative group">
+                                            <div className="flex items-center gap-4 mb-6 opacity-40">
+                                                <span className="text-[10px] font-black uppercase tracking-widest">Page {idx + 1}</span>
+                                                <div className="h-px flex-1 bg-slate-300 dark:bg-white/20"></div>
                                             </div>
-                                        )
-                                    )}
-                                </motion.div>
-                            </AnimatePresence>
-                        ) : (
-                            /* --- MODE: VERTICAL (Wattpad Style) --- */
-                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full space-y-16 pb-24">
-                                {objectives.length > 0 && (
-                                    <div className={`p-6 sm:p-8 rounded-[32px] border ${aquaStyle ? 'bg-white/10 border-white/20' : 'bg-white dark:bg-[#1E212B] border-slate-100 dark:border-white/5'}`}>
-                                        <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-                                            <QueueListIcon className="w-6 h-6" /> {objectivesLabel}
-                                        </h3>
-                                        <ul className="grid gap-3 opacity-90">
-                                            {objectives.map((objective, index) => (
-                                                <li key={index} className="flex items-start gap-3">
-                                                    <CheckCircleSolid className="h-5 w-5 flex-shrink-0 mt-0.5" />
-                                                    <div className="flex-1"><ContentRenderer text={objective} /></div>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                )}
 
-                                {pages.map((pData, idx) => (
-                                    <div key={idx} className="relative group">
-                                        <div className="flex items-center gap-4 mb-8 opacity-60">
-                                            <span className="text-xs font-black uppercase tracking-widest">Page {idx + 1}</span>
-                                            <div className={`h-px flex-1 ${aquaStyle ? 'bg-white/20' : 'bg-slate-200 dark:bg-white/10'}`}></div>
+                                            <div className="prose prose-sm sm:prose-base dark:prose-invert max-w-none">
+                                                {pData.title && (
+                                                    <h2 className="text-2xl font-black mb-4 tracking-tight text-slate-900 dark:text-white">{pData.title}</h2>
+                                                )}
+                                                <div className="text-slate-700 dark:text-slate-300 leading-relaxed">
+                                                    <LessonPage page={pData} isEditable={false} />
+                                                </div>
+                                            </div>
                                         </div>
+                                    ))}
 
-                                        <div className={`prose prose-lg dark:prose-invert max-w-none text-justify [&_p]:indent-8 ${aquaStyle ? 'prose-headings:text-white prose-p:text-white/90 prose-strong:text-white' : ''}`}>
-                                            {pData.title && (
-                                                <h2 className="text-3xl font-black mb-6 tracking-tighter indent-0">{pData.title}</h2>
-                                            )}
-                                            <LessonPage page={pData} isEditable={false} />
+                                    <div className="flex justify-center pt-8">
+                                        <div className="px-5 py-2 rounded-full bg-slate-100 dark:bg-white/10 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                                            End of Lesson
                                         </div>
-                                    </div>
-                                ))}
-
-                                <div className="flex justify-center py-8">
-                                    <div className="px-6 py-2 rounded-full bg-black/5 dark:bg-white/10 text-xs font-bold uppercase tracking-widest opacity-60">
-                                        End of Lesson
                                     </div>
                                 </div>
-                            </motion.div>
-                        )}
-                    </div>
-                </main>
-                
-                {/* Floating Footer Navigation */}
-                <footer className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30">
-                    <motion.div 
-                        initial={{ y: 50, opacity: 0 }} 
-                        animate={{ y: 0, opacity: 1 }} 
-                        className={`
-                            flex items-center gap-2 p-2 rounded-full shadow-2xl backdrop-blur-2xl ring-1 ring-black/5
-                            ${aquaStyle ? 'bg-white/20 border border-white/20' : 'bg-white/80 dark:bg-[#2C2C2E]/80 border border-white/60 dark:border-white/10'}
-                        `}
-                    >
-                        {readingMode === 'horizontal' ? (
-                            <>
-                                <button onClick={goToPreviousPage} disabled={currentPage === 0} className={tonalBtn}>
-                                    <ArrowLeftIcon className="h-5 w-5" />
+                            )}
+                        </div>
+                    </main>
+                    
+                    {/* --- FOOTER (Separate Flex Item) --- */}
+                    <footer className="flex-shrink-0 px-6 py-4 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-t border-black/5 dark:border-white/5 z-20 flex justify-center items-center">
+                        <div className="flex items-center gap-3">
+                            {readingMode === 'horizontal' ? (
+                                <>
+                                    {/* UPDATED: Emphasized "Secondary Capsule" for Previous Button */}
+                                    <button 
+                                        onClick={goToPreviousPage} 
+                                        disabled={currentPage === 0} 
+                                        className={`${tonalBtn} disabled:opacity-30`}
+                                    >
+                                        <ArrowLeftIcon className="h-4 w-4 stroke-[2.5]" />
+                                        <span className="hidden sm:inline">Back</span>
+                                    </button>
+
+                                    {/* Diagram Tools */}
+                                    {pageData?.type === 'diagram-data' && (
+                                        <div className="flex items-center gap-2 px-2 mx-1">
+                                            <button onClick={() => lessonPageRef.current?.addImage()} className={`${iconBtn} bg-slate-100 dark:bg-white/5`} title="Add Image"><PhotoIcon className="h-5 w-5" /></button>
+                                            <button onClick={() => lessonPageRef.current?.addLabel()} className={`${iconBtn} bg-slate-100 dark:bg-white/5`} title="Add Label"><TagIcon className="h-5 w-5" /></button>
+                                            <button onClick={() => lessonPageRef.current?.finalizeDiagram()} disabled={isFinalizing} className={`${iconBtn} bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400`} title="Save">
+                                                <LockClosedIcon className={`h-5 w-5 ${isFinalizing ? "animate-spin" : ""}`} />
+                                            </button>
+                                        </div>
+                                    )}
+                                    
+                                    {pageData?.type === 'diagram' && (
+                                         <div className="flex items-center gap-2 px-2 mx-1">
+                                            <button onClick={handleRevertDiagramToEditable} className={`${iconBtn} bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400`} title="Edit">
+                                                <PencilSquareIcon className="h-5 w-5" />
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    <button onClick={currentPage < totalPages - 1 ? goToNextPage : onClose} className={primaryBtn}>
+                                        <span className="px-1">{currentPage < totalPages - 1 ? 'Next' : 'Finish'}</span>
+                                        {currentPage < totalPages - 1 ? <ArrowRightIcon className="h-4 w-4 stroke-2" /> : <CheckCircleSolid className="h-4 w-4" />}
+                                    </button>
+                                </>
+                            ) : (
+                                <button onClick={onClose} className={primaryBtn}>
+                                    <CheckCircleSolid className="h-4 w-4" />
+                                    <span className="px-2">Finish Reading</span>
                                 </button>
+                            )}
+                        </div>
+                    </footer>
 
-                                {pageData?.type === 'diagram-data' && (
-                                    <div className="flex items-center gap-1 px-1 border-x border-black/5 dark:border-white/10 mx-1">
-                                        <button onClick={() => lessonPageRef.current?.addImage()} className={tonalBtn} title="Add Image"><PhotoIcon className="h-5 w-5" /></button>
-                                        <button onClick={() => lessonPageRef.current?.addLabel()} className={tonalBtn} title="Add Label"><TagIcon className="h-5 w-5" /></button>
-                                        <button onClick={() => lessonPageRef.current?.finalizeDiagram()} disabled={isFinalizing} className={`${tonalBtn} text-emerald-600 dark:text-emerald-400`} title="Save">
-                                            <LockClosedIcon className={`h-5 w-5 ${isFinalizing ? "animate-spin" : ""}`} />
-                                        </button>
-                                    </div>
-                                )}
-                                
-                                {pageData?.type === 'diagram' && (
-                                     <div className="flex items-center gap-1 px-1 border-x border-black/5 dark:border-white/10 mx-1">
-                                        <button onClick={handleRevertDiagramToEditable} className={`${tonalBtn} text-amber-600 dark:text-amber-400`} title="Edit">
-                                            <PencilSquareIcon className="h-5 w-5" />
-                                        </button>
-                                    </div>
-                                )}
-
-                                <button onClick={currentPage < totalPages - 1 ? goToNextPage : onClose} className={primaryBtn}>
-                                    <span className="px-2">{currentPage < totalPages - 1 ? 'Next' : 'Finish'}</span>
-                                    {currentPage < totalPages - 1 ? <ArrowRightIcon className="h-5 w-5" /> : <CheckCircleSolid className="h-5 w-5" />}
-                                </button>
-                            </>
-                        ) : (
-                            <button onClick={onClose} className={primaryBtn}>
-                                <CheckCircleSolid className="h-5 w-5" />
-                                <span className="px-4">Finish Reading</span>
-                            </button>
-                        )}
-                    </motion.div>
-                </footer>
-
+                </div>
             </Dialog.Panel>
         </Dialog>
     );

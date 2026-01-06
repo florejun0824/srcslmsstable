@@ -92,39 +92,39 @@ const LoungeView = ({
     <>
       <div className="max-w-4xl mx-auto w-full space-y-8 px-4 sm:px-6 lg:px-8 pb-32">
         
-        {/* --- Header Section (Floating Surface) --- */}
-        <div className={`relative rounded-[2.5rem] p-6 sm:p-8 overflow-hidden shadow-sm border transition-colors duration-500 ${themeClasses}`}>
-            {/* Subtle Gradient decoration for One UI feel */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-blue-400/5 to-purple-400/5 dark:from-white/5 dark:to-white/0 rounded-full blur-3xl pointer-events-none -translate-y-1/2 translate-x-1/3"></div>
+	  {/* --- Header Section (Floating Surface) --- */}
+	          <div className={`relative rounded-[2.5rem] px-4 pb-4 pt-2 sm:px-6 sm:pb-6 sm:pt-6 overflow-hidden shadow-sm border transition-colors duration-500 ${themeClasses}`}>
+	              {/* Subtle Gradient decoration for One UI feel */}
+	              <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-blue-400/5 to-purple-400/5 dark:from-white/5 dark:to-white/0 rounded-full blur-3xl pointer-events-none -translate-y-1/2 translate-x-1/3"></div>
 
-            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
-                       Lounge
-                    </h1>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 font-medium">
-                        Connect, share, and learn with your peers.
-                    </p>
-                </div>
+	              <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+	                  <div>
+	                      <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
+	                         Lounge
+	                      </h1>
+	                      <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 font-medium">
+	                          Connect, share, and learn with your peers.
+	                      </p>
+	                  </div>
 
-                <button
-                    onClick={() => fetchPublicPosts()}
-                    disabled={isPostsLoading}
-                    className="
-                        group self-start sm:self-center px-6 py-3 rounded-full 
-                        bg-slate-100 dark:bg-slate-700/50 
-                        hover:bg-slate-200 dark:hover:bg-slate-700
-                        text-slate-700 dark:text-slate-200 
-                        font-bold text-sm tracking-wide 
-                        transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100
-                        flex items-center gap-2.5
-                    "
-                >
-                    <ArrowPathIcon className={`w-4 h-4 transition-transform group-hover:rotate-180 ${isPostsLoading ? 'animate-spin' : ''}`} strokeWidth={2.5} />
-                    <span>Refresh</span>
-                </button>
-            </div>
-        </div>
+	                  <button
+	                      onClick={() => fetchPublicPosts()}
+	                      disabled={isPostsLoading}
+	                      className="
+	                          group self-start sm:self-center px-6 py-3 rounded-full 
+	                          bg-slate-100 dark:bg-slate-700/50 
+	                          hover:bg-slate-200 dark:hover:bg-slate-700
+	                          text-slate-700 dark:text-slate-200 
+	                          font-bold text-sm tracking-wide 
+	                          transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100
+	                          flex items-center gap-2.5
+	                      "
+	                  >
+	                      <ArrowPathIcon className={`w-4 h-4 transition-transform group-hover:rotate-180 ${isPostsLoading ? 'animate-spin' : ''}`} strokeWidth={2.5} />
+	                      <span>Refresh</span>
+	                  </button>
+	              </div>
+	          </div>
 
         {/* --- Post Feed --- */}
         <div className="space-y-6 relative z-0">

@@ -2,25 +2,9 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { db } from '../../services/firebase'; 
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'; 
 import {
-  PlusCircleIcon,
-  TrashIcon,
-  ArrowUturnLeftIcon,
-  DocumentTextIcon,
-  PhotoIcon,
-  CalculatorIcon,
-  CheckIcon,
-  ComputerDesktopIcon,
-  EyeIcon,
-  ListBulletIcon,
-  QueueListIcon,
-  ChatBubbleLeftRightIcon,
-  PaintBrushIcon,
-  CodeBracketIcon,
-  LinkIcon,
-  CursorArrowRaysIcon,
-  ArrowPathIcon,
-  XMarkIcon,
-  ExclamationTriangleIcon
+  PlusCircleIcon, TrashIcon, ArrowUturnLeftIcon, DocumentTextIcon, PhotoIcon, CalculatorIcon, CheckIcon,
+  ComputerDesktopIcon, EyeIcon, ListBulletIcon, QueueListIcon, ChatBubbleLeftRightIcon, PaintBrushIcon,
+  CodeBracketIcon, LinkIcon, CursorArrowRaysIcon, ArrowPathIcon, XMarkIcon, ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 
 import ContentRenderer from './ContentRenderer'; 
@@ -41,6 +25,34 @@ const MATH_SYMBOLS = [
 ];
 
 const uniqueId = () => `id_${Math.random().toString(36).substr(2, 9)}`;
+
+// --- VISUAL NUMBERING HELPER ---
+// Ensures that questions with multiple points (Essay/Matching) consume multiple question numbers visually.
+const getQuestionDisplayLabel = (index, allQuestions) => {
+    let count = 0;
+    for (let i = 0; i < index; i++) {
+        const q = allQuestions[i];
+        // If Matching or Essay, consume N numbers based on Points. Else 1.
+        if (q.type === 'matching-type' || q.type === 'essay') {
+            count += (q.points || 1); 
+        } else {
+            count += 1;
+        }
+    }
+    
+    const currentQ = allQuestions[index];
+    // Calculate span for current item
+    const currentLength = (currentQ.type === 'matching-type' || currentQ.type === 'essay') 
+        ? (currentQ.points || 1) 
+        : 1;
+    
+    const start = count + 1;
+    const end = count + currentLength;
+    
+    // If it spans multiple numbers, show range
+    if (currentLength > 1) return `Qs ${start}-${end}`;
+    return `Question ${start}`;
+};
 
 // --- CUSTOM ICONS ---
 const BoldIcon = (props) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" /><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" /></svg>);
@@ -109,7 +121,7 @@ const uploadImageToCloudinary = async (file) => {
     return data.secure_url;
 };
 
-// --- MARKDOWN EDITOR COMPONENT ---
+// --- MARKDOWN EDITOR COMPONENT (OneUI Style) ---
 const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here...", minHeight = "120px" }) => {
     const textareaRef = useRef(null);
     const [showColorPicker, setShowColorPicker] = useState(false);
@@ -169,21 +181,21 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
             onClick={onClick}
             title={tooltip}
             onMouseDown={(e) => e.preventDefault()}
-            className="p-1.5 min-w-[28px] rounded-lg text-slate-500 hover:text-slate-900 hover:bg-black/5 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white transition-all active:scale-90 flex items-center justify-center"
+            className="p-2 min-w-[32px] rounded-lg text-slate-500 hover:text-slate-900 hover:bg-black/5 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white transition-all active:scale-90 flex items-center justify-center"
         >
-            {Icon ? <Icon className="w-4 h-4 stroke-[2.5]" /> : <span className="text-[10px] font-bold px-1">{text}</span>}
+            {Icon ? <Icon className="w-4 h-4 stroke-[2.5]" /> : <span className="text-[11px] font-bold px-1">{text}</span>}
         </button>
     );
 
     return (
-        <div className="flex flex-col w-full border border-black/5 dark:border-white/10 rounded-[12px] bg-white dark:bg-[#252525] overflow-visible focus-within:ring-2 focus-within:ring-[#007AFF]/50 transition-all">
+        <div className="flex flex-col w-full border border-black/5 dark:border-white/10 rounded-[18px] bg-white dark:bg-[#252525] overflow-visible focus-within:ring-2 focus-within:ring-[#007AFF]/50 transition-all shadow-sm">
             {/* Mini Toolbar */}
-            <div className="flex items-center flex-wrap gap-1 p-1.5 border-b border-black/5 dark:border-white/5 bg-slate-50/50 dark:bg-white/5 rounded-t-[12px]">
+            <div className="flex items-center flex-wrap gap-1 p-2 border-b border-black/5 dark:border-white/5 bg-slate-50/50 dark:bg-white/5 rounded-t-[18px]">
                 <ToolbarButton icon={BoldIcon} tooltip="Bold" onClick={() => applyStyle('**', '**')} />
                 <ToolbarButton icon={ItalicIcon} tooltip="Italic" onClick={() => applyStyle('*', '*')} />
                 <ToolbarButton icon={UnderlineIcon} tooltip="Underline" onClick={() => applyStyle('<u>', '</u>')} />
                 
-                <div className="w-px h-3 bg-black/10 dark:bg-white/10 mx-1"></div>
+                <div className="w-px h-4 bg-black/10 dark:bg-white/10 mx-2"></div>
                 
                 <ToolbarButton text="½" tooltip="Fraction" onClick={() => insertText('$\\frac{a}{b}$', -1)} />
                 <ToolbarButton text="x²" tooltip="Exponent" onClick={() => insertText('$x^{2}$', -1)} />
@@ -191,9 +203,9 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
                 <div className="relative">
                      <ToolbarButton icon={CalculatorIcon} tooltip="Symbols" onClick={() => setShowSymbolPicker(s => !s)} />
                      {showSymbolPicker && (
-                        <div onMouseLeave={() => setShowSymbolPicker(false)} className="absolute top-full left-0 mt-2 z-50 bg-white dark:bg-[#2C2C2E] border border-black/5 dark:border-white/10 p-2 rounded-[12px] shadow-xl grid grid-cols-6 gap-1 w-64">
+                        <div onMouseLeave={() => setShowSymbolPicker(false)} className="absolute top-full left-0 mt-2 z-50 bg-white dark:bg-[#2C2C2E] border border-black/5 dark:border-white/10 p-2 rounded-[16px] shadow-xl grid grid-cols-6 gap-1 w-64 backdrop-blur-xl">
                             {MATH_SYMBOLS.map(sym => (
-                                <button key={sym} onClick={() => insertText(sym)} className="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded text-sm font-mono text-slate-700 dark:text-slate-200">{sym}</button>
+                                <button key={sym} onClick={() => insertText(sym)} className="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-lg text-sm font-mono text-slate-700 dark:text-slate-200 transition-colors">{sym}</button>
                             ))}
                         </div>
                     )}
@@ -202,9 +214,9 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
                 <div className="relative">
                     <ToolbarButton icon={PaintBrushIcon} tooltip="Color" onClick={() => setShowColorPicker(s => !s)} />
                     {showColorPicker && (
-                        <div onMouseLeave={() => setShowColorPicker(false)} className="absolute top-full left-0 mt-2 z-50 bg-white dark:bg-[#2C2C2E] border border-black/5 dark:border-white/10 p-2 rounded-[12px] shadow-xl flex gap-2">
+                        <div onMouseLeave={() => setShowColorPicker(false)} className="absolute top-full left-0 mt-2 z-50 bg-white dark:bg-[#2C2C2E] border border-black/5 dark:border-white/10 p-3 rounded-[16px] shadow-xl flex gap-2 backdrop-blur-xl">
                             {TEXT_COLORS.map(color => (
-                                <button key={color.name} onClick={() => applyColor(color.hex)} className="w-5 h-5 rounded-full border border-black/5" style={{ backgroundColor: color.hex }} />
+                                <button key={color.name} onClick={() => applyColor(color.hex)} className="w-6 h-6 rounded-full border border-black/5 shadow-sm hover:scale-110 transition-transform" style={{ backgroundColor: color.hex }} />
                             ))}
                         </div>
                     )}
@@ -215,7 +227,7 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
                 ref={textareaRef}
                 value={value || ''}
                 onChange={(e) => onValueChange && onValueChange(e.target.value)}
-                className="w-full p-3 text-[14px] leading-relaxed resize-none border-none focus:outline-none focus:ring-0 bg-transparent text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
+                className="w-full p-4 text-[15px] leading-relaxed resize-none border-none focus:outline-none focus:ring-0 bg-transparent text-slate-900 dark:text-slate-100 placeholder:text-slate-400 font-medium"
                 placeholder={placeholder}
                 style={{ minHeight }}
                 spellCheck="false"
@@ -239,21 +251,21 @@ const MobileRestricted = ({ onClose }) => (
 const DiscardChangesModal = ({ isOpen, onClose, onConfirm }) => {
     if (!isOpen) return null;
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white dark:bg-[#1c1c1e] rounded-[24px] shadow-2xl p-6 max-w-sm w-full border border-black/5 dark:border-white/10 scale-100 animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-in fade-in duration-200">
+            <div className="bg-white dark:bg-[#1c1c1e] rounded-[28px] shadow-2xl p-6 max-w-sm w-full border border-black/5 dark:border-white/10 scale-100 animate-in zoom-in-95 duration-200">
                 <div className="flex flex-col items-center text-center">
-                    <div className="w-14 h-14 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mb-4 text-red-500">
-                        <ExclamationTriangleIcon className="w-7 h-7 stroke-[2]" />
+                    <div className="w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mb-5 text-red-500 shadow-lg shadow-red-500/20">
+                        <ExclamationTriangleIcon className="w-8 h-8 stroke-[2]" />
                     </div>
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Unsaved Changes</h3>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 font-medium mb-6">
+                    <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Unsaved Changes</h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 font-medium mb-8 leading-relaxed">
                         Are you sure you want to leave? All progress on this quiz will be lost forever.
                     </p>
                     <div className="flex gap-3 w-full">
-                        <button onClick={onClose} className="flex-1 py-3 rounded-[14px] font-bold text-sm bg-slate-100 dark:bg-[#2c2c2e] text-slate-700 dark:text-slate-300 hover:bg-slate-200 transition-colors">
+                        <button onClick={onClose} className="flex-1 py-3.5 rounded-[18px] font-bold text-sm bg-slate-100 dark:bg-[#2c2c2e] text-slate-700 dark:text-slate-300 hover:bg-slate-200 transition-colors">
                             Keep Editing
                         </button>
-                        <button onClick={onConfirm} className="flex-1 py-3 rounded-[14px] font-bold text-sm bg-red-500 text-white hover:bg-red-600 shadow-lg shadow-red-500/30 transition-all">
+                        <button onClick={onConfirm} className="flex-1 py-3.5 rounded-[18px] font-bold text-sm bg-red-500 text-white hover:bg-red-600 shadow-lg shadow-red-500/30 transition-all active:scale-95">
                             Discard
                         </button>
                     </div>
@@ -278,8 +290,8 @@ export default function ManualQuizCreator({ onClose, onBack, unitId, subjectId, 
   const [draggedPin, setDraggedPin] = useState(null); // { pIndex: number }
   const imageRef = useRef(null);
 
-  // Styling Constants
-  const inputClass = "w-full bg-slate-50 dark:bg-[#2c2c2e] border border-black/5 dark:border-white/10 rounded-[12px] px-3 py-2.5 text-[14px] font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-[#007AFF]/20 focus:border-[#007AFF] outline-none transition-all shadow-sm";
+  // Styling Constants (OneUI)
+  const inputClass = "w-full bg-slate-50 dark:bg-[#2c2c2e] border border-black/5 dark:border-white/10 rounded-[16px] px-4 py-3 text-[15px] font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-[#007AFF]/20 focus:border-[#007AFF] outline-none transition-all shadow-sm";
 
   // --- INITIALIZATION ---
   useEffect(() => {
@@ -373,7 +385,7 @@ export default function ManualQuizCreator({ onClose, onBack, unitId, subjectId, 
     setQuestions(newQuestions);
   };
 
-  // --- HANDLERS (Full Logic Restored) ---
+  // --- HANDLERS (Full Logic) ---
 
   // 1. Image Labeling
   const handleImageUpload = async (qIndex, file) => {
@@ -535,34 +547,36 @@ export default function ManualQuizCreator({ onClose, onBack, unitId, subjectId, 
 
   // --- PREVIEW COMPONENT ---
   const PreviewCard = ({ question, index }) => {
-      if (!question) return <div className="flex flex-col items-center justify-center h-full text-slate-400 p-10"><DocumentTextIcon className="w-10 h-10 mb-2 opacity-50"/>Select a question to preview</div>;
+      if (!question) return <div className="flex flex-col items-center justify-center h-full text-slate-400 p-10"><DocumentTextIcon className="w-12 h-12 mb-3 opacity-30"/><span className="font-bold text-sm">Select a question to preview</span></div>;
       
+      const displayLabel = getQuestionDisplayLabel(index, questions);
+
       return (
-        <div className="bg-white dark:bg-[#1c1c1e] border border-black/5 dark:border-white/5 rounded-[20px] shadow-sm p-6 space-y-6 h-full overflow-y-auto custom-scrollbar">
+        <div className="bg-white dark:bg-[#1c1c1e] border border-black/5 dark:border-white/5 rounded-[28px] shadow-lg p-8 space-y-6 h-full overflow-y-auto custom-scrollbar">
             {/* Header */}
-            <div className="flex justify-between items-start border-b border-black/5 dark:border-white/5 pb-4">
-                <div className="flex-1 mr-4">
-                    <h4 className="text-[10px] font-bold uppercase text-slate-400 tracking-widest mb-2">Question {index + 1}</h4>
-                    <div className="prose prose-sm dark:prose-invert leading-snug text-slate-900 dark:text-white">
+            <div className="flex justify-between items-start border-b border-black/5 dark:border-white/5 pb-5">
+                <div className="flex-1 mr-6">
+                    <h4 className="text-[11px] font-bold uppercase text-slate-400 tracking-widest mb-2.5">{displayLabel}</h4>
+                    <div className="prose prose-sm dark:prose-invert leading-relaxed text-slate-900 dark:text-white font-medium text-[15px]">
                         <ContentRenderer text={question.text || 'Question Prompt...'} />
                     </div>
                 </div>
-                <span className="bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 text-[11px] font-bold px-2 py-1 rounded-md whitespace-nowrap">
-			{question.points} pt(s)
+                <span className="bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 text-[11px] font-bold px-3 py-1.5 rounded-[10px] whitespace-nowrap shadow-sm">
+			{question.points} pts
                 </span>
             </div>
 
             {/* Content Body - COMPACT MODE */}
-            <div className="space-y-3">
+            <div className="space-y-4">
                 {/* 1. MCQ */}
                 {question.type === 'multiple-choice' && (
-                    <div className="space-y-2">
+                    <div className="space-y-2.5">
                         {question.options.map((opt, i) => (
-                            <div key={i} className={`flex items-start gap-3 py-2 px-3 rounded-lg border transition-all ${question.correctAnswerIndex === i ? 'border-green-500 bg-green-50 dark:bg-green-900/10' : 'border-black/5 dark:border-white/10 bg-slate-50 dark:bg-white/5'}`}>
-                                <div className={`w-4 h-4 mt-0.5 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${question.correctAnswerIndex === i ? 'border-green-500 bg-green-500' : 'border-slate-300 dark:border-slate-600'}`}>
-                                    {question.correctAnswerIndex === i && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+                            <div key={i} className={`flex items-start gap-3 py-3 px-4 rounded-[14px] border transition-all ${question.correctAnswerIndex === i ? 'border-green-500 bg-green-50 dark:bg-green-900/10 shadow-sm' : 'border-black/5 dark:border-white/10 bg-slate-50 dark:bg-white/5'}`}>
+                                <div className={`w-5 h-5 mt-0.5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${question.correctAnswerIndex === i ? 'border-green-500 bg-green-500' : 'border-slate-300 dark:border-slate-600'}`}>
+                                    {question.correctAnswerIndex === i && <div className="w-2 h-2 bg-white rounded-full" />}
                                 </div>
-                                <div className="text-sm text-slate-700 dark:text-slate-200 leading-tight"><ContentRenderer text={opt || `Option ${i+1}`} /></div>
+                                <div className="text-[14px] text-slate-700 dark:text-slate-200 leading-snug font-medium"><ContentRenderer text={opt || `Option ${i+1}`} /></div>
                             </div>
                         ))}
                     </div>
@@ -570,9 +584,9 @@ export default function ManualQuizCreator({ onClose, onBack, unitId, subjectId, 
 
                 {/* 2. T/F */}
                 {question.type === 'true-false' && (
-                    <div className="flex gap-2">
+                    <div className="flex gap-3">
                         {['True', 'False'].map(val => (
-                            <div key={val} className={`flex-1 py-2 text-center rounded-lg font-bold text-sm border ${question.correctAnswer === (val === 'True') ? 'bg-green-500 text-white border-green-500 shadow-sm' : 'bg-slate-50 dark:bg-white/5 border-black/5 dark:border-white/10 text-slate-500'}`}>
+                            <div key={val} className={`flex-1 py-3 text-center rounded-[14px] font-bold text-[14px] border transition-all ${question.correctAnswer === (val === 'True') ? 'bg-green-500 text-white border-green-500 shadow-md shadow-green-500/20' : 'bg-slate-50 dark:bg-white/5 border-black/5 dark:border-white/10 text-slate-500'}`}>
                                 {val}
                             </div>
                         ))}
@@ -582,30 +596,30 @@ export default function ManualQuizCreator({ onClose, onBack, unitId, subjectId, 
                 {/* 3. Identification */}
                 {question.type === 'identification' && (
                     <div>
-                        <input disabled placeholder="Student types answer here..." className={`${inputClass} text-sm py-2`} />
-                        <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/10 rounded-lg border border-green-200 dark:border-green-900/30 flex items-center gap-2">
-                            <span className="text-[10px] text-green-700 dark:text-green-400 font-bold uppercase">Answer:</span>
-                            <span className="text-xs font-bold text-slate-900 dark:text-white">{question.correctAnswer || 'Not set'}</span>
+                        <input disabled placeholder="Student types answer here..." className={`${inputClass} text-sm py-3`} />
+                        <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/10 rounded-[14px] border border-green-200 dark:border-green-900/30 flex items-center gap-2">
+                            <span className="text-[10px] text-green-700 dark:text-green-400 font-bold uppercase tracking-wide">Answer:</span>
+                            <span className="text-sm font-bold text-slate-900 dark:text-white">{question.correctAnswer || 'Not set'}</span>
                         </div>
                     </div>
                 )}
 
                 {/* 4. Matching */}
                 {question.type === 'matching-type' && (
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div className="space-y-1.5">
-                             <p className="text-[10px] font-bold uppercase text-slate-400">Column A</p>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="space-y-2">
+                             <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wide">Column A</p>
                              {question.prompts.map((p,i) => (
-                                 <div key={i} className="p-2 bg-slate-50 dark:bg-white/5 rounded border border-black/5 dark:border-white/5 text-slate-700 dark:text-slate-200 text-xs">
-                                     <span className="font-bold mr-1.5">{i+1}.</span><ContentRenderer text={p.text} />
+                                 <div key={i} className="p-3 bg-slate-50 dark:bg-white/5 rounded-[12px] border border-black/5 dark:border-white/5 text-slate-700 dark:text-slate-200 text-xs shadow-sm flex gap-2">
+                                     <span className="font-bold opacity-50">{i+1}.</span> <ContentRenderer text={p.text} />
                                  </div>
                              ))}
                         </div>
-                        <div className="space-y-1.5">
-                             <p className="text-[10px] font-bold uppercase text-slate-400">Column B</p>
+                        <div className="space-y-2">
+                             <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wide">Column B</p>
                              {question.options.map((o,i) => (
-                                 <div key={i} className="p-2 bg-slate-50 dark:bg-white/5 rounded border border-black/5 dark:border-white/5 text-slate-700 dark:text-slate-200 text-xs">
-                                     <span className="font-bold mr-1.5">{String.fromCharCode(65+i)}.</span><ContentRenderer text={o.text} />
+                                 <div key={i} className="p-3 bg-slate-50 dark:bg-white/5 rounded-[12px] border border-black/5 dark:border-white/5 text-slate-700 dark:text-slate-200 text-xs shadow-sm flex gap-2">
+                                     <span className="font-bold opacity-50">{String.fromCharCode(65+i)}.</span> <ContentRenderer text={o.text} />
                                  </div>
                              ))}
                         </div>
@@ -614,15 +628,15 @@ export default function ManualQuizCreator({ onClose, onBack, unitId, subjectId, 
 
                 {/* 5. Essay */}
                 {question.type === 'essay' && (
-                    <div className="space-y-2">
-                        <textarea disabled className={`${inputClass} min-h-[80px] resize-none bg-slate-50 text-sm`} placeholder="Student response area..." />
-                        <div className="bg-slate-50 dark:bg-white/5 rounded-lg p-2 border border-black/5 dark:border-white/5">
-                            <p className="text-[10px] font-bold uppercase text-slate-400 mb-1">Rubric</p>
-                            <div className="space-y-1">
+                    <div className="space-y-3">
+                        <textarea disabled className={`${inputClass} min-h-[100px] resize-none bg-slate-50 text-sm`} placeholder="Student response area..." />
+                        <div className="bg-slate-50 dark:bg-white/5 rounded-[14px] p-3 border border-black/5 dark:border-white/5">
+                            <p className="text-[10px] font-bold uppercase text-slate-400 mb-2 tracking-wide">Grading Rubric</p>
+                            <div className="space-y-1.5">
                                 {question.rubric.map((r, idx) => (
-                                    <div key={idx} className="flex justify-between text-[11px] text-slate-600 dark:text-slate-300">
+                                    <div key={idx} className="flex justify-between text-[12px] text-slate-600 dark:text-slate-300 font-medium">
                                         <span className="truncate pr-2">• <ContentRenderer text={r.criteria} /></span>
-                                        <span className="font-bold flex-shrink-0">{r.points} pts</span>
+                                        <span className="font-bold flex-shrink-0 bg-white dark:bg-black/20 px-1.5 py-0.5 rounded">{r.points} pts</span>
                                     </div>
                                 ))}
                             </div>
@@ -632,26 +646,26 @@ export default function ManualQuizCreator({ onClose, onBack, unitId, subjectId, 
 
                 {/* 6. Image Labeling */}
                 {question.type === 'image-labeling' && (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                         {question.image ? (
-                            <div className="relative rounded-lg overflow-hidden border border-black/5 dark:border-white/10 bg-slate-100 dark:bg-black/20">
+                            <div className="relative rounded-[16px] overflow-hidden border border-black/5 dark:border-white/10 bg-slate-100 dark:bg-black/20 shadow-sm">
                                 <img src={question.image} className="w-full h-auto" alt="Quiz" />
                                 {question.parts.map((part) => (
-                                    <div key={part.id} className="absolute w-5 h-5 bg-[#007AFF] text-white rounded-full flex items-center justify-center text-[10px] font-bold border border-white shadow-sm" style={{ left: `${part.x}%`, top: `${part.y}%`, transform: 'translate(-50%, -50%)' }}>
+                                    <div key={part.id} className="absolute w-6 h-6 bg-[#007AFF] text-white rounded-full flex items-center justify-center text-[10px] font-bold border-2 border-white shadow-md" style={{ left: `${part.x}%`, top: `${part.y}%`, transform: 'translate(-50%, -50%)' }}>
                                         {part.number}
                                     </div>
                                 ))}
                             </div>
                         ) : (
-                            <div className="h-24 bg-slate-50 rounded-lg flex items-center justify-center text-xs text-slate-400">No Image</div>
+                            <div className="h-28 bg-slate-50 rounded-[16px] flex items-center justify-center text-xs text-slate-400 font-bold border-2 border-dashed border-slate-200">No Image Preview</div>
                         )}
-                        <div className="bg-slate-50 dark:bg-white/5 rounded-lg p-2 border border-black/5 dark:border-white/5">
-                            <p className="text-[10px] font-bold uppercase text-slate-400 mb-1">Keys</p>
+                        <div className="bg-slate-50 dark:bg-white/5 rounded-[14px] p-3 border border-black/5 dark:border-white/5">
+                            <p className="text-[10px] font-bold uppercase text-slate-400 mb-2 tracking-wide">Answer Key</p>
                             <div className="flex flex-wrap gap-2">
                                 {question.parts.map((p, idx) => (
-                                    <div key={idx} className="flex items-center gap-1.5 text-[11px] bg-white dark:bg-black/10 px-2 py-1 rounded border border-black/5">
+                                    <div key={idx} className="flex items-center gap-2 text-[11px] bg-white dark:bg-black/10 px-2.5 py-1.5 rounded-[10px] border border-black/5 shadow-sm">
                                         <span className="w-4 h-4 rounded-full bg-[#007AFF] text-white flex items-center justify-center font-bold text-[9px]">{p.number}</span>
-                                        <span className="text-slate-700 dark:text-slate-300 max-w-[100px] truncate">{p.correctAnswer || '-'}</span>
+                                        <span className="text-slate-700 dark:text-slate-300 max-w-[120px] truncate font-bold">{p.correctAnswer || '-'}</span>
                                     </div>
                                 ))}
                             </div>
@@ -662,9 +676,9 @@ export default function ManualQuizCreator({ onClose, onBack, unitId, subjectId, 
             
             {/* Rationale */}
             {question.explanation && (
-                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-900/30">
-                    <p className="text-[9px] font-bold uppercase text-blue-500 mb-1">Rationale</p>
-                    <div className="text-[11px] text-slate-600 dark:text-slate-300 leading-snug">
+                <div className="mt-6 p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-[16px] border border-blue-100 dark:border-blue-900/30 backdrop-blur-sm">
+                    <p className="text-[10px] font-bold uppercase text-blue-500 mb-1.5 tracking-wide">Rationale</p>
+                    <div className="text-[12px] text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
                         <ContentRenderer text={question.explanation} />
                     </div>
                 </div>
@@ -686,11 +700,11 @@ export default function ManualQuizCreator({ onClose, onBack, unitId, subjectId, 
       />
 
       {/* HEADER */}
-      <div className="hidden md:block flex-shrink-0 px-8 py-5 border-b border-black/5 dark:border-white/5 bg-white dark:bg-[#1c1c1e] z-20 sticky top-0">
+      <div className="hidden md:block flex-shrink-0 px-8 py-5 border-b border-black/5 dark:border-white/5 bg-white/80 dark:bg-[#1c1c1e]/80 backdrop-blur-xl z-20 sticky top-0 transition-all">
           <div className="flex items-center justify-between">
               {/* Left Side: Back + Title Input */}
-              <div className="flex items-center gap-4 flex-1">
-                  <button onClick={() => setShowCancelModal(true)} className="p-2.5 rounded-full bg-slate-100 dark:bg-[#2c2c2e] hover:bg-slate-200 transition-all active:scale-95 group">
+              <div className="flex items-center gap-5 flex-1">
+                  <button onClick={() => setShowCancelModal(true)} className="p-3 rounded-full bg-slate-100 dark:bg-[#2c2c2e] hover:bg-slate-200 dark:hover:bg-[#3a3a3c] transition-all active:scale-95 group">
                       <ArrowUturnLeftIcon className="w-5 h-5 stroke-[2.5] text-slate-600 dark:text-white group-hover:-translate-x-0.5 transition-transform" />
                   </button>
                   <div className="flex flex-col w-full max-w-lg">
@@ -698,10 +712,10 @@ export default function ManualQuizCreator({ onClose, onBack, unitId, subjectId, 
                         value={title} 
                         onChange={(e) => setTitle(e.target.value)} 
                         placeholder="Enter Quiz Title..." 
-                        className="text-xl font-bold bg-transparent border-none focus:ring-0 p-0 text-slate-900 dark:text-white placeholder-slate-300" 
+                        className="text-xl font-bold bg-transparent border-none focus:ring-0 p-0 text-slate-900 dark:text-white placeholder-slate-300 tracking-tight" 
                       />
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Manual Creator</span>
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Manual Editor</span>
                         <div className="w-1 h-1 rounded-full bg-slate-300"></div>
                         <span className="text-[11px] font-bold bg-[#007AFF]/10 text-[#007AFF] px-2 py-0.5 rounded-full">{totalPoints} Points Total</span>
                       </div>
@@ -712,14 +726,14 @@ export default function ManualQuizCreator({ onClose, onBack, unitId, subjectId, 
               <div className="flex gap-3">
                   <button 
                     onClick={() => setShowCancelModal(true)} 
-                    className="px-6 py-2.5 font-bold text-sm bg-slate-100 dark:bg-[#2c2c2e] text-slate-600 dark:text-slate-300 rounded-[14px] hover:bg-slate-200 dark:hover:bg-[#3a3a3c] transition-all active:scale-95"
+                    className="px-6 py-3 font-bold text-sm bg-slate-100 dark:bg-[#2c2c2e] text-slate-600 dark:text-slate-300 rounded-[16px] hover:bg-slate-200 dark:hover:bg-[#3a3a3c] transition-all active:scale-95"
                   >
                     Cancel
                   </button>
                   <button 
                     onClick={handleSubmit} 
                     disabled={loading} 
-                    className="px-8 py-2.5 font-bold text-sm bg-gradient-to-r from-[#007AFF] to-[#0051A8] text-white rounded-[14px] shadow-lg shadow-blue-500/30 flex items-center gap-2 hover:shadow-blue-500/50 transition-all active:scale-95 disabled:opacity-50 disabled:scale-100"
+                    className="px-8 py-3 font-bold text-sm bg-[#007AFF] text-white rounded-[16px] shadow-lg shadow-blue-500/20 flex items-center gap-2 hover:bg-[#0051A8] hover:shadow-blue-500/40 transition-all active:scale-95 disabled:opacity-50 disabled:scale-100"
                   >
                       {loading ? <ArrowPathIcon className="w-5 h-5 animate-spin" /> : <CheckIcon className="w-5 h-5 stroke-[2.5]" />}
                       {loading ? 'Saving...' : 'Save Quiz'}
@@ -730,9 +744,10 @@ export default function ManualQuizCreator({ onClose, onBack, unitId, subjectId, 
 
       {/* ERROR BANNER */}
       {error && (
-        <div className="absolute top-24 left-1/2 -translate-x-1/2 z-50 bg-red-500 text-white px-6 py-3 rounded-full shadow-xl font-bold text-sm animate-in fade-in slide-in-from-top-5 flex items-center gap-2">
-            <XMarkIcon className="w-5 h-5 cursor-pointer" onClick={() => setError('')} />
+        <div className="absolute top-24 left-1/2 -translate-x-1/2 z-50 bg-red-500/90 backdrop-blur-md text-white px-6 py-3 rounded-full shadow-2xl font-bold text-sm animate-in fade-in slide-in-from-top-5 flex items-center gap-3 border border-white/10">
+            <ExclamationTriangleIcon className="w-5 h-5 stroke-[2]" />
             {error}
+            <XMarkIcon className="w-5 h-5 cursor-pointer opacity-80 hover:opacity-100 ml-2" onClick={() => setError('')} />
         </div>
       )}
 
@@ -740,88 +755,92 @@ export default function ManualQuizCreator({ onClose, onBack, unitId, subjectId, 
       <div className="hidden md:flex flex-grow overflow-hidden p-6 gap-6">
           
           {/* LEFT: QUESTION LIST (Slightly narrower for balance) */}
-          <div className="w-[250px] flex-shrink-0 flex flex-col bg-white dark:bg-[#1c1c1e] border border-black/5 dark:border-white/5 rounded-[20px] shadow-sm overflow-hidden">
-             <div className="p-4 border-b border-black/5 dark:border-white/5 bg-slate-50/50 dark:bg-[#2c2c2e]/50"><h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Questions</h3></div>
-             <div className="flex-grow overflow-y-auto p-2 custom-scrollbar space-y-1.5">
+          <div className="w-[280px] flex-shrink-0 flex flex-col bg-white dark:bg-[#1c1c1e] border border-black/5 dark:border-white/5 rounded-[24px] shadow-sm overflow-hidden">
+             <div className="p-5 border-b border-black/5 dark:border-white/5 bg-slate-50/80 dark:bg-[#2c2c2e]/50 backdrop-blur-sm"><h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Question List</h3></div>
+             <div className="flex-grow overflow-y-auto p-3 custom-scrollbar space-y-2">
                  {questions.map((q, i) => (
-                     <div key={q.id} onClick={() => setSelectedQuestionIndex(i)} className={`group relative flex items-center justify-between p-3 rounded-[14px] cursor-pointer transition-all border ${selectedQuestionIndex === i ? 'bg-[#007AFF]/10 border-[#007AFF]/20' : 'bg-white dark:bg-[#2c2c2e] border-transparent hover:bg-slate-50 dark:hover:bg-[#3a3a3c]'}`}>
-                         {selectedQuestionIndex === i && <div className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 bg-[#007AFF] rounded-r-full" />}
-                         <div className="flex flex-col pl-2 overflow-hidden w-full">
+                     <div key={q.id} onClick={() => setSelectedQuestionIndex(i)} className={`group relative flex items-center justify-between p-3.5 rounded-[16px] cursor-pointer transition-all border ${selectedQuestionIndex === i ? 'bg-[#007AFF] border-[#007AFF] shadow-lg shadow-blue-500/20' : 'bg-white dark:bg-[#2c2c2e] border-transparent hover:bg-slate-50 dark:hover:bg-[#3a3a3c]'}`}>
+                         <div className="flex flex-col pl-1 overflow-hidden w-full">
                              <div className="flex justify-between items-center w-full">
-                                 <span className={`font-bold text-[13px] truncate ${selectedQuestionIndex === i ? 'text-[#007AFF]' : 'text-slate-700 dark:text-slate-200'}`}>{i+1}. {q.text ? q.text.substring(0, 15) + '...' : 'New Question'}</span>
+                                 {/* --- VISUAL NUMBERING APPLIED HERE --- */}
+                                 <span className={`font-bold text-[13px] truncate ${selectedQuestionIndex === i ? 'text-white' : 'text-slate-700 dark:text-slate-200'}`}>
+                                     {getQuestionDisplayLabel(i, questions).replace('Question', '').replace('Qs', '')}. {q.text ? q.text.substring(0, 15) + '...' : 'New Question'}
+                                 </span>
                              </div>
-                             <span className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">{q.type.replace('-', ' ')}</span>
+                             <span className={`text-[10px] font-bold uppercase mt-1 ${selectedQuestionIndex === i ? 'text-white/70' : 'text-slate-400'}`}>{q.type.replace('-', ' ')}</span>
                          </div>
-                         <button onClick={(e) => { e.stopPropagation(); handleRemoveQuestion(i); }} className="p-1.5 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><TrashIcon className="h-4 w-4" /></button>
+                         <button onClick={(e) => { e.stopPropagation(); handleRemoveQuestion(i); }} className={`p-1.5 rounded-lg transition-colors ${selectedQuestionIndex === i ? 'text-white/60 hover:bg-white/20 hover:text-white' : 'text-slate-300 hover:text-red-500 hover:bg-red-50'} opacity-0 group-hover:opacity-100`}><TrashIcon className="h-4 w-4" /></button>
                      </div>
                  ))}
              </div>
-             <div className="p-3 border-t border-black/5 dark:border-white/5">
-                <button onClick={handleAddQuestion} className="w-full flex justify-center items-center gap-2 px-4 py-3 rounded-[14px] bg-slate-50 dark:bg-[#3a3a3c] hover:bg-slate-100 dark:hover:bg-[#48484a] text-[13px] font-bold text-[#007AFF] border border-black/5 transition-all"><PlusCircleIcon className="w-5 h-5" /> Add Question</button>
+             <div className="p-4 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#1c1c1e]">
+                <button onClick={handleAddQuestion} className="w-full flex justify-center items-center gap-2 px-4 py-3.5 rounded-[16px] bg-slate-50 dark:bg-[#3a3a3c] hover:bg-slate-100 dark:hover:bg-[#48484a] text-[13px] font-bold text-[#007AFF] border border-black/5 transition-all shadow-sm active:scale-95"><PlusCircleIcon className="w-5 h-5" /> Add New Question</button>
              </div>
           </div>
 
           {/* CENTER: EDITOR */}
-          <div className="flex-1 flex flex-col bg-white dark:bg-[#1c1c1e] border border-black/5 dark:border-white/5 rounded-[20px] shadow-sm overflow-hidden min-w-0">
+          <div className="flex-1 flex flex-col bg-white dark:bg-[#1c1c1e] border border-black/5 dark:border-white/5 rounded-[24px] shadow-sm overflow-hidden min-w-0">
              {currentQuestion ? (
                  <>
                     {/* Editor Toolbar */}
-                    <div className="flex items-center gap-4 p-5 border-b border-black/5 dark:border-white/5 bg-white dark:bg-[#1c1c1e]">
+                    <div className="flex items-center gap-5 p-6 border-b border-black/5 dark:border-white/5 bg-white dark:bg-[#1c1c1e]">
                          <div className="flex-1">
-                             <span className="text-[10px] font-bold uppercase text-slate-400 tracking-widest block mb-1">Question Type</span>
+                             <span className="text-[10px] font-bold uppercase text-slate-400 tracking-widest block mb-2">Question Type</span>
                              <div className="relative">
-                                <select value={currentQuestion.type} onChange={(e) => handleQuestionChange(selectedQuestionIndex, 'type', e.target.value)} className={`${inputClass} py-2 pl-3 pr-8 text-sm appearance-none cursor-pointer bg-slate-100 dark:bg-[#2c2c2e]`}>
+                                <select value={currentQuestion.type} onChange={(e) => handleQuestionChange(selectedQuestionIndex, 'type', e.target.value)} className={`${inputClass} py-2.5 pl-4 pr-10 text-sm appearance-none cursor-pointer bg-slate-50 dark:bg-[#2c2c2e] hover:bg-slate-100`}>
                                     {questionTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                                 </select>
                              </div>
                          </div>
-                         <div className="w-24">
-                             <span className="text-[10px] font-bold uppercase text-slate-400 tracking-widest block mb-1">Points</span>
-                             <input type="number" min="1" value={currentQuestion.points} onChange={(e) => handleQuestionChange(selectedQuestionIndex, 'points', parseInt(e.target.value))} disabled={['matching-type', 'essay', 'image-labeling'].includes(currentQuestion.type)} className={`${inputClass} py-2 text-center bg-slate-100 dark:bg-[#2c2c2e] disabled:opacity-50`} />
+                         <div className="w-28">
+                             <span className="text-[10px] font-bold uppercase text-slate-400 tracking-widest block mb-2">Points</span>
+                             <input type="number" min="1" value={currentQuestion.points} onChange={(e) => handleQuestionChange(selectedQuestionIndex, 'points', parseInt(e.target.value))} disabled={['matching-type', 'essay', 'image-labeling'].includes(currentQuestion.type)} className={`${inputClass} py-2.5 text-center bg-slate-50 dark:bg-[#2c2c2e] disabled:opacity-50 font-bold`} />
                          </div>
                     </div>
 
                     <div className="flex-grow overflow-y-auto custom-scrollbar bg-[#FAFAFA] dark:bg-[#151515] p-8">
                         {/* Prompt Editor */}
-                        <div className="space-y-2 mb-8">
-                            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Question Prompt</label>
+                        <div className="space-y-3 mb-10">
+                            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide ml-1">Question Prompt</label>
                             <MarkdownEditor value={currentQuestion.text} onValueChange={(val) => handleQuestionChange(selectedQuestionIndex, 'text', val)} placeholder="Type your question prompt here..." minHeight="160px" />
                         </div>
 
-                        <div className="h-px bg-black/5 dark:bg-white/5 w-full mb-8" />
+                        <div className="h-px bg-black/5 dark:bg-white/5 w-full mb-10" />
 
                         {/* Dynamic Inputs Based on Type */}
-                        <div className="space-y-6">
+                        <div className="space-y-8">
                             
                             {/* 1. Multiple Choice Options */}
                             {currentQuestion.type === 'multiple-choice' && (
-                                <div className="space-y-3">
-                                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Answer Options</label>
-                                    {currentQuestion.options.map((opt, idx) => (
-                                        <div key={idx} className="flex gap-3 items-start group">
-                                            <button 
-                                                onClick={() => handleQuestionChange(selectedQuestionIndex, 'correctAnswerIndex', idx)} 
-                                                className={`mt-2 w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-all ${currentQuestion.correctAnswerIndex === idx ? 'bg-green-500 border-green-500 text-white scale-110' : 'bg-white border-slate-300 hover:border-green-300'}`}
-                                                title="Mark as correct"
-                                            >
-                                                {currentQuestion.correctAnswerIndex === idx && <CheckIcon className="w-4 h-4 stroke-[3]" />}
-                                            </button>
-                                            <div className="flex-1">
-                                                <MarkdownEditor value={opt} onValueChange={(val) => { const newOpts = [...currentQuestion.options]; newOpts[idx] = val; handleQuestionChange(selectedQuestionIndex, 'options', newOpts); }} placeholder={`Option ${idx + 1}`} minHeight="60px" />
+                                <div className="space-y-4">
+                                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide ml-1">Answer Options</label>
+                                    <div className="grid grid-cols-1 gap-3">
+                                        {currentQuestion.options.map((opt, idx) => (
+                                            <div key={idx} className="flex gap-3 items-start group animate-in slide-in-from-left-2">
+                                                <button 
+                                                    onClick={() => handleQuestionChange(selectedQuestionIndex, 'correctAnswerIndex', idx)} 
+                                                    className={`mt-2 w-7 h-7 rounded-full border-[3px] flex-shrink-0 flex items-center justify-center transition-all ${currentQuestion.correctAnswerIndex === idx ? 'bg-green-500 border-green-500 text-white shadow-lg shadow-green-500/20 scale-105' : 'bg-white border-slate-300 hover:border-green-300'}`}
+                                                    title="Mark as correct"
+                                                >
+                                                    {currentQuestion.correctAnswerIndex === idx && <CheckIcon className="w-4 h-4 stroke-[4]" />}
+                                                </button>
+                                                <div className="flex-1">
+                                                    <MarkdownEditor value={opt} onValueChange={(val) => { const newOpts = [...currentQuestion.options]; newOpts[idx] = val; handleQuestionChange(selectedQuestionIndex, 'options', newOpts); }} placeholder={`Option ${idx + 1}`} minHeight="60px" />
+                                                </div>
+                                                <button onClick={() => { const newOpts = currentQuestion.options.filter((_, i) => i !== idx); handleQuestionChange(selectedQuestionIndex, 'options', newOpts); }} className="mt-2 text-slate-400 hover:text-red-500 hover:bg-red-50 p-2.5 rounded-[12px] transition-colors"><TrashIcon className="w-5 h-5" /></button>
                                             </div>
-                                            <button onClick={() => { const newOpts = currentQuestion.options.filter((_, i) => i !== idx); handleQuestionChange(selectedQuestionIndex, 'options', newOpts); }} className="mt-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg p-2 transition-colors"><TrashIcon className="w-5 h-5" /></button>
-                                        </div>
-                                    ))}
-                                    <button onClick={() => handleQuestionChange(selectedQuestionIndex, 'options', [...currentQuestion.options, ''])} className="text-sm font-bold text-[#007AFF] hover:underline flex items-center gap-1 ml-9"><PlusCircleIcon className="w-4 h-4" /> Add Option</button>
+                                        ))}
+                                    </div>
+                                    <button onClick={() => handleQuestionChange(selectedQuestionIndex, 'options', [...currentQuestion.options, ''])} className="text-sm font-bold text-[#007AFF] hover:bg-[#007AFF]/10 px-4 py-2 rounded-[12px] flex items-center gap-2 ml-9 transition-colors"><PlusCircleIcon className="w-5 h-5" /> Add Option</button>
                                 </div>
                             )}
 
                             {/* 2. Image Labeling (Complex Logic) */}
                             {currentQuestion.type === 'image-labeling' && (
-                                <div className="p-6 bg-white dark:bg-[#1c1c1e] rounded-[20px] border border-black/5 shadow-sm">
+                                <div className="p-8 bg-white dark:bg-[#1c1c1e] rounded-[24px] border border-black/5 shadow-sm">
                                     <div className="flex justify-between items-center mb-6">
-                                        <label className="text-xs font-bold text-slate-500 uppercase">Diagram Configuration</label>
-                                        <label className={`cursor-pointer text-xs font-bold text-white bg-[#007AFF] px-4 py-2 rounded-[10px] hover:shadow-lg hover:shadow-blue-500/30 transition-all active:scale-95 flex items-center gap-2 ${uploadingImage ? 'opacity-50' : ''}`}>
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Diagram Configuration</label>
+                                        <label className={`cursor-pointer text-xs font-bold text-white bg-[#007AFF] px-5 py-2.5 rounded-[14px] hover:bg-[#0062cc] shadow-lg shadow-blue-500/20 transition-all active:scale-95 flex items-center gap-2 ${uploadingImage ? 'opacity-50' : ''}`}>
                                             {uploadingImage ? <ArrowPathIcon className="w-4 h-4 animate-spin"/> : <PhotoIcon className="w-4 h-4" />}
                                             {uploadingImage ? 'Uploading...' : 'Upload Image'} 
                                             <input type="file" className="hidden" accept="image/*" onChange={(e) => e.target.files[0] && handleImageUpload(selectedQuestionIndex, e.target.files[0])} disabled={uploadingImage} />
@@ -830,7 +849,7 @@ export default function ManualQuizCreator({ onClose, onBack, unitId, subjectId, 
                                     
                                     {/* Image Area */}
                                     {currentQuestion.image ? (
-                                        <div className="relative rounded-xl overflow-hidden border border-black/5 dark:border-white/10 bg-slate-100 group select-none">
+                                        <div className="relative rounded-[20px] overflow-hidden border border-black/5 dark:border-white/10 bg-slate-100 group select-none shadow-inner">
                                             <img 
                                                 ref={imageRef} 
                                                 src={currentQuestion.image} 
@@ -842,39 +861,39 @@ export default function ManualQuizCreator({ onClose, onBack, unitId, subjectId, 
                                                 <div 
                                                     key={p.id} 
                                                     onMouseDown={(e) => { e.stopPropagation(); setDraggedPin({ pIndex }); }} 
-                                                    className="absolute w-8 h-8 bg-[#007AFF] text-white rounded-full flex items-center justify-center text-sm font-bold border-2 border-white shadow-lg cursor-move hover:scale-110 transition-transform z-10" 
+                                                    className="absolute w-9 h-9 bg-[#007AFF] text-white rounded-full flex items-center justify-center text-sm font-bold border-[3px] border-white shadow-xl cursor-move hover:scale-110 transition-transform z-10" 
                                                     style={{ left: `${p.x}%`, top: `${p.y}%`, transform: 'translate(-50%, -50%)' }}
                                                 >
                                                     {p.number}
                                                 </div>
                                             ))}
-                                            <div className="absolute top-3 right-3 bg-black/70 text-white text-[11px] px-3 py-1.5 rounded-full backdrop-blur-md font-bold pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2">
+                                            <div className="absolute top-4 right-4 bg-black/60 text-white text-[11px] px-3 py-2 rounded-[12px] backdrop-blur-xl font-bold pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 shadow-lg">
                                                 <CursorArrowRaysIcon className="w-3 h-3"/> Click to label • Drag to move
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="h-48 flex flex-col items-center justify-center bg-slate-50 dark:bg-white/5 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl text-slate-400 gap-2">
-                                            <PhotoIcon className="w-8 h-8 opacity-50"/>
+                                        <div className="h-56 flex flex-col items-center justify-center bg-slate-50 dark:bg-white/5 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-[20px] text-slate-400 gap-3">
+                                            <PhotoIcon className="w-10 h-10 opacity-50"/>
                                             <span className="text-sm font-bold">No Image Uploaded</span>
                                         </div>
                                     )}
                                     
                                     {/* Inputs for Labels */}
-                                    <div className="mt-6 space-y-3">
-                                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Correct Answers</label>
+                                    <div className="mt-8 space-y-4">
+                                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide block border-b border-black/5 pb-2">Label Keys</label>
                                         {currentQuestion.parts.map((p, idx) => (
-                                            <div key={p.id} className="flex items-center gap-3 animate-in slide-in-from-left-2">
-                                                <span className="w-8 h-8 rounded-full bg-[#007AFF] text-white text-sm font-bold flex items-center justify-center flex-shrink-0 shadow-sm">{p.number}</span>
+                                            <div key={p.id} className="flex items-center gap-4 animate-in slide-in-from-left-2">
+                                                <span className="w-8 h-8 rounded-full bg-[#007AFF] text-white text-sm font-bold flex items-center justify-center flex-shrink-0 shadow-md shadow-blue-500/20">{p.number}</span>
                                                 <input 
                                                     value={p.correctAnswer} 
                                                     onChange={(e) => { const newParts = [...currentQuestion.parts]; newParts[idx].correctAnswer = e.target.value; handleQuestionChange(selectedQuestionIndex, 'parts', newParts); }} 
                                                     className={inputClass} 
                                                     placeholder={`Correct Answer for Pin #${p.number}`} 
                                                 />
-                                                <button onClick={() => { const newParts = currentQuestion.parts.filter((_, i) => i !== idx).map((pp, ii) => ({ ...pp, number: ii + 1 })); handleQuestionChange(selectedQuestionIndex, 'parts', newParts); }} className="text-slate-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors"><TrashIcon className="w-5 h-5" /></button>
+                                                <button onClick={() => { const newParts = currentQuestion.parts.filter((_, i) => i !== idx).map((pp, ii) => ({ ...pp, number: ii + 1 })); handleQuestionChange(selectedQuestionIndex, 'parts', newParts); }} className="text-slate-400 hover:text-red-500 hover:bg-red-50 p-2.5 rounded-[12px] transition-colors"><TrashIcon className="w-5 h-5" /></button>
                                             </div>
                                         ))}
-                                        {(!currentQuestion.parts || currentQuestion.parts.length === 0) && <p className="text-sm text-slate-400 italic">Click on the image above to add labels.</p>}
+                                        {(!currentQuestion.parts || currentQuestion.parts.length === 0) && <p className="text-sm text-slate-400 italic text-center py-4">Tap on specific areas in the image above to create labels.</p>}
                                     </div>
                                 </div>
                             )}
@@ -883,44 +902,44 @@ export default function ManualQuizCreator({ onClose, onBack, unitId, subjectId, 
                             {currentQuestion.type === 'matching-type' && (
                                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
                                     {/* Prompts */}
-                                    <div className="space-y-3">
-                                        <div className="flex justify-between items-center"><label className="text-[11px] font-bold text-slate-400 uppercase">Column A (Prompts)</label></div>
+                                    <div className="space-y-4 p-5 bg-slate-50 dark:bg-white/5 rounded-[20px] border border-black/5 dark:border-white/5">
+                                        <div className="flex justify-between items-center"><label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Column A (Premises)</label></div>
                                         {currentQuestion.prompts.map((p, idx) => (
-                                            <div key={idx} className="flex gap-2 items-start">
-                                                <span className="text-xs font-bold text-slate-400 w-6 pt-3 text-center">{idx + 1}.</span>
-                                                <div className="flex-1 flex flex-col gap-2">
+                                            <div key={idx} className="flex gap-3 items-start group">
+                                                <span className="text-xs font-bold text-slate-400 w-6 pt-4 text-center">{idx + 1}.</span>
+                                                <div className="flex-1 flex flex-col gap-3">
                                                     <MarkdownEditor value={p.text} onValueChange={(val) => handleMatchingSubItemChange(selectedQuestionIndex, 'prompts', idx, val)} placeholder="Prompt text..." minHeight="60px" />
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-[10px] font-bold text-slate-400 uppercase">Match:</span>
+                                                    <div className="flex items-center gap-2 p-2 bg-white dark:bg-[#2c2c2e] rounded-[12px] border border-black/5">
+                                                        <span className="text-[10px] font-bold text-slate-400 uppercase px-2">Matches:</span>
                                                         <select 
                                                             value={currentQuestion.correctPairs?.[p.id] || ''} 
                                                             onChange={(e) => handlePairChange(selectedQuestionIndex, p.id, e.target.value)} 
-                                                            className="flex-1 bg-slate-100 dark:bg-[#2c2c2e] border-none rounded-lg text-xs py-1.5 font-bold"
+                                                            className="flex-1 bg-transparent border-none text-xs font-bold text-slate-800 dark:text-white cursor-pointer"
                                                         >
-                                                            <option value="">Select Option...</option>
+                                                            <option value="">Select Answer...</option>
                                                             {currentQuestion.options.map((o, oid) => <option key={o.id} value={o.id}>Option {String.fromCharCode(65 + oid)}</option>)}
                                                         </select>
                                                     </div>
                                                 </div>
-                                                <button onClick={() => handleRemoveMatchingItem(selectedQuestionIndex, 'prompts', idx)} className="text-slate-400 hover:text-red-500 pt-2"><TrashIcon className="w-5 h-5" /></button>
+                                                <button onClick={() => handleRemoveMatchingItem(selectedQuestionIndex, 'prompts', idx)} className="text-slate-400 hover:text-red-500 pt-3 opacity-0 group-hover:opacity-100 transition-opacity"><TrashIcon className="w-5 h-5" /></button>
                                             </div>
                                         ))}
-                                        <button onClick={() => handleAddMatchingItem(selectedQuestionIndex, 'prompts')} className="w-full py-3 border border-dashed border-slate-300 rounded-[12px] text-xs font-bold text-slate-500 hover:bg-slate-50">Add Prompt</button>
+                                        <button onClick={() => handleAddMatchingItem(selectedQuestionIndex, 'prompts')} className="w-full py-3.5 border border-dashed border-slate-300 rounded-[14px] text-xs font-bold text-slate-500 hover:bg-white hover:border-[#007AFF] hover:text-[#007AFF] transition-all">Add Premise</button>
                                     </div>
 
                                     {/* Options */}
-                                    <div className="space-y-3">
-                                        <div className="flex justify-between items-center"><label className="text-[11px] font-bold text-slate-400 uppercase">Column B (Options)</label></div>
+                                    <div className="space-y-4 p-5 bg-slate-50 dark:bg-white/5 rounded-[20px] border border-black/5 dark:border-white/5">
+                                        <div className="flex justify-between items-center"><label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Column B (Responses)</label></div>
                                         {currentQuestion.options.map((o, idx) => (
-                                            <div key={idx} className="flex gap-2 items-start">
-                                                <span className="text-xs font-bold text-slate-400 w-6 pt-3 text-center">{String.fromCharCode(65 + idx)}.</span>
+                                            <div key={idx} className="flex gap-3 items-start group">
+                                                <span className="text-xs font-bold text-slate-400 w-6 pt-4 text-center">{String.fromCharCode(65 + idx)}.</span>
                                                 <div className="flex-1">
                                                     <MarkdownEditor value={o.text} onValueChange={(val) => handleMatchingSubItemChange(selectedQuestionIndex, 'options', idx, val)} placeholder="Option text..." minHeight="60px" />
                                                 </div>
-                                                <button onClick={() => handleRemoveMatchingItem(selectedQuestionIndex, 'options', idx)} className="text-slate-400 hover:text-red-500 pt-2"><TrashIcon className="w-5 h-5" /></button>
+                                                <button onClick={() => handleRemoveMatchingItem(selectedQuestionIndex, 'options', idx)} className="text-slate-400 hover:text-red-500 pt-3 opacity-0 group-hover:opacity-100 transition-opacity"><TrashIcon className="w-5 h-5" /></button>
                                             </div>
                                         ))}
-                                        <button onClick={() => handleAddMatchingItem(selectedQuestionIndex, 'options')} className="w-full py-3 border border-dashed border-slate-300 rounded-[12px] text-xs font-bold text-slate-500 hover:bg-slate-50">Add Option</button>
+                                        <button onClick={() => handleAddMatchingItem(selectedQuestionIndex, 'options')} className="w-full py-3.5 border border-dashed border-slate-300 rounded-[14px] text-xs font-bold text-slate-500 hover:bg-white hover:border-[#007AFF] hover:text-[#007AFF] transition-all">Add Response</button>
                                     </div>
                                 </div>
                             )}
@@ -928,68 +947,77 @@ export default function ManualQuizCreator({ onClose, onBack, unitId, subjectId, 
                             {/* 4. Essay Rubric */}
                             {currentQuestion.type === 'essay' && (
                                 <div className="space-y-4">
-                                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Grading Rubric</label>
-                                    <div className="bg-white dark:bg-[#1c1c1e] rounded-[16px] border border-black/5 overflow-hidden">
-                                        <div className="grid grid-cols-12 gap-4 px-4 py-2 bg-slate-50 dark:bg-[#2c2c2e] border-b border-black/5 text-[10px] font-bold text-slate-500 uppercase">
-                                            <div className="col-span-8">Criteria</div>
+                                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide ml-1">Grading Rubric</label>
+                                    <div className="bg-white dark:bg-[#1c1c1e] rounded-[20px] border border-black/5 overflow-hidden shadow-sm">
+                                        <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-slate-50 dark:bg-[#2c2c2e] border-b border-black/5 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                                            <div className="col-span-8">Criteria Description</div>
                                             <div className="col-span-3 text-center">Points</div>
                                             <div className="col-span-1"></div>
                                         </div>
                                         {currentQuestion.rubric.map((r, idx) => (
-                                            <div key={idx} className="grid grid-cols-12 gap-4 px-4 py-3 border-b border-black/5 items-start last:border-0">
+                                            <div key={idx} className="grid grid-cols-12 gap-4 px-6 py-4 border-b border-black/5 items-start last:border-0 hover:bg-slate-50/50 transition-colors">
                                                 <div className="col-span-8">
-                                                    <MarkdownEditor value={r.criteria} onValueChange={(val) => handleRubricChange(selectedQuestionIndex, idx, 'criteria', val)} placeholder="Criteria Description" minHeight="60px" />
+                                                    <MarkdownEditor value={r.criteria} onValueChange={(val) => handleRubricChange(selectedQuestionIndex, idx, 'criteria', val)} placeholder="e.g. Grammar and Syntax" minHeight="60px" />
                                                 </div>
-                                                <div className="col-span-3">
-                                                    <input type="number" value={r.points} onChange={(e) => handleRubricChange(selectedQuestionIndex, idx, 'points', e.target.value)} className={`${inputClass} text-center`} min="1" />
+                                                <div className="col-span-3 flex items-start justify-center">
+                                                    <input type="number" value={r.points} onChange={(e) => handleRubricChange(selectedQuestionIndex, idx, 'points', e.target.value)} className={`${inputClass} text-center w-20 font-bold`} min="1" />
                                                 </div>
-                                                <div className="col-span-1 flex justify-center pt-2">
-                                                    <button onClick={() => handleRemoveRubricItem(selectedQuestionIndex, idx)} className="text-slate-400 hover:text-red-500"><TrashIcon className="w-5 h-5" /></button>
+                                                <div className="col-span-1 flex justify-center pt-3">
+                                                    <button onClick={() => handleRemoveRubricItem(selectedQuestionIndex, idx)} className="text-slate-300 hover:text-red-500 transition-colors"><TrashIcon className="w-5 h-5" /></button>
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
-                                    <button onClick={() => handleAddRubricItem(selectedQuestionIndex)} className="text-sm font-bold text-[#007AFF] hover:underline flex items-center gap-1"><PlusCircleIcon className="w-4 h-4" /> Add Criteria</button>
+                                    <button onClick={() => handleAddRubricItem(selectedQuestionIndex)} className="text-sm font-bold text-[#007AFF] hover:bg-[#007AFF]/10 px-4 py-2.5 rounded-[12px] flex items-center gap-2 transition-all ml-1"><PlusCircleIcon className="w-5 h-5" /> Add Criteria</button>
                                 </div>
                             )}
 
                             {/* 5. Identification */}
                             {currentQuestion.type === 'identification' && (
-                                <div className="space-y-2">
-                                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Correct Answer</label>
-                                    <input value={currentQuestion.correctAnswer} onChange={(e) => handleQuestionChange(selectedQuestionIndex, 'correctAnswer', e.target.value)} className={inputClass} placeholder="Exact match..." />
+                                <div className="space-y-3">
+                                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide ml-1">Correct Answer</label>
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex-1 relative">
+                                            <CheckIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-green-500 stroke-[3]" />
+                                            <input value={currentQuestion.correctAnswer} onChange={(e) => handleQuestionChange(selectedQuestionIndex, 'correctAnswer', e.target.value)} className={`${inputClass} pl-12 border-green-500/30 focus:border-green-500 focus:ring-green-500/20`} placeholder="Exact text match..." />
+                                        </div>
+                                    </div>
                                 </div>
                             )}
 
                              {/* 6. True/False */}
                              {currentQuestion.type === 'true-false' && (
-                                <div className="space-y-2">
-                                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Correct Answer</label>
+                                <div className="space-y-3">
+                                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide ml-1">Correct Answer</label>
                                     <div className="flex gap-4">
-                                        <button onClick={() => handleQuestionChange(selectedQuestionIndex, 'correctAnswer', true)} className={`px-8 py-3 rounded-[12px] font-bold transition-all ${currentQuestion.correctAnswer === true ? 'bg-green-500 text-white shadow-lg shadow-green-500/30' : 'bg-slate-100 dark:bg-[#2c2c2e] text-slate-500'}`}>True</button>
-                                        <button onClick={() => handleQuestionChange(selectedQuestionIndex, 'correctAnswer', false)} className={`px-8 py-3 rounded-[12px] font-bold transition-all ${currentQuestion.correctAnswer === false ? 'bg-green-500 text-white shadow-lg shadow-green-500/30' : 'bg-slate-100 dark:bg-[#2c2c2e] text-slate-500'}`}>False</button>
+                                        <button onClick={() => handleQuestionChange(selectedQuestionIndex, 'correctAnswer', true)} className={`flex-1 py-4 rounded-[16px] font-bold text-lg transition-all flex items-center justify-center gap-2 ${currentQuestion.correctAnswer === true ? 'bg-green-500 text-white shadow-lg shadow-green-500/30 scale-105' : 'bg-slate-100 dark:bg-[#2c2c2e] text-slate-500 hover:bg-slate-200'}`}>
+                                            {currentQuestion.correctAnswer === true && <CheckIcon className="w-6 h-6"/>} True
+                                        </button>
+                                        <button onClick={() => handleQuestionChange(selectedQuestionIndex, 'correctAnswer', false)} className={`flex-1 py-4 rounded-[16px] font-bold text-lg transition-all flex items-center justify-center gap-2 ${currentQuestion.correctAnswer === false ? 'bg-green-500 text-white shadow-lg shadow-green-500/30 scale-105' : 'bg-slate-100 dark:bg-[#2c2c2e] text-slate-500 hover:bg-slate-200'}`}>
+                                            {currentQuestion.correctAnswer === false && <CheckIcon className="w-6 h-6"/>} False
+                                        </button>
                                     </div>
                                 </div>
                             )}
 
                             {/* Rationale (Common) */}
-                            <div className="pt-6 mt-6 border-t border-black/5 dark:border-white/5 space-y-2">
-                                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Rationale / Explanation (Optional)</label>
-                                <MarkdownEditor value={currentQuestion.explanation} onValueChange={(val) => handleQuestionChange(selectedQuestionIndex, 'explanation', val)} placeholder="Explain why the answer is correct..." minHeight="100px" />
+                            <div className="pt-8 mt-8 border-t border-black/5 dark:border-white/5 space-y-3">
+                                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide ml-1">Rationale / Explanation (Optional)</label>
+                                <MarkdownEditor value={currentQuestion.explanation} onValueChange={(val) => handleQuestionChange(selectedQuestionIndex, 'explanation', val)} placeholder="Explain why the answer is correct (shown to students after quiz)..." minHeight="100px" />
                             </div>
                         </div>
                     </div>
                  </>
-             ) : <div className="flex items-center justify-center h-full text-slate-400 font-medium">Select a question to edit</div>}
+             ) : <div className="flex flex-col items-center justify-center h-full text-slate-300 font-bold gap-4"><DocumentTextIcon className="w-16 h-16 opacity-20"/>Select a question from the left to edit</div>}
           </div>
 
           {/* RIGHT: LIVE PREVIEW (Wider) */}
-          <div className="w-[420px] flex-shrink-0 flex flex-col bg-slate-100 dark:bg-[#151515] border border-black/5 dark:border-white/5 rounded-[20px] shadow-inner overflow-hidden">
-                <div className="p-4 bg-white dark:bg-[#1c1c1e] border-b border-black/5 dark:border-white/5 flex items-center gap-2">
-                    <EyeIcon className="w-4 h-4 text-slate-500" />
-                    <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Student View</h3>
+          <div className="w-[440px] flex-shrink-0 flex flex-col bg-slate-100/50 dark:bg-[#151515] border border-black/5 dark:border-white/5 rounded-[24px] shadow-inner overflow-hidden backdrop-blur-sm">
+                <div className="p-5 bg-white/80 dark:bg-[#1c1c1e]/80 border-b border-black/5 dark:border-white/5 flex items-center gap-2.5 backdrop-blur-md sticky top-0 z-10">
+                    <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center"><EyeIcon className="w-4 h-4 text-slate-500" /></div>
+                    <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Student Preview</h3>
                 </div>
-                <div className="flex-grow overflow-hidden p-4">
+                <div className="flex-grow overflow-hidden p-6">
                     <PreviewCard question={currentQuestion} index={selectedQuestionIndex} />
                 </div>
           </div>

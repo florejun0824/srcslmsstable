@@ -1,11 +1,12 @@
 // src/components/teacher/dashboard/views/CoursesView.jsx
-import React, { useState, useEffect, useMemo, memo } from 'react';
+import React, { useState, useEffect, useMemo, memo, Fragment } from 'react';
 import { Routes, Route, useParams, useNavigate, Link } from 'react-router-dom';
 import { db } from '../../../../services/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import UnitAccordion from '../../UnitAccordion';
 import Spinner from '../../../../components/common/Spinner';
 import { useTheme } from '../../../../contexts/ThemeContext';
+import { Menu, Transition } from '@headlessui/react'; // ✅ Added for Dropdown
 import {
     PencilSquareIcon, TrashIcon, PlusCircleIcon, ArrowUturnLeftIcon, SparklesIcon,
     BookOpenIcon, CalculatorIcon, BeakerIcon, GlobeAltIcon, MusicalNoteIcon, WrenchScrewdriverIcon,
@@ -189,35 +190,91 @@ const getSubjectStyling = (subjectTitle, monet) => {
     return { icon: IconComponent, styleClass };
 };
 
-// --- COMPONENT: CONTENT SCOPE SWITCHER (Pill Style) ---
+// --- COMPONENT: CONTENT SCOPE SWITCHER (One UI 8.5 Style) ---
 const ContentScopeSwitcher = ({ activeGroup, onSwitch, monet }) => {
+    const isLearner = activeGroup === 'learner';
+    
     return (
-        <div className="relative inline-block w-full sm:w-auto min-w-[160px]">
-            <select
-                value={activeGroup}
-                onChange={(e) => onSwitch(e.target.value)}
-                className={`
-                    appearance-none pl-10 pr-8 py-2.5 rounded-full 
-                    text-xs font-bold transition-all cursor-pointer outline-none w-full
-                    ${monet 
-                        ? `${monet.btnTonal} border-none` 
-                        : 'bg-[#F2F4F7] dark:bg-[#2C2C2E] text-slate-700 dark:text-slate-200 hover:bg-[#E5E7EB] dark:hover:bg-[#3A3A3C] border-none'
-                    }
-                `}
-            >
-                <option value="learner" className="text-slate-900 bg-white dark:text-slate-200 dark:bg-[#1A1D24]">Learner's Space</option>
-                <option value="teacher" className="text-slate-900 bg-white dark:text-slate-200 dark:bg-[#1A1D24]">Teacher's Space</option>
-            </select>
-            
-            {/* Left Icon */}
-            <div className={`absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none ${monet ? monet.themeText : 'text-slate-500 dark:text-slate-400'}`}>
-                {activeGroup === 'learner' ? <LearnerIcon className="w-4 h-4"/> : <TeacherIcon className="w-4 h-4"/>}
-            </div>
+        <div className="relative z-20">
+            <Menu as="div" className="relative inline-block text-left">
+                <Menu.Button
+                    className={`
+                        group relative flex items-center justify-between gap-3 pl-4 pr-3 py-2.5 rounded-full 
+                        text-xs font-bold transition-all outline-none min-w-[170px] shadow-sm
+                        ${monet 
+                            ? `${monet.btnTonal} ring-1 ring-inset ring-black/5 dark:ring-white/5` 
+                            : 'bg-[#F2F4F7] dark:bg-[#2C2C2E] text-slate-700 dark:text-slate-200 hover:bg-[#E5E7EB] dark:hover:bg-[#3A3A3C]'
+                        }
+                    `}
+                >
+                    <div className="flex items-center gap-2.5">
+                        {isLearner ? <LearnerIcon className="w-4 h-4"/> : <TeacherIcon className="w-4 h-4"/>}
+                        <span className="capitalize">{activeGroup}'s Space</span>
+                    </div>
+                    <ArrowsUpDownIcon className={`w-3.5 h-3.5 opacity-70 group-hover:opacity-100 transition-opacity`} />
+                </Menu.Button>
 
-            {/* Right Chevron */}
-            <div className={`absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none ${monet ? monet.themeText : 'text-slate-400'}`}>
-                <ArrowsUpDownIcon className="w-3.5 h-3.5" />
-            </div>
+                <Transition
+                    as={Fragment}
+                    enter="transition ease-out duration-200"
+                    enterFrom="transform opacity-0 scale-95 translate-y-2"
+                    enterTo="transform opacity-100 scale-100 translate-y-0"
+                    leave="transition ease-in duration-150"
+                    leaveFrom="transform opacity-100 scale-100 translate-y-0"
+                    leaveTo="transform opacity-0 scale-95 translate-y-2"
+                >
+                    <Menu.Items className="absolute left-0 mt-2 w-56 origin-top-left rounded-[24px] bg-white/95 dark:bg-[#1C1C1E]/95 backdrop-blur-3xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.2)] dark:shadow-black/50 border border-white/40 dark:border-white/10 ring-1 ring-black/5 focus:outline-none p-1.5 z-50">
+                        
+                        <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                            Switch Portal
+                        </div>
+
+                        <Menu.Item>
+                            {({ active }) => (
+                                <button
+                                    onClick={() => onSwitch('learner')}
+                                    className={`
+                                        flex w-full items-center gap-3 rounded-[18px] px-3 py-2.5 text-xs font-bold transition-all
+                                        ${active 
+                                            ? 'bg-slate-100 dark:bg-white/10 text-slate-900 dark:text-white' 
+                                            : 'text-slate-600 dark:text-slate-300'
+                                        }
+                                        ${activeGroup === 'learner' ? (monet ? monet.themeText : 'text-blue-600 dark:text-blue-400') : ''}
+                                    `}
+                                >
+                                    <div className={`p-1.5 rounded-full ${activeGroup === 'learner' ? (monet ? monet.badge : 'bg-blue-50 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400') : 'bg-slate-100 dark:bg-white/5 text-slate-500'}`}>
+                                        <LearnerIcon className="w-4 h-4" />
+                                    </div>
+                                    Learner's Space
+                                    {activeGroup === 'learner' && <CheckCircleIcon className="w-4 h-4 ml-auto" />}
+                                </button>
+                            )}
+                        </Menu.Item>
+
+                        <Menu.Item>
+                            {({ active }) => (
+                                <button
+                                    onClick={() => onSwitch('teacher')}
+                                    className={`
+                                        flex w-full items-center gap-3 rounded-[18px] px-3 py-2.5 text-xs font-bold transition-all
+                                        ${active 
+                                            ? 'bg-slate-100 dark:bg-white/10 text-slate-900 dark:text-white' 
+                                            : 'text-slate-600 dark:text-slate-300'
+                                        }
+                                        ${activeGroup === 'teacher' ? (monet ? monet.themeText : 'text-emerald-600 dark:text-emerald-400') : ''}
+                                    `}
+                                >
+                                    <div className={`p-1.5 rounded-full ${activeGroup === 'teacher' ? (monet ? monet.badge : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400') : 'bg-slate-100 dark:bg-white/5 text-slate-500'}`}>
+                                        <TeacherIcon className="w-4 h-4" />
+                                    </div>
+                                    Teacher's Space
+                                    {activeGroup === 'teacher' && <CheckCircleIcon className="w-4 h-4 ml-auto" />}
+                                </button>
+                            )}
+                        </Menu.Item>
+                    </Menu.Items>
+                </Transition>
+            </Menu>
         </div>
     );
 };
@@ -758,48 +815,71 @@ const ContentGroupSelector = memo((props) => {
         props.handleBackToCategoryList();
     }, [props.setActiveSubject, props.handleBackToCategoryList]);
 
-    return (
-        <div className={commonContainerClasses}>
-            <div className="relative z-10 flex items-center justify-center h-full">
-                <div className="w-full max-w-6xl mx-auto">
-                    <div className="text-center mb-16">
-                         <h1 className={`text-3xl sm:text-4xl font-black tracking-tight mb-3 ${monet ? monet.themeText : 'text-slate-900 dark:text-white'}`}>Who is learning today?</h1>
-                         <p className={`text-lg font-bold ${monet ? 'text-slate-500 dark:text-slate-400' : 'text-slate-500 dark:text-slate-400'}`}>Select your portal to access content.</p>
-                    </div>
+	return (
+	    <div className={commonContainerClasses}>
+	        <div className="relative z-10 flex items-center justify-center h-full min-h-[80vh]">
+	            <div className="w-full max-w-5xl mx-auto">
+                
+	                {/* Header */}
+	                <div className="text-center mb-20 space-y-3">
+	                     <h1 className={`text-4xl sm:text-5xl font-black tracking-tight ${monet ? monet.themeText : 'text-slate-900 dark:text-white'}`}>
+	                        Who is learning today?
+	                     </h1>
+	                     <p className="text-xl font-medium text-slate-500 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed">
+	                        Select your portal to access content.
+	                     </p>
+	                </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 px-6">
-                        {/* Learner Card */}
-                        <Link to="learner" className={`${elevatedCardBase} h-72 flex flex-col justify-center items-center text-center`}>
-                            <div className={`w-20 h-20 rounded-[24px] flex items-center justify-center mb-8 bg-sky-100 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400`}>
-                                <LearnerIcon className={`w-10 h-10`} />
-                            </div>
-                            <h2 className={`text-2xl font-black mb-3 tracking-tight text-slate-900 dark:text-white`}>Learner</h2>
-                            <p className={`text-sm max-w-sm mx-auto mb-8 font-bold text-slate-500 dark:text-slate-400`}>
-                                Access student-facing materials, assignments, and public resources.
-                            </p>
-                            <div className={`text-sm font-bold flex items-center gap-2 uppercase tracking-wider text-sky-600 dark:text-sky-400`}>
-                                Enter Portal <span>→</span>
-                            </div>
-                        </Link>
+	                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 px-6">
+                    
+	                    {/* Learner Card */}
+	                    <Link 
+	                        to="learner" 
+	                        className="group relative flex flex-col items-center text-center h-auto min-h-[22rem] p-10 rounded-[3rem] bg-white/60 dark:bg-[#1C1C1E]/60 backdrop-blur-3xl border border-white/40 dark:border-white/5 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] dark:shadow-black/50 transition-all duration-500 hover:scale-[1.02] hover:shadow-[0_30px_60px_-15px_rgba(14,165,233,0.15)] hover:border-sky-200/50 dark:hover:border-sky-500/20"
+	                    >
+	                        <div className="w-24 h-24 rounded-[2rem] flex items-center justify-center mb-8 bg-sky-100 text-sky-600 dark:bg-sky-500/20 dark:text-sky-400 shadow-inner group-hover:scale-110 transition-transform duration-500">
+	                            <LearnerIcon className="w-12 h-12 stroke-[1.5]" />
+	                        </div>
+                        
+	                        <h2 className="text-3xl font-black mb-3 tracking-tight text-slate-900 dark:text-white group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
+	                            Learner
+	                        </h2>
+                        
+	                        <p className="text-sm font-bold text-slate-500 dark:text-slate-400 max-w-xs mx-auto mb-8 leading-relaxed">
+	                            Access student-facing materials, assignments, and public resources.
+	                        </p>
+                        
+	                        <div className="mt-auto flex items-center gap-2 px-8 py-4 rounded-full bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-300 text-xs font-black uppercase tracking-widest transition-all group-hover:bg-sky-600 group-hover:text-white dark:group-hover:bg-sky-500 dark:group-hover:text-white shadow-sm">
+	                            Enter Portal <span>→</span>
+	                        </div>
+	                    </Link>
 
-                        {/* Teacher Card */}
-                        <Link to="teacher" className={`${elevatedCardBase} h-72 flex flex-col justify-center items-center text-center`}>
-                            <div className={`w-20 h-20 rounded-[24px] flex items-center justify-center mb-8 bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400`}>
-                                <TeacherIcon className={`w-10 h-10`} />
-                            </div>
-                            <h2 className={`text-2xl font-black mb-3 tracking-tight text-slate-900 dark:text-white`}>Teacher</h2>
-                            <p className={`text-sm max-w-sm mx-auto mb-8 font-bold text-slate-500 dark:text-slate-400`}>
-                                Manage curriculum, create engaging units, and organize resources.
-                            </p>
-                            <div className={`text-sm font-bold flex items-center gap-2 uppercase tracking-wider text-emerald-600 dark:text-emerald-400`}>
-                                Manage Content <span>→</span>
-                            </div>
-                        </Link>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
+	                    {/* Teacher Card */}
+	                    <Link 
+	                        to="teacher" 
+	                        className="group relative flex flex-col items-center text-center h-auto min-h-[22rem] p-10 rounded-[3rem] bg-white/60 dark:bg-[#1C1C1E]/60 backdrop-blur-3xl border border-white/40 dark:border-white/5 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] dark:shadow-black/50 transition-all duration-500 hover:scale-[1.02] hover:shadow-[0_30px_60px_-15px_rgba(16,185,129,0.15)] hover:border-emerald-200/50 dark:hover:border-emerald-500/20"
+	                    >
+	                        <div className="w-24 h-24 rounded-[2rem] flex items-center justify-center mb-8 bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 shadow-inner group-hover:scale-110 transition-transform duration-500">
+	                            <TeacherIcon className="w-12 h-12 stroke-[1.5]" />
+	                        </div>
+                        
+	                        <h2 className="text-3xl font-black mb-3 tracking-tight text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+	                            Teacher
+	                        </h2>
+                        
+	                        <p className="text-sm font-bold text-slate-500 dark:text-slate-400 max-w-xs mx-auto mb-8 leading-relaxed">
+	                            Manage curriculum, create engaging units, and organize resources.
+	                        </p>
+                        
+	                        <div className="mt-auto flex items-center gap-2 px-8 py-4 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-xs font-black uppercase tracking-widest transition-all group-hover:bg-emerald-600 group-hover:text-white dark:group-hover:bg-emerald-500 dark:group-hover:text-white shadow-sm">
+	                            Manage Content <span>→</span>
+	                        </div>
+	                    </Link>
+	                </div>
+	            </div>
+	        </div>
+	    </div>
+	);
 });
 
 // --- MAIN COURSES VIEW COMPONENT (MEMOIZED) ---

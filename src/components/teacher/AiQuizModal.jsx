@@ -1,18 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { 
-    SparklesIcon, 
-    XMarkIcon, 
-    ArrowPathIcon, 
-    CheckIcon, 
-    ListBulletIcon, 
-    QueueListIcon, 
-    ChatBubbleLeftRightIcon, 
-    DocumentTextIcon, 
-    HashtagIcon,
-    CheckCircleIcon,
-    ArrowUturnLeftIcon,
-    SquaresPlusIcon 
+    SparklesIcon, XMarkIcon, ArrowPathIcon, CheckIcon, 
+    ListBulletIcon, QueueListIcon, ChatBubbleLeftRightIcon, 
+    DocumentTextIcon, SquaresPlusIcon, CheckCircleIcon, 
+    ArrowLeftIcon, BookOpenIcon, AcademicCapIcon
 } from '@heroicons/react/24/outline';
 import { db } from '../../services/firebase';
 import { doc, setDoc, collection, serverTimestamp } from 'firebase/firestore';
@@ -37,23 +29,33 @@ const tryParseJson = (jsonString) => {
   try {
     return JSON.parse(jsonString);
   } catch (error) {
-    console.warn("Standard JSON.parse failed. Attempting to fix AI JSON output.");
+    console.warn("AI JSON Parse Error, attempting sanitization...");
     let sanitizedString = jsonString
       .replace(/```json|```/g, '')
-      .replace(/,\s*([}\]])/g, '$1') // Trailing commas
-      .replace(/([{,]\s*)([A-Za-z0-9_]+)\s*:/g, '$1"$2":') // Unquoted keys
-      .replace(/[“”]/g, '"') // Smart quotes
-      .replace(/\\(?!["\\/bfnrtu])/g, '\\\\') // Backslashes
-      .replace(/[\u0000-\u001F]+/g, ' ') // Newlines in strings
+      .replace(/,\s*([}\]])/g, '$1') 
+      .replace(/([{,]\s*)([A-Za-z0-9_]+)\s*:/g, '$1"$2":') 
+      .replace(/[“”]/g, '"') 
+      .replace(/\\(?!["\\/bfnrtu])/g, '\\\\') 
       .trim();
     return JSON.parse(sanitizedString);
   }
 };
 
-// --- STYLES ---
-const inputClass = "w-full bg-slate-50 dark:bg-[#2c2c2e] border border-black/5 dark:border-white/10 rounded-[12px] px-3 py-2.5 text-[14px] font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-[#007AFF]/20 focus:border-[#007AFF] outline-none transition-all shadow-sm";
-const labelClass = "text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-2 block";
-const cardClass = "bg-white dark:bg-[#1c1c1e] border border-black/5 dark:border-white/5 rounded-[20px] shadow-sm overflow-hidden";
+// --- ONEUI 8.5 STYLES ---
+const modalOverlay = "fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-xl p-0 sm:p-4 transition-all duration-300";
+const modalContainer = "w-full max-w-2xl bg-[#F2F2F7]/95 dark:bg-[#1C1C1E]/95 backdrop-blur-2xl rounded-t-[28px] sm:rounded-[28px] shadow-2xl overflow-hidden flex flex-col h-[90vh] sm:h-auto sm:max-h-[85vh] border border-white/20 ring-1 ring-black/5 animate-in slide-in-from-bottom-10 duration-300";
+const headerClass = "px-6 py-5 bg-white/50 dark:bg-black/20 backdrop-blur-md border-b border-black/5 dark:border-white/5 flex items-center justify-between flex-shrink-0";
+const contentClass = "flex-1 overflow-y-auto p-6 custom-scrollbar space-y-6";
+const footerClass = "px-6 py-4 bg-white/80 dark:bg-[#2C2C2E]/80 backdrop-blur-md border-t border-black/5 dark:border-white/5 flex justify-between items-center flex-shrink-0";
+
+// Inputs
+const inputClass = "w-full bg-white dark:bg-[#2C2C2E] border-none rounded-[18px] px-4 py-3.5 text-[15px] font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-[#007AFF] outline-none transition-all shadow-sm";
+const labelClass = "text-[12px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2 block ml-2";
+
+// Buttons
+const btnPrimary = "px-6 py-3.5 rounded-[20px] bg-[#007AFF] text-white font-bold text-[15px] hover:bg-[#0062cc] active:scale-95 transition-all shadow-lg shadow-blue-500/20 flex items-center gap-2";
+const btnSecondary = "px-6 py-3.5 rounded-[20px] bg-white dark:bg-[#3A3A3C] text-slate-900 dark:text-white font-bold text-[15px] hover:bg-slate-50 dark:hover:bg-[#48484A] active:scale-95 transition-all border border-black/5 dark:border-white/5";
+const btnIcon = "p-2.5 rounded-full bg-slate-200/50 dark:bg-white/10 hover:bg-slate-300/50 dark:hover:bg-white/20 transition-all text-slate-600 dark:text-slate-300";
 
 export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson }) {
     const { showToast } = useToast();
@@ -76,7 +78,6 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
         'essay': 0
     });
     
-    // Processing State
     const [isGenerating, setIsGenerating] = useState(false);
     const [generatedQuiz, setGeneratedQuiz] = useState(null);
     const [error, setError] = useState('');
@@ -89,7 +90,6 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
         if (isOpen) fetchSubjects();
     }, [isOpen]);
 
-    // Reset on Open
     useEffect(() => {
         if (isOpen) {
             setStep(1); setItemCount(10); setQuizType('multiple-choice'); 
@@ -99,7 +99,7 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
         }
     }, [isOpen]);
 
-    // Auto-update distribution when itemCount changes
+    // Auto-balance mixed
     useEffect(() => {
         if (quizType === 'mixed') {
             const currentTotal = Object.values(distribution).reduce((a, b) => a + b, 0);
@@ -116,12 +116,16 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
         setDistribution(prev => ({ ...prev, [type]: newValue }));
     };
 
-    // --- LOGIC ---
+    // --- PROMPT CONSTRUCTION (DEPED ALIGNED & DETAILED) ---
 
     const constructPrompt = (isRevision = false) => {
         if (isRevision && generatedQuiz) {
-              return `You are a senior quiz editor. Revise the JSON below based on: "${revisionPrompt}". 
-              Language: ${language}. Return ONLY valid JSON.
+              return `
+              Role: Senior DepEd Assessment Editor.
+              Task: Revise the JSON below based on the user's feedback: "${revisionPrompt}".
+              Language: ${language}.
+              Constraint: Return ONLY valid JSON.
+              
               \`\`\`json
               ${JSON.stringify(generatedQuiz)}
               \`\`\``;
@@ -130,71 +134,86 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
         const lessonContent = lesson?.pages?.map(p => `## ${p.title}\n${p.content}`).join('\n\n') || '';
         const subjectTitle = subjects.find(s => s.id === selectedSubject)?.title || '';
         
-        // --- GRADE LEVEL DETECTION LOGIC ---
-        // Looks for numbers 7-12 in the subject title (e.g., "English 7", "Math 10", "Grade 8 Science")
+        // --- GRADE LEVEL & CONTEXT DETECTION ---
         const gradeMatch = subjectTitle.match(/\b(7|8|9|10|11|12)\b/);
-        const targetAudience = gradeMatch 
-            ? `Grade ${gradeMatch[0]} Students` 
-            : "High School Students";
+        const gradeLevel = gradeMatch ? `Grade ${gradeMatch[0]}` : "High School";
         
         let formatInstructions = '';
         
         if (quizType === 'mixed') {
-            const distStrings = Object.entries(distribution)
-                .filter(([_, count]) => count > 0)
-                .map(([type, count]) => `${count} ${type}`);
-            
+            const distStrings = Object.entries(distribution).filter(([_, count]) => count > 0).map(([type, count]) => `${count} ${type}`);
             formatInstructions = `
-            Format: Generate exactly ${itemCount} items with this distribution: ${distStrings.join(', ')}.
-            
-            CRITICAL OUTPUT RULES FOR MIXED TYPES:
-            1. Return a single "questions" array.
-            2. For "matching-type" items: Return 1 object per group. The object MUST have a "pairs" array (prompt/answer).
-            3. For "essay" items: MUST have a "rubric" array.
-            4. For "multiple-choice": MUST have "options" array.
-            5. For "true-false" and "identification": MUST have "correctAnswer".
+            Task Requirement: Generate exactly ${itemCount} items with this specific distribution: ${distStrings.join(', ')}.
             `;
-        } else if (quizType === 'matching-type') {
-            formatInstructions = `Format: Generate ${itemCount} items. Return a "questions" array with 1 object of type "matching-type". This object MUST have a "pairs" array containing objects with "prompt" and "answer" keys.`;
-        } else if (quizType === 'essay') {
-            formatInstructions = `Format: Generate ${itemCount} essay questions. Each question needs a "rubric" array (criteria, points).`;
         } else {
-            formatInstructions = `Format: Generate ${itemCount} items of type "${quizType}".`;
+            formatInstructions = `Task Requirement: Generate ${itemCount} items of type "${quizType}".`;
         }
 
         return `
-        Role: DepEd Assessment Specialist.
-        Context: Topic "${lesson?.title}", Subject "${subjectTitle}".
-        Target Audience: ${targetAudience}. (IMPORTANT: Adjust vocabulary, sentence complexity, and cognitive load to be appropriate for ${targetAudience}).
-        Language: ${language} ${language === 'Filipino' ? '(Use Tama/Mali for T/F)' : ''}.
+        Role: Expert DepEd Curriculum Developer and Assessment Specialist (Philippines K-12 Context).
+        Target Audience: ${gradeLevel} Students in the Philippines.
+        Language: ${language} ${language === 'Filipino' ? '(Ensure formal academic Filipino)' : '(English)'}.
+        Subject Context: ${subjectTitle} - Topic: "${lesson?.title}".
+        
         Source Material:
         ${lessonContent.substring(0, 8000)}
 
-        Instructions:
-        1. ${formatInstructions}
-        2. Difficulty: Mix of Easy/Average/Hard appropriate for ${targetAudience}.
-        3. No AI tropes like "According to the text".
-        4. Output strictly valid JSON.
+        --- INSTRUCTIONS ---
+        1. **DepEd Standards Alignment**:
+           - **Contextualization**: Use Filipino names (e.g., Juan, Maria, Cruz), local locations (e.g., Manila, Cebu, Barangay), and culturally relevant situations where applicable.
+           - **Cognitive Rigor (Bloom's Taxonomy)**:
+             - For Lower Grades (7-8): Focus on Remembering and Understanding (60%), Applying (40%).
+             - For Higher Grades (9-12): Include Analyzing and Evaluating questions.
+           - **Vocabulary**: Adjust sentence complexity to be appropriate for ${gradeLevel} learners. Avoid overly obscure academic jargon unless defined in the text.
 
-        Required JSON Structure:
+        2. **Item Construction Rules**:
+           - **Multiple Choice**: Create plausible distractors. No "All of the above" unless absolutely necessary.
+           - **True/False**: Avoid double negatives. If Filipino, use "Tama" / "Mali".
+           - **Essay**: Provide a clear prompt that requires critical thinking, not just recall. MUST include a rubric.
+           - **Matching Type**: Ensure the list of premises (column A) is homogeneous (e.g., all dates, all definitions).
+
+        3. **Critical Formatting Rules (System Requirement)**:
+           - ${formatInstructions}
+           - **NO Grouping**: Do NOT output questions labeled "6-7" or "1-5". Each question must be a separate object in the JSON array.
+           - **Points**: Standard items (MC, T/F, ID) are strictly 1 point. Essay and Matching points are dynamic.
+           - **Output**: Return ONLY raw, valid JSON. No markdown conversational filler.
+
+        --- REQUIRED JSON STRUCTURE ---
         {
-          "title": "Quiz Title",
+          "title": "Quiz Title (Creative & Relevant)",
           "questions": [
             {
-              "text": "Question...",
+              "text": "Question Text...",
               "type": "multiple-choice | true-false | identification | matching-type | essay",
-              "points": 1,
-              "explanation": "Rationale...",
-              // If MC:
-              "options": [{ "text": "A", "isCorrect": false }, { "text": "B", "isCorrect": true }],
-              // If T/F:
-              "correctAnswer": true,
-              // If Identification:
-              "correctAnswer": "Answer",
-              // If Essay:
-              "rubric": [{ "criteria": "Content", "points": 5 }],
-              // If Matching:
-              "pairs": [{ "prompt": "Capital of France", "answer": "Paris" }] 
+              "points": 1, 
+              "explanation": "Brief rationale for the correct answer (for review purposes)...",
+              
+              // IF Multiple Choice:
+              "options": [
+                { "text": "Distractor A", "isCorrect": false },
+                { "text": "Correct Answer", "isCorrect": true },
+                { "text": "Distractor C", "isCorrect": false },
+                { "text": "Distractor D", "isCorrect": false }
+              ],
+              
+              // IF True/False:
+              "correctAnswer": true, // or false
+              
+              // IF Identification:
+              "correctAnswer": "Exact Answer String",
+
+              // IF Essay (REQUIRED):
+              "rubric": [
+                { "criteria": "Content Accuracy", "points": 5 },
+                { "criteria": "Grammar & Flow", "points": 5 }
+              ],
+
+              // IF Matching Type (REQUIRED):
+              // Note: For Matching Type, create ONE question object containing multiple pairs.
+              "pairs": [
+                 { "prompt": "Jose Rizal", "answer": "National Hero" },
+                 { "prompt": "Andres Bonifacio", "answer": "Katipunan Leader" }
+              ] 
             }
           ]
         }
@@ -202,14 +221,6 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
     };
 
     const handleGenerate = async (isRevision = false) => {
-        if (!isRevision && quizType === 'mixed') {
-            const total = Object.values(distribution).reduce((a, b) => a + b, 0);
-            if (total !== itemCount) {
-                setError(`Distribution total (${total}) does not match Item Count (${itemCount}).`);
-                return;
-            }
-        }
-
         setIsGenerating(true);
         setError('');
         try {
@@ -217,23 +228,24 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
             const aiText = await callGeminiWithLimitCheck(prompt);
             const response = tryParseJson(extractJson(aiText));
 
-            if (!response || !response.questions) throw new Error("Invalid JSON structure.");
+            if (!response || !response.questions) throw new Error("Invalid JSON from AI.");
 
-            // Post-Processing
+            // --- POST PROCESSING ---
             const processedQuestions = response.questions.map(q => {
                 const base = {
                     id: uniqueId(),
                     text: q.text || 'Question',
                     type: q.type || quizType,
-                    points: q.points || 1,
                     explanation: q.explanation || ''
                 };
 
+                // 1. MATCHING TYPE LOGIC
+                // One question object = Many points (one per pair)
                 if (base.type === 'matching-type' && q.pairs) {
                     const prompts = [];
                     const options = [];
                     const correctPairs = {};
-
+                    
                     q.pairs.forEach((pair) => {
                         const pId = uniqueId();
                         const oId = uniqueId();
@@ -241,27 +253,57 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
                         options.push({ id: oId, text: pair.answer });
                         correctPairs[pId] = oId;
                     });
-
+                    
+                    // Shuffle options for display
                     options.sort(() => Math.random() - 0.5);
-                    return { ...base, prompts, options, correctPairs };
+                    
+                    return { 
+                        ...base, 
+                        prompts, 
+                        options, 
+                        correctPairs, 
+                        points: q.pairs.length // Points = Number of pairs
+                    };
                 }
                 
-                if (base.type === 'multiple-choice') {
-                    return { ...base, options: q.options ? q.options.map(o => ({ text: String(o.text), isCorrect: !!o.isCorrect })) : [] };
-                }
-
+                // 2. ESSAY LOGIC
+                // One question object = Points based on Rubric Sum
                 if (base.type === 'essay') {
-                    return { ...base, rubric: q.rubric || [{ id: uniqueId(), criteria: 'Content', points: 5 }] };
+                    const rubric = q.rubric || [{ id: uniqueId(), criteria: 'Content', points: 5 }];
+                    const totalPoints = rubric.reduce((acc, curr) => acc + (parseInt(curr.points) || 0), 0);
+                    return { ...base, rubric, points: totalPoints };
                 }
 
-                return { ...base, correctAnswer: q.correctAnswer };
+                // 3. MULTIPLE CHOICE LOGIC (Fixing N/A Answer Key)
+                if (base.type === 'multiple-choice') {
+                    const options = q.options ? q.options.map(o => ({ text: String(o.text), isCorrect: !!o.isCorrect })) : [];
+                    
+                    // Determine the letter (A, B, C, D) for the correct answer
+                    const correctIndex = options.findIndex(o => o.isCorrect);
+                    const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
+                    const correctAnswerLabel = correctIndex > -1 ? letters[correctIndex] : '';
+
+                    return { 
+                        ...base, 
+                        options, 
+                        points: 1, 
+                        correctAnswer: correctAnswerLabel // Saves "A", "B", etc. to DB for the Answer Key
+                    };
+                }
+
+                // 4. T/F & ID
+                return { 
+                    ...base, 
+                    points: 1, 
+                    correctAnswer: q.correctAnswer 
+                };
             });
 
             setGeneratedQuiz({ ...response, questions: processedQuestions });
             setStep(3);
         } catch (err) {
             console.error(err);
-            setError("Failed to generate quiz. Please try again.");
+            setError("Failed to generate. AI response might have been malformed.");
         } finally {
             setIsGenerating(false);
         }
@@ -276,12 +318,13 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
                 subjectId,
                 lessonId: lesson.id,
                 createdAt: serverTimestamp(),
-                createdBy: 'AI'
+                createdBy: 'AI',
+                status: 'published'
             });
             setStep(4);
-            showToast("Quiz saved successfully!", "success");
+            showToast("Quiz saved to unit!", "success");
         } catch (err) {
-            showToast("Database error.", "error");
+            showToast("Database save failed.", "error");
         } finally {
             setIsGenerating(false);
         }
@@ -292,63 +335,99 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
     const QuizTypeCard = ({ id, label, icon: Icon }) => (
         <button 
             onClick={() => setQuizType(id)}
-            className={`flex flex-col items-center justify-center p-3 rounded-[16px] border transition-all duration-200 ${quizType === id 
-                ? 'bg-[#007AFF]/5 border-[#007AFF] text-[#007AFF] ring-1 ring-[#007AFF]' 
-                : 'bg-white dark:bg-[#2c2c2e] border-black/5 dark:border-white/5 text-slate-500 hover:bg-slate-50 dark:hover:bg-[#3a3a3c]'}`}
+            className={`flex flex-col items-center justify-center p-4 rounded-[20px] transition-all duration-300 border ${quizType === id 
+                ? 'bg-[#007AFF] text-white shadow-lg shadow-blue-500/30 scale-[1.02] border-transparent' 
+                : 'bg-white dark:bg-[#2C2C2E] text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#3A3A3C] border-transparent'}`}
         >
-            <Icon className="w-6 h-6 mb-2" strokeWidth={1.5} />
-            <span className="text-[10px] font-bold text-center leading-tight uppercase">{label}</span>
+            <Icon className="w-7 h-7 mb-2" strokeWidth={1.5} />
+            <span className="text-[11px] font-bold text-center leading-tight">{label}</span>
         </button>
     );
 
     const DistributionInput = ({ type, label }) => (
-        <div className="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-[#2c2c2e] border border-black/5 dark:border-white/5">
-            <span className="text-xs font-bold text-slate-500 uppercase ml-1">{label}</span>
+        <div className="flex items-center justify-between px-4 py-3 rounded-[18px] bg-white dark:bg-[#2C2C2E]">
+            <span className="text-[13px] font-medium text-slate-700 dark:text-slate-200">{label}</span>
             <input 
                 type="number" 
                 value={distribution[type]} 
                 onChange={(e) => handleDistributionChange(type, e.target.value)}
-                className="w-12 text-center text-sm font-bold bg-white dark:bg-black/20 rounded border border-black/10 dark:border-white/10 py-1"
+                className="w-14 text-center text-[15px] font-bold bg-slate-100 dark:bg-black/20 rounded-[10px] py-1.5 outline-none focus:ring-2 focus:ring-[#007AFF]"
             />
         </div>
     );
 
+    // --- VISUAL NUMBERING HELPER (FIXED) ---
+    // This ensures Essays count for their point total in the numbering sequence (e.g. Qs 11-15)
+    const getQuestionLabel = (index) => {
+        if (!generatedQuiz) return `Q${index + 1}`;
+        let count = 0;
+        for (let i = 0; i < index; i++) {
+            const q = generatedQuiz.questions[i];
+            // If Matching or Essay, consume N numbers based on Points. Else 1.
+            if (q.type === 'matching-type' || q.type === 'essay') {
+                count += (q.points || 1);
+            } else {
+                count += 1;
+            }
+        }
+        
+        const currentQ = generatedQuiz.questions[index];
+        const currentCount = (currentQ.type === 'matching-type' || currentQ.type === 'essay') ? (currentQ.points || 1) : 1;
+        
+        const start = count + 1;
+        const end = count + currentCount;
+        
+        return currentCount > 1 ? `Qs ${start}-${end}` : `Q${start}`;
+    };
+
     const PreviewItem = ({ q, i }) => (
-        <div className="p-4 bg-slate-50 dark:bg-[#2c2c2e] rounded-[16px] border border-black/5 dark:border-white/5 space-y-3">
+        <div className="p-5 bg-white dark:bg-[#2C2C2E] rounded-[22px] space-y-3 shadow-sm border border-black/5 dark:border-white/5 animate-in slide-in-from-bottom-2">
             <div className="flex justify-between items-start">
                 <div className="flex-1">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Question {i + 1} • {q.type}</span>
-                    <div className="text-sm font-medium text-slate-800 dark:text-slate-200"><ContentRenderer text={q.text} /></div>
-                </div>
-                <span className="text-xs font-bold bg-white dark:bg-black/20 px-2 py-1 rounded border border-black/5 dark:border-white/5">{q.points}pts</span>
-            </div>
-
-            <div className="text-sm text-slate-600 dark:text-slate-400 pl-2 border-l-2 border-[#007AFF]/30">
-                {q.type === 'multiple-choice' && (
-                    <ul className="space-y-1">
-                        {q.options?.map((o, idx) => (
-                            <li key={idx} className={`flex items-center gap-2 ${o.isCorrect ? 'text-green-600 dark:text-green-400 font-bold' : ''}`}>
-                                {o.isCorrect && <CheckIcon className="w-4 h-4" />}
-                                {o.text}
-                            </li>
-                        ))}
-                    </ul>
-                )}
-                {(q.type === 'true-false' || q.type === 'identification') && (
-                    <div className="flex items-center gap-2 text-green-600 dark:text-green-400 font-bold">
-                        <CheckIcon className="w-4 h-4" /> {String(q.correctAnswer)}
+                    <div className="flex items-center gap-2 mb-2">
+                         <span className="text-[11px] font-bold bg-[#007AFF]/10 text-[#007AFF] px-2 py-1 rounded-md">{getQuestionLabel(i)}</span>
+                         <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">{q.type}</span>
                     </div>
-                )}
+                    <div className="text-[15px] font-medium text-slate-800 dark:text-slate-100 leading-relaxed"><ContentRenderer text={q.text} /></div>
+                </div>
+                <span className="text-[12px] font-bold bg-slate-100 dark:bg-black/30 px-2.5 py-1.5 rounded-lg ml-3 whitespace-nowrap text-slate-600 dark:text-slate-300">{q.points} pts</span>
+            </div>
+            
+            <div className="pl-3 border-l-2 border-slate-200 dark:border-slate-700 text-sm text-slate-600 dark:text-slate-400 space-y-1">
                 {q.type === 'matching-type' && (
-                    <div className="grid grid-cols-2 gap-4 text-xs">
-                        <div><strong className="block mb-1">Prompts</strong>{q.prompts?.map(p => <div key={p.id} className="mb-1">• {p.text}</div>)}</div>
-                        <div><strong className="block mb-1">Options</strong>{q.options?.map(o => <div key={o.id} className="mb-1">• {o.text}</div>)}</div>
+                    <div className="mt-2 bg-slate-50 dark:bg-black/20 p-3 rounded-lg">
+                        <strong className="block text-xs uppercase mb-2 opacity-50">Pairs Generated</strong>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {q.prompts?.map((p, idx) => (
+                                <div key={idx} className="flex text-xs">
+                                    <span className="font-bold mr-1">{idx+1}.</span> 
+                                    <span className="truncate">{p.text}</span>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 )}
                 {q.type === 'essay' && (
-                    <div className="text-xs">
-                        <strong className="block mb-1">Rubric:</strong>
-                        {q.rubric?.map((r, idx) => <div key={idx}>{r.criteria} ({r.points}pts)</div>)}
+                    <div className="mt-2 bg-slate-50 dark:bg-black/20 p-3 rounded-lg">
+                        <strong className="block text-xs uppercase mb-2 opacity-50">Rubric</strong>
+                        {q.rubric?.map((r, idx) => (
+                            <div key={idx} className="flex justify-between text-xs py-1 border-b last:border-0 border-black/5 dark:border-white/5">
+                                <span>{r.criteria}</span>
+                                <span className="font-bold">{r.points}pts</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                {q.type === 'multiple-choice' && q.options?.map((o, idx) => (
+                    <div key={idx} className={`flex items-center gap-2 ${o.isCorrect ? "text-green-600 dark:text-green-400 font-bold" : ""}`}>
+                        {o.isCorrect ? <CheckIcon className="w-4 h-4" /> : <div className="w-4 h-4"/>}
+                        <span className="bg-slate-100 dark:bg-white/10 w-5 h-5 flex items-center justify-center rounded text-[10px] font-bold text-slate-500">{String.fromCharCode(65+idx)}</span>
+                        {o.text}
+                    </div>
+                ))}
+                {(q.type === 'identification' || q.type === 'true-false') && (
+                    <div className="flex items-center gap-2 text-green-600 dark:text-green-400 font-bold mt-1">
+                        <CheckIcon className="w-4 h-4" /> Answer: {String(q.correctAnswer)}
                     </div>
                 )}
             </div>
@@ -358,83 +437,82 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
     if (!isOpen) return null;
 
     return createPortal(
-        <div className="fixed inset-0 z-[60] flex flex-col h-full bg-[#F2F2F7] dark:bg-[#000000] font-sans text-slate-900 dark:text-white">
-            
-            {/* --- HEADER --- */}
-            <div className="flex-shrink-0 px-8 py-5 border-b border-black/5 dark:border-white/5 bg-white dark:bg-[#1c1c1e] z-20 sticky top-0">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        {step > 1 && step < 4 && (
-                            <button onClick={() => setStep(step - 1)} className="p-2.5 rounded-full bg-slate-100 dark:bg-[#2c2c2e] hover:bg-slate-200 transition-all active:scale-95">
-                                <ArrowUturnLeftIcon className="w-5 h-5 text-slate-600 dark:text-white" />
-                            </button>
-                        )}
-                        <div>
-                            <h1 className="text-xl font-bold text-slate-900 dark:text-white leading-tight">AI Quiz Generator</h1>
-                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">
-                                {step === 1 ? 'Configuration' : step === 3 ? 'Review' : 'Completed'}
-                            </p>
-                        </div>
-                    </div>
-                    <button onClick={onClose} className="p-2.5 rounded-full bg-slate-100 dark:bg-[#2c2c2e] hover:bg-red-50 hover:text-red-500 transition-all">
-                        <XMarkIcon className="w-5 h-5" />
-                    </button>
-                </div>
-            </div>
-
-            {/* --- MAIN CONTENT --- */}
-            <div className="flex-grow overflow-y-auto custom-scrollbar p-6 md:p-10 max-w-5xl mx-auto w-full">
+        <div className={modalOverlay}>
+            <div className={modalContainer}>
                 
-                {/* STEP 1: CONFIGURATION */}
-                {step === 1 && (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in slide-in-from-bottom-4 fade-in duration-500">
-                        <div className="space-y-6">
-                            <div className={cardClass + " p-6"}>
-                                <label className={labelClass}><SparklesIcon className="w-4 h-4 inline mr-1"/> Context</label>
-                                <div className="space-y-4">
-                                    <div>
-                                        <span className="text-sm font-medium block mb-1">Source Lesson</span>
-                                        <div className="p-3 bg-slate-50 dark:bg-[#2c2c2e] rounded-xl text-sm border border-black/5 dark:border-white/5 font-semibold text-[#007AFF]">
-                                            {lesson?.title || 'No Lesson Selected'}
-                                        </div>
+                {/* HEADER */}
+                <div className={headerClass}>
+                    <div className="flex items-center gap-3">
+                         <div className="w-10 h-10 rounded-full bg-[#007AFF] flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
+                            <SparklesIcon className="w-5 h-5" />
+                         </div>
+                         <div>
+                             <h1 className="text-lg font-bold text-slate-900 dark:text-white leading-none">AI Quiz Creator</h1>
+                             <p className="text-[11px] font-medium text-slate-500 mt-1 flex items-center gap-1">
+                                <AcademicCapIcon className="w-3 h-3"/> DepEd Aligned
+                             </p>
+                         </div>
+                    </div>
+                    <button onClick={onClose} className={btnIcon}><XMarkIcon className="w-5 h-5" /></button>
+                </div>
+
+                {/* CONTENT AREA */}
+                <div className={contentClass}>
+                    
+                    {/* STEP 1: CONFIGURATION */}
+                    {step === 1 && (
+                        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            
+                            {/* Context Section */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div className="space-y-3">
+                                    <label className={labelClass}><BookOpenIcon className="w-3 h-3 inline mr-1"/>Subject Context</label>
+                                    <select value={selectedSubject} onChange={(e) => setSelectedSubject(e.target.value)} className={inputClass}>
+                                        <option value="" disabled>Select Subject</option>
+                                        {subjects.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
+                                    </select>
+                                    <div className="px-4 py-3 bg-[#007AFF]/5 rounded-[18px] border border-[#007AFF]/10 flex items-center gap-2">
+                                        <DocumentTextIcon className="w-4 h-4 text-[#007AFF]"/>
+                                        <p className="text-[13px] font-bold text-[#007AFF] truncate">{lesson?.title || 'No Lesson Selected'}</p>
                                     </div>
-                                    <div>
-                                        <span className="text-sm font-medium block mb-1">Subject</span>
-                                        <select value={selectedSubject} onChange={(e) => setSelectedSubject(e.target.value)} className={inputClass}>
-                                            <option value="" disabled>Select Subject</option>
-                                            {subjects.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-3">
+                                        <label className={labelClass}>Total Items</label>
+                                        <input type="number" value={itemCount} onChange={(e) => setItemCount(Math.min(50, Math.max(1, parseInt(e.target.value)||1)))} className={inputClass + " text-center font-bold text-lg"} />
+                                    </div>
+                                    <div className="space-y-3">
+                                        <label className={labelClass}>Language</label>
+                                        <select value={language} onChange={(e) => setLanguage(e.target.value)} className={inputClass}>
+                                            <option>English</option><option>Filipino</option>
                                         </select>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className={cardClass + " p-6"}>
-                                <label className={labelClass}><HashtagIcon className="w-4 h-4 inline mr-1"/> Parameters</label>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <span className="text-sm font-medium block mb-1">Total Items</span>
-                                        <input type="number" value={itemCount} onChange={(e) => setItemCount(Math.max(1, Math.min(50, parseInt(e.target.value) || 1)))} className={inputClass} />
-                                    </div>
-                                    <div>
-                                        <span className="text-sm font-medium block mb-1">Language</span>
-                                        <select value={language} onChange={(e) => setLanguage(e.target.value)} className={inputClass}>
-                                            <option value="English">English</option>
-                                            <option value="Filipino">Filipino</option>
-                                        </select>
-                                    </div>
+                            {/* Quiz Type Section */}
+                            <div>
+                                <label className={labelClass}>Assessment Type</label>
+                                <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+                                    <QuizTypeCard id="multiple-choice" label="Multiple Choice" icon={ListBulletIcon} />
+                                    <QuizTypeCard id="true-false" label="True/False" icon={CheckIcon} />
+                                    <QuizTypeCard id="identification" label="Ident" icon={DocumentTextIcon} />
+                                    <QuizTypeCard id="matching-type" label="Matching" icon={QueueListIcon} />
+                                    <QuizTypeCard id="essay" label="Essay" icon={ChatBubbleLeftRightIcon} />
+                                    <QuizTypeCard id="mixed" label="Mixed" icon={SquaresPlusIcon} />
                                 </div>
                             </div>
-                            
-                            {/* Mixed Distribution Controls */}
+
+                            {/* Mixed Distribution */}
                             {quizType === 'mixed' && (
-                                <div className={cardClass + " p-6 border-[#007AFF] ring-1 ring-[#007AFF]/20"}>
-                                    <div className="flex justify-between items-center mb-4">
-                                        <label className={labelClass + " !mb-0 text-[#007AFF]"}>Item Distribution</label>
-                                        <span className={`text-xs font-bold px-2 py-1 rounded ${Object.values(distribution).reduce((a,b)=>a+b,0) === itemCount ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
-                                            {Object.values(distribution).reduce((a,b)=>a+b,0)} / {itemCount}
+                                <div className="bg-slate-50 dark:bg-white/5 p-5 rounded-[22px] border border-black/5 dark:border-white/5">
+                                    <div className="flex justify-between mb-4 px-2">
+                                        <span className="text-xs font-bold uppercase text-slate-400 tracking-wider">Item Distribution</span>
+                                        <span className={`text-xs font-bold px-3 py-1 rounded-full ${Object.values(distribution).reduce((a,b)=>a+b,0) === itemCount ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                            {Object.values(distribution).reduce((a,b)=>a+b,0)} / {itemCount} Items
                                         </span>
                                     </div>
-                                    <div className="space-y-2">
+                                    <div className="grid grid-cols-2 gap-4">
                                         <DistributionInput type="multiple-choice" label="Multiple Choice" />
                                         <DistributionInput type="true-false" label="True / False" />
                                         <DistributionInput type="identification" label="Identification" />
@@ -444,93 +522,82 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
                                 </div>
                             )}
                         </div>
+                    )}
 
-                        <div className={cardClass + " p-6 h-fit"}>
-                            <label className={labelClass}><ListBulletIcon className="w-4 h-4 inline mr-1"/> Quiz Structure</label>
-                            <div className="grid grid-cols-2 gap-3">
-                                <QuizTypeCard id="multiple-choice" label="Multiple Choice" icon={ListBulletIcon} />
-                                <QuizTypeCard id="true-false" label="True / False" icon={CheckIcon} />
-                                <QuizTypeCard id="identification" label="Identification" icon={DocumentTextIcon} />
-                                <QuizTypeCard id="matching-type" label="Matching Type" icon={QueueListIcon} />
-                                <QuizTypeCard id="essay" label="Essay" icon={ChatBubbleLeftRightIcon} />
-                                <QuizTypeCard id="mixed" label="Mixed" icon={SquaresPlusIcon} />
+                    {/* LOADING STATE */}
+                    {isGenerating && step !== 4 && (
+                        <div className="flex flex-col items-center justify-center h-full py-10 text-center animate-pulse">
+                            <div className="w-16 h-16 bg-[#007AFF]/10 rounded-full flex items-center justify-center mb-6 relative">
+                                <SparklesIcon className="w-8 h-8 text-[#007AFF] animate-spin" />
                             </div>
+                            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Developing Assessment...</h3>
+                            <p className="text-sm text-slate-500 max-w-xs mx-auto">Aligning with K-12 standards and generating questions based on your lesson.</p>
                         </div>
-                    </div>
-                )}
+                    )}
 
-                {/* LOADING STATE */}
-                {isGenerating && step !== 4 && (
-                    <div className="flex flex-col items-center justify-center h-full py-20 animate-in fade-in zoom-in-95">
-                        <div className="relative w-24 h-24 mb-6">
-                            <div className="absolute inset-0 border-4 border-slate-200 dark:border-slate-800 rounded-full"></div>
-                            <div className="absolute inset-0 border-4 border-[#007AFF] rounded-full border-t-transparent animate-spin"></div>
-                            <SparklesIcon className="absolute inset-0 m-auto w-8 h-8 text-[#007AFF] animate-pulse" />
-                        </div>
-                        <h3 className="text-xl font-bold text-slate-900 dark:text-white">Generating Quiz...</h3>
-                        <p className="text-slate-500 dark:text-slate-400 mt-2">Crafting questions based on your lesson.</p>
-                    </div>
-                )}
-
-                {/* STEP 3: PREVIEW */}
-                {step === 3 && generatedQuiz && (
-                    <div className="flex flex-col h-full animate-in slide-in-from-right-4 fade-in duration-500">
-                        <div className="flex flex-col lg:flex-row gap-6 h-full">
-                            <div className="flex-1 space-y-4 pb-20">
-                                <div className="bg-white dark:bg-[#1c1c1e] p-6 rounded-[24px] border border-black/5 dark:border-white/5 shadow-sm mb-4">
-                                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{generatedQuiz.title}</h2>
-                                    <div className="flex gap-2 mt-2">
-                                        <span className="px-3 py-1 rounded-full bg-slate-100 dark:bg-[#2c2c2e] text-xs font-bold text-slate-500">{generatedQuiz.questions.length} Items</span>
-                                        <span className="px-3 py-1 rounded-full bg-slate-100 dark:bg-[#2c2c2e] text-xs font-bold text-slate-500">{quizType === 'mixed' ? 'Mixed' : quizType}</span>
-                                    </div>
+                    {/* STEP 3: PREVIEW */}
+                    {step === 3 && generatedQuiz && (
+                        <div className="animate-in slide-in-from-right-8 duration-500 pb-20">
+                            <div className="mb-6 flex items-center justify-between">
+                                <div>
+                                    <h2 className="text-xl font-bold text-slate-900 dark:text-white truncate">{generatedQuiz.title}</h2>
+                                    <p className="text-xs text-slate-400 font-bold uppercase mt-1">Review Mode</p>
                                 </div>
+                                <span className="text-xs font-bold bg-[#007AFF] text-white px-4 py-2 rounded-full shadow-lg shadow-blue-500/30">{generatedQuiz.questions.length} Questions</span>
+                            </div>
+                            
+                            <div className="space-y-4">
                                 {generatedQuiz.questions.map((q, i) => <PreviewItem key={i} q={q} i={i} />)}
                             </div>
-                            <div className="w-full lg:w-80 flex-shrink-0 space-y-4">
-                                <div className={cardClass + " p-5 sticky top-6"}>
-                                    <label className={labelClass}>Refinement</label>
-                                    <textarea value={revisionPrompt} onChange={(e) => setRevisionPrompt(e.target.value)} placeholder="Make it harder..." className={`${inputClass} min-h-[100px] mb-4 text-sm`} />
-                                    <button onClick={() => handleGenerate(true)} disabled={isGenerating} className="w-full py-2.5 rounded-[12px] font-bold text-sm bg-slate-100 dark:bg-[#2c2c2e] text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-[#3a3a3c] flex items-center justify-center gap-2">
-                                        <ArrowPathIcon className={`w-4 h-4 ${isGenerating ? 'animate-spin' : ''}`} /> Regenerate
+                            
+                            {/* Refinement */}
+                            <div className="mt-8 bg-slate-100 dark:bg-white/5 p-5 rounded-[24px]">
+                                <label className={labelClass}>Refine Results</label>
+                                <div className="flex gap-3">
+                                    <input value={revisionPrompt} onChange={(e) => setRevisionPrompt(e.target.value)} placeholder="e.g. 'Make it harder', 'Focus more on definitions'" className={inputClass + " !py-3 text-sm"} />
+                                    <button onClick={() => handleGenerate(true)} disabled={isGenerating} className="p-3 bg-slate-900 dark:bg-white text-white dark:text-black rounded-[16px] hover:scale-105 transition-transform shadow-lg">
+                                        <ArrowPathIcon className={`w-6 h-6 ${isGenerating ? 'animate-spin' : ''}`} />
                                     </button>
                                 </div>
                             </div>
                         </div>
+                    )}
+
+                    {/* STEP 4: SUCCESS */}
+                    {step === 4 && (
+                        <div className="flex flex-col items-center justify-center h-full py-10 text-center animate-in zoom-in-95 duration-300">
+                            <div className="w-28 h-28 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center text-green-500 mb-8 shadow-xl shadow-green-500/10">
+                                <CheckCircleIcon className="w-14 h-14 stroke-[1.5]" />
+                            </div>
+                            <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-3">Quiz Ready!</h2>
+                            <p className="text-slate-500">Successfully saved to your unit.</p>
+                        </div>
+                    )}
+                </div>
+
+                {/* FOOTER ACTIONS */}
+                {!isGenerating && step !== 4 && (
+                    <div className={footerClass}>
+                        {step > 1 ? (
+                            <button onClick={() => setStep(step - 1)} className={btnSecondary}><ArrowLeftIcon className="w-4 h-4"/> Back</button>
+                        ) : <div className="w-10"></div>}
+                        
+                        {error && <p className="text-xs font-bold text-red-500 absolute left-1/2 -translate-x-1/2 bg-red-50 px-3 py-1 rounded-full">{error}</p>}
+
+                        {step === 1 && (
+                            <button onClick={() => handleGenerate(false)} className={btnPrimary}>Generate Quiz <SparklesIcon className="w-5 h-5"/></button>
+                        )}
+                        {step === 3 && (
+                            <button onClick={handleSave} className={btnPrimary.replace('bg-[#007AFF]', 'bg-green-600 hover:bg-green-700 shadow-green-500/20')}>Save to Unit <CheckIcon className="w-5 h-5"/></button>
+                        )}
                     </div>
                 )}
-
-                {/* STEP 4: SUCCESS */}
                 {step === 4 && (
-                    <div className="flex flex-col items-center justify-center h-full py-20 animate-in zoom-in-95">
-                        <div className="w-20 h-20 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center mb-6 text-green-500">
-                            <CheckCircleIcon className="w-10 h-10" />
-                        </div>
-                        <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">Quiz Saved!</h2>
-                        <button onClick={onClose} className="px-8 py-3 mt-6 rounded-[14px] bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold hover:scale-105 transition-transform">Close</button>
+                    <div className={footerClass + " justify-center"}>
+                        <button onClick={onClose} className={btnSecondary + " w-full max-w-sm"}>Close Window</button>
                     </div>
                 )}
             </div>
-
-            {/* --- FOOTER ACTIONS --- */}
-            {step !== 4 && !isGenerating && (
-                <div className="flex-shrink-0 px-8 py-5 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#1c1c1e] z-20">
-                    <div className="flex justify-between items-center max-w-5xl mx-auto w-full">
-                        {error && <span className="text-xs font-bold text-red-500">{error}</span>}
-                        <div className="flex justify-end gap-3 ml-auto">
-                            {step === 1 && (
-                                <button onClick={() => handleGenerate(false)} className="px-8 py-3 rounded-[14px] bg-gradient-to-r from-[#007AFF] to-[#0051A8] text-white font-bold shadow-lg shadow-blue-500/30 hover:scale-105 transition-transform flex items-center gap-2">
-                                    <SparklesIcon className="w-5 h-5" /> Generate Quiz
-                                </button>
-                            )}
-                            {step === 3 && (
-                                <button onClick={handleSave} className="px-8 py-3 rounded-[14px] bg-green-500 text-white font-bold shadow-lg shadow-green-500/30 hover:scale-105 transition-transform flex items-center gap-2">
-                                    <CheckIcon className="w-5 h-5 stroke-[3]" /> Save to Unit
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>,
         document.body
     );

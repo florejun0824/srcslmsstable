@@ -20,7 +20,9 @@ import {
     LayoutGrid,    // For Mobile Menu
     Palette,
     LogOut,
-    Power
+    Power,
+    ChevronDown,
+    Sparkles
 } from 'lucide-react';
 
 import { NavLink } from 'react-router-dom';
@@ -71,7 +73,7 @@ const DeleteConfirmationModal = lazy(() => import('./DeleteConfirmationModal'));
 const EditSubjectModal = lazy(() => import('./EditSubjectModal'));
 const DeleteSubjectModal = lazy(() => import('./DeleteSubjectModal'));
 
-// 🏫 SCHOOL BRANDING CONFIGURATION
+// 将 SCHOOL BRANDING CONFIGURATION
 const SCHOOL_BRANDING = {
     'srcs_main': { name: 'SRCS LMS', logo: '/logo.png' }, // Default
     'hras_sipalay': { name: 'HRA LMS', logo: '/logos/hra.png' },
@@ -96,21 +98,21 @@ const macOsStyles = `
 
   /* Glass Morphism Utilities */
   .glass-panel {
-    background: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.85);
     border: 1px solid rgba(255, 255, 255, 0.5);
     box-shadow: 
         0 4px 6px -1px rgba(0, 0, 0, 0.05),
         0 10px 15px -3px rgba(0, 0, 0, 0.1),
         inset 0 1px 0 rgba(255,255,255,0.5);
-    backdrop-filter: blur(12px);
+    backdrop-filter: blur(20px);
   }
   .dark .glass-panel {
-    background: rgba(26, 29, 36, 0.9);
+    background: rgba(30, 30, 30, 0.7);
     border: 1px solid rgba(255, 255, 255, 0.08);
     box-shadow: 
         0 4px 6px -1px rgba(0, 0, 0, 0.3),
         0 10px 15px -3px rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(12px);
+    backdrop-filter: blur(20px);
   }
   
   /* macOS Dock */
@@ -146,26 +148,22 @@ const DashboardSkeleton = () => (
     </div>
 );
 
-// --- ThemeDropdown Component ---
+// --- ONE UI 8.5 THEME DROPDOWN ---
+// --- ONE UI 8.5 THEME DROPDOWN ---
 const ThemeDropdown = ({ size = 'desktop', showTutorial = false, onTutorialComplete }) => {
-  const buttonSize = size === 'desktop' ? 'w-11 h-11' : 'w-9 h-9';
-  const iconSize = size === 'desktop' ? 20 : 18;
+  const buttonSize = size === 'desktop' ? 'w-12 h-12' : 'w-10 h-10';
+  const iconSize = size === 'desktop' ? 22 : 20;
 
   return (
     <div className="relative z-50 flex-shrink-0">
       <Menu as="div" className="relative">
         <Menu.Button
-          className={`relative flex items-center justify-center ${buttonSize} rounded-full bg-white/50 dark:bg-black/20 backdrop-blur-md border border-white/40 dark:border-white/10 shadow-sm transition-all duration-300 hover:scale-105 active:scale-95 text-slate-600 dark:text-slate-300 ${showTutorial ? 'ring-4 ring-blue-500/50 z-50' : ''}`}
+          className={`relative flex items-center justify-center ${buttonSize} rounded-[18px] bg-white/60 dark:bg-[#2C2C2E]/60 backdrop-blur-xl border border-white/40 dark:border-white/10 shadow-sm transition-all duration-300 hover:scale-105 active:scale-95 text-slate-600 dark:text-slate-300 group hover:shadow-lg hover:shadow-purple-500/20 ${showTutorial ? 'ring-4 ring-blue-500/50 z-50' : ''}`}
           title="Change Theme"
-          onClick={() => {
-             if (showTutorial && onTutorialComplete) onTutorialComplete();
-          }}
+          onClick={() => { if (showTutorial && onTutorialComplete) onTutorialComplete(); }}
         >
-          <Palette size={iconSize} strokeWidth={1.5} />
-          
-          {showTutorial && (
-            <span className="absolute inset-0 rounded-full animate-ping bg-blue-400/30"></span>
-          )}
+          <Palette size={iconSize} strokeWidth={1.5} className="group-hover:text-purple-500 transition-colors" />
+          {showTutorial && <span className="absolute inset-0 rounded-[18px] animate-ping bg-blue-400/30"></span>}
         </Menu.Button>
 
         <AnimatePresence>
@@ -174,26 +172,13 @@ const ThemeDropdown = ({ size = 'desktop', showTutorial = false, onTutorialCompl
                     initial={{ opacity: 0, y: 10, scale: 0.9 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 10, scale: 0.9 }}
-                    transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                    className="absolute right-0 mt-4 w-64 p-4 rounded-2xl bg-slate-800/90 border border-blue-500/30 shadow-2xl backdrop-blur-xl z-[60]"
+                    className="absolute right-0 mt-4 w-64 p-5 rounded-[24px] bg-[#1C1C1E]/95 border border-white/10 shadow-2xl backdrop-blur-3xl z-[60]"
                 >
-                    <div className="absolute -top-2 right-4 w-4 h-4 bg-slate-800 rotate-45 border-t border-l border-blue-500/30"></div>
+                    <div className="absolute -top-2 right-4 w-4 h-4 bg-[#1C1C1E]/95 rotate-45 border-t border-l border-white/10"></div>
                     <div className="relative z-10">
-                        <h4 className="text-sm font-bold text-white mb-1 flex items-center gap-2">
-                           ✨ Set the Vibe
-                        </h4>
-                        <p className="text-xs text-slate-300 leading-relaxed mb-3">
-                            Customize your dashboard ambience! Switch between <strong>Christmas</strong>, <strong>Cyberpunk</strong>, <strong>Space</strong> and more.
-                        </p>
-                        <button 
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                if(onTutorialComplete) onTutorialComplete();
-                            }}
-                            className="w-full py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-colors"
-                        >
-                            Got it!
-                        </button>
+                        <h4 className="text-sm font-bold text-white mb-1 flex items-center gap-2"><Sparkles className="w-4 h-4 text-yellow-400"/> Set the Vibe</h4>
+                        <p className="text-xs text-slate-300 leading-relaxed mb-3">Customize your dashboard ambience! Switch between Christmas, Cyberpunk, Space and more.</p>
+                        <button onClick={(e) => { e.stopPropagation(); if(onTutorialComplete) onTutorialComplete(); }} className="w-full py-2 rounded-[14px] bg-[#007AFF] hover:bg-[#0062cc] text-white text-xs font-bold transition-colors">Got it!</button>
                     </div>
                 </motion.div>
             )}
@@ -201,15 +186,22 @@ const ThemeDropdown = ({ size = 'desktop', showTutorial = false, onTutorialCompl
 
         <Transition
           as={Fragment}
-          enter="transition ease-out duration-200"
-          enterFrom="transform opacity-0 scale-95 translate-y-2"
+          enter="transition ease-out duration-300 cubic-bezier(0.2, 0.8, 0.2, 1)"
+          enterFrom="transform opacity-0 scale-90 translate-y-2"
           enterTo="transform opacity-100 scale-100 translate-y-0"
-          leave="transition ease-in duration-150"
+          leave="transition ease-in duration-200"
           leaveFrom="transform opacity-100 scale-100 translate-y-0"
           leaveTo="transform opacity-0 scale-95 translate-y-2"
         >
-          <Menu.Items className="absolute right-0 mt-2 w-72 origin-top-right focus:outline-none z-[60]">
-             <div className="relative">
+          <Menu.Items className="absolute right-0 mt-3 w-80 origin-top-right focus:outline-none z-[60]">
+             {/* UPDATED OPACITY HERE: 
+                 Changed bg-white/90 -> bg-white/95 
+                 Changed dark:bg-[#1C1C1E]/90 -> dark:bg-[#1C1C1E]/95
+             */}
+             <div className="rounded-[28px] bg-white/95 dark:bg-[#1C1C1E]/95 backdrop-blur-3xl border border-white/20 dark:border-white/10 shadow-[0_20px_50px_-10px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_50px_-10px_rgba(0,0,0,0.5)] overflow-hidden p-2">
+               <div className="px-4 py-3 border-b border-black/5 dark:border-white/5 mb-1">
+                   <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Appearance</span>
+               </div>
                <ThemeToggle />
              </div>
           </Menu.Items>
@@ -218,77 +210,85 @@ const ThemeDropdown = ({ size = 'desktop', showTutorial = false, onTutorialCompl
     </div>
   );
 };
-
-// --- ProfileDropdown Component ---
+// --- ONE UI 8.5 PROFILE DROPDOWN ---
 const ProfileDropdown = ({ userProfile, onLogout, size = 'desktop' }) => {
-  const buttonSize = size === 'desktop' ? 'w-11 h-11' : 'w-9 h-9';
+  const buttonSize = size === 'desktop' ? 'w-12 h-12' : 'w-10 h-10';
   const avatarSize = size === 'desktop' ? 'full' : 'sm';
 
   return (
     <Menu as="div" className="relative z-50 flex-shrink-0">
       <Menu.Button 
-        className={`flex items-center justify-center ${buttonSize} rounded-full bg-white dark:bg-slate-800 shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden transition-all duration-300 hover:scale-105 hover:shadow-md active:scale-95 focus:outline-none`}
+        className={`group flex items-center justify-center ${buttonSize} rounded-full bg-white dark:bg-[#2C2C2E] shadow-sm border border-slate-200 dark:border-white/10 overflow-hidden transition-all duration-300 hover:scale-105 hover:shadow-lg focus:outline-none ring-2 ring-transparent hover:ring-blue-500/30`}
       >
         {userProfile?.photoURL ? (
-          <img
-            src={userProfile.photoURL}
-            alt="Profile"
-            className="w-full h-full object-cover rounded-full"
-          />
+          <img src={userProfile.photoURL} alt="Profile" className="w-full h-full object-cover" />
         ) : (
-          <UserInitialsAvatar
-            firstName={userProfile?.firstName}
-            lastName={userProfile?.lastName}
-            id={userProfile?.id}
-            size={avatarSize}
-            className="w-full h-full text-[10px] font-bold"
-          />
+          <UserInitialsAvatar firstName={userProfile?.firstName} lastName={userProfile?.lastName} id={userProfile?.id} size={avatarSize} className="w-full h-full text-[12px] font-bold" />
         )}
       </Menu.Button>
+
       <Transition
         as={Fragment}
-        enter="transition ease-out duration-300"
+        enter="transition ease-out duration-300 cubic-bezier(0.2, 0.8, 0.2, 1)"
         enterFrom="transform opacity-0 scale-90 translate-y-2"
         enterTo="transform opacity-100 scale-100 translate-y-0"
         leave="transition ease-in duration-200"
         leaveFrom="transform opacity-100 scale-100 translate-y-0"
         leaveTo="transform opacity-0 scale-95 translate-y-2"
       >
-        <Menu.Items className="absolute right-0 mt-3 w-64 origin-top-right rounded-[1.5rem] bg-white dark:bg-[#1A1D24] shadow-2xl ring-1 ring-black/5 border border-slate-200 dark:border-slate-700 focus:outline-none divide-y divide-gray-100 dark:divide-gray-800 overflow-hidden z-[60]">
-          <div className="px-5 py-4 bg-slate-50 dark:bg-black/20">
-            <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">
-              {userProfile?.firstName} {userProfile?.lastName}
-            </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-1 font-medium">
-              {userProfile?.email}
-            </p>
+        <Menu.Items className="absolute right-0 mt-4 w-72 origin-top-right rounded-[28px] bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-3xl shadow-[0_30px_60px_-15px_rgba(0,0,0,0.2)] dark:shadow-black/50 border border-white/40 dark:border-white/10 focus:outline-none overflow-hidden z-[60]">
+          
+          {/* Header Area */}
+          <div className="relative px-6 py-6 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-[#2C2C2E] dark:to-[#1C1C1E]">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-purple-500"></div>
+            <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-[18px] bg-white dark:bg-black/20 shadow-inner p-1">
+                     {userProfile?.photoURL ? (
+                        <img src={userProfile.photoURL} className="w-full h-full rounded-[14px] object-cover" alt="" />
+                     ) : (
+                        <div className="w-full h-full rounded-[14px] bg-blue-500 flex items-center justify-center text-white font-bold text-lg">
+                            {userProfile?.firstName?.[0]}
+                        </div>
+                     )}
+                </div>
+                <div className="flex-1 min-w-0">
+                    <p className="text-[15px] font-bold text-slate-900 dark:text-white truncate leading-tight">
+                        {userProfile?.firstName} {userProfile?.lastName}
+                    </p>
+                    <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                        {userProfile?.email}
+                    </p>
+                </div>
+            </div>
           </div>
-          <div className="p-2 space-y-1">
+
+          {/* Menu Items */}
+          <div className="p-3 space-y-1">
             <Menu.Item>
               {({ active }) => (
-                <NavLink
-                  to="/dashboard/profile"
-                  className={`${
-                    active ? 'bg-slate-100 dark:bg-slate-800 shadow-sm' : 'hover:bg-transparent'
-                  } group flex w-full items-center rounded-xl p-3 text-xs font-bold text-slate-700 dark:text-slate-200 transition-all duration-200`}
-                >
-                  <UserCircle strokeWidth={2} className="mr-3 h-5 w-5 text-blue-500 dark:text-blue-400" />
-                  Profile
+                <NavLink to="/dashboard/profile" className={`${active ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400' : 'text-slate-700 dark:text-slate-200'} group flex w-full items-center justify-between rounded-[18px] px-4 py-3.5 text-[13px] font-bold transition-all duration-200`}>
+                  <div className="flex items-center gap-3">
+                      <div className={`p-1.5 rounded-full ${active ? 'bg-blue-200/50 dark:bg-blue-500/20' : 'bg-slate-100 dark:bg-white/5'}`}>
+                        <UserCircle strokeWidth={2.5} className="h-4 w-4" />
+                      </div>
+                      My Profile
+                  </div>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${active ? '-rotate-90' : 'opacity-30'}`}/>
                 </NavLink>
               )}
             </Menu.Item>
-          </div>
-          <div className="p-2">
+            
+            <div className="h-px bg-black/5 dark:bg-white/5 mx-4 my-1"></div>
+
             <Menu.Item>
               {({ active }) => (
-                <button
-                  onClick={onLogout}
-                  className={`${
-                    active ? 'bg-red-50 dark:bg-red-900/20 shadow-sm' : 'hover:bg-transparent'
-                  } group flex w-full items-center rounded-xl p-3 text-xs font-bold text-red-600 dark:text-red-400 transition-all duration-200`}
-                >
-                  <LogOut strokeWidth={2} className="mr-3 h-5 w-5" />
-                  Logout
+                <button onClick={onLogout} className={`${active ? 'bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-200'} group flex w-full items-center justify-between rounded-[18px] px-4 py-3.5 text-[13px] font-bold transition-all duration-200`}>
+                  <div className="flex items-center gap-3">
+                      <div className={`p-1.5 rounded-full ${active ? 'bg-red-200/50 dark:bg-red-500/20' : 'bg-slate-100 dark:bg-white/5'}`}>
+                        <LogOut strokeWidth={2.5} className="h-4 w-4" />
+                      </div>
+                      Sign Out
+                  </div>
                 </button>
               )}
             </Menu.Item>
@@ -299,15 +299,12 @@ const ProfileDropdown = ({ userProfile, onLogout, size = 'desktop' }) => {
   );
 };
 
-
-// --- DESKTOP HEADER (Monet Powered) ---
+// --- ONE UI 8.5 DESKTOP HEADER (Floating + Dynamic Monet) ---
 const DesktopHeader = ({ userProfile, setIsLogoutModalOpen, showTutorial, onTutorialComplete }) => {
+    // 1. DYNAMIC THEME CONTEXT
     const { monetTheme } = useTheme();
-    
-    // 🏫 Get Dynamic Branding
     const branding = getSchoolBranding(userProfile?.schoolId);
 
-    // UPDATED NAV ITEMS WITH LUCIDE ICONS
     const navItems = [
         { view: 'home', text: 'Home', icon: Home },
         { view: 'lounge', text: 'Lounge', icon: Rocket },
@@ -317,71 +314,62 @@ const DesktopHeader = ({ userProfile, setIsLogoutModalOpen, showTutorial, onTuto
         { view: 'analytics', icon: BarChart2, text: 'Analytics' },
         { view: 'profile', text: 'Profile', icon: UserCircle },
     ];
-    if (userProfile?.role === 'admin') {
-        navItems.push({ view: 'admin', text: 'Admin', icon: Settings });
-    }
+    if (userProfile?.role === 'admin') navItems.push({ view: 'admin', text: 'Admin', icon: Settings });
 
     return (
         <motion.div 
-            initial={{ y: -20, opacity: 0 }}
+            initial={{ y: -40, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            transition={{ duration: 0.6, ease: [0.2, 0.8, 0.2, 1] }}
-            // 2. APPLY ONLY THE GLASS STYLES (Variables are already on Root)
-            style={monetTheme.glassStyle} 
-            className="glass-panel mx-auto max-w-[1920px] rounded-[2rem] px-6 py-3 flex items-center justify-between relative w-full z-50 transform-gpu transition-all duration-500"
+            transition={{ duration: 0.8, type: "spring", bounce: 0.3 }}
+            // 2. APPLY DYNAMIC MONET GLASS STYLE
+            style={monetTheme.glassStyle}
+            // 3. OPACITY REDUCED TO 90% (/90) FOR LESS TRANSPARENCY
+            className="mx-auto max-w-[1920px] rounded-[32px] px-6 py-4 flex items-center justify-between relative w-full z-50 transition-all duration-500 bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-3xl shadow-[0_8px_32px_0_rgba(0,0,0,0.05)] border border-white/40 dark:border-white/5"
         >
-            {/* Left: Logo */}
-            <div className="flex items-center gap-4 flex-shrink-0 z-20 group cursor-default">
-                <div className="w-11 h-11 rounded-[1.2rem] bg-gradient-to-br from-white to-slate-100 dark:from-slate-800 dark:to-slate-900 shadow-[inset_0_1px_1px_rgba(255,255,255,0.6)] flex items-center justify-center flex-shrink-0 border border-slate-200/60 dark:border-slate-700/60 transition-transform duration-500 group-hover:rotate-6 drop-shadow-md">
+            {/* Left: Branding */}
+            <div className="flex items-center gap-5 flex-shrink-0 z-20">
+                <div className="w-12 h-12 rounded-[18px] bg-gradient-to-br from-white to-slate-50 dark:from-[#2C2C2E] dark:to-[#1C1C1E] shadow-sm flex items-center justify-center border border-white/50 dark:border-white/10 ring-1 ring-black/5 dark:ring-white/5">
                     <img src={branding.logo} alt="Logo" className="w-7 h-7 object-contain drop-shadow-sm" />
                 </div>
-                <div className="hidden xl:block">
-                    <span className="font-black text-lg bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 tracking-tight leading-tight block">
+                <div className="hidden xl:flex flex-col">
+                    <span className="font-extrabold text-lg text-slate-800 dark:text-white tracking-tight leading-none">
                         {branding.name}
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1">
+                        Workspace
                     </span>
                 </div>
             </div>
 
-            {/* Center: Candy Navigation */}
+            {/* Center: Floating Tabbed Navigation */}
             <nav className="hidden lg:flex items-center justify-center absolute left-1/2 -translate-x-1/2 z-10">
-                <div className="flex items-center gap-1.5 p-2 bg-slate-100/50 dark:bg-black/20 rounded-full border border-white/50 dark:border-white/5 shadow-[inset_0_1px_4px_rgba(0,0,0,0.05)] backdrop-blur-md">
+                <div className="flex items-center gap-1.5 p-1.5 bg-slate-100/50 dark:bg-black/20 rounded-[24px] border border-white/20 dark:border-white/5 backdrop-blur-md shadow-inner">
                     {navItems.map((item) => {
                         return (
                             <NavLink
                                 key={item.view}
                                 to={item.view === 'home' ? '/dashboard' : `/dashboard/${item.view}`}
                                 end={item.view === 'home'} 
-                                className="relative flex items-center gap-2 px-5 py-2.5 rounded-full transition-all duration-300 group outline-none z-10"
+                                className="relative flex items-center gap-2 px-5 py-3 rounded-[20px] transition-all duration-300 group outline-none z-10 overflow-hidden"
                             >
                                 {({ isActive }) => (
                                     <>
                                         {isActive && (
                                             <motion.div
                                                 layoutId="desktopNavPill"
-                                                className="absolute inset-0 rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.8)] dark:shadow-black/40 border border-black/5 dark:border-white/10"
-                                                // Use CSS variable for accent
-                                                style={{ 
-                                                    background: 'linear-gradient(to bottom, rgba(255,255,255,0.1), rgba(255,255,255,0.05))', 
-                                                    backgroundColor: 'var(--monet-accent)' 
-                                                }}
-                                                transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                                                className="absolute inset-0 rounded-[20px] shadow-[0_4px_12px_rgba(0,0,0,0.1)] dark:shadow-black/20"
+                                                // 4. USE DYNAMIC ACCENT COLOR
+                                                style={{ backgroundColor: 'var(--monet-accent)' }}
+                                                transition={{ type: "spring", stiffness: 350, damping: 25 }}
                                             />
                                         )}
-                                        <span className="relative z-10 flex items-center gap-2">
+                                        <span className="relative z-10 flex items-center gap-2.5">
                                             <item.icon
                                                 strokeWidth={isActive ? 2.5 : 2}
                                                 size={18}
-                                                className={`transition-all duration-300 ${
-                                                    isActive 
-                                                    ? 'text-white drop-shadow-sm scale-105' 
-                                                    : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200'
-                                                }`}
+                                                className={`transition-all duration-300 ${isActive ? 'text-white' : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200'}`}
                                             />
-                                            <span className={`text-[11px] font-bold uppercase tracking-wide transition-all duration-300 ${
-                                                isActive 
-                                                ? 'text-white' 
-                                                : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200'
-                                            }`}>
+                                            <span className={`text-[13px] font-bold tracking-wide transition-all duration-300 ${isActive ? 'text-white' : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200'}`}>
                                                 {item.text}
                                             </span>
                                         </span>
@@ -395,17 +383,10 @@ const DesktopHeader = ({ userProfile, setIsLogoutModalOpen, showTutorial, onTuto
 
             {/* Right: Actions */}
             <div className="flex items-center gap-4 flex-shrink-0 z-20">
-                <ThemeDropdown 
-                   size="desktop" 
-                   showTutorial={showTutorial} 
-                   onTutorialComplete={onTutorialComplete}
-                />
-                <div className="h-8 w-[1px] bg-gradient-to-b from-transparent via-slate-200 dark:via-slate-700 to-transparent mx-1"></div>
-                <ProfileDropdown 
-                    userProfile={userProfile}
-                    onLogout={() => setIsLogoutModalOpen(true)}
-                    size="desktop"
-                />
+                <div className="flex items-center gap-2 bg-slate-100/50 dark:bg-white/5 p-1.5 rounded-[22px] border border-white/20 dark:border-white/5">
+                    <ThemeDropdown size="desktop" showTutorial={showTutorial} onTutorialComplete={onTutorialComplete} />
+                    <ProfileDropdown userProfile={userProfile} onLogout={() => setIsLogoutModalOpen(true)} size="desktop" />
+                </div>
             </div>
         </motion.div>
     );
@@ -415,42 +396,9 @@ const DesktopHeader = ({ userProfile, setIsLogoutModalOpen, showTutorial, onTuto
 // Main Layout Component
 const TeacherDashboardLayout = (props) => {
     const {
-        user,
-        userProfile,
-        loading,
-        authLoading,
-        error,
-        activeView,
-        handleViewChange,
-        logout,
-        isAiGenerating,
-        setIsAiGenerating,
-        isChatOpen,
-        setIsChatOpen,
-        messages,
-        isAiThinking,
-        handleAskAiWrapper,
-        isAiHubOpen,
-        setIsAiHubOpen,
-        activeSubject,
-        activeUnit,
-        onSetActiveUnit,
-        setViewLessonModalOpen,
-        reloadKey,
-        isDeleteModalOpen,
-        setIsDeleteModalOpen,
-        handleConfirmDelete,
-        deleteTarget,
-        handleInitiateDelete,
-        handleCreateUnit,
-        courses,
-        activeClasses,
-        handleUpdateClass,
-        isLoungeLoading,
-        loungePosts,
-        loungeUsersMap,
-        fetchLoungePosts,
-        loungePostUtils,
+        user, userProfile, loading, authLoading, error, activeView, handleViewChange, logout,
+        isAiGenerating, setIsAiGenerating, isChatOpen, setIsChatOpen, messages, isAiThinking, handleAskAiWrapper, isAiHubOpen, setIsAiHubOpen,
+        activeSubject, activeUnit, onSetActiveUnit, setViewLessonModalOpen, reloadKey, isDeleteModalOpen, setIsDeleteModalOpen, handleConfirmDelete, deleteTarget, handleInitiateDelete, handleCreateUnit, courses, activeClasses, handleUpdateClass, isLoungeLoading, loungePosts, loungeUsersMap, fetchLoungePosts, loungePostUtils,
         ...rest
     } = props;
 
@@ -461,8 +409,6 @@ const TeacherDashboardLayout = (props) => {
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
     const [isChangePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    
-    // --- TUTORIAL STATE ---
     const [showAmbienceTutorial, setShowAmbienceTutorial] = useState(false);
     const robotRef = useRef(null);
     
@@ -477,19 +423,14 @@ const TeacherDashboardLayout = (props) => {
         }
     }, []);
 
-    // Tutorial Logic
     useEffect(() => {
         if (activeView === 'home' && !loading) {
             const hasSeenTutorial = localStorage.getItem('hasSeenAmbienceTutorial');
             if (!hasSeenTutorial) {
-                const timer = setTimeout(() => {
-                    setShowAmbienceTutorial(true);
-                }, 2000); 
+                const timer = setTimeout(() => { setShowAmbienceTutorial(true); }, 2000); 
                 return () => clearTimeout(timer);
             }
-        } else {
-            setShowAmbienceTutorial(false);
-        }
+        } else { setShowAmbienceTutorial(false); }
     }, [activeView, loading]);
 
     const handleTutorialComplete = () => {
@@ -497,18 +438,15 @@ const TeacherDashboardLayout = (props) => {
         localStorage.setItem('hasSeenAmbienceTutorial', 'true');
     };
 
-    // --- MONET ENGINE INTEGRATION (via Context) ---
+    // --- MONET ENGINE INTEGRATION ---
     const { monetTheme } = useTheme(); 
     
-    // 🏫 Get Dynamic Branding for Mobile Header
+    // 将 Get Dynamic Branding for Mobile Header
     const branding = getSchoolBranding(userProfile?.schoolId);
 
     const handleRenameCategory = async (newName) => {
         const oldName = categoryToEdit?.name;
-        if (!oldName || !newName || oldName === newName) {
-            setIsEditCategoryModalOpen(false);
-            return;
-        }
+        if (!oldName || !newName || oldName === newName) { setIsEditCategoryModalOpen(false); return; }
         const subjectsQuery = query(collection(db, 'courses'), where('category', '==', oldName));
         try {
             const querySnapshot = await getDocs(subjectsQuery);
@@ -519,27 +457,13 @@ const TeacherDashboardLayout = (props) => {
             });
             await batch.commit();
             showToast('Category renamed successfully!', 'success');
-        } catch (error) {
-            console.error('Error renaming category:', error);
-            showToast('Failed to rename category.', 'error');
-        } finally {
-            setIsEditCategoryModalOpen(false);
-        }
+        } catch (error) { console.error('Error renaming category:', error); showToast('Failed to rename category.', 'error'); } 
+        finally { setIsEditCategoryModalOpen(false); }
     };
 
-    const handleEditCategory = (category) => {
-        setCategoryToEdit(category);
-        setIsEditCategoryModalOpen(true);
-    };
-
-    const courseCategories = [
-        ...new Set(courses.map((c) => c.category).filter(Boolean)),
-    ].map((name) => ({ id: name, name: name }));
-
-    const handleAddSubjectWithCategory = (categoryName) => {
-        setPreselectedCategoryForCourseModal(categoryName);
-        rest.setCreateCourseModalOpen(true);
-    };
+    const handleEditCategory = (category) => { setCategoryToEdit(category); setIsEditCategoryModalOpen(true); };
+    const courseCategories = [...new Set(courses.map((c) => c.category).filter(Boolean))].map((name) => ({ id: name, name: name }));
+    const handleAddSubjectWithCategory = (categoryName) => { setPreselectedCategoryForCourseModal(categoryName); rest.setCreateCourseModalOpen(true); };
 
     // UPDATED MOBILE DOCK ITEMS (Lucide)
     const bottomNavItems = [
@@ -558,51 +482,27 @@ const TeacherDashboardLayout = (props) => {
     ];
 
     const handleStartOnlineClass = async (classId, meetingCode, meetLink) => {
-            try {
-                const classRef = doc(db, 'classes', classId);
-                await updateDoc(classRef, {
-                    videoConference: {
-                        isLive: true,
-                        meetingCode: meetingCode,
-                        platform: 'GOOGLE_MEET',
-                        startTime: new Date().toISOString(),
-                    },
-                });
-                showToast(`Class ${meetingCode} is now live! Opening Google Meet...`, 'success');
-                window.open(meetLink, '_blank');
-            } catch (error) {
-                console.error("Error starting online class:", error);
-                showToast('Failed to start the online class due to a system error.', 'error');
-            }
-        };
+        try {
+            const classRef = doc(db, 'classes', classId);
+            await updateDoc(classRef, { videoConference: { isLive: true, meetingCode: meetingCode, platform: 'GOOGLE_MEET', startTime: new Date().toISOString() } });
+            showToast(`Class ${meetingCode} is now live! Opening Google Meet...`, 'success');
+            window.open(meetLink, '_blank');
+        } catch (error) { console.error("Error starting online class:", error); showToast('Failed to start the online class due to a system error.', 'error'); }
+    };
     const handleEndOnlineClass = async (classId) => {
-            try {
-                const classRef = doc(db, 'classes', classId);
-                await updateDoc(classRef, {
-                    'videoConference.isLive': false,
-                    'videoConference.meetingCode': null,
-                    'videoConference.startTime': null,
-                });
-                showToast('Online class successfully ended.', 'info');
-            } catch (error) {
-                console.error("Error ending online class:", error);
-                showToast('Failed to end the online class.', 'error');
-            }
-        };
+        try {
+            const classRef = doc(db, 'classes', classId);
+            await updateDoc(classRef, { 'videoConference.isLive': false, 'videoConference.meetingCode': null, 'videoConference.startTime': null });
+            showToast('Online class successfully ended.', 'info');
+        } catch (error) { console.error("Error ending online class:", error); showToast('Failed to end the online class.', 'error'); }
+    };
 
     const renderMainContent = () => {
         if (loading || authLoading) return <DashboardSkeleton />;
-
         if (error) {
             return (
                 <div className="glass-panel border-l-4 border-red-500 text-red-800 dark:text-red-200 p-6 rounded-2xl m-4">
-                    <div className="flex items-start gap-3">
-                        <ExclamationTriangleIcon className="w-6 h-6 text-red-500" />
-                        <div>
-                            <strong className="block text-lg font-bold">System Notification</strong>
-                            <span className="text-sm opacity-80">{error}</span>
-                        </div>
-                    </div>
+                    <div className="flex items-start gap-3"><ExclamationTriangleIcon className="w-6 h-6 text-red-500" /><div><strong className="block text-lg font-bold">System Notification</strong><span className="text-sm opacity-80">{error}</span></div></div>
                 </div>
             );
         }
@@ -623,7 +523,7 @@ const TeacherDashboardLayout = (props) => {
         <div 
             className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 font-sans antialiased text-slate-900 dark:text-slate-100 pb-24 lg:pb-0 relative overflow-hidden"
             // --- FIX: INJECT VARIABLES AT THE ROOT LEVEL ---
-            // This ensures `var(--monet-accent)` works everywhere, including Widgets
+            // This ensures `var(--monet-accent)` works everywhere
             style={monetTheme.variables}
         >
             <UniversalBackground />
@@ -649,18 +549,14 @@ const TeacherDashboardLayout = (props) => {
                         </span>
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0 z-20">
-                        <ThemeDropdown 
-                           size="mobile" 
-                           showTutorial={showAmbienceTutorial}
-                           onTutorialComplete={handleTutorialComplete}
-                        />
+                        <ThemeDropdown size="mobile" showTutorial={showAmbienceTutorial} onTutorialComplete={handleTutorialComplete} />
                         <ProfileDropdown userProfile={userProfile} onLogout={() => setIsLogoutModalOpen(true)} size="mobile" />
                     </div>
                 </motion.div>
             </div>
 
-            {/* DESKTOP HEADER */}
-            <div className="hidden lg:block fixed top-0 left-0 right-0 z-[50] px-4 md:px-6 lg:px-8 pt-0 pb-2 w-full max-w-[1920px] mx-auto transition-all duration-300">
+            {/* DESKTOP HEADER - PADDING REDUCED TO pt-2 FOR LESS GAP */}
+            <div className="hidden lg:block fixed top-0 left-0 right-0 z-[50] px-4 md:px-6 lg:px-8 pt-1 pb-2 w-full max-w-[1920px] mx-auto transition-all duration-300">
                 <DesktopHeader 
                     userProfile={userProfile} 
                     setIsLogoutModalOpen={setIsLogoutModalOpen} 
@@ -669,11 +565,9 @@ const TeacherDashboardLayout = (props) => {
                 />
             </div>
 
-            <main className="flex-1 w-full max-w-[1920px] mx-auto px-4 md:px-6 lg:px-8 pb-4 md:pb-6 lg:pb-8 pt-24 lg:pt-24 relative z-10">
+            <main className="flex-1 w-full max-w-[1920px] mx-auto px-4 md:px-6 lg:px-8 pb-4 md:pb-6 lg:pb-8 pt-24 lg:pt-32 relative z-10">
                 <div className="w-full h-full">
-                    <Suspense fallback={<DashboardSkeleton />}>
-                        {renderMainContent()}
-                    </Suspense>
+                    <Suspense fallback={<DashboardSkeleton />}>{renderMainContent()}</Suspense>
                 </div>
             </main>
 
