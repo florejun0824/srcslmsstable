@@ -116,7 +116,7 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
         setDistribution(prev => ({ ...prev, [type]: newValue }));
     };
 
-    // --- PROMPT CONSTRUCTION (DEPED ALIGNED & DETAILED) ---
+// --- PROMPT CONSTRUCTION (STRICT DE-REFERENCING) ---
 
     const constructPrompt = (isRevision = false) => {
         if (isRevision && generatedQuiz) {
@@ -150,44 +150,57 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
         }
 
         return `
-        Role: Expert DepEd Curriculum Developer and Assessment Specialist (Philippines K-12 Context).
+        Role: Expert DepEd Curriculum Developer and Assessment Specialist.
         Target Audience: ${gradeLevel} Students in the Philippines.
         Language: ${language} ${language === 'Filipino' ? '(Ensure formal academic Filipino)' : '(English)'}.
-        Subject Context: ${subjectTitle} - Topic: "${lesson?.title}".
+        Topic: "${lesson?.title}" (Subject: ${subjectTitle}).
         
-        Source Material:
+        Information Base (Treat these facts as universal truths):
         ${lessonContent.substring(0, 8000)}
 
-        --- INSTRUCTIONS ---
+        --- CRITICAL INSTRUCTION: "CLOSED BOOK" STYLE ---
+        **The students do NOT have access to the text while taking this quiz.** Therefore, you must NEVER refer to "the text", "the lesson", "the story", "the author", or "the passage".
+        
+        **STRICT VIOLATION CHECK:**
+        ❌ BAD: "According to the lesson, what is the first step?"
+        ❌ BAD: "As described in the text, why is the sky blue?"
+        ❌ BAD: "What does the story suggest about bravery?"
+        ❌ BAD: "In the selection provided, who is the main character?"
+        
+        ✅ GOOD: "What is the first step?"
+        ✅ GOOD: "Why is the sky blue?"
+        ✅ GOOD: "What is the primary characteristic of bravery?"
+        ✅ GOOD: "Who is the main character in 'Noli Me Tangere'?"
+
+        --- ADDITIONAL RULES ---
         1. **DepEd Standards Alignment**:
-           - **Contextualization**: Use Filipino names (e.g., Juan, Maria, Cruz), local locations (e.g., Manila, Cebu, Barangay), and culturally relevant situations where applicable.
-           - **Cognitive Rigor (Bloom's Taxonomy)**:
-             - For Lower Grades (7-8): Focus on Remembering and Understanding (60%), Applying (40%).
-             - For Higher Grades (9-12): Include Analyzing and Evaluating questions.
-           - **Vocabulary**: Adjust sentence complexity to be appropriate for ${gradeLevel} learners. Avoid overly obscure academic jargon unless defined in the text.
+           - **Contextualization**: Use Filipino names (Juan, Maria), local settings (Barangay, School), and real-life scenarios.
+           - **Cognitive Rigor**:
+             - Lower Grades (7-8): 60% Remembering/Understanding, 40% Applying.
+             - Higher Grades (9-12): Include Analyzing/Evaluating.
+           - **Vocabulary**: Appropriate for ${gradeLevel}.
 
         2. **Item Construction Rules**:
-			- **DIRECT PHRASING (CRITICAL)**: Never use phrases like "According to the text," "Based on the provided selection," or "In the lesson." Questions must be standalone facts or scenarios (e.g., instead of "According to the text, who is the hero?", use "Who is the main hero of the story?").
-           - **Multiple Choice**: Create plausible distractors. No "All of the above" unless absolutely necessary.
-           - **True/False**: Avoid double negatives. If Filipino, use "Tama" / "Mali".
-           - **Essay**: Provide a clear prompt that requires critical thinking, not just recall. MUST include a rubric.
-           - **Matching Type**: Ensure the list of premises (column A) is homogeneous (e.g., all dates, all definitions).
+           - **Multiple Choice**: Create plausible distractors. No "All of the above".
+           - **True/False**: Avoid double negatives. Use "Tama" / "Mali" if Filipino.
+           - **Essay**: Prompt must require critical thinking. MUST include a rubric.
+           - **Matching Type**: Ensure premises are homogeneous (e.g., all dates, all people).
 
-        3. **Critical Formatting Rules (System Requirement)**:
+        3. **Formatting (System Requirement)**:
            - ${formatInstructions}
-           - **NO Grouping**: Do NOT output questions labeled "6-7" or "1-5". Each question must be a separate object in the JSON array.
-           - **Points**: Standard items (MC, T/F, ID) are strictly 1 point. Essay and Matching points are dynamic.
-           - **Output**: Return ONLY raw, valid JSON. No markdown conversational filler.
+           - **NO Grouping**: Do NOT output "Questions 1-5". Each item is a standalone object.
+           - **Points**: Standard = 1 point. Essay/Matching = Dynamic.
+           - **Output**: Return ONLY raw, valid JSON.
 
         --- REQUIRED JSON STRUCTURE ---
         {
           "title": "Quiz Title (Creative & Relevant)",
           "questions": [
             {
-              "text": "Question Text...",
+              "text": "Question Text...", // MUST NOT contain 'according to the text'
               "type": "multiple-choice | true-false | identification | matching-type | essay",
               "points": 1, 
-              "explanation": "Brief rationale for the correct answer (for review purposes)...",
+              "explanation": "Brief rationale...",
               
               // IF Multiple Choice:
               "options": [
@@ -198,22 +211,21 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
               ],
               
               // IF True/False:
-              "correctAnswer": true, // or false
+              "correctAnswer": true, 
               
               // IF Identification:
               "correctAnswer": "Exact Answer String",
 
-              // IF Essay (REQUIRED):
+              // IF Essay:
               "rubric": [
                 { "criteria": "Content Accuracy", "points": 5 },
                 { "criteria": "Grammar & Flow", "points": 5 }
               ],
 
-              // IF Matching Type (REQUIRED):
-              // Note: For Matching Type, create ONE question object containing multiple pairs.
+              // IF Matching Type:
               "pairs": [
-                 { "prompt": "Jose Rizal", "answer": "National Hero" },
-                 { "prompt": "Andres Bonifacio", "answer": "Katipunan Leader" }
+                 { "prompt": "Item A", "answer": "Match A" },
+                 { "prompt": "Item B", "answer": "Match B" }
               ] 
             }
           ]
