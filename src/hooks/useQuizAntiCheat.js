@@ -1,8 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react'; // [UPDATED] Added useRef
 import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
 import { PrivacyScreen } from '@capacitor-community/privacy-screen';
-import AntiCheatPlugin from '../plugins/AntiCheatPlugin'; // Adjust path if needed
+import AntiCheatPlugin from '../plugins/AntiCheatPlugin'; 
 
 /**
  * A custom hook to encapsulate all anti-cheat logic for the quiz.
@@ -25,22 +25,20 @@ export default function useQuizAntiCheat({
     const isAntiCheatEnabled = quizSettings?.enabled ?? false;
 
     // 2. Gate ALL feature flags by this main setting.
-    // If isAntiCheatEnabled is false, all these consts will also be false.
     const lockOnLeave = isAntiCheatEnabled && (quizSettings?.lockOnLeave ?? false);
     const preventScreenCapture = isAntiCheatEnabled && (quizSettings?.preventScreenCapture ?? false);
     const warnOnPaste = isAntiCheatEnabled && (quizSettings?.warnOnPaste ?? false);
     const detectDevTools = isAntiCheatEnabled && (quizSettings?.detectDevTools ?? false);
 
+    // [NEW] Keep track of the last known native state to prevent spamming the bridge
+    const wasActiveRef = useRef(false);
 
     // 🟢 CRITICAL FIX: Native Plugin Enable/Disable Control
     useEffect(() => {
-        // We REMOVED "|| isTeacherView" from here.
-        // We need this effect to run for teachers so we can force-DISABLE the native plugin.
         if (!Capacitor.isNativePlatform()) return;
 
         const toggleNativeAntiCheat = async () => {
-            
-            // Logic: The Native Plugin should only be active if:
+            // STRICT SAFETY: The Native Plugin should only be active if:
             // 1. Quiz is open
             // 2. User is NOT a teacher
             // 3. Quiz is not locked/submitted
@@ -49,13 +47,19 @@ export default function useQuizAntiCheat({
             
             try {
                 if (shouldBeActive) {
-                    await AntiCheatPlugin.enableAntiCheat();
-                    console.log("Native AntiCheat: ENABLED");
+                    // Only enable if we aren't already active (prevents redundant calls)
+                    if (!wasActiveRef.current) {
+                        await AntiCheatPlugin.enableAntiCheat();
+                        console.log("Native AntiCheat: ENABLED");
+                        wasActiveRef.current = true;
+                    }
                 } else {
-                    // Teachers (or finished students) will now hit this line.
-                    // This updates the boolean in Java to 'false', preventing the "Overlay Detected" toast.
+                    // Force disable. We do this even if we think it's off, just to be safe (syncs Java state).
                     await AntiCheatPlugin.disableAntiCheat();
-                    console.log("Native AntiCheat: DISABLED");
+                    if (wasActiveRef.current) {
+                        console.log("Native AntiCheat: DISABLED");
+                        wasActiveRef.current = false;
+                    }
                 }
             } catch (e) {
                 console.error("Failed to toggle native anti-cheat plugin:", e);
@@ -68,6 +72,7 @@ export default function useQuizAntiCheat({
         return () => {
             if (Capacitor.isNativePlatform()) {
                 AntiCheatPlugin.disableAntiCheat().catch(e => console.error("Error disabling native anti-cheat on unmount", e));
+                wasActiveRef.current = false;
             }
         };
     }, [isOpen, isTeacherView, isLocked, score, hasSubmitted, isAntiCheatEnabled]);
@@ -75,14 +80,16 @@ export default function useQuizAntiCheat({
 
     // -----------------------------------------------------------------------
     // The following hooks handle JS-side listeners. 
-    // It is safe to keep "|| isTeacherView" returns here, because these are JS events,
-    // not persistent Native states.
+    // [FIXED] Added "!isTeacherView" to all "canWarn" checks below.
     // -----------------------------------------------------------------------
 
     // App State Change Listener (Native)
     useEffect(() => {
         let listener;
-        if (isOpen && Capacitor.isNativePlatform() && !isTeacherView && lockOnLeave && !isLocked && !hasSubmitted) {
+        // [FIXED] Added check for !isTeacherView
+        const shouldWatch = isOpen && Capacitor.isNativePlatform() && !isTeacherView && lockOnLeave && !isLocked && !hasSubmitted;
+
+        if (shouldWatch) {
             listener = App.addListener('appStateChange', ({ isActive }) => {
                 if (!isActive) {
                     setIsInfractionActive(true);
@@ -99,7 +106,8 @@ export default function useQuizAntiCheat({
     useEffect(() => {
         if (!Capacitor.isNativePlatform() || isTeacherView || !lockOnLeave) return;
 
-        const canWarn = () => isOpen && !isLocked && !hasSubmitted && lockOnLeave;
+        // [FIXED] Added !isTeacherView to ensure teachers never trigger warnings
+        const canWarn = () => isOpen && !isLocked && !hasSubmitted && lockOnLeave && !isTeacherView;
 
         const leaveListener = AntiCheatPlugin.addListener("userLeftHint", () => { if (canWarn()) { console.log("Plugin: userLeftHint"); issueWarning('general'); } });
         const pauseListener = AntiCheatPlugin.addListener("appPaused", () => { if (canWarn()) { console.log("Plugin: appPaused"); issueWarning('general'); } });
@@ -148,8 +156,16 @@ export default function useQuizAntiCheat({
     useEffect(() => {
         if (!Capacitor.isNativePlatform() || isTeacherView || !lockOnLeave) return;
 
-        const canWarn = () => isOpen && !isLocked && !hasSubmitted && lockOnLeave;
-        const handleOverlayDetected = (event) => { if (canWarn()) { console.log("Native Bridge: overlayDetected"); issueWarning('general'); setIsInfractionActive(true); } };
+        // [FIXED] Added !isTeacherView
+        const canWarn = () => isOpen && !isLocked && !hasSubmitted && lockOnLeave && !isTeacherView;
+        
+        const handleOverlayDetected = (event) => { 
+            if (canWarn()) { 
+                console.log("Native Bridge: overlayDetected"); 
+                issueWarning('general'); 
+                setIsInfractionActive(true); 
+            } 
+        };
         
         window.addEventListener("overlayDetected", handleOverlayDetected);
         return () => { window.removeEventListener("overlayDetected", handleOverlayDetected); };
@@ -159,7 +175,9 @@ export default function useQuizAntiCheat({
     useEffect(() => {
         if (Capacitor.isNativePlatform() || isTeacherView || !lockOnLeave) return;
 
-        const canWarn = () => isOpen && !isLocked && !hasSubmitted && lockOnLeave;
+        // [FIXED] Added !isTeacherView
+        const canWarn = () => isOpen && !isLocked && !hasSubmitted && lockOnLeave && !isTeacherView;
+        
         const handleFocusLoss = () => { if (canWarn()) { console.log("Web: blur"); issueWarning('general'); setIsInfractionActive(true); } };
         const handleFocusGain = () => { setIsInfractionActive(false); };
 
@@ -176,7 +194,9 @@ export default function useQuizAntiCheat({
     useEffect(() => {
         if (Capacitor.isNativePlatform() || isTeacherView || !lockOnLeave) return;
 
-        const canWarn = () => isOpen && !isLocked && !hasSubmitted && lockOnLeave;
+        // [FIXED] Added !isTeacherView
+        const canWarn = () => isOpen && !isLocked && !hasSubmitted && lockOnLeave && !isTeacherView;
+        
         const handleVisibilityChange = () => {
             if (document.hidden && canWarn()) { console.log("Web: visibilitychange hidden"); issueWarning('general'); setIsInfractionActive(true); }
             else if (!document.hidden) { setIsInfractionActive(false); }
@@ -189,6 +209,7 @@ export default function useQuizAntiCheat({
     // Continuous Warning Timer (When Infraction Active)
     useEffect(() => {
         let warningInterval = null;
+        // [FIXED] Added check for !isTeacherView
         const canIssueWarning = isOpen && !isTeacherView && !isLocked && !hasSubmitted && lockOnLeave;
         
         if (isInfractionActive && canIssueWarning) {
@@ -207,7 +228,8 @@ export default function useQuizAntiCheat({
         if (Capacitor.isNativePlatform() || isTeacherView || !lockOnLeave) return;
 
         const handleBeforeUnload = (event) => {
-            if (isOpen && !isLocked && score === null && !hasSubmitted && lockOnLeave) {
+            // [FIXED] Added check for !isTeacherView
+            if (isOpen && !isLocked && score === null && !hasSubmitted && lockOnLeave && !isTeacherView) {
                 issueWarning('general');
                 event.preventDefault();
                 event.returnValue = 'Leaving the quiz will result in a warning and may lock your quiz. Are you sure?';
@@ -225,7 +247,7 @@ export default function useQuizAntiCheat({
             if (Capacitor.isNativePlatform()) {
                 try {
                     // Privacy Screen logic is correct: It must disable itself if isTeacherView is true
-                    if (isOpen && preventScreenCapture && !isTeacherView && !hasSubmitted) {
+                    if (isOpen && preventScreenCapture && !isTeacherView && !hasSubmitted && score === null) {
                         await PrivacyScreen.enable();
                         console.log("Privacy screen enabled.");
                     } else {
@@ -243,7 +265,7 @@ export default function useQuizAntiCheat({
                 PrivacyScreen.disable().catch(e => console.error("Error disabling privacy screen on unmount", e));
             }
         };
-    }, [isOpen, preventScreenCapture, isTeacherView, hasSubmitted]);
+    }, [isOpen, preventScreenCapture, isTeacherView, hasSubmitted, score]);
 
     // Clipboard/DevTools Listeners
     useEffect(() => {

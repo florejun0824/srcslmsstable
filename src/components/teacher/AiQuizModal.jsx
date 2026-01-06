@@ -167,6 +167,7 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
            - **Vocabulary**: Adjust sentence complexity to be appropriate for ${gradeLevel} learners. Avoid overly obscure academic jargon unless defined in the text.
 
         2. **Item Construction Rules**:
+			- **DIRECT PHRASING (CRITICAL)**: Never use phrases like "According to the text," "Based on the provided selection," or "In the lesson." Questions must be standalone facts or scenarios (e.g., instead of "According to the text, who is the hero?", use "Who is the main hero of the story?").
            - **Multiple Choice**: Create plausible distractors. No "All of the above" unless absolutely necessary.
            - **True/False**: Avoid double negatives. If Filipino, use "Tama" / "Mali".
            - **Essay**: Provide a clear prompt that requires critical thinking, not just recall. MUST include a rubric.

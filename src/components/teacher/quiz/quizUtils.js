@@ -46,23 +46,47 @@ export const handleExportPdf = async (quiz, showToast) => {
             if (q.type === 'multiple-choice' && q.options) {
                 const optionsText = q.options.map((opt, idx) => `  ${String.fromCharCode(97 + idx)}. ${opt.text || opt}`).join('\n');
                 questionContent += `\n${optionsText}`;
-                // Find correct answer (works for both formats)
-                const correctOpt = q.options[q.correctAnswerIndex];
-                correctAnswerText = correctOpt?.text || correctOpt || 'N/A';
+                
+                // --- FIX: Logic to find correct answer ---
+                // 1. Try finding the option marked isCorrect: true
+                let correctOpt = q.options.find(opt => opt.isCorrect === true);
+                
+                // 2. Fallback: Try using correctAnswerIndex if it exists
+                if (!correctOpt && typeof q.correctAnswerIndex === 'number') {
+                    correctOpt = q.options[q.correctAnswerIndex];
+                }
+
+                // 3. Fallback: Check if correctAnswer is just a string (e.g. "A", "Answer Text")
+                if (!correctOpt && typeof q.correctAnswer === 'string') {
+                     correctAnswerText = q.correctAnswer;
+                } else {
+                     correctAnswerText = correctOpt?.text || correctOpt || 'N/A';
+                }
+
             } else if (q.type === 'true-false') {
                  questionContent += quiz.language === 'Filipino' ? '\n  a. Tama\n  b. Mali' : '\n  a. True\n  b. False';
-                 correctAnswerText = quiz.language === 'Filipino' ? (q.correctAnswer ? 'Tama' : 'Mali') : String(q.correctAnswer);
+                 // Handle both boolean true/false and string "True"/"False"
+                 if (typeof q.correctAnswer === 'boolean') {
+                    correctAnswerText = quiz.language === 'Filipino' ? (q.correctAnswer ? 'Tama' : 'Mali') : (q.correctAnswer ? 'True' : 'False');
+                 } else {
+                    correctAnswerText = String(q.correctAnswer || 'N/A');
+                 }
             } else if (q.type === 'matching-type') {
                  // Basic representation for PDF
                  questionContent += '\n(Match items in Column A with Column B)';
                  // Answer key needs expansion
                  correctAnswerText = (q.prompts || []).map((p, pIdx) => {
-                     const correctOpt = (q.options || []).find(opt => q.correctPairs && opt.id === q.correctPairs[p.id]);
-                     const optLetter = String.fromCharCode(97 + (q.options || []).findIndex(opt => opt.id === correctOpt?.id));
+                     // Robust check for matching pairs
+                     const correctOptId = q.correctPairs ? q.correctPairs[p.id] : null;
+                     
+                     // Find the letter index (a, b, c...) of that correct option
+                     const optIndex = (q.options || []).findIndex(opt => opt.id === correctOptId);
+                     const optLetter = optIndex >= 0 ? String.fromCharCode(97 + optIndex) : '?';
+                     
                      return `${itemCounter + pIdx}. ${optLetter}`;
                  }).join('; ');
             } else if (q.type === 'essay') {
-                correctAnswerText = '(Essay - Manual/AI Grade)'; // Indicate no single key
+                correctAnswerText = '(Essay - Manual/AI Grade)'; 
                 if(q.rubric && q.rubric.length > 0) {
                     questionContent += `\n\nRubric:\n${q.rubric.map(r => `  - ${r.criteria} (${r.points} pts)`).join('\n')}`;
                 }
@@ -71,17 +95,20 @@ export const handleExportPdf = async (quiz, showToast) => {
                 correctAnswerText = String(q.correctAnswer ?? 'N/A');
             }
 
-            if (q.explanation && q.type !== 'essay') { // Don't typically add explanation to essay prompts in export
+            if (q.explanation && q.type !== 'essay') { 
                 questionContent += `\n\nExplanation: ${q.explanation}`;
             }
 
-            quizBody.push([currentItemLabel, questionContent]); // Use calculated label
+            quizBody.push([currentItemLabel, questionContent]); 
 
             // Add to answer key (handle matching expansion)
             if (q.type === 'matching-type') {
                  (q.prompts || []).forEach((p, pIdx) => {
-                     const correctOpt = (q.options || []).find(opt => q.correctPairs && opt.id === q.correctPairs[p.id]);
-                     const optLetter = String.fromCharCode(97 + (q.options || []).findIndex(opt => opt.id === correctOpt?.id));
+                     const correctOptId = q.correctPairs ? q.correctPairs[p.id] : null;
+                     const correctOpt = (q.options || []).find(opt => opt.id === correctOptId);
+                     const optIndex = (q.options || []).findIndex(opt => opt.id === correctOptId);
+                     
+                     const optLetter = optIndex >= 0 ? String.fromCharCode(97 + optIndex) : '?';
                      const optText = correctOpt?.text || 'N/A';
                      answerKey.push([itemCounter + pIdx, `${optLetter}. ${optText}`]);
                  });
@@ -89,7 +116,7 @@ export const handleExportPdf = async (quiz, showToast) => {
                  answerKey.push([currentItemLabel, correctAnswerText]);
             }
 
-            itemCounter += points; // Increment by points for next item number
+            itemCounter += points; 
         });
 
         // Generate PDF
@@ -105,7 +132,6 @@ export const handleExportPdf = async (quiz, showToast) => {
         const quizTitleToExport = quiz.title || 'quiz';
         const sanitizedFileName = quizTitleToExport.replace(/[\\/:"*?<>|]+/g, '_') + '.pdf';
         if (Capacitor.isNativePlatform()) {
-            // --- Native Save/Open Logic ---
             let permStatus = await Filesystem.checkPermissions();
             if (permStatus.publicStorage !== 'granted') { permStatus = await Filesystem.requestPermissions(); }
             if (permStatus.publicStorage !== 'granted') { showToast("Storage permission needed.", "error"); return; }
@@ -115,12 +141,9 @@ export const handleExportPdf = async (quiz, showToast) => {
             const result = await Filesystem.writeFile({ path: filePath, data: base64Data, directory: directory, recursive: true });
             showToast("Saved to Documents.", "info");
             await FileOpener.open({ filePath: result.uri, contentType: 'application/pdf' });
-            // --- End Native ---
         } else {
-            // --- Web Save Logic ---
             doc.save(sanitizedFileName);
             showToast("Quiz exported as PDF.", "success");
-            // --- End Web ---
         }
 
     } catch (error) {

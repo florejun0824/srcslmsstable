@@ -1,5 +1,5 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react'; 
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'; // [UPDATED] Added useLocation
 import { Capacitor } from '@capacitor/core';
 import { StatusBar } from '@capacitor/status-bar';
 import { PushNotifications } from '@capacitor/push-notifications';
@@ -11,6 +11,7 @@ import PostLoginExperience from "./components/PostLoginExperience";
 import UpdateOverlay from './components/UpdateOverlay';
 import LogoLoadingScreen from './components/common/LogoLoadingScreen'; 
 import * as serviceWorkerRegistration from './serviceWorkerRegistration';
+import AntiCheatPlugin from './plugins/AntiCheatPlugin'; // [UPDATED] Import the plugin
 import './index.css';
 
 // --- GLOBAL DEFINITIONS ---
@@ -32,6 +33,25 @@ const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
 const TermsPage = lazy(() => import('./pages/TermsPage'));
 
 const AVERAGE_BUILD_SECONDS = 300;
+
+// --- NEW COMPONENT: Global Anti-Cheat Cleanup ---
+// [UPDATED] This component watches for URL changes. 
+// If the user navigates anywhere (Dashboard, etc.), it forces the Native Plugin to disable.
+const AntiCheatRouteWatcher = () => {
+    const location = useLocation();
+
+    useEffect(() => {
+        if (Capacitor.isNativePlatform()) {
+            // We don't log this to console to avoid clutter, but effectively this line
+            // disarms the Java "isQuizActive" boolean on every page transition.
+            AntiCheatPlugin.disableAntiCheat().catch(err => 
+                console.warn("Safety Net: Failed to force-disable anti-cheat on route change", err)
+            );
+        }
+    }, [location]);
+
+    return null;
+};
 
 // --- SYSTEM STATUS LISTENER (Version + Connectivity) ---
 const SystemStatusListener = () => {
@@ -98,7 +118,6 @@ const SystemStatusListener = () => {
 };
 
 // --- SKELETONS ---
-// Tip: In a future step, you can move these to src/components/Skeletons.jsx to clean this file up further.
 const TeacherSkeleton = () => (
   <div className="min-h-screen w-full bg-[#dae0f2] dark:bg-[#0a0c10] font-sans overflow-y-auto custom-scrollbar relative">
      <div className="fixed inset-0 pointer-events-none z-0">
@@ -279,6 +298,9 @@ const AppRouter = () => {
 
   return (
     <Suspense fallback={getSuspenseFallback()}>
+        {/* [UPDATED] Insert Route Watcher here to protect against stuck Anti-Cheat */}
+        <AntiCheatRouteWatcher /> 
+
         <Routes>
         <Route path="/test" element={<TestPage />} />
         <Route path="/create-admin-xyz" element={<AdminSignup />} />
