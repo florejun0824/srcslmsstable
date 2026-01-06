@@ -20,6 +20,7 @@ import { ConfirmActionModal } from './AdminDashboard';
 import { useStudentPosts } from '../hooks/useStudentPosts'; 
 
 const PresentationPreviewModal = lazy(() => import('../components/teacher/PresentationPreviewModal'));
+const PresentationGeneratingModal = lazy(() => import('../components/teacher/PresentationGeneratingModal'));
 const BetaWarningModal = lazy(() => import('../components/teacher/BetaWarningModal'));
 const ViewLessonModal = lazy(() => import('../components/teacher/ViewLessonModal'));
 
@@ -129,6 +130,11 @@ const TeacherDashboard = () => {
   const [isBetaWarningModalOpen, setIsBetaWarningModalOpen] = useState(false);
   const [lessonsToProcessForPPT, setLessonsToProcessForPPT] = useState([]);
   const [reloadKey, setReloadKey] = useState(0);
+
+  // New State for Presentation Generation Modal
+  const [isGeneratingPPT, setIsGeneratingPPT] = useState(false);
+  const [pptGenerationProgress, setPptGenerationProgress] = useState(0);
+  const [pptGenerationStatus, setPptGenerationStatus] = useState("Initializing...");
 
   const [confirmArchiveModalState, setConfirmArchiveModalState] = useState({
     isOpen: false,
@@ -592,7 +598,10 @@ const TeacherDashboard = () => {
 	        return;
 	    }
 
-	    setIsAiGenerating(true);
+	    // Enable PPT Specific Mode
+	    setIsGeneratingPPT(true);
+        setPptGenerationProgress(5);
+        setPptGenerationStatus("Initializing AI Model...");
 
 	    // 2. Start with ONE Master Title Slide
 	    let accumulatedSlides = [
@@ -606,7 +615,13 @@ const TeacherDashboard = () => {
 	    // 3. SEQUENTIAL LOOP
 	    for (let i = 0; i < validPages.length; i++) {
 	        const page = validPages[i];
-	        showToast(`Generating slides for section ${i + 1} of ${validPages.length}...`, "info");
+	        
+            const currentStep = i + 1;
+            const totalSteps = validPages.length;
+            const progressPercentage = Math.round((currentStep / totalSteps) * 90); 
+            
+            setPptGenerationStatus(`Analyzing section ${currentStep} of ${totalSteps}...`);
+            setPptGenerationProgress(progressPercentage);
 
 		const prompt = `
 		    SYSTEM: You are a JSON-only API. You are NOT a chatbot.
@@ -652,7 +667,7 @@ const TeacherDashboard = () => {
    		 	1. **NO GENERIC INSTRUCTIONS:** Do not just say "Explain X." You must **Provide the Explanation**.
    		 	2. **ASSUME THE TEACHER NEEDS HELP:** The teacher might not know the details. The notes must contain the hard facts, dates, definitions, and "answers" to the slide.
     		- **BAD:** "Discuss the conflict between Greek logic and faith."
-    		- **GOOD:** "CONTEXT: The core conflict is that Greek logic (Aristotle) relies on empirical reason, while Christian doctrine relies on divine revelation. Aquinas's innovation was arguing these are NOT contradictory, but compatible paths to the same Truth."
+    		- **GOOD:** "The core conflict is that Greek logic (Aristotle) relies on empirical reason, while Christian doctrine relies on divine revelation. Aquinas's innovation was arguing these are NOT contradictory, but compatible paths to the same Truth."
 
 		    **REQUIRED JSON SCHEMA:**
 		    {
@@ -698,27 +713,34 @@ const TeacherDashboard = () => {
 	            console.error(`Error on part ${i + 1}:`, err);
 	            // Log failing text for debugging
 	            console.log("Failed Response Text:", err.message);
-	            showToast(`Skipped section ${i + 1} due to generation error.`, "warning");
+	            // We do not stop the process on a single chunk error, but we log it
 	        }
 	    }
 
 	    if (accumulatedSlides.length <= 1) {
 	        showToast("Failed to generate slides. Please check lesson content.", "error");
-	        setIsAiGenerating(false);
+	        setIsGeneratingPPT(false);
+            setPptGenerationProgress(0);
 	        return;
 	    }
 
-	    showToast("Presentation generation complete!", "success");
+        setPptGenerationStatus("Finalizing layout...");
+        setPptGenerationProgress(100);
 
-	    setPresentationPreviewData({ 
-	        slides: accumulatedSlides, 
-	        lessonIds, 
-	        lessonsData, 
-	        unitsData 
-	    });
-    
-	    setPresentationPreviewModalOpen(true);
-	    setIsAiGenerating(false); 
+        setTimeout(() => {
+    	    showToast("Presentation generation complete!", "success");
+
+    	    setPresentationPreviewData({ 
+    	        slides: accumulatedSlides, 
+    	        lessonIds, 
+    	        lessonsData, 
+    	        unitsData 
+    	    });
+            
+            setIsGeneratingPPT(false);
+    	    setPresentationPreviewModalOpen(true);
+            setPptGenerationProgress(0);
+        }, 800);
 	}, [activeSubject, showToast]);
 
     const handleConfirmBetaWarning = useCallback((neverShowAgain) => {
@@ -1085,7 +1107,7 @@ const TeacherDashboard = () => {
 
     return (
         <>
-            {isAiGenerating && <GlobalAiSpinner message="AI is generating content... Please wait." />}
+            {isAiGenerating && !isGeneratingPPT && <GlobalAiSpinner message="AI is generating content... Please wait." />}
             
             <TeacherDashboardLayout
                 handleCreateUnit={handleCreateUnit}
@@ -1129,7 +1151,7 @@ const TeacherDashboard = () => {
                 setShareContentModalOpen={setShareContentModalOpen}
                 handleGenerateQuizForLesson={handleGenerateQuizForLesson}
                 onGeneratePresentationPreview={handleInitiatePresentationGeneration}
-                isAiGenerating={isAiGenerating}
+                isAiGenerating={isAiGenerating || isGeneratingPPT}
                 setIsAiGenerating={setIsAiGenerating}
                 setEditProfileModalOpen={setEditProfileModalOpen}
                 setChangePasswordModalOpen={setChangePasswordModalOpen}
@@ -1221,6 +1243,12 @@ const TeacherDashboard = () => {
             />
 
             <Suspense fallback={<GlobalAiSpinner message="Loading..." />}>
+                <PresentationGeneratingModal 
+                    isOpen={isGeneratingPPT} 
+                    progress={pptGenerationProgress} 
+                    status={pptGenerationStatus} 
+                />
+                
                 {viewLessonModalOpen && selectedLesson && (
                     <ViewLessonModal 
                         isOpen={viewLessonModalOpen} 

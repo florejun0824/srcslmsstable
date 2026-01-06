@@ -1,9 +1,9 @@
 // src/pages/AdminDashboard.jsx
 
-import React, { useState, useEffect, Fragment } from 'react';
-import { memo } from 'react';
-import { useAuth, DEFAULT_SCHOOL_ID } from '../contexts/AuthContext'; // ✅ Import DEFAULT_SCHOOL_ID
+import React, { useState, useEffect, Fragment, memo } from 'react';
+import { useAuth, DEFAULT_SCHOOL_ID } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import { useTheme } from '../contexts/ThemeContext';
 import {
   Trash2,
   Edit,
@@ -29,28 +29,69 @@ import GenerateUsersModal from '../components/admin/GenerateUsersModal';
 import DownloadAccountsModal from '../components/admin/DownloadAccountsModal';
 import EditUserModal from '../components/admin/EditUserModal';
 
-// --- DESIGN TOKENS & UTILS ---
-const glassPanel = "bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-xl shadow-black/5";
-const listItemHover = "hover:bg-black/5 dark:hover:bg-white/10 transition-colors duration-200";
+// --- MONET STYLE GENERATOR ---
+const getMonetStyles = (activeOverlay) => {
+    if (!activeOverlay || activeOverlay === 'none') return null;
+
+    switch (activeOverlay) {
+        case 'christmas':
+            return {
+                iconBg: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300",
+                btnPrimary: "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20",
+                btnTonal: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 hover:bg-emerald-200",
+                tabActive: "bg-emerald-600 text-white",
+                textAccent: "text-emerald-700 dark:text-emerald-400"
+            };
+        case 'valentines':
+            return {
+                iconBg: "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300",
+                btnPrimary: "bg-rose-600 hover:bg-rose-700 text-white shadow-rose-500/20",
+                btnTonal: "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300 hover:bg-rose-200",
+                tabActive: "bg-rose-600 text-white",
+                textAccent: "text-rose-700 dark:text-rose-400"
+            };
+        case 'cyberpunk':
+            return {
+                iconBg: "bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-500/20 dark:text-fuchsia-300",
+                btnPrimary: "bg-fuchsia-600 hover:bg-fuchsia-700 text-white shadow-fuchsia-500/20",
+                btnTonal: "bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-500/20 dark:text-fuchsia-300 hover:bg-fuchsia-200",
+                tabActive: "bg-fuchsia-600 text-white",
+                textAccent: "text-fuchsia-700 dark:text-fuchsia-400"
+            };
+        case 'space':
+            return {
+                iconBg: "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300",
+                btnPrimary: "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-500/20",
+                btnTonal: "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300 hover:bg-indigo-200",
+                tabActive: "bg-indigo-600 text-white",
+                textAccent: "text-indigo-700 dark:text-indigo-400"
+            };
+        default:
+            return null; // Fallback to default OneUI Blue
+    }
+};
+
+// --- ONE UI DESIGN TOKENS ---
+const oneUiCard = "bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-md rounded-[26px] shadow-[0_4px_24px_rgba(0,0,0,0.04)] border border-white/20 dark:border-white/5 overflow-hidden transition-all duration-300";
 
 // --- SKELETON COMPONENT ---
 const TableSkeleton = () => (
-  <div className={`${glassPanel} rounded-2xl mb-5 overflow-hidden animate-pulse`}>
-    <div className="p-4 flex items-center justify-between">
-      <div className="flex items-center gap-4">
-        <div className="w-10 h-10 rounded-xl bg-gray-200 dark:bg-white/10"></div>
-        <div className="space-y-2">
-          <div className="h-5 w-32 bg-gray-200 dark:bg-white/10 rounded-md"></div>
-          <div className="h-3 w-20 bg-gray-200 dark:bg-white/5 rounded-md"></div>
+  <div className={`${oneUiCard} mb-4 animate-pulse`}>
+    <div className="p-5 flex items-center justify-between">
+      <div className="flex items-center gap-5">
+        <div className="w-11 h-11 rounded-[18px] bg-gray-200 dark:bg-[#2C2C2E]"></div>
+        <div className="space-y-2.5">
+          <div className="h-5 w-40 bg-gray-200 dark:bg-[#2C2C2E] rounded-full"></div>
+          <div className="h-3 w-24 bg-gray-200 dark:bg-[#2C2C2E] rounded-full"></div>
         </div>
       </div>
-      <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-white/5"></div>
+      <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-[#2C2C2E]"></div>
     </div>
   </div>
 );
 
 // --- ALERT MODAL ---
-export const AlertModal = ({ isOpen, onClose, title, message }) => (
+export const AlertModal = ({ isOpen, onClose, title, message, monet }) => (
   <Transition appear show={isOpen} as={Fragment}>
     <Dialog as="div" className="relative z-50" onClose={onClose}>
       <Transition.Child
@@ -62,38 +103,40 @@ export const AlertModal = ({ isOpen, onClose, title, message }) => (
         leaveFrom="opacity-100"
         leaveTo="opacity-0"
       >
-        <div className="fixed inset-0 bg-black/20 dark:bg-black/40 backdrop-blur-sm" />
+        <div className="fixed inset-0 bg-black/20 dark:bg-black/60 backdrop-blur-md" />
       </Transition.Child>
 
       <div className="fixed inset-0 overflow-y-auto">
         <div className="flex min-h-full items-center justify-center p-4 text-center">
           <Transition.Child
             as={Fragment}
-            enter="ease-out duration-300"
-            enterFrom="opacity-0 scale-95 blur-sm"
-            enterTo="opacity-100 scale-100 blur-0"
+            enter="ease-[cubic-bezier(0.19,1,0.22,1)] duration-400"
+            enterFrom="opacity-0 scale-90 translate-y-8"
+            enterTo="opacity-100 scale-100 translate-y-0"
             leave="ease-in duration-200"
-            leaveFrom="opacity-100 scale-100 blur-0"
-            leaveTo="opacity-0 scale-95 blur-sm"
+            leaveFrom="opacity-100 scale-100 translate-y-0"
+            leaveTo="opacity-0 scale-90 translate-y-8"
           >
-            <Dialog.Panel className="w-full max-w-sm transform overflow-hidden rounded-2xl bg-white/90 dark:bg-[#1c1c1e]/90 backdrop-blur-2xl p-6 text-left align-middle shadow-2xl ring-1 ring-black/5 transition-all">
-              <Dialog.Title
-                as="h3"
-                className="text-lg font-semibold leading-6 text-gray-900 dark:text-white flex items-center gap-3"
-              >
-                <div className="p-2 bg-blue-100 dark:bg-blue-500/20 rounded-full">
-                    <Info className="w-5 h-5 text-blue-500" />
+            <Dialog.Panel className="w-full max-w-sm transform overflow-hidden rounded-[28px] bg-[#F2F2F7] dark:bg-[#1C1C1E] p-0 text-left align-middle shadow-[0_20px_50px_rgba(0,0,0,0.3)] transition-all">
+              <div className="p-6 pb-4">
+                <Dialog.Title
+                  as="h3"
+                  className="text-xl font-bold leading-6 text-gray-900 dark:text-white flex flex-col items-center gap-4 text-center"
+                >
+                  <div className={`p-3 rounded-full ${monet ? monet.iconBg : 'bg-blue-100 dark:bg-blue-500/20 text-[#007AFF]'}`}>
+                      <Info className="w-8 h-8" />
+                  </div>
+                  {title}
+                </Dialog.Title>
+                <div className="mt-3 text-center">
+                  <p className="text-[15px] text-gray-500 dark:text-gray-400 leading-relaxed">{message}</p>
                 </div>
-                {title}
-              </Dialog.Title>
-              <div className="mt-4">
-                <p className="text-[15px] text-gray-500 dark:text-gray-300 break-words leading-relaxed">{message}</p>
               </div>
 
-              <div className="mt-6 flex justify-end">
+              <div className="p-4 bg-white dark:bg-[#252525] border-t border-gray-200/50 dark:border-white/5 flex justify-center">
                 <button
                   type="button"
-                  className="inline-flex justify-center rounded-lg bg-[#007AFF] px-5 py-2 text-[15px] font-medium text-white hover:bg-[#0062CC] focus:outline-none active:scale-95 transition-transform"
+                  className={`w-full rounded-[14px] px-5 py-3 text-[16px] font-semibold text-white focus:outline-none active:scale-[0.98] transition-transform ${monet ? monet.btnPrimary : 'bg-[#007AFF] hover:bg-[#0062CC]'}`}
                   onClick={onClose}
                 >
                   OK
@@ -117,6 +160,7 @@ export const ConfirmActionModal = ({
   confirmText,
   cancelText = 'Cancel',
   variant = 'info',
+  monet
 }) => {
   const handleConfirm = () => {
     onConfirm();
@@ -125,19 +169,19 @@ export const ConfirmActionModal = ({
 
   const variantMap = {
     danger: {
-      icon: <AlertTriangle className="w-5 h-5 text-red-500" />,
+      icon: <AlertTriangle className="w-8 h-8 text-[#FF3B30]" />,
       iconBg: 'bg-red-100 dark:bg-red-500/20',
-      buttonClass: 'bg-red-500 hover:bg-red-600 text-white shadow-sm',
+      buttonClass: 'bg-[#FF3B30] hover:bg-[#D73329] text-white',
     },
     warning: {
-      icon: <AlertTriangle className="w-5 h-5 text-orange-500" />,
+      icon: <AlertTriangle className="w-8 h-8 text-[#FF9500]" />,
       iconBg: 'bg-orange-100 dark:bg-orange-500/20',
-      buttonClass: 'bg-orange-500 hover:bg-orange-600 text-white shadow-sm',
+      buttonClass: 'bg-[#FF9500] hover:bg-[#D98308] text-white',
     },
     info: {
-      icon: <Info className="w-5 h-5 text-blue-500" />,
-      iconBg: 'bg-blue-100 dark:bg-blue-500/20',
-      buttonClass: 'bg-[#007AFF] hover:bg-[#0062CC] text-white shadow-sm',
+      icon: <Info className={`w-8 h-8 ${monet ? '' : 'text-[#007AFF]'}`} />,
+      iconBg: monet ? monet.iconBg : 'bg-blue-100 dark:bg-blue-500/20',
+      buttonClass: monet ? monet.btnPrimary : 'bg-[#007AFF] hover:bg-[#0062CC] text-white',
     },
   };
 
@@ -155,45 +199,47 @@ export const ConfirmActionModal = ({
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <div className="fixed inset-0 bg-black/20 dark:bg-black/40 backdrop-blur-sm" />
+          <div className="fixed inset-0 bg-black/20 dark:bg-black/60 backdrop-blur-md" />
         </Transition.Child>
 
         <div className="fixed inset-0 overflow-y-auto">
           <div className="flex min-h-full items-center justify-center p-4 text-center">
             <Transition.Child
               as={Fragment}
-              enter="ease-out duration-300"
-              enterFrom="opacity-0 scale-95 blur-sm"
-              enterTo="opacity-100 scale-100 blur-0"
+              enter="ease-[cubic-bezier(0.19,1,0.22,1)] duration-400"
+              enterFrom="opacity-0 scale-90 translate-y-8"
+              enterTo="opacity-100 scale-100 translate-y-0"
               leave="ease-in duration-200"
-              leaveFrom="opacity-100 scale-100 blur-0"
-              leaveTo="opacity-0 scale-95 blur-sm"
+              leaveFrom="opacity-100 scale-100 translate-y-0"
+              leaveTo="opacity-0 scale-90 translate-y-8"
             >
-              <Dialog.Panel className="w-full max-w-sm transform overflow-hidden rounded-2xl bg-white/90 dark:bg-[#1c1c1e]/90 backdrop-blur-2xl p-6 text-left align-middle shadow-2xl ring-1 ring-black/5 transition-all">
-                <Dialog.Title
-                  as="h3"
-                  className="text-lg font-semibold leading-6 text-gray-900 dark:text-white flex items-center gap-3"
-                >
-                  <div className={`p-2 rounded-full ${iconBg}`}>
-                    {icon}
+              <Dialog.Panel className="w-full max-w-sm transform overflow-hidden rounded-[28px] bg-[#F2F2F7] dark:bg-[#1C1C1E] p-0 text-left align-middle shadow-[0_20px_50px_rgba(0,0,0,0.3)] transition-all">
+                <div className="p-6 pb-4">
+                  <Dialog.Title
+                    as="h3"
+                    className="text-xl font-bold leading-6 text-gray-900 dark:text-white flex flex-col items-center gap-4 text-center"
+                  >
+                    <div className={`p-3 rounded-full ${iconBg}`}>
+                      {icon}
+                    </div>
+                    {title}
+                  </Dialog.Title>
+                  <div className="mt-3 text-center">
+                    <p className="text-[15px] text-gray-500 dark:text-gray-400 leading-relaxed">{message}</p>
                   </div>
-                  {title}
-                </Dialog.Title>
-                <div className="mt-4">
-                  <p className="text-[15px] text-gray-500 dark:text-gray-300 leading-relaxed">{message}</p>
                 </div>
 
-                <div className="mt-6 flex flex-col-reverse sm:flex-row sm:justify-end sm:gap-3 gap-2">
+                <div className="p-3 bg-white dark:bg-[#252525] border-t border-gray-200/50 dark:border-white/5 flex flex-row gap-3">
                   <button
                     type="button"
-                    className="inline-flex justify-center rounded-lg px-4 py-2 text-[15px] font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors focus:outline-none"
+                    className="flex-1 justify-center rounded-[14px] bg-[#F2F2F7] dark:bg-[#3A3A3C] px-4 py-3 text-[16px] font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors focus:outline-none"
                     onClick={onClose}
                   >
                     {cancelText}
                   </button>
                   <button
                     type="button"
-                    className={`inline-flex justify-center rounded-lg px-4 py-2 text-[15px] font-medium focus:outline-none active:scale-95 transition-all ${buttonClass}`}
+                    className={`flex-1 justify-center rounded-[14px] px-4 py-3 text-[16px] font-semibold focus:outline-none active:scale-[0.98] transition-all shadow-sm ${buttonClass}`}
                     onClick={handleConfirm}
                   >
                     {confirmText}
@@ -207,7 +253,6 @@ export const ConfirmActionModal = ({
     </Transition>
   );
 };
-
 
 const CollapsibleUserTable = memo(({
   title,
@@ -223,123 +268,116 @@ const CollapsibleUserTable = memo(({
   handleShowPassword,
   setSelectedUser,
   setIsEditUserModalOpen,
-  handleSingleDelete
+  handleSingleDelete,
+  monet
 }) => {
   
   const [localActionMenuOpenFor, setLocalActionMenuOpenFor] = useState(null);
 
   useEffect(() => {
     if (!localActionMenuOpenFor) return;
-
-    const handleClickOutside = () => {
-      setLocalActionMenuOpenFor(null);
-    };
-    setTimeout(() => {
-      window.addEventListener('click', handleClickOutside);
-    }, 0);
-
-    return () => {
-      window.removeEventListener('click', handleClickOutside);
-    };
+    const handleClickOutside = () => setLocalActionMenuOpenFor(null);
+    setTimeout(() => window.addEventListener('click', handleClickOutside), 0);
+    return () => window.removeEventListener('click', handleClickOutside);
   }, [localActionMenuOpenFor]);
-
 
   const userIdsInTable = users.map((u) => u.id);
   const allInTableSelected =
     userIdsInTable.length > 0 && userIdsInTable.every((id) => selectedUserIds.has(id));
 
+  // Dynamic Styles
+  const iconBoxClass = monet 
+    ? monet.iconBg 
+    : "bg-[#F2F2F7] dark:bg-[#2C2C2E] text-[#007AFF]";
+    
+  const toggleBtnClass = isOpen
+    ? (monet ? `${monet.btnPrimary} text-white rotate-180` : "bg-[#007AFF] text-white rotate-180")
+    : "bg-[#F2F2F7] dark:bg-[#2C2C2E] text-gray-400";
+    
+  const checkboxClass = monet 
+    ? `checked:${monet.btnPrimary.split(' ')[0]} checked:border-transparent`
+    : `checked:bg-[#007AFF] checked:border-[#007AFF]`;
+
   return (
-    <div className={`${glassPanel} rounded-2xl mb-5 overflow-hidden`}>
+    <div className={`${oneUiCard} mb-4`}>
       <button
         onClick={onToggle}
-        className="w-full flex justify-between items-center p-4 cursor-pointer hover:bg-white/40 dark:hover:bg-white/5 transition-colors duration-200 group"
+        className="w-full flex justify-between items-center p-5 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#252525] transition-colors duration-200 group outline-none"
       >
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 shadow-sm ring-1 ring-black/5 dark:ring-white/5">
-            {React.cloneElement(icon, { className: 'text-gray-600 dark:text-gray-300', size: 20 })}
+        <div className="flex items-center gap-5">
+          <div className={`w-12 h-12 rounded-[20px] flex items-center justify-center transition-transform group-hover:scale-105 duration-300 ${iconBoxClass}`}>
+            {React.cloneElement(icon, { size: 24, strokeWidth: 2 })}
           </div>
           <div className="text-left">
-            <h2 className="text-[17px] font-semibold text-gray-900 dark:text-white tracking-tight group-hover:text-[#007AFF] transition-colors">{title}</h2>
-            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{users.length} Accounts</span>
+            <h2 className={`text-[19px] font-bold tracking-tight ${monet ? monet.textAccent : 'text-gray-900 dark:text-white'}`}>{title}</h2>
+            <span className="text-[13px] font-semibold text-gray-500 dark:text-gray-400">{users.length} Accounts</span>
           </div>
         </div>
-        <div className={`w-7 h-7 rounded-full flex items-center justify-center bg-gray-100 dark:bg-gray-700 transition-all duration-300 ${isOpen ? 'bg-[#007AFF] text-white rotate-180' : 'text-gray-400'}`}>
-            <ChevronDown size={16} strokeWidth={3} />
+        <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${toggleBtnClass}`}>
+            <ChevronDown size={20} strokeWidth={2.5} />
         </div>
       </button>
-      <div
-        className={`transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${isOpen ? 'max-h-[1500px] opacity-100' : 'max-h-0 opacity-0'
-          }`}
-      >
-        {/* Divider */}
-        <div className="h-px w-full bg-gray-200/50 dark:bg-gray-700/50" />
+      
+      <div className={`transition-all duration-500 ease-[cubic-bezier(0.19,1,0.22,1)] ${isOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+        <div className="h-px w-full bg-gray-100 dark:bg-white/5 mx-auto w-[calc(100%-40px)]" />
         
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm text-left">
-            <thead className="bg-gray-50/50 dark:bg-black/20 text-xs uppercase font-semibold text-gray-400">
+            <thead className="bg-white dark:bg-[#1C1C1E] text-[11px] uppercase font-bold text-gray-400 tracking-wider">
               <tr>
-                <th className="px-6 py-3 w-14">
+                <th className="px-6 py-4 w-16 text-center">
                   <div className="relative flex items-center justify-center">
                     <input
                       type="checkbox"
                       onChange={() => handleSelectAll(userIdsInTable)}
                       checked={allInTableSelected}
                       disabled={userIdsInTable.length === 0}
-                      className="peer h-5 w-5 rounded-full border-2 border-gray-300 dark:border-gray-500 bg-transparent checked:bg-[#007AFF] checked:border-[#007AFF] focus:ring-0 focus:ring-offset-0 transition-all duration-200 ease-out cursor-pointer disabled:opacity-50 appearance-none"
+                      className={`peer h-5 w-5 rounded-full border-2 border-gray-300 dark:border-gray-600 bg-transparent focus:ring-0 transition-all cursor-pointer appearance-none ${checkboxClass}`}
                     />
-                    <Check 
-                        size={12} 
-                        strokeWidth={4} 
-                        className="absolute text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-all duration-200 transform scale-50 peer-checked:scale-100" 
-                    />
+                    <Check size={12} strokeWidth={4} className="absolute text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-all scale-50 peer-checked:scale-100" />
                   </div>
                 </th>
-                <th className="px-4 py-3 tracking-wider">Name</th>
-                <th className="px-4 py-3 tracking-wider">Email</th>
-                <th className="px-4 py-3 tracking-wider">Role</th>
-                <th className="px-6 py-3 text-right tracking-wider">Actions</th>
+                <th className="px-4 py-4">Name</th>
+                <th className="px-4 py-4">Email</th>
+                <th className="px-4 py-4">Role</th>
+                <th className="px-6 py-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+            <tbody className="divide-y divide-gray-100 dark:divide-white/5">
               {users.length > 0 ? (
                 users.map((user) => (
                   <tr
                     key={user.id}
-                    className={`group transition-colors ${selectedUserIds.has(user.id) ? 'bg-blue-50/50 dark:bg-blue-900/10' : 'hover:bg-gray-50/80 dark:hover:bg-white/5'
-                      }`}
+                    className={`group transition-colors ${selectedUserIds.has(user.id) ? (monet ? monet.iconBg : 'bg-blue-50/60 dark:bg-blue-900/10') : 'hover:bg-[#F2F2F7] dark:hover:bg-[#252525]'}`}
                   >
-                    <td className="px-6 py-3.5">
+                    <td className="px-6 py-4 text-center">
                       <div className="relative flex items-center justify-center">
                         <input
                           type="checkbox"
                           onChange={() => handleSelectUser(user.id)}
                           checked={selectedUserIds.has(user.id)}
-                          className="peer h-5 w-5 rounded-full border-2 border-gray-300 dark:border-gray-500 bg-transparent checked:bg-[#007AFF] checked:border-[#007AFF] focus:ring-0 focus:ring-offset-0 transition-all duration-200 ease-out cursor-pointer appearance-none"
+                          className={`peer h-5 w-5 rounded-full border-2 border-gray-300 dark:border-gray-600 bg-transparent focus:ring-0 transition-all cursor-pointer appearance-none ${checkboxClass}`}
                         />
-                        <Check 
-                            size={12} 
-                            strokeWidth={4} 
-                            className="absolute text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-all duration-200 transform scale-50 peer-checked:scale-100" 
-                        />
+                        <Check size={12} strokeWidth={4} className="absolute text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-all scale-50 peer-checked:scale-100" />
                       </div>
                     </td>
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                        <span className="font-medium text-gray-900 dark:text-gray-100">{user.firstName} {user.lastName}</span>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                        <span className="text-[15px] font-semibold text-gray-900 dark:text-gray-100">{user.firstName} {user.lastName}</span>
                     </td>
-                    <td className="px-4 py-3.5 whitespace-nowrap text-gray-500 dark:text-gray-400 font-light">{user.email}</td>
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200 capitalize">
+                    <td className="px-4 py-4 whitespace-nowrap text-[14px] text-gray-500 dark:text-gray-400 font-medium">{user.email}</td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold bg-gray-100 text-gray-600 dark:bg-[#2C2C2E] dark:text-gray-300 uppercase tracking-wide">
                         {user.role}
                       </span>
                     </td>
-                    <td className="px-6 py-3.5 whitespace-nowrap text-right relative">
+                    <td className="px-6 py-4 whitespace-nowrap text-right relative">
                       {isRestrictedTable ? (
                         <button
                           onClick={() => handleSetRestriction(user.id, false, `${user.firstName} ${user.lastName}`)}
-                          className="p-2 rounded-full text-green-600 bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/40 transition-colors"
+                          className="p-2.5 rounded-full text-green-600 bg-green-100 hover:bg-green-200 dark:bg-green-500/20 dark:hover:bg-green-500/30 transition-colors"
                           title="Unrestrict Account"
                         >
-                          <UserCheck size={16} />
+                          <UserCheck size={18} />
                         </button>
                       ) : (
                         <>
@@ -349,25 +387,25 @@ const CollapsibleUserTable = memo(({
                               e.stopPropagation();
                               setLocalActionMenuOpenFor(user.id === localActionMenuOpenFor ? null : user.id);
                             }}
-                            className="p-1.5 rounded-md text-gray-400 hover:text-[#007AFF] hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all"
+                            className={`p-2.5 rounded-full transition-all active:scale-95 ${monet ? `hover:${monet.iconBg}` : 'text-gray-400 hover:text-[#007AFF] hover:bg-blue-50 dark:hover:bg-blue-500/10'}`}
                             title="Actions"
                           >
-                            <Settings size={18} strokeWidth={2} />
+                            <Settings size={20} strokeWidth={2} />
                           </button>
 
                           {localActionMenuOpenFor === user.id && (
                             <div
                               onClick={(e) => e.stopPropagation()}
-                              className="absolute right-8 top-8 z-30 w-48 bg-white/95 dark:bg-[#2c2c2e]/95 backdrop-blur-xl rounded-xl shadow-xl border border-gray-200/50 dark:border-gray-700/50 py-1.5 origin-top-right animate-in fade-in zoom-in-95 duration-100"
+                              className="absolute right-12 top-6 z-30 w-52 bg-white dark:bg-[#252525] rounded-[20px] shadow-[0_10px_40px_rgba(0,0,0,0.1)] border border-gray-100 dark:border-white/5 py-2 origin-top-right animate-in fade-in zoom-in-95 duration-200"
                             >
                               <button
                                 onClick={() => {
                                   handleShowPassword(user.password);
                                   setLocalActionMenuOpenFor(null);
                                 }}
-                                className="w-full text-left px-3 py-2 text-[13px] text-gray-700 dark:text-gray-200 hover:bg-[#007AFF] hover:text-white flex items-center gap-3 transition-colors mx-1 rounded-lg w-[calc(100%-8px)]"
+                                className={`w-[calc(100%-12px)] mx-1.5 text-left px-4 py-2.5 text-[14px] font-medium rounded-[14px] flex items-center gap-3 transition-colors ${monet ? `hover:${monet.btnPrimary} hover:text-white text-gray-700 dark:text-gray-200` : 'text-gray-700 dark:text-gray-200 hover:bg-[#F2F2F7] dark:hover:bg-[#3A3A3C]'}`}
                               >
-                                <Eye size={14} />
+                                <Eye size={16} />
                                 Show Password
                               </button>
                               <button
@@ -376,9 +414,9 @@ const CollapsibleUserTable = memo(({
                                   setIsEditUserModalOpen(true);
                                   setLocalActionMenuOpenFor(null);
                                 }}
-                                className="w-full text-left px-3 py-2 text-[13px] text-gray-700 dark:text-gray-200 hover:bg-[#007AFF] hover:text-white flex items-center gap-3 transition-colors mx-1 rounded-lg w-[calc(100%-8px)]"
+                                className={`w-[calc(100%-12px)] mx-1.5 text-left px-4 py-2.5 text-[14px] font-medium rounded-[14px] flex items-center gap-3 transition-colors ${monet ? `hover:${monet.btnPrimary} hover:text-white text-gray-700 dark:text-gray-200` : 'text-gray-700 dark:text-gray-200 hover:bg-[#F2F2F7] dark:hover:bg-[#3A3A3C]'}`}
                               >
-                                <Edit size={14} />
+                                <Edit size={16} />
                                 Edit User
                               </button>
                               <button
@@ -386,12 +424,12 @@ const CollapsibleUserTable = memo(({
                                   handleSetRestriction(user.id, true, `${user.firstName} ${user.lastName}`);
                                   setLocalActionMenuOpenFor(null);
                                 }}
-                                className="w-full text-left px-3 py-2 text-[13px] text-orange-600 dark:text-orange-400 hover:bg-orange-500 hover:text-white flex items-center gap-3 transition-colors mx-1 rounded-lg w-[calc(100%-8px)]"
+                                className="w-[calc(100%-12px)] mx-1.5 text-left px-4 py-2.5 text-[14px] font-medium text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-500/10 rounded-[14px] flex items-center gap-3 transition-colors"
                               >
-                                <UserX size={14} />
+                                <UserX size={16} />
                                 Restrict Account
                               </button>
-                              <div className="h-px bg-gray-200 dark:bg-gray-700 my-1 mx-2"></div>
+                              <div className="h-px bg-gray-100 dark:bg-white/5 my-1.5 mx-3"></div>
                               <button
                                 onClick={() => {
                                   handleSingleDelete(
@@ -400,9 +438,9 @@ const CollapsibleUserTable = memo(({
                                   );
                                   setLocalActionMenuOpenFor(null);
                                 }}
-                                className="w-full text-left px-3 py-2 text-[13px] text-red-600 dark:text-red-400 hover:bg-red-500 hover:text-white flex items-center gap-3 transition-colors mx-1 rounded-lg w-[calc(100%-8px)]"
+                                className="w-[calc(100%-12px)] mx-1.5 text-left px-4 py-2.5 text-[14px] font-medium text-[#FF3B30] hover:bg-red-50 dark:hover:bg-red-500/10 rounded-[14px] flex items-center gap-3 transition-colors"
                               >
-                                <Trash2 size={14} />
+                                <Trash2 size={16} />
                                 Delete User
                               </button>
                             </div>
@@ -414,7 +452,7 @@ const CollapsibleUserTable = memo(({
                 ))
               ) : (
                 <tr>
-                  <td colSpan="5" className="text-center text-gray-400 dark:text-gray-500 py-8 text-sm">
+                  <td colSpan="5" className="text-center text-gray-400 dark:text-gray-500 py-10 text-sm font-medium">
                     No users found.
                   </td>
                 </tr>
@@ -427,22 +465,34 @@ const CollapsibleUserTable = memo(({
   );
 });
 
-
 const AdminDashboard = () => {
-  // ✅ Extract userProfile to get the current school ID
   const { firestoreService, userProfile } = useAuth();
   const { showToast } = useToast();
+  
+  // --- MONET THEME INTEGRATION ---
+  const { activeOverlay } = useTheme();
+  const monet = getMonetStyles(activeOverlay);
+
   const [allUsers, setAllUsers] = useState([]);
   const [groupedUsers, setGroupedUsers] = useState({ admins: [], teachers: [], students: [] });
-  const [restrictedUsers, setRestrictedUsers] = useState([]);
+  // Update: Split restricted users as well
+  const [restrictedGroupedUsers, setRestrictedGroupedUsers] = useState({ admins: [], teachers: [], students: [] });
+  
   const [loading, setLoading] = useState(true);
   const [selectedUserIds, setSelectedUserIds] = useState(new Set());
   const [activeTab, setActiveTab] = useState('active');
+  const [activeRoleTab, setActiveRoleTab] = useState('admins'); 
+  
   const [studentsByGrade, setStudentsByGrade] = useState({});
+  const [restrictedStudentsByGrade, setRestrictedStudentsByGrade] = useState({});
+  const [restrictedUsers, setRestrictedUsers] = useState([]); // ✅ Added missing state back!
+
+  // --- COLLAPSED BY DEFAULT ---
   const [openSections, setOpenSections] = useState({
     admins: false,
     teachers: false,
-    studentsContainer: false,
+    studentsContainer: false, // For active students
+    restrictedStudentsContainer: false, // For restricted students
     'Grade 7': false,
     'Grade 8': false,
     'Grade 9': false,
@@ -450,10 +500,8 @@ const AdminDashboard = () => {
     'Grade 11': false,
     'Grade 12': false,
     Unassigned: false,
-    restricted: false,
   });
 
-  // Modal states
   const [isAddModalOpen, setAddModalOpen] = useState(false);
   const [isGenerateModalOpen, setGenerateModalOpen] = useState(false);
   const [isDownloadModalOpen, setDownloadModalOpen] = useState(false);
@@ -479,50 +527,68 @@ const AdminDashboard = () => {
   const closeAlertModal = () => setAlertModalState({ ...alertModalState, isOpen: false });
   const closeConfirmModal = () => setConfirmModalState({ ...confirmModalState, isOpen: false });
   
-  // ✅ UPDATED: Fetch only users from the current admin's school
   const fetchAndGroupUsers = async () => {
-    // Wait for userProfile to be loaded
     if (!userProfile?.schoolId) return;
 
     setLoading(true);
     try {
-      // Pass the school ID to filter the query
       const users = await firestoreService.getAllUsers(userProfile.schoolId);
       setAllUsers(users);
 
       const active = [];
       const restricted = [];
       users.forEach((user) => (user.isRestricted ? restricted.push(user) : active.push(user)));
+      
+      setRestrictedUsers(restricted); // ✅ Set the restricted users array
 
-      const groups = { admins: [], teachers: [], students: [] };
+      // Group Active Users
+      const activeGroups = { admins: [], teachers: [], students: [] };
       active.forEach((user) => {
-        if (user.role === 'admin') groups.admins.push(user);
-        else if (user.role === 'teacher') groups.teachers.push(user);
-        else groups.students.push(user);
+        if (user.role === 'admin') activeGroups.admins.push(user);
+        else if (user.role === 'teacher') activeGroups.teachers.push(user);
+        else activeGroups.students.push(user);
       });
 
-      const gradeLevels = ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
-      const gradeGroups = {};
-      gradeLevels.forEach((level) => {
-        gradeGroups[level] = [];
-      });
-      gradeGroups['Unassigned'] = [];
-
-      groups.students.forEach((student) => {
-        if (student.gradeLevel && gradeGroups[student.gradeLevel]) {
-          gradeGroups[student.gradeLevel].push(student);
-        } else {
-          gradeGroups['Unassigned'].push(student);
-        }
-      });
-      setStudentsByGrade(gradeGroups);
-
-      Object.keys(groups).forEach((key) => {
-        groups[key].sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''));
+      // Group Restricted Users (NEW)
+      const restrictedGroups = { admins: [], teachers: [], students: [] };
+      restricted.forEach((user) => {
+        if (user.role === 'admin') restrictedGroups.admins.push(user);
+        else if (user.role === 'teacher') restrictedGroups.teachers.push(user);
+        else restrictedGroups.students.push(user);
       });
 
-      setGroupedUsers(groups);
-      setRestrictedUsers(restricted.sort((a, b) => (a.lastName || '').localeCompare(b.lastName || '')));
+      // Helper to process grades
+      const processGrades = (studentList) => {
+          const gradeGroups = {};
+          const gradeLevels = ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
+          gradeLevels.forEach((level) => { gradeGroups[level] = []; });
+          gradeGroups['Unassigned'] = [];
+
+          studentList.forEach((student) => {
+            if (student.gradeLevel && gradeGroups[student.gradeLevel]) {
+              gradeGroups[student.gradeLevel].push(student);
+            } else {
+              gradeGroups['Unassigned'].push(student);
+            }
+          });
+          return gradeGroups;
+      };
+
+      setStudentsByGrade(processGrades(activeGroups.students));
+      setRestrictedStudentsByGrade(processGrades(restrictedGroups.students));
+
+      // Sorting
+      const sortUsers = (groupObj) => {
+          Object.keys(groupObj).forEach((key) => {
+            groupObj[key].sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''));
+          });
+      };
+      sortUsers(activeGroups);
+      sortUsers(restrictedGroups);
+
+      setGroupedUsers(activeGroups);
+      setRestrictedGroupedUsers(restrictedGroups);
+
     } catch (error) {
       showToast('Failed to fetch users.', 'error');
     } finally {
@@ -530,7 +596,6 @@ const AdminDashboard = () => {
     }
   };
 
-  // ✅ UPDATED: Reload when schoolId changes or component mounts
   useEffect(() => {
     fetchAndGroupUsers();
   }, [userProfile?.schoolId]);
@@ -579,7 +644,8 @@ const AdminDashboard = () => {
       message: `Are you sure you want to delete these ${userIdsToDelete.length} selected user(s)? This action cannot be undone.`,
       onConfirm: asyncDeleteSelected,
       confirmText: 'Delete All',
-      variant: 'danger'
+      variant: 'danger',
+      monet
     });
   };
 
@@ -605,19 +671,19 @@ const AdminDashboard = () => {
       message: `Are you sure you want to delete ${userName}? This action cannot be undone.`,
       onConfirm: asyncSingleDelete,
       confirmText: 'Delete',
-      variant: 'danger'
+      variant: 'danger',
+      monet
     });
   };
 
   const handleGenerateUsers = async (data) => {
     let usersToCreate = [];
-    const { names, quantity, role, gradeLevel, schoolId } = data; // ✅ Extract schoolId if passed
+    const { names, quantity, role, gradeLevel, schoolId } = data;
 
     const generatePassword = () => {
       return Math.random().toString(36).slice(-8);
     };
 
-    // ✅ Ensure we have a school ID to assign
     const targetSchoolId = schoolId || userProfile?.schoolId || DEFAULT_SCHOOL_ID;
 
     try {
@@ -633,19 +699,16 @@ const AdminDashboard = () => {
             const email = `${firstName.toLowerCase()}.${lastName
               .toLowerCase()
               .replace(/\s+/g, '')}@srcs.edu`;
-            const newUser = {
+            return {
               firstName,
               lastName,
               email,
               password: generatePassword(),
               role,
-              schoolId: targetSchoolId, // ✅ Attach School ID
+              schoolId: targetSchoolId,
               createdAt: new Date(),
+              ...(role === 'student' && gradeLevel && { gradeLevel })
             };
-            if (role === 'student' && gradeLevel) {
-              newUser.gradeLevel = gradeLevel;
-            }
-            return newUser;
           });
       } else if (quantity) {
         for (let i = 1; i <= quantity; i++) {
@@ -656,19 +719,16 @@ const AdminDashboard = () => {
           if (role === 'admin') firstName = 'Admin';
           const lastName = num;
           const email = `${firstName.toLowerCase()}.${lastName}@srcs.edu`;
-          const newUser = {
+          usersToCreate.push({
             firstName,
             lastName,
             email,
             password: generatePassword(),
             role,
-            schoolId: targetSchoolId, // ✅ Attach School ID
+            schoolId: targetSchoolId,
             createdAt: new Date(),
-          };
-          if (role === 'student' && gradeLevel) {
-            newUser.gradeLevel = gradeLevel;
-          }
-          usersToCreate.push(newUser);
+            ...(role === 'student' && gradeLevel && { gradeLevel })
+          });
         }
       }
 
@@ -678,7 +738,6 @@ const AdminDashboard = () => {
       }
 
       await firestoreService.addMultipleUsers(usersToCreate);
-
       showToast(`${usersToCreate.length} user(s) generated successfully!`, 'success');
       setGenerateModalOpen(false);
       fetchAndGroupUsers();
@@ -732,7 +791,8 @@ const AdminDashboard = () => {
       message: `Are you sure you want to ${action} the account for ${userName}?`,
       onConfirm: asyncSetRestriction,
       confirmText: action.charAt(0).toUpperCase() + action.slice(1),
-      variant: shouldRestrict ? 'warning' : 'info'
+      variant: shouldRestrict ? 'warning' : 'info',
+      monet
     });
   };
 
@@ -741,6 +801,7 @@ const AdminDashboard = () => {
       isOpen: true,
       title: 'User Password',
       message: `WARNING: You are viewing a private password. The user's password is: ${password}`,
+      monet
     });
   };
 
@@ -759,18 +820,32 @@ const AdminDashboard = () => {
     XLSX.writeFile(wb, `${roleName}-accounts-${new Date().toLocaleDateString()}.xlsx`);
   };
 
+  // Dynamic Button Classes
+  const primaryBtnClass = monet 
+    ? `${monet.btnPrimary} rounded-[24px] px-6 py-2.5 font-semibold text-[15px] shadow-lg active:scale-95 transition-all`
+    : "bg-[#007AFF] hover:bg-[#0062CC] text-white rounded-[24px] px-6 py-2.5 font-semibold text-[15px] shadow-lg shadow-blue-500/20 active:scale-95 transition-all";
+
+  const secondaryBtnClass = monet
+    ? `${monet.btnTonal} rounded-[24px] px-6 py-2.5 font-semibold text-[15px] active:scale-95 transition-all border border-transparent`
+    : "bg-[#F2F2F7] dark:bg-[#2C2C2E] text-black dark:text-white rounded-[24px] px-6 py-2.5 font-semibold text-[15px] hover:bg-[#E5E5EA] dark:hover:bg-[#3A3A3C] active:scale-95 transition-all border border-transparent";
+  
+  const destructiveBtnClass = "bg-[#FF3B30] hover:bg-[#D73329] text-white rounded-[24px] px-6 py-2.5 font-semibold text-[15px] shadow-lg shadow-red-500/20 active:scale-95 transition-all";
+
+  // --- DERIVE CURRENT VIEW DATA ---
+  const currentData = activeTab === 'active' ? groupedUsers : restrictedGroupedUsers;
+  const currentStudentsByGrade = activeTab === 'active' ? studentsByGrade : restrictedStudentsByGrade;
+  
   return (
-    <div className="min-h-screen bg-transparent font-sans">
-      {/* Subtle gradient backdrop if needed, otherwise transparent */}
-      <div className="p-4 sm:p-8 max-w-7xl mx-auto">
+   <div className="min-h-[calc(100vh-2rem)] m-4 rounded-[42px] bg-[#F2F2F2] dark:bg-black/75 font-sans pb-10 overflow-hidden shadow-2xl backdrop-blur-xl border border-white/10">
+      <div className="p-6 sm:p-10 max-w-[1400px] mx-auto">
         
-        <header className="mb-8 sm:mb-12">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <header className="mb-10">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
             <div>
-              <h1 className="text-[32px] sm:text-[40px] font-bold text-gray-900 dark:text-white tracking-tight leading-tight">
+              <h1 className={`text-[42px] font-bold tracking-tight leading-[1.1] mb-2 ${monet ? monet.textAccent : 'text-black dark:text-white'}`}>
                 Admin Console
               </h1>
-              <p className="mt-1 text-lg text-gray-500 dark:text-gray-400">
+              <p className="text-[17px] font-medium text-gray-500 dark:text-gray-400">
                 Manage your organization's users and settings.
               </p>
             </div>
@@ -779,38 +854,44 @@ const AdminDashboard = () => {
               {selectedUserIds.size > 0 && (
                 <button
                   onClick={handleDeleteSelected}
-                  className="flex-1 md:flex-none flex items-center justify-center font-medium bg-red-500 hover:bg-red-600 active:bg-red-700 text-white px-4 py-2.5 rounded-xl shadow-lg shadow-red-500/30 transition-all active:scale-95"
+                  className={destructiveBtnClass}
                 >
-                  <Trash2 size={18} className="mr-2" />
-                  Delete ({selectedUserIds.size})
+                  <div className="flex items-center">
+                    <Trash2 size={18} className="mr-2" strokeWidth={2.5} />
+                    Delete ({selectedUserIds.size})
+                  </div>
                 </button>
               )}
               <button
                 onClick={() => setDownloadModalOpen(true)}
-                className="flex-1 md:flex-none flex items-center justify-center font-medium bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 px-4 py-2.5 rounded-xl hover:bg-white/80 dark:hover:bg-gray-700 transition-all active:scale-95"
+                className={secondaryBtnClass}
               >
-                <Download size={18} className="mr-2" />
-                Export
+                <div className="flex items-center">
+                   <Download size={18} className="mr-2" strokeWidth={2.5} />
+                   Export
+                </div>
               </button>
               <button
                 onClick={() => setGenerateModalOpen(true)}
-                className="flex-1 md:flex-none flex items-center justify-center font-medium bg-[#007AFF] hover:bg-[#0062CC] text-white px-5 py-2.5 rounded-xl shadow-lg shadow-blue-500/30 transition-all active:scale-95"
+                className={primaryBtnClass}
               >
-                <Users size={18} className="mr-2" />
-                New User
+                 <div className="flex items-center">
+                    <Users size={18} className="mr-2" strokeWidth={2.5} />
+                    New User
+                 </div>
               </button>
             </div>
           </div>
         </header>
 
-        {/* iOS Segmented Control Style Tabs */}
+        {/* ONE UI MAIN SEGMENTED CONTROL */}
         <div className="mb-8">
-          <div className="inline-flex p-1.5 bg-gray-200/50 dark:bg-gray-800/50 backdrop-blur-md rounded-xl border border-black/5 dark:border-white/5 w-full sm:w-auto overflow-x-auto">
+          <div className="inline-flex p-1.5 bg-[#E2E2E2]/80 dark:bg-[#1C1C1E]/80 backdrop-blur-md rounded-full w-full sm:w-auto relative">
             <button
               onClick={() => setActiveTab('active')}
-              className={`flex-1 sm:flex-none px-6 py-2 rounded-lg text-[14px] font-semibold transition-all duration-200 ease-out ${
+              className={`flex-1 sm:flex-none px-8 py-2.5 rounded-full text-[15px] font-bold transition-all duration-300 ${
                 activeTab === 'active'
-                  ? 'bg-white dark:bg-[#3A3A3C] text-black dark:text-white shadow-sm'
+                  ? (monet ? `bg-white dark:bg-[#3A3A3C] shadow-sm scale-100 ${monet.textAccent}` : 'bg-white dark:bg-[#3A3A3C] text-black dark:text-white shadow-sm scale-100')
                   : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
               }`}
             >
@@ -818,15 +899,15 @@ const AdminDashboard = () => {
             </button>
             <button
               onClick={() => setActiveTab('restricted')}
-              className={`flex-1 sm:flex-none px-6 py-2 rounded-lg text-[14px] font-semibold transition-all duration-200 ease-out flex items-center justify-center gap-2 ${
+              className={`flex-1 sm:flex-none px-8 py-2.5 rounded-full text-[15px] font-bold transition-all duration-300 flex items-center justify-center gap-2 ${
                 activeTab === 'restricted'
-                  ? 'bg-white dark:bg-[#3A3A3C] text-black dark:text-white shadow-sm'
+                  ? (monet ? `bg-white dark:bg-[#3A3A3C] shadow-sm scale-100 ${monet.textAccent}` : 'bg-white dark:bg-[#3A3A3C] text-black dark:text-white shadow-sm scale-100')
                   : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
               }`}
             >
               Restricted
               {restrictedUsers.length > 0 && (
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${activeTab === 'restricted' ? 'bg-gray-100 dark:bg-black/20 text-gray-600 dark:text-gray-300' : 'bg-gray-300 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
+                <span className={`text-[11px] px-2 py-0.5 rounded-full ${activeTab === 'restricted' ? (monet ? monet.btnTonal : 'bg-gray-100 dark:bg-black/20 text-gray-600 dark:text-gray-300') : 'bg-gray-300 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
                   {restrictedUsers.length}
                 </span>
               )}
@@ -836,18 +917,40 @@ const AdminDashboard = () => {
 
         {loading ? (
            <div className="space-y-4 animate-in fade-in duration-500">
-             {/* Render skeletal table items */}
              <TableSkeleton />
              <TableSkeleton />
              <TableSkeleton />
            </div>
         ) : (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {activeTab === 'active' ? (
-              <>
+            {/* --- SECONDARY TABS FOR ADMIN / TEACHER / STUDENT (For both Active & Restricted) --- */}
+            <div className="mb-6">
+               <div className="inline-flex p-1 bg-white/50 dark:bg-black/20 backdrop-blur-md rounded-full border border-white/20 dark:border-white/5 overflow-x-auto max-w-full">
+                  {['admins', 'teachers', 'students'].map((role) => (
+                     <button
+                        key={role}
+                        onClick={() => setActiveRoleTab(role)}
+                        className={`px-6 py-2 rounded-full text-xs font-bold transition-all duration-300 whitespace-nowrap ${
+                           activeRoleTab === role
+                           ? (monet ? `${monet.btnPrimary} shadow-md` : 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-md')
+                           : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+                        }`}
+                     >
+                        {role.charAt(0).toUpperCase() + role.slice(1)}
+                        <span className="ml-2 opacity-60">
+                           {currentData[role].length}
+                        </span>
+                     </button>
+                  ))}
+               </div>
+            </div>
+
+            {/* --- CONTENT BASED ON ACTIVE SUB-TAB --- */}
+            
+            {activeRoleTab === 'admins' && (
                 <CollapsibleUserTable
                   title="Administrators"
-                  users={groupedUsers.admins}
+                  users={currentData.admins}
                   icon={<Shield />}
                   isOpen={openSections.admins}
                   onToggle={() => toggleSection('admins')}
@@ -859,10 +962,15 @@ const AdminDashboard = () => {
                   setSelectedUser={setSelectedUser}
                   setIsEditUserModalOpen={setIsEditUserModalOpen}
                   handleSingleDelete={handleSingleDelete}
+                  isRestrictedTable={activeTab === 'restricted'}
+                  monet={monet}
                 />
+            )}
+
+            {activeRoleTab === 'teachers' && (
                 <CollapsibleUserTable
                   title="Teachers"
-                  users={groupedUsers.teachers}
+                  users={currentData.teachers}
                   icon={<GraduationCap />}
                   isOpen={openSections.teachers}
                   onToggle={() => toggleSection('teachers')}
@@ -874,53 +982,63 @@ const AdminDashboard = () => {
                   setSelectedUser={setSelectedUser}
                   setIsEditUserModalOpen={setIsEditUserModalOpen}
                   handleSingleDelete={handleSingleDelete}
+                  isRestrictedTable={activeTab === 'restricted'}
+                  monet={monet}
                 />
-                <div className={`${glassPanel} rounded-2xl mb-6 overflow-hidden transition-all duration-300`}>
+            )}
+
+            {activeRoleTab === 'students' && (
+                // Re-using the logic for Students Container (Collapsible Wrapper + Grade Lists)
+                <div className={`${oneUiCard} mb-6 overflow-hidden transition-all duration-300`}>
                   <button
-                    onClick={() => toggleSection('studentsContainer')}
-                    className="w-full flex justify-between items-center p-4 cursor-pointer hover:bg-white/40 dark:hover:bg-white/5 transition-colors duration-200 group"
+                    onClick={() => toggleSection(activeTab === 'active' ? 'studentsContainer' : 'restrictedStudentsContainer')}
+                    className="w-full flex justify-between items-center p-5 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#252525] transition-colors duration-200 group outline-none"
                   >
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 shadow-sm ring-1 ring-black/5 dark:ring-white/5">
-                        <User size={20} className="text-gray-600 dark:text-gray-300" />
+                    <div className="flex items-center gap-5">
+                      <div className={`w-12 h-12 rounded-[20px] flex items-center justify-center transition-transform group-hover:scale-105 duration-300 ${monet ? monet.iconBg : 'bg-[#F2F2F7] dark:bg-[#2C2C2E] text-[#007AFF]'}`}>
+                        <User size={24} strokeWidth={2} />
                       </div>
                       <div className="text-left">
-                        <h2 className="text-[17px] font-semibold text-gray-900 dark:text-white tracking-tight group-hover:text-[#007AFF] transition-colors">Students</h2>
-                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                          {groupedUsers.students.length} Accounts
+                        <h2 className={`text-[19px] font-bold tracking-tight ${monet ? monet.textAccent : 'text-gray-900 dark:text-white'}`}>Students</h2>
+                        <span className="text-[13px] font-semibold text-gray-500 dark:text-gray-400">
+                          {currentData.students.length} Accounts
                         </span>
                       </div>
                     </div>
-                    <div className={`w-7 h-7 rounded-full flex items-center justify-center bg-gray-100 dark:bg-gray-700 transition-all duration-300 ${openSections.studentsContainer ? 'bg-[#007AFF] text-white rotate-180' : 'text-gray-400'}`}>
-                        <ChevronDown size={16} strokeWidth={3} />
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${openSections[activeTab === 'active' ? 'studentsContainer' : 'restrictedStudentsContainer'] ? (monet ? `${monet.btnPrimary} text-white rotate-180` : 'bg-[#007AFF] text-white rotate-180') : 'bg-[#F2F2F7] dark:bg-[#2C2C2E] text-gray-400'}`}>
+                        <ChevronDown size={20} strokeWidth={2.5} />
                     </div>
                   </button>
                   <div
-                    className={`transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${
-                      openSections.studentsContainer
-                        ? 'max-h-[3000px] opacity-100'
+                    className={`transition-all duration-500 ease-[cubic-bezier(0.19,1,0.22,1)] ${
+                      openSections[activeTab === 'active' ? 'studentsContainer' : 'restrictedStudentsContainer']
+                        ? 'max-h-[5000px] opacity-100'
                         : 'max-h-0 opacity-0'
                     }`}
                   >
-                    <div className="p-4 space-y-4 bg-gray-50/30 dark:bg-black/20 border-t border-gray-200/50 dark:border-white/5">
-                      {groupedUsers.students.length > 0 ? (
-                        Object.entries(studentsByGrade).map(([grade, list]) => (
-                          <CollapsibleUserTable
-                            key={grade}
-                            title={grade}
-                            users={list}
-                            icon={<User />}
-                            isOpen={openSections[grade]}
-                            onToggle={() => toggleSection(grade)}
-                            handleSetRestriction={handleSetRestriction}
-                            handleSelectUser={handleSelectUser}
-                            handleSelectAll={handleSelectAll}
-                            selectedUserIds={selectedUserIds}
-                            handleShowPassword={handleShowPassword}
-                            setSelectedUser={setSelectedUser}
-                            setIsEditUserModalOpen={setIsEditUserModalOpen}
-                            handleSingleDelete={handleSingleDelete}
-                          />
+                    <div className="p-4 space-y-4 bg-[#F9F9F9]/50 dark:bg-[#151515]/50 border-t border-gray-100 dark:border-white/5">
+                      {currentData.students.length > 0 ? (
+                        Object.entries(currentStudentsByGrade).map(([grade, list]) => (
+                          list.length > 0 && (
+                              <CollapsibleUserTable
+                                key={grade}
+                                title={grade}
+                                users={list}
+                                icon={<User />}
+                                isOpen={openSections[grade]}
+                                onToggle={() => toggleSection(grade)}
+                                handleSetRestriction={handleSetRestriction}
+                                handleSelectUser={handleSelectUser}
+                                handleSelectAll={handleSelectAll}
+                                selectedUserIds={selectedUserIds}
+                                handleShowPassword={handleShowPassword}
+                                setSelectedUser={setSelectedUser}
+                                setIsEditUserModalOpen={setIsEditUserModalOpen}
+                                handleSingleDelete={handleSingleDelete}
+                                isRestrictedTable={activeTab === 'restricted'}
+                                monet={monet}
+                              />
+                          )
                         ))
                       ) : (
                         <p className="text-center text-gray-400 dark:text-gray-500 py-6 text-sm">No student accounts found.</p>
@@ -928,24 +1046,6 @@ const AdminDashboard = () => {
                     </div>
                   </div>
                 </div>
-              </>
-            ) : (
-              <CollapsibleUserTable
-                title="Restricted Accounts"
-                users={restrictedUsers}
-                icon={<UserX />}
-                isOpen={openSections.restricted}
-                onToggle={() => toggleSection('restricted')}
-                isRestrictedTable
-                handleSetRestriction={handleSetRestriction}
-                handleSelectUser={handleSelectUser}
-                handleSelectAll={handleSelectAll}
-                selectedUserIds={selectedUserIds}
-                handleShowPassword={handleShowPassword}
-                setSelectedUser={setSelectedUser}
-                setIsEditUserModalOpen={setIsEditUserModalOpen}
-                handleSingleDelete={handleSingleDelete}
-              />
             )}
           </div>
         )}
@@ -980,6 +1080,7 @@ const AdminDashboard = () => {
         onClose={closeAlertModal}
         title={alertModalState.title}
         message={alertModalState.message}
+        monet={monet}
       />
       
       <ConfirmActionModal
@@ -990,6 +1091,7 @@ const AdminDashboard = () => {
         message={confirmModalState.message}
         confirmText={confirmModalState.confirmText}
         variant={confirmModalState.variant}
+        monet={monet}
       />
 
     </div>
