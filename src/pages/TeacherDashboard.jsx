@@ -629,60 +629,51 @@ const TeacherDashboard = () => {
 
 		    STRICT BEHAVIORAL CONSTRAINTS:
 		    1. Output ONLY valid JSON.
-		    2. DO NOT write introductions or explanations. Start immediately with '{' and end with '}'.
-		    3. NO MARKDOWN formatting outside the JSON string (no \`\`\`json wrappers).
+		    2. Start immediately with '{' and end with '}'.
+		    3. NO MARKDOWN formatting outside the JSON string.
 
 		    ROLE & MINDSET:
-		    You are an **Expert Instructional Designer**.
-		    Your goal is to create **Self-Paced Learning Material**. The slides must be readable as a standalone "textbook-on-slides."
+		    You are an **Expert Educational Synthesizer**.
+		    **GOAL:** Create slides that are academically accurate but easy to digest.
+		    **PRIORITY:** Mix **Exact Terminology** with **Simple Explanations**.
 
-		    **CRITICAL: FORMATTING RULES (NO LABELS)**
-		    1. **NO META-LABELS IN BODY:**
-		       - **Strictly Forbidden:** Do not use bold headers to categorize the text inside the slide body.
-		       - **BANNED:** "**Scenario**: Imagine you are..."
-		       - **BANNED:** "**Definition**: Ethics is..."
-		       - **BANNED:** "**Academic Relevance**: This matters because..."
+		    **CRITICAL: CONTENT PROCESSING LOGIC (STRICT)**
     
-		    2. **NATURAL FLOW:**
-		       - Just write the text. Use paragraph breaks (\\n\\n) to separate ideas.
-		       - **GOOD:** "Imagine you are sitting with a journal... \\n\\nThis exercise allows you to apply the framework..."
+		    1. **DEFINITIONS (KEEP EXACT):**
+		       - When introducing a key term (e.g., "The Object", "Intention", "Circumstances"), you must use the **exact definition** provided in the source text. 
+		       - Do not paraphrase the formal definition.
 
-		    **CRITICAL: TONE AND VOICE**
-		    1. **Direct Address ("You"):**
-		       - You must address the learner directly.
-		       - Use phrases like: "Imagine you are...", "When you decide...", "This helps you understand..."
-    
-		    2. **Scenario Handling:**
-		       - If the text contains a story/scenario, write the **full story** first using "You".
-		       - Add a double line break (\\n\\n).
-		       - Immediately follow with the academic explanation/analysis. 
-		       - Do NOT label them as "Scenario" or "Analysis". Just let the text flow naturally.
+		    2. **EXPLANATIONS (SIMPLIFY):**
+		       - After the definition, you must **paraphrase the explanation** into simple, conversational English.
+		       - Use the "Feynman Technique": Explain it as if teaching a student who is hearing it for the first time.
+		       - Address the student directly ("This means that when you...").
 
-		    **CRITICAL: CONTENT DENSITY**
-		    1. **Detailed Explanations:** Do not summarize. Retain specific terminology, lists, and logical arguments from the source.
-		    2. **No Naked Bullets:** Never use a bullet point without a full sentence explanation.
-		    3. **Source Grounding:** Use ONLY the provided text.
-			
-			**CRITICAL: SPEAKER NOTES STRATEGY (THE "CHEAT SHEET")**
-   		 	1. **NO GENERIC INSTRUCTIONS:** Do not just say "Explain X." You must **Provide the Explanation**.
-   		 	2. **ASSUME THE TEACHER NEEDS HELP:** The teacher might not know the details. The notes must contain the hard facts, dates, definitions, and "answers" to the slide.
-    		- **BAD:** "Discuss the conflict between Greek logic and faith."
-    		- **GOOD:** "The core conflict is that Greek logic (Aristotle) relies on empirical reason, while Christian doctrine relies on divine revelation. Aquinas's innovation was arguing these are NOT contradictory, but compatible paths to the same Truth."
+		    3. **SCENARIO HANDLING:**
+		       - **IF** the source text contains a story/scenario: Use it to open the slide.
+		       - **IF NO** scenario exists: Go straight to the Term/Concept. **DO NOT invent scenarios.**
+
+		    4. **FORMATTING:**
+		       - **No Labels:** Do NOT use bold headers like "**Definition**:" or "**Analysis**:" in the body.
+		       - **Flow:** Write the exact definition first. Add a paragraph break (\\n\\n). Write the simplified explanation next.
+
+		    **CRITICAL: SPEAKER NOTES (THE TEACHER'S CHEAT SHEET)**
+		    - The speaker notes must provide the "Deep Dive" for the teacher.
+		    - If the slide text is simplified, the Notes should contain the **original, complex context** or historical background (e.g., Greek vs. Christian logic) so the teacher can answer advanced questions.
 
 		    **REQUIRED JSON SCHEMA:**
 		    {
 		      "slides": [
 		        {
-		          "title": "Slide Title (e.g., 'The Decision Making Process')",
-		          "body": "Imagine you are sitting with a journal, reflecting on a significant decision you made recently. You are asked to look back and analyze that moment using your internal compass. \\n\\nThis exercise is not about judgment, but is the first step in applying Thomas Aquinas's framework to your own life. By deconstructing your own decision-making process, you prepare to understand the complex interplay of intellect and will.", 
+		          "title": "Slide Title (e.g., 'The Object of the Act')",
+		          "body": "The Object of the Act is the primary indicator of whether an action is good or evil, determined by the inherent nature of the action itself. [Exact definition from text] \\n\\nIn simpler terms, look at the action itself before judging the motive. For example, stealing is 'objectively' wrong, even if you did it to help a friend. The 'what' matters before the 'why'. [Simplified explanation]", 
 		          "tableData": {
 		              "headers": [],
 		              "rows": []
 		          },
-				  "notes": { 
-				              "talkingPoints": "TEACHER CONTEXT: Aquinas adapted Aristotle's view of the 'Will'. While Aristotle saw the Will as rational desire, Aquinas added that the Will is driven by a desire for the 'Universal Good' (God). Explain that 'Intellect' identifies the good, but 'Will' chooses it.", 
-				              "interactiveElement": "Ask: Can you think of a time your head (Intellect) knew the right thing, but your heart (Will) wanted something else?", 
-				              "slideTiming": "3 mins"
+		          "notes": { 
+		            "talkingPoints": "TEACHER CONTEXT: Emphasize that 'The Object' is independent of the person. In Aquinas's view, some acts (malum in se) are evil regardless of intention.", 
+		            "interactiveElement": "Ask: Can a good intention ever make a bad action right?", 
+		            "slideTiming": "3 mins" 
 		          }
 		        }
 		      ]
@@ -691,7 +682,6 @@ const TeacherDashboard = () => {
 		    **CONTENT TO PROCESS:**
 		    ${page.content}
 		`;
-
 	        try {
 	            const aiResponseText = await callGeminiWithLimitCheck(prompt);
             

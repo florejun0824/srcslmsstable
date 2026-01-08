@@ -1,9 +1,10 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react'; 
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'; // [UPDATED] Added useLocation
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'; 
 import { Capacitor } from '@capacitor/core';
 import { StatusBar } from '@capacitor/status-bar';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { SplashScreen } from '@capacitor/splash-screen'; 
+import { PrivacyScreen } from '@capacitor-community/privacy-screen'; // [NEW] Required to fix black screen
 import { useAuth } from './contexts/AuthContext';
 import { useToast } from './contexts/ToastContext';
 import { handleAuthRedirect, createPresentationFromData } from './services/googleSlidesService';
@@ -11,7 +12,7 @@ import PostLoginExperience from "./components/PostLoginExperience";
 import UpdateOverlay from './components/UpdateOverlay';
 import LogoLoadingScreen from './components/common/LogoLoadingScreen'; 
 import * as serviceWorkerRegistration from './serviceWorkerRegistration';
-import AntiCheatPlugin from './plugins/AntiCheatPlugin'; // [UPDATED] Import the plugin
+import AntiCheatPlugin from './plugins/AntiCheatPlugin'; 
 import './index.css';
 
 // --- GLOBAL DEFINITIONS ---
@@ -34,18 +35,23 @@ const TermsPage = lazy(() => import('./pages/TermsPage'));
 
 const AVERAGE_BUILD_SECONDS = 300;
 
-// --- NEW COMPONENT: Global Anti-Cheat Cleanup ---
-// [UPDATED] This component watches for URL changes. 
-// If the user navigates anywhere (Dashboard, etc.), it forces the Native Plugin to disable.
+// --- GLOBAL SAFETY NET: WATCHER COMPONENT ---
+// This ensures that if you navigate ANYWHERE (e.g. back to dashboard), 
+// all anti-cheat restrictions (Black Screen & Plugin) are KILLED immediately.
 const AntiCheatRouteWatcher = () => {
     const location = useLocation();
 
     useEffect(() => {
         if (Capacitor.isNativePlatform()) {
-            // We don't log this to console to avoid clutter, but effectively this line
-            // disarms the Java "isQuizActive" boolean on every page transition.
+            // 1. Kill the Native Anti-Cheat Plugin (Status Bar / Toasts)
             AntiCheatPlugin.disableAntiCheat().catch(err => 
-                console.warn("Safety Net: Failed to force-disable anti-cheat on route change", err)
+                console.warn("Safety Net: Failed to disable AC plugin", err)
+            );
+
+            // 2. [FIX] Kill the Privacy Screen (The Black Cover)
+            // This restores the ability to take screenshots and copy-paste when leaving the quiz.
+            PrivacyScreen.disable().catch(err => 
+                console.warn("Safety Net: Failed to disable Privacy Screen", err)
             );
         }
     }, [location]);
@@ -298,7 +304,7 @@ const AppRouter = () => {
 
   return (
     <Suspense fallback={getSuspenseFallback()}>
-        {/* [UPDATED] Insert Route Watcher here to protect against stuck Anti-Cheat */}
+        {/* [UPDATED] Global Route Watcher: Disables Anti-Cheat & Privacy Screen on route change */}
         <AntiCheatRouteWatcher /> 
 
         <Routes>
@@ -306,7 +312,7 @@ const AppRouter = () => {
         <Route path="/create-admin-xyz" element={<AdminSignup />} />
         
         <Route path="/privacy" element={<PrivacyPage />} />
-	  <Route path="/terms" element={<TermsPage />} />
+	    <Route path="/terms" element={<TermsPage />} />
 
         <Route 
             path="/login" 
