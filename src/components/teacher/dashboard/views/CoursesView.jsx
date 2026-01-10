@@ -1,6 +1,6 @@
 // src/components/teacher/dashboard/views/CoursesView.jsx
 import React, { useState, useEffect, useMemo, memo, Fragment, useCallback, useRef } from 'react';
-import { Routes, Route, useParams, useNavigate, Link } from 'react-router-dom';
+import { Routes, Route, useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { db } from '../../../../services/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import UnitAccordion from '../../UnitAccordion';
@@ -24,7 +24,6 @@ import {
 } from '@heroicons/react/24/outline';
 
 // --- OPTIMIZATION: STATIC STYLES ---
-// Moved out of component to prevent style recalculation on every render
 const CUSTOM_SCROLLBAR_STYLES = `
   .custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
   .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
@@ -36,7 +35,7 @@ const CUSTOM_SCROLLBAR_STYLES = `
 // --- ONE UI 8.0 MONET STYLES ---
 const getMonetStyles = (activeOverlay) => {
     if (!activeOverlay || activeOverlay === 'none') return null;
-
+    // ... (Keep existing switch case logic)
     switch (activeOverlay) {
         case 'christmas':
             return {
@@ -117,6 +116,7 @@ const elevatedIconBox = `
 
 // --- COMPACT PILL BUTTONS ---
 const getButtonClass = (type, monet) => {
+    // ... (Keep existing button class logic)
     const base = "flex items-center justify-center gap-1.5 rounded-full font-bold tracking-wide transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed";
     
     if (monet) {
@@ -158,6 +158,7 @@ const SkeletonList = memo(() => (
 
 // --- SUBJECT ICONS & COLORS ---
 const getSubjectStyling = (subjectTitle, monet) => {
+    // ... (Keep existing styling logic)
     const lowerCaseTitle = subjectTitle.toLowerCase();
     let IconComponent = BookOpenIcon;
     let styleClass = "bg-slate-100 text-slate-600 dark:bg-[#2C2C2E] dark:text-slate-300";
@@ -287,7 +288,8 @@ const SubjectDetail = memo((props) => {
         handleCategoryClick, activeUnit,
     } = props;
 
-    const { contentGroup, categoryName, subjectId } = useParams();
+    // [NEW] Added unitId to params
+    const { contentGroup, categoryName, subjectId, unitId } = useParams();
     const navigate = useNavigate();
     const { activeOverlay } = useTheme();
     
@@ -336,10 +338,38 @@ const SubjectDetail = memo((props) => {
             handleCategoryClick(decodedName);
             prevCategoryRef.current = decodedName;
         }
-
-        // Cleanup intentionally omitted for parent state setters to avoid clearing prematurely
-        // We only clear on unmount of the view via return in root useEffect if needed
     }, [activeSubject, categoryName, setActiveSubject, handleCategoryClick]);
+
+    // [NEW] DEEP LINKING LOGIC: Sync URL `unitId` with Parent `activeUnit` state
+    useEffect(() => {
+        if (loadingUnits) return;
+
+        if (unitId) {
+            const foundUnit = units.find(u => u.id === unitId);
+            if (foundUnit) {
+                // Prevent unnecessary loops
+                if (activeUnit?.id !== foundUnit.id) {
+                    onSetActiveUnit(foundUnit);
+                }
+            }
+        } else {
+            // URL has no unitId, ensure state is null
+            if (activeUnit) {
+                onSetActiveUnit(null);
+            }
+        }
+    }, [unitId, units, loadingUnits, activeUnit, onSetActiveUnit]);
+
+    // [NEW] HANDLER: Intercepts clicks from UnitAccordion to update URL instead of just State
+    const handleUnitNavigation = useCallback((unitOrNull) => {
+        if (unitOrNull) {
+            // Navigate to Unit URL
+             navigate(`/dashboard/courses/${contentGroup}/${categoryName}/${subjectId}/${unitOrNull.id}`);
+        } else {
+            // Navigate back to Subject URL
+             navigate(`/dashboard/courses/${contentGroup}/${categoryName}/${subjectId}`);
+        }
+    }, [contentGroup, categoryName, subjectId, navigate]);
 
     // ✅ OPTIMIZED: PARALLEL DATA FETCHING
     useEffect(() => {
@@ -391,15 +421,24 @@ const SubjectDetail = memo((props) => {
     }, []);
 
     const handleGeneratePresentationClick = useCallback(() => {
-        if (onGeneratePresentationPreview) {
-            onGeneratePresentationPreview(Array.from(selectedLessons), allLessonsForSubject, units);
+        if (onGeneratePresentationPreview && activeSubject) {
+            // FIXED: Added guards (|| []) to ensure arrays are passed even if state is momentarily undefined
+            onGeneratePresentationPreview(
+                Array.from(selectedLessons), 
+                allLessonsForSubject || [], 
+                units || [], 
+                activeSubject 
+            );
         }
-    }, [onGeneratePresentationPreview, selectedLessons, allLessonsForSubject, units]);
+    }, [onGeneratePresentationPreview, selectedLessons, allLessonsForSubject, units, activeSubject]);
 
+    // [UPDATED] Back Navigation Logic
     const handleBackNavigation = () => {
-        if (activeUnit) {
-            onSetActiveUnit(null);
+        if (activeUnit || unitId) {
+            // Go up one level to Subject (Clear Unit)
+            navigate(`/dashboard/courses/${contentGroup}/${categoryName}/${subjectId}`);
         } else {
+            // Go up to Category
             navigate(`/dashboard/courses/${contentGroup}/${categoryName}`);
         }
     };
@@ -476,7 +515,7 @@ const SubjectDetail = memo((props) => {
                             isAiGenerating={isAiGenerating}
                             setIsAiGenerating={setIsAiGenerating}
                             activeUnit={activeUnit}
-                            onSetActiveUnit={onSetActiveUnit}
+                            onSetActiveUnit={handleUnitNavigation} /* [UPDATED] Pass the navigation wrapper */
                             selectedLessons={selectedLessons}
                             onLessonSelect={handleLessonSelect}
                             handleGenerateQuizForLesson={handleGenerateQuizForLesson}
@@ -496,97 +535,100 @@ const SubjectDetail = memo((props) => {
                 </div>
             </div>
 
-            {/* --- LESSON PICKER MODAL --- */}
-            {showLessonPicker && activeUnitForPicker && (
-                <div className="fixed inset-0 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm z-[5000] p-6 transition-all duration-300">
-                    <div className={`relative w-full max-w-lg max-h-[85vh] flex flex-col rounded-[2rem] overflow-hidden animate-in fade-in zoom-in-95 bg-white dark:bg-[#1c1c1e] border border-slate-100 dark:border-[#2c2c2e] shadow-2xl`}>
+					{/* --- LESSON PICKER MODAL --- */}
+					            {showLessonPicker && activeUnitForPicker && (
+					                <div className="fixed inset-0 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm z-[5000] p-4 sm:p-6 transition-all duration-300">
+					                     {/* Added 'w-full' and ensured max-h uses dvh for mobile safety */}
+					                    <div className={`relative w-full max-w-lg max-h-[85vh] flex flex-col rounded-[2rem] overflow-hidden animate-in fade-in zoom-in-95 bg-white dark:bg-[#1c1c1e] border border-slate-100 dark:border-[#2c2c2e] shadow-2xl`}>
                         
-                        <div className={`px-6 py-5 border-b flex justify-between items-center border-slate-100 dark:border-[#2c2c2e] bg-slate-50/50 dark:bg-[#151517]`}>
-                            <div>
-                                <h2 className={`text-lg font-black tracking-tight ${monet ? monet.themeText : 'text-slate-900 dark:text-white'}`}>Select Content</h2>
-                                <p className={`text-xs font-bold ${monet ? 'text-slate-500' : 'text-slate-500 dark:text-slate-400'}`}>
-                                    From <span className="font-extrabold">"{activeUnitForPicker.title}"</span>
-                                </p>
-                            </div>
-                            <button onClick={() => setShowLessonPicker(false)} className={`${getButtonClass('icon', monet)}`}>
-                                <XMarkIcon className="w-5 h-5" />
-                            </button>
-                        </div>
+					                        <div className={`px-6 py-5 border-b flex justify-between items-center border-slate-100 dark:border-[#2c2c2e] bg-slate-50/50 dark:bg-[#151517] flex-shrink-0`}>
+					                            <div>
+					                                <h2 className={`text-lg font-black tracking-tight ${monet ? monet.themeText : 'text-slate-900 dark:text-white'}`}>Select Content</h2>
+					                                <p className={`text-xs font-bold ${monet ? 'text-slate-500' : 'text-slate-500 dark:text-slate-400'}`}>
+					                                    From <span className="font-extrabold">"{activeUnitForPicker.title}"</span>
+					                                </p>
+					                            </div>
+					                            <button onClick={() => setShowLessonPicker(false)} className={`${getButtonClass('icon', monet)}`}>
+					                                <XMarkIcon className="w-5 h-5" />
+					                            </button>
+					                        </div>
 
-                        <div className={`flex-1 overflow-y-auto px-6 py-6 space-y-2 bg-white dark:bg-[#1c1c1e] ${scrollbarClass}`}>
-                            {(() => {
-                                const lessonsInUnit = allLessonsForSubject
-                                    .filter((lesson) => lesson.unitId === activeUnitForPicker.id)
-                                    .sort((a, b) => (a.order || 0) - (b.order || 0));
+					                        {/* [FIX] Added 'min-h-0' here so the list shrinks & scrolls instead of overflowing the screen */}
+					                        <div className={`flex-1 min-h-0 overflow-y-auto px-6 py-6 space-y-2 bg-white dark:bg-[#1c1c1e] ${scrollbarClass}`}>
+					                            {(() => {
+					                                const lessonsInUnit = allLessonsForSubject
+					                                    .filter((lesson) => lesson.unitId === activeUnitForPicker.id)
+					                                    .sort((a, b) => (a.order || 0) - (b.order || 0));
                                 
-                                if (lessonsInUnit.length === 0) {
-                                    return (
-                                        <div className="flex flex-col items-center justify-center py-12 text-center opacity-60">
-                                            <BookOpenIcon className={`w-12 h-12 mb-3 ${monet ? monet.themeText : 'text-slate-300'}`} />
-                                            <p className={`text-sm font-bold ${monet ? 'text-slate-500' : 'text-slate-500 dark:text-slate-400'}`}>No lessons found.</p>
-                                        </div>
-                                    );
-                                }
+					                                if (lessonsInUnit.length === 0) {
+					                                    return (
+					                                        <div className="flex flex-col items-center justify-center py-12 text-center opacity-60">
+					                                            <BookOpenIcon className={`w-12 h-12 mb-3 ${monet ? monet.themeText : 'text-slate-300'}`} />
+					                                            <p className={`text-sm font-bold ${monet ? 'text-slate-500' : 'text-slate-500 dark:text-slate-400'}`}>No lessons found.</p>
+					                                        </div>
+					                                    );
+					                                }
 
-                                return lessonsInUnit.map((lesson) => {
-                                    const isSelected = selectedLessons.has(lesson.id);
-                                    return (
-                                        <label 
-                                            key={lesson.id} 
-                                            className={`group flex items-center justify-between p-3 rounded-2xl cursor-pointer border transition-all duration-200 ${
-                                                isSelected 
-                                                ? (monet ? `${monet.btnTonal} border-transparent` : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800') 
-                                                : (monet ? `hover:bg-slate-50 dark:hover:bg-[#2c2c2e] border-slate-100 dark:border-[#2c2c2e]` : 'bg-white dark:bg-[#1c1c1e] border-slate-100 dark:border-[#2c2c2e] hover:bg-slate-50 dark:hover:bg-[#2c2c2e]')
-                                            }`}
-                                        >
-                                            <div className="min-w-0 pr-4">
-                                                <div className={`font-bold text-sm ${isSelected ? (monet ? monet.themeText : 'text-blue-700 dark:text-blue-200') : (monet ? 'text-slate-700 dark:text-slate-200' : 'text-slate-700 dark:text-slate-200')}`}>
-                                                    {lesson.title}
-                                                </div>
-                                            </div>
+					                                return lessonsInUnit.map((lesson) => {
+					                                    const isSelected = selectedLessons.has(lesson.id);
+					                                    return (
+					                                        <label 
+					                                            key={lesson.id} 
+					                                            className={`group flex items-center justify-between p-3 rounded-2xl cursor-pointer border transition-all duration-200 ${
+					                                                isSelected 
+					                                                ? (monet ? `${monet.btnTonal} border-transparent` : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800') 
+					                                                : (monet ? `hover:bg-slate-50 dark:hover:bg-[#2c2c2e] border-slate-100 dark:border-[#2c2c2e]` : 'bg-white dark:bg-[#1c1c1e] border-slate-100 dark:border-[#2c2c2e] hover:bg-slate-50 dark:hover:bg-[#2c2c2e]')
+					                                            }`}
+					                                        >
+					                                            <div className="min-w-0 pr-4">
+					                                                <div className={`font-bold text-sm ${isSelected ? (monet ? monet.themeText : 'text-blue-700 dark:text-blue-200') : (monet ? 'text-slate-700 dark:text-slate-200' : 'text-slate-700 dark:text-slate-200')}`}>
+					                                                    {lesson.title}
+					                                                </div>
+					                                            </div>
                                             
-                                            <div className="relative flex items-center justify-center w-5 h-5">
-                                                <input 
-                                                    type="checkbox" 
-                                                    checked={isSelected} 
-                                                    onChange={() => handleLessonSelect(lesson.id)} 
-                                                    className={`peer appearance-none w-5 h-5 rounded-full border-[2.5px] transition-all cursor-pointer ${monet ? `border-slate-300 dark:border-slate-600 checked:bg-current` : 'border-slate-300 dark:border-slate-600 checked:bg-blue-600 checked:border-blue-600'}`} 
-                                                />
-                                                <CheckCircleIcon className={`absolute w-5 h-5 pointer-events-none opacity-0 peer-checked:opacity-100 transition-all scale-75 peer-checked:scale-100 text-white`} />
-                                            </div>
-                                        </label>
-                                    );
-                                });
-                            })()}
-                        </div>
+					                                            <div className="relative flex items-center justify-center w-5 h-5">
+					                                                <input 
+					                                                    type="checkbox" 
+					                                                    checked={isSelected} 
+					                                                    onChange={() => handleLessonSelect(lesson.id)} 
+					                                                    className={`peer appearance-none w-5 h-5 rounded-full border-[2.5px] transition-all cursor-pointer ${monet ? `border-slate-300 dark:border-slate-600 checked:bg-current` : 'border-slate-300 dark:border-slate-600 checked:bg-blue-600 checked:border-blue-600'}`} 
+					                                                />
+					                                                <CheckCircleIcon className={`absolute w-5 h-5 pointer-events-none opacity-0 peer-checked:opacity-100 transition-all scale-75 peer-checked:scale-100 text-white`} />
+					                                            </div>
+					                                        </label>
+					                                    );
+					                                });
+					                            })()}
+					                        </div>
 
-                        <div className={`px-6 py-5 border-t flex justify-between items-center border-slate-100 dark:border-[#2c2c2e] bg-slate-50 dark:bg-[#151517]`}>
-                            <span className={`text-xs font-black uppercase tracking-wider ${monet ? monet.themeText : 'text-slate-500'}`}>
-                                {selectedLessons.size} Selected
-                            </span>
-                            <div className="flex gap-3">
-                                <button onClick={() => setShowLessonPicker(false)} className={getButtonClass('secondary', monet)}>
-                                    Cancel
-                                </button>
-                                <button 
-                                    onClick={() => { setShowLessonPicker(false); handleGeneratePresentationClick(); }} 
-                                    className={getButtonClass('primary', monet)}
-                                    disabled={selectedLessons.size === 0 || isAiGenerating}
-                                >
-                                    {isAiGenerating ? <ArrowPathIcon className="w-4 h-4 animate-spin" /> : <PresentationChartBarIcon className="w-4 h-4" />}
-                                    <span>Generate Deck</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
+					                        <div className={`px-6 py-5 border-t flex justify-between items-center border-slate-100 dark:border-[#2c2c2e] bg-slate-50 dark:bg-[#151517] flex-shrink-0`}>
+					                            <span className={`text-xs font-black uppercase tracking-wider ${monet ? monet.themeText : 'text-slate-500'}`}>
+					                                {selectedLessons.size} Selected
+					                            </span>
+					                            <div className="flex gap-3">
+					                                <button onClick={() => setShowLessonPicker(false)} className={getButtonClass('secondary', monet)}>
+					                                    Cancel
+					                                </button>
+					                                <button 
+					                                    onClick={() => { setShowLessonPicker(false); handleGeneratePresentationClick(); }} 
+					                                    className={getButtonClass('primary', monet)}
+					                                    disabled={selectedLessons.size === 0 || isAiGenerating}
+					                                >
+					                                    {isAiGenerating ? <ArrowPathIcon className="w-4 h-4 animate-spin" /> : <PresentationChartBarIcon className="w-4 h-4" />}
+					                                    <span>Generate Deck</span>
+					                                </button>
+					                            </div>
+					                        </div>
+					                    </div>
+					                </div>
+					            )}
         </div>
     );
 });
 
 // --- LEVEL 2: SUBJECT LIST VIEW (MEMOIZED) ---
 const SubjectList = memo((props) => {
+    // ... (Keep existing implementation)
     const { courses, handleInitiateDelete, onAddSubjectClick, setActiveSubject, handleCategoryClick, loading, userProfile } = props;
     const { contentGroup, categoryName } = useParams();
     const navigate = useNavigate();
@@ -715,6 +757,7 @@ const SubjectList = memo((props) => {
 
 // --- LEVEL 1: CATEGORY LIST VIEW (MEMOIZED) ---
 const CategoryList = memo((props) => {
+    // ... (Keep existing implementation)
     const { courseCategories, courses, setCreateCategoryModalOpen, handleEditCategory, handleInitiateDelete, handleCategoryClick, setActiveSubject, loading, userProfile } = props;
     const { contentGroup } = useParams();
     const navigate = useNavigate();
@@ -834,14 +877,13 @@ const CategoryList = memo((props) => {
 
 // --- LEVEL 0: CONTENT GROUP SELECTOR (MEMOIZED) ---
 const ContentGroupSelector = memo((props) => {
+    // ... (Keep existing implementation)
     const { activeOverlay } = useTheme();
     const monet = useMemo(() => getMonetStyles(activeOverlay), [activeOverlay]);
 
-    // Optimize: Prevent effect from firing if not needed
     useEffect(() => {
         props.setActiveSubject(null);
         props.handleBackToCategoryList();
-        // Removed unnecessary deps that cause loops
     }, []); 
 
 	return (
@@ -911,6 +953,8 @@ const CoursesView = memo((props) => {
                 <Route path=":contentGroup" element={<CategoryList {...props} />} />
                 <Route path=":contentGroup/:categoryName" element={<SubjectList {...props} />} />
                 <Route path=":contentGroup/:categoryName/:subjectId" element={<SubjectDetail {...props} />} />
+                {/* [NEW] Route for specific Unit ID */}
+                <Route path=":contentGroup/:categoryName/:subjectId/:unitId" element={<SubjectDetail {...props} />} />
             </Route>
         </Routes>
     );

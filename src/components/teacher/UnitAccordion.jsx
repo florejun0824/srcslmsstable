@@ -473,7 +473,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 
     useEffect(() => { 
         if (!subject?.id) { setUnits([]); return; } 
-        if (onSetActiveUnit) { onSetActiveUnit(null); } 
+        // [FIX] REMOVED THE LINE THAT FORCED UNIT RESET AND CAUSED REDIRECT LOOPS
         
         const q = query(collection(db, 'units'), where('subjectId', '==', subject.id)); 
         const unsubscribe = onSnapshot(q, (snapshot) => { 
@@ -482,7 +482,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
             setUnits(fetched); 
         }); 
         return () => unsubscribe(); 
-    }, [subject?.id, onSetActiveUnit]);
+    }, [subject?.id]);
 
     useEffect(() => { 
         if (!subject?.id) { setAllLessons([]); setAllQuizzes([]); return; } 

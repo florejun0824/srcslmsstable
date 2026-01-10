@@ -1,3 +1,4 @@
+// src/hooks/usePresentationGenerator.js
 import { useState, useCallback } from 'react';
 import { callGeminiWithLimitCheck } from '../services/aiService';
 import { createPresentationFromData } from '../services/googleSlidesService';
@@ -23,11 +24,17 @@ export const usePresentationGenerator = (showToast) => {
   const [isSavingPPT, setIsSavingPPT] = useState(false);
 
   // --- Logic: Generate JSON Preview from Lesson Content ---
-  const generatePreview = useCallback(async (lessonIds, lessonsData, activeSubject, unitsData) => {
+  // FIXED: Default lessonsData to [] to prevent 'filter of undefined' errors
+  const generatePreview = useCallback(async (lessonIds, lessonsData = [], activeSubject, unitsData) => {
     // 1. Validation
     if (!activeSubject) { 
         showToast("No active subject selected.", "warning"); 
         return false; 
+    }
+
+    if (!Array.isArray(lessonsData)) {
+         showToast("Invalid lesson data.", "error");
+         return false;
     }
 
     const selectedLessons = lessonsData.filter(l => lessonIds.includes(l.id));

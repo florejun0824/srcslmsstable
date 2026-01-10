@@ -321,6 +321,7 @@ const ClassOverviewModal = forwardRef(({ isOpen, onClose, classData, onRemoveStu
                         units={units}
                         sharedContentPosts={sharedContentPosts}
                         quizScores={quizScores}
+						quizLocks={quizLocks}
                         setIsReportModalOpen={setIsReportModalOpen}
                         setSelectedQuizForScores={setSelectedQuizForScores}
                         setScoresDetailModalOpen={setScoresDetailModalOpen}

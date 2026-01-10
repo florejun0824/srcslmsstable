@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, Suspense, lazy, useCallback } from
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { db } from '../services/firebase'; // FIXED: Removed firestoreService from import
+import { db } from '../services/firebase'; 
 import { doc, updateDoc, deleteDoc, writeBatch, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { callChatbotAi } from '../services/aiService';
 
@@ -27,7 +27,6 @@ const ViewLessonModal = lazy(() => import('../components/teacher/ViewLessonModal
 
 const TeacherDashboard = () => {
   // 1. Context & Router
-  // FIXED: Added firestoreService back to destructuring
   const { user, userProfile, logout, refreshUserProfile, firestoreService, loading: authLoading } = useAuth();
   const { showToast } = useToast();
   const location = useLocation();
@@ -79,7 +78,7 @@ const TeacherDashboard = () => {
   const [categoryToEdit, setCategoryToEdit] = useState(null);
   const [classToEdit, setClassToEdit] = useState(null);
   const [subjectToActOn, setSubjectToActOn] = useState(null);
-  const [lessonsToProcessForPPT, setLessonsToProcessForPPT] = useState([]);
+  const [lessonsToProcessForPPT, setLessonsToProcessForPPT] = useState({}); // FIXED: Initial state as object, not empty array
 
   // Chat State
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -208,21 +207,51 @@ const TeacherDashboard = () => {
     toggleModal('deleteGeneric', true);
   }, []);
 
-  // Presentation Handlers
-  const handleInitiatePresentation = useCallback((lessonIds, lessonsData, unitsData) => {
-    setLessonsToProcessForPPT({ ids: lessonIds, data: lessonsData, units: unitsData });
-    const hideWarn = localStorage.getItem('hidePresentationBetaWarning');
-    if (hideWarn === 'true') handleConfirmBetaWarning(false);
-    else toggleModal('betaWarning', true);
-  }, []);
+  // --- Presentation Handlers (FIXED) ---
 
-  const handleConfirmBetaWarning = useCallback(async (neverShow) => {
+  // NOTE: dataOverride added to handle race condition when skipping modal
+  const handleConfirmBetaWarning = useCallback(async (neverShow, dataOverride = null) => {
     if (neverShow) localStorage.setItem('hidePresentationBetaWarning', 'true');
     toggleModal('betaWarning', false);
-    const { ids, data, units } = lessonsToProcessForPPT;
-    const success = await generatePreview(ids, data, activeSubject, units);
+  
+    // Logic: Use override if present (from immediate call), otherwise use state (from modal confirm)
+    const sourceData = dataOverride || lessonsToProcessForPPT;
+
+    // Safety check
+    if (!sourceData || !sourceData.data) {
+         console.error("Presentation generation failed: Missing source data");
+         showToast("Could not generate deck. Please try again.", "error");
+         return;
+    }
+  
+    const { ids, data, units, subject } = sourceData;
+  
+    // Use the explicitly passed subject; fallback to parent state if needed
+    const subjectToUse = subject || activeSubject;
+
+    const success = await generatePreview(ids, data, subjectToUse, units);
     if (success) toggleModal('presentationPreview', true);
-  }, [lessonsToProcessForPPT, generatePreview, activeSubject]);
+  }, [lessonsToProcessForPPT, generatePreview, activeSubject, showToast]); 
+
+  const handleInitiatePresentation = useCallback((lessonIds, lessonsData, unitsData, subjectOverride) => {
+    const payload = { 
+        ids: lessonIds, 
+        data: lessonsData, 
+        units: unitsData, 
+        subject: subjectOverride 
+    };
+
+    // Store state for Modal scenario
+    setLessonsToProcessForPPT(payload);
+  
+    const hideWarn = localStorage.getItem('hidePresentationBetaWarning');
+    if (hideWarn === 'true') {
+        // FIXED: Pass payload directly to avoid reading stale state
+        handleConfirmBetaWarning(false, payload);
+    } else {
+        toggleModal('betaWarning', true);
+    }
+  }, [handleConfirmBetaWarning, toggleModal]);
 
   // Chat Handler
   const handleChat = useCallback(async (text) => {
@@ -456,7 +485,7 @@ const TeacherDashboard = () => {
             <BetaWarningModal 
                 isOpen={modals.betaWarning} 
                 onClose={() => toggleModal('betaWarning', false)} 
-                onConfirm={handleConfirmBetaWarning} 
+                onConfirm={() => handleConfirmBetaWarning(false)} 
                 title="AI Presentation Generator" 
             />
         )}

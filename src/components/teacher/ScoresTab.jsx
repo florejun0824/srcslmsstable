@@ -15,6 +15,7 @@ const ScoresTab = ({
     units = {},
     quizScores = [], // Array of all submissions
     sharedContentPosts = [], // Array of shared posts containing quizzes
+    quizLocks = [], // Array of active student locks
     setIsReportModalOpen,
     setSelectedQuizForScores,
     setScoresDetailModalOpen,
@@ -24,7 +25,6 @@ const ScoresTab = ({
     const [expandedUnits, setExpandedUnits] = useState(new Set());
 
     // --- OPTIMIZATION 1: High-Performance Stat Calculation ---
-    // Transforms the flat list of scores into a fast lookup map: { [quizId]: { submissions: 5, avg: 85, ... } }
     const quizStatsMap = useMemo(() => {
         const stats = {};
         
@@ -55,7 +55,6 @@ const ScoresTab = ({
             const postQuizzes = post.quizzes || [];
             if (postQuizzes.length === 0) return acc;
 
-            // Group quizzes by Unit
             const unitsInPost = {};
             postQuizzes.forEach(quiz => {
                 const unitName = units[quiz.unitId] || 'Uncategorized';
@@ -66,13 +65,11 @@ const ScoresTab = ({
             acc.push({
                 post,
                 units: unitsInPost,
-                // Sort helper: Use creation time or current time if missing
                 timestamp: post.createdAt?.seconds || Date.now()
             });
             return acc;
         }, []);
 
-        // Sort: Newest posts first
         return grouped.sort((a, b) => b.timestamp - a.timestamp);
     }, [sharedContentPosts, units]);
 
@@ -106,7 +103,6 @@ const ScoresTab = ({
         setScoresDetailModalOpen(true);
     };
 
-    // Helper for sorting units (e.g. Unit 1, Unit 2, Unit 10)
     const customUnitSort = (a, b) => {
         if (a === 'Uncategorized') return 1;
         if (b === 'Uncategorized') return -1;
@@ -137,26 +133,29 @@ const ScoresTab = ({
             {sortedPostEntries.map(({ post, units: unitsInPost }) => {
                 const isExpanded = expandedPosts.has(post.id);
                 const sortedUnitKeys = Object.keys(unitsInPost).sort(customUnitSort);
+                const quizzesInPost = post.quizzes || [];
                 
-                // Date Processing
-                const fromDate = post.availableFrom?.toDate ? post.availableFrom.toDate().toLocaleDateString([], { month: 'short', day: 'numeric' }) : 'N/A';
+                // --- LOGIC: STATUS BADGES ---
                 
+                // 1. Check for Active Locks
+                const hasActiveLocks = quizzesInPost.some(q => 
+                    quizLocks.some(lock => lock.quizId === q.id)
+                );
+
+                // 2. Check for Overdue status
+                let isOverdue = false;
                 let untilDateLabel = null;
-                let isExpired = false;
-                
                 if (post.availableUntil) {
                     const untilDate = post.availableUntil.toDate ? post.availableUntil.toDate() : new Date(post.availableUntil);
                     untilDateLabel = untilDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
-                    isExpired = new Date() > untilDate;
+                    isOverdue = new Date() > untilDate;
                 }
 
-                // Logic: Locked if manually locked OR expired
-                const isLocked = post.quizSettings?.isLocked || isExpired;
+                const fromDate = post.availableFrom?.toDate ? post.availableFrom.toDate().toLocaleDateString([], { month: 'short', day: 'numeric' }) : 'N/A';
 
                 return (
                     <div key={post.id} className="group bg-white dark:bg-[#1c1c1e] rounded-[26px] border border-black/5 dark:border-white/5 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden">
                         
-                        {/* POST HEADER (Click to Expand) */}
                         <button 
                             onClick={() => togglePost(post.id)}
                             className="w-full text-left p-5 focus:outline-none bg-white/50 dark:bg-white/5 hover:bg-slate-50 dark:hover:bg-white/10 transition-colors"
@@ -167,29 +166,33 @@ const ScoresTab = ({
                                         <h3 className="font-bold text-[17px] text-slate-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                                             {post.title}
                                         </h3>
-                                        {isLocked && (
-                                            <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/30 text-[10px] font-bold text-red-600 dark:text-red-400 uppercase tracking-wide">
+                                        
+                                        {/* PRIORITY 1: DISPLAY LOCKED IF THERE ARE ACTIVE QUIZ LOCKS */}
+                                        {hasActiveLocks ? (
+                                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/30 text-[10px] font-bold text-red-600 dark:text-red-400 uppercase tracking-wide">
                                                 <LockClosedIcon className="w-3 h-3" /> Locked
                                             </div>
-                                        )}
+                                        ) : isOverdue ? (
+                                            /* PRIORITY 2: DISPLAY OVERDUE IF TIME IS UP */
+                                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/30 text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wide">
+                                                <ExclamationCircleIcon className="w-3 h-3" /> Overdue
+                                            </div>
+                                        ) : null}
                                     </div>
 
-                                    {/* Metadata Badges */}
                                     <div className="flex flex-wrap items-center gap-2">
                                         <Badge icon={CalendarDaysIcon} color="teal" text={`From: ${fromDate}`} />
-                                        {untilDateLabel && <Badge icon={ClockIcon} color={isExpired ? "red" : "amber"} text={`Until: ${untilDateLabel}`} />}
+                                        {untilDateLabel && <Badge icon={ClockIcon} color={isOverdue ? "red" : "amber"} text={`Until: ${untilDateLabel}`} />}
                                         <Badge icon={UsersIcon} color="indigo" text={post.targetAudience === 'specific' ? `${post.targetStudentIds?.length || 0} Students` : "All Students"} />
                                     </div>
                                 </div>
 
-                                {/* Expand/Collapse Icon */}
                                 <div className={`p-2 rounded-full bg-slate-100 dark:bg-white/5 text-slate-400 transition-transform duration-300 ${isExpanded ? 'rotate-180 bg-blue-50 dark:bg-blue-900/20 text-blue-500' : ''}`}>
                                     <ChevronDownIcon className="w-5 h-5" />
                                 </div>
                             </div>
                         </button>
 
-                        {/* EXPANDED CONTENT (Units & Quizzes) */}
                         {isExpanded && (
                             <div className="px-3 pb-3 sm:px-5 sm:pb-5 space-y-3 bg-slate-50/50 dark:bg-black/20 border-t border-black/5 dark:border-white/5 pt-4">
                                 {sortedUnitKeys.map(unitName => {
@@ -200,7 +203,6 @@ const ScoresTab = ({
                                     return (
                                         <div key={unitKey} className="bg-white dark:bg-[#151515] rounded-[20px] border border-slate-200/60 dark:border-white/5 overflow-hidden shadow-sm">
                                             
-                                            {/* UNIT HEADER */}
                                             <button 
                                                 onClick={() => toggleUnit(unitKey)}
                                                 className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
@@ -209,11 +211,9 @@ const ScoresTab = ({
                                                 <ChevronDownIcon className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isUnitExpanded ? 'rotate-180' : ''}`} />
                                             </button>
 
-                                            {/* QUIZ LIST */}
                                             {isUnitExpanded && (
                                                 <div className="divide-y divide-slate-100 dark:divide-white/5 border-t border-slate-100 dark:border-white/5">
                                                     {quizzes.map(quiz => {
-                                                        // Get stats from our optimized map
                                                         const stats = quizStatsMap[quiz.id] || { count: 0, uniqueStudents: new Set() };
                                                         const studentCount = stats.uniqueStudents.size;
                                                         
@@ -257,7 +257,6 @@ const ScoresTab = ({
     );
 };
 
-// --- HELPER COMPONENT FOR BADGES ---
 const Badge = ({ icon: Icon, color, text }) => {
     const colors = {
         teal: 'bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 border-teal-100 dark:border-teal-800/30',
@@ -274,5 +273,4 @@ const Badge = ({ icon: Icon, color, text }) => {
     );
 };
 
-// Wrapping in memo prevents unnecessary re-renders from parent updates if props are identical
 export default memo(ScoresTab);
