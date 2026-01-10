@@ -1,7 +1,6 @@
-// src/components/teacher/dashboard/components/DashboardHeader.jsx
-import React, { lazy, Suspense, memo, useMemo, useCallback, useState } from 'react';
+import React, { lazy, Suspense, memo, useMemo, useCallback, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CalendarDays, Clock, ChevronRight, Sparkles, Image as ImageIcon } from 'lucide-react';
+import { CalendarDays, Clock, ChevronRight, Image as ImageIcon } from 'lucide-react';
 
 import { useBanner } from '../hooks/useBanner';
 import { useSchedule } from '../hooks/useSchedule';
@@ -11,33 +10,46 @@ const AdminBannerEditModal = lazy(() => import('../../widgets/AdminBannerEditMod
 
 const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal }) => {
     const { bannerSettings, isSpecialBannerActive, isBannerEditModalOpen, openBannerEditModal, closeBannerEditModal } = useBanner(showToast);
-    
-    // ✅ FIX: Pass schoolId to filter schedule events by school (Fallback to 'srcs_main')
     const { currentActivity } = useSchedule(showToast, userProfile?.schoolId || 'srcs_main');
     
     const [imageError, setImageError] = useState(false);
     const { monetTheme } = useTheme();
 
-    const handleBannerClick = useCallback(() => { if (userProfile?.role === 'admin') openBannerEditModal(); }, [userProfile?.role, openBannerEditModal]);
-    const handleImageError = useCallback(() => setImageError(true), []);
-    const greeting = useMemo(() => { const h = new Date().getHours(); return h < 12 ? 'Good Morning' : h < 18 ? 'Good Afternoon' : 'Good Evening'; }, []);
+    // Memoize handlers
+    const handleBannerClick = useCallback(() => { 
+        if (userProfile?.role === 'admin') openBannerEditModal(); 
+    }, [userProfile?.role, openBannerEditModal]);
 
-    // --- ONE UI 8.5 STYLES ---
-    const headerContainer = `relative p-5 sm:p-8 md:p-10 rounded-[2.5rem] sm:rounded-[3.5rem] overflow-hidden isolate backdrop-blur-3xl transition-all duration-500 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.15)] border border-white/20`;
-    
-    const scheduleWidgetClasses = `relative overflow-hidden w-full h-full min-h-[180px] md:min-h-[220px] p-6 flex flex-col justify-between cursor-pointer group rounded-[2.8rem] shadow-xl hover:shadow-2xl hover:-translate-y-1 active:scale-[0.96] transition-all duration-300 border border-white/20`;
-    
-    const placeholderBannerClass = `w-full h-full object-cover bg-gradient-to-br from-rose-400 via-fuchsia-500 to-indigo-500 dark:from-rose-600 dark:via-fuchsia-700 dark:to-indigo-800 flex items-center justify-center relative overflow-hidden`;
-    
-    const accentStyle = {
-        background: `linear-gradient(135deg, var(--monet-accent) 0%, var(--monet-accent-dark) 100%)`,
-        boxShadow: '0 15px 35px -5px rgba(0,0,0,0.3)',
-        border: '1px solid rgba(255,255,255,0.25)',
-    };
+    const handleImageError = useCallback(() => setImageError(true), []);
+
+    // Optimization: Greeting that updates if the session is long
+    const [greeting, setGreeting] = useState('');
+    useEffect(() => {
+        const updateGreeting = () => {
+            const h = new Date().getHours();
+            setGreeting(h < 12 ? 'Good Morning' : h < 18 ? 'Good Afternoon' : 'Good Evening');
+        };
+        updateGreeting();
+        // Check every minute if the hour changed (low cost)
+        const timer = setInterval(updateGreeting, 60000); 
+        return () => clearInterval(timer);
+    }, []);
+
+    // Memoize heavy style strings to prevent recreation on re-render
+    const styles = useMemo(() => ({
+        headerContainer: `relative p-5 sm:p-8 md:p-10 rounded-[2.5rem] sm:rounded-[3.5rem] overflow-hidden isolate backdrop-blur-3xl transition-all duration-500 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.15)] border border-white/20`,
+        scheduleWidget: `relative overflow-hidden w-full h-full min-h-[180px] md:min-h-[220px] p-6 flex flex-col justify-between cursor-pointer group rounded-[2.8rem] shadow-xl hover:shadow-2xl hover:-translate-y-1 active:scale-[0.96] transition-all duration-300 border border-white/20`,
+        placeholderBanner: `w-full h-full object-cover bg-gradient-to-br from-rose-400 via-fuchsia-500 to-indigo-500 dark:from-rose-600 dark:via-fuchsia-700 dark:to-indigo-800 flex items-center justify-center relative overflow-hidden`,
+        accent: {
+            background: `linear-gradient(135deg, var(--monet-accent) 0%, var(--monet-accent-dark) 100%)`,
+            boxShadow: '0 15px 35px -5px rgba(0,0,0,0.3)',
+            border: '1px solid rgba(255,255,255,0.25)',
+        }
+    }), []);
 
     return (
         <>
-            <header className={headerContainer} style={monetTheme.glassStyle}>
+            <header className={styles.headerContainer} style={monetTheme.glassStyle}>
                 {isSpecialBannerActive ? (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-10 h-full items-center relative z-10">
                         {/* LEFT: TEXT CONTENT */}
@@ -71,11 +83,19 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal }) => {
                                 <div className="relative h-full w-full bg-white dark:bg-slate-800 border-[6px] border-white/40 dark:border-slate-700/40 rounded-[2.5rem] shadow-2xl overflow-hidden backdrop-blur-sm">
                                     {!imageError ? (
                                         <>
-                                            <img src={bannerSettings.imageUrl} alt="Banner" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" onError={handleImageError} />
+                                            <img 
+                                                src={bannerSettings.imageUrl} 
+                                                alt="Banner" 
+                                                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                                                onError={handleImageError} 
+                                                // Optimization: Eager load LCP image
+                                                loading="eager"
+                                                decoding="async"
+                                            />
                                             <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-white/10 pointer-events-none mix-blend-overlay" />
                                         </>
                                     ) : (
-                                        <div className={placeholderBannerClass}>
+                                        <div className={styles.placeholderBanner}>
                                             <div className="absolute inset-0 opacity-20 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] brightness-100 contrast-150"></div>
                                             <div className="flex flex-col items-center text-white/95 z-10 text-center p-6">
                                                 <ImageIcon className="w-10 h-10 mb-3 opacity-90 drop-shadow-md" />
@@ -90,7 +110,7 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal }) => {
 
                         {/* RIGHT: SCHEDULE WIDGET */}
                         <div className="hidden md:flex col-span-1 items-center justify-center h-full animate-in fade-in slide-in-from-right-4 duration-700" onClick={onOpenScheduleModal}>
-                            <motion.div whileTap={{ scale: 0.96 }} className={scheduleWidgetClasses} style={accentStyle}>
+                            <motion.div whileTap={{ scale: 0.96 }} className={styles.scheduleWidget} style={styles.accent}>
                                 <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-black/30 pointer-events-none" />
                                 <div className="flex items-center justify-between relative z-10">
                                     <div className="w-14 h-14 rounded-[1.2rem] bg-white/20 backdrop-blur-xl border border-white/30 flex items-center justify-center shadow-[inset_0_1px_4px_rgba(255,255,255,0.2)]">
@@ -156,7 +176,7 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal }) => {
                         </div>
                         
                         <div className="hidden md:flex relative w-full max-w-md animate-in fade-in slide-in-from-right-4 duration-700 delay-200" onClick={onOpenScheduleModal}>
-                            <motion.div whileTap={{ scale: 0.97 }} className={scheduleWidgetClasses} style={accentStyle}>
+                            <motion.div whileTap={{ scale: 0.97 }} className={styles.scheduleWidget} style={styles.accent}>
                                 <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150"></div>
                                 <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-black/30 pointer-events-none" />
                                 

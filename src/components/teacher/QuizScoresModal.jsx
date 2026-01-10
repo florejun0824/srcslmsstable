@@ -1,5 +1,3 @@
-// src/components/teacher/QuizScoresModal.jsx
-
 import React, { useState, useMemo, useEffect } from 'react';
 import Modal from '../common/Modal';
 import {
@@ -9,664 +7,433 @@ import {
     LockClosedIcon,
     CheckCircleIcon,
     XCircleIcon,
-    ArrowUpIcon,
-    ArrowDownIcon,
     SparklesIcon,
     PencilSquareIcon,
-    ClockIcon,
-    DocumentChartBarIcon,
     MagnifyingGlassIcon,
-    TrashIcon,
-    ArrowPathIcon,
-    ExclamationTriangleIcon
+    ExclamationTriangleIcon,
+    ClockIcon,
+    DocumentChartBarIcon // <--- Restored Import
 } from '@heroicons/react/24/solid';
 import { ClockIcon as ClockOutlineIcon } from '@heroicons/react/24/outline';
-import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc, getDocs } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { gradeEssayWithAI } from '../../services/aiService';
 import { useToast } from '../../contexts/ToastContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import Spinner from '../common/Spinner';
 
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-// --- HELPER: Calculate Next 00:00 UTC (8:00 AM PHT) ---
-const getNextResetTime = () => {
-    const now = new Date();
-    const reset = new Date(now);
-    // Set to next midnight UTC (which is +24 hours from previous midnight)
-    reset.setUTCHours(24, 0, 0, 0); 
-    return reset.getTime();
+// --- MONET STYLE HELPER ---
+const getMonetStyles = (activeOverlay) => {
+    if (!activeOverlay || activeOverlay === 'none') return null;
+    switch (activeOverlay) {
+        case 'christmas': return { 
+            bg: 'bg-emerald-50 dark:bg-emerald-900/10', 
+            border: 'border-emerald-200 dark:border-emerald-800', 
+            text: 'text-emerald-700 dark:text-emerald-400',
+            accent: 'bg-emerald-600',
+            lightAccent: 'bg-emerald-100 dark:bg-emerald-900/30',
+            badge: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200'
+        };
+        case 'valentines': return { 
+            bg: 'bg-rose-50 dark:bg-rose-900/10', 
+            border: 'border-rose-200 dark:border-rose-800', 
+            text: 'text-rose-700 dark:text-rose-400',
+            accent: 'bg-rose-600',
+            lightAccent: 'bg-rose-100 dark:bg-rose-900/30',
+            badge: 'bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-200'
+        };
+        case 'cyberpunk': return { 
+            bg: 'bg-fuchsia-50 dark:bg-fuchsia-900/10', 
+            border: 'border-fuchsia-200 dark:border-fuchsia-800', 
+            text: 'text-fuchsia-700 dark:text-fuchsia-400',
+            accent: 'bg-fuchsia-600',
+            lightAccent: 'bg-fuchsia-100 dark:bg-fuchsia-900/30',
+            badge: 'bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-900/50 dark:text-fuchsia-200'
+        };
+        default: return null;
+    }
 };
 
-const StatCard = ({ icon: Icon, title, value, color }) => {
-    const colorMap = {
-        blue: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20',
-        teal: 'text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20',
-        purple: 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20',
-    };
+// --- SUB-COMPONENTS ---
+
+const StatCard = ({ icon: Icon, title, value, color, monet }) => {
+    const colorStyles = monet ? {
+        text: monet.text,
+        bg: monet.bg,
+        border: monet.border
+    } : {
+        blue: { text: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-900/20' },
+        teal: { text: 'text-teal-600 dark:text-teal-400', bg: 'bg-teal-50 dark:bg-teal-900/20' },
+        purple: { text: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-900/20' },
+    }[color] || { text: 'text-slate-600', bg: 'bg-slate-50' };
 
     return (
-        <div className="group relative min-w-[140px] flex-1 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-            <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center shadow-sm ${colorMap[color] || colorMap.blue}`}>
-                <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
+        <div className={`group relative min-w-[140px] flex-1 overflow-hidden rounded-[24px] border bg-white dark:bg-[#1E1E1E] shadow-sm p-5 flex flex-col items-start gap-3 ${monet ? monet.border : 'border-slate-200 dark:border-white/10'}`}>
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-sm ${colorStyles.bg} ${colorStyles.text}`}>
+                <Icon className="w-6 h-6" />
             </div>
             <div>
-                <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-0.5">{title}</p>
-                <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">{value}</p>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">{title}</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">{value}</p>
             </div>
         </div>
     );
 };
 
-const StatusPill = ({ status }) => {
+const StatusPill = ({ status, monet }) => {
     const statusConfig = {
-        'graded': { icon: CheckCircleIcon, style: 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400 border-green-200 dark:border-green-900/30', text: 'Graded' },
-        'pending_ai_grading': { icon: SparklesIcon, style: 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 border-blue-200 dark:border-blue-900/30 animate-pulse', text: 'AI Grading' },
-        'pending_review': { icon: PencilSquareIcon, style: 'bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400 border-orange-200 dark:border-orange-900/30', text: 'Needs Review' },
-        'grading_failed': { icon: ExclamationTriangleIcon, style: 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400 border-red-200 dark:border-red-900/30', text: 'AI Failed' },
-        'Locked': { icon: LockClosedIcon, style: 'bg-slate-50 text-slate-700 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700', text: 'Locked' },
-        'Not Started': { icon: ClockOutlineIcon, style: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-500 border-slate-200 dark:border-slate-700', text: 'Pending' },
+        'graded': { icon: CheckCircleIcon, style: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400', text: 'Graded' },
+        'pending_ai_grading': { icon: SparklesIcon, style: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 animate-pulse', text: 'AI Grading' },
+        'pending_review': { icon: PencilSquareIcon, style: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400', text: 'To Review' },
+        'grading_failed': { icon: ExclamationTriangleIcon, style: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400', text: 'Failed' },
+        'Locked': { icon: LockClosedIcon, style: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400', text: 'Locked' },
+        'Not Started': { icon: ClockOutlineIcon, style: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-500', text: 'Pending' },
     };
 
     const config = statusConfig[status] || statusConfig['Not Started'];
     const Icon = config.icon;
+    const style = (monet && (status === 'graded')) ? monet.badge : config.style;
 
     return (
-        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wide border ${config.style} whitespace-nowrap`}>
-            <Icon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+        <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wide ${style}`}>
+            <Icon className="w-3.5 h-3.5" />
             {config.text}
         </div>
     );
 };
 
-const ScoreBadge = ({ score, totalItems, isLate }) => {
-    let bgClass = 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400';
-    
-    if (score !== null && score !== undefined && totalItems > 0) {
-        const percentage = (score / totalItems) * 100;
-        if (percentage >= 90) bgClass = 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400';
-        else if (percentage >= 70) bgClass = 'bg-yellow-50 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400';
-        else bgClass = 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400';
-    }
-
-    return (
-        <div className="flex flex-col items-center gap-1">
-            <div className={`px-2.5 py-1 rounded-lg text-xs sm:text-sm font-bold ${bgClass} whitespace-nowrap`}>
-                {score ?? '-'} <span className="opacity-60 text-[10px]">/ {totalItems}</span>
-            </div>
-            {isLate && <span className="text-[9px] font-bold text-red-600 bg-red-100 dark:bg-red-900/30 px-1.5 py-0.5 rounded-full border border-red-200 dark:border-red-800">LATE</span>}
-        </div>
-    );
-};
+// --- MAIN COMPONENT ---
 
 const QuizScoresModal = ({ 
     isOpen, 
     onClose, 
     quiz, 
     classData, 
-    quizScores, 
-    quizLocks, 
     onUnlockQuiz, 
-    setIsReportModalOpen
+    setIsReportModalOpen 
 }) => {
     const { showToast } = useToast();
-    const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'ascending' });
-    const [isBulkGrading, setIsBulkGrading] = useState(false);
-    
-    const [hasPendingEssaysForThisQuiz, setHasPendingEssaysForThisQuiz] = useState(false);
-    const [hasFailedEssays, setHasFailedEssays] = useState(false);
-    const [retryCount, setRetryCount] = useState(0);
-    const [isRetryLockout, setIsRetryLockout] = useState(false);
+    const { activeOverlay } = useTheme();
+    const monet = useMemo(() => getMonetStyles(activeOverlay), [activeOverlay]);
 
+    // --- LOCAL STATE ---
+    const [fetchedScores, setFetchedScores] = useState([]);
+    const [fetchedLocks, setFetchedLocks] = useState([]);
+    const [isLoadingData, setIsLoadingData] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [localQuizScores, setLocalQuizScores] = useState(quizScores || []);
-    
-    const [processedData, setProcessedData] = useState([]);
-    const [isProcessing, setIsProcessing] = useState(true);
+    const [isBulkGrading, setIsBulkGrading] = useState(false);
 
-    const [optimisticUnlocked, setOptimisticUnlocked] = useState(new Set());
-    const [localConfirmModal, setLocalConfirmModal] = useState({ isOpen: false, quizId: null, studentId: null });
-
-    // --- NEW: CHECK PERSISTENT LOCKOUT ON MOUNT ---
+    // --- REAL-TIME DATA FETCHING ---
     useEffect(() => {
-        const storedLockoutTime = localStorage.getItem('ai_retry_lockout_until');
-        if (storedLockoutTime) {
-            const lockoutUntil = parseInt(storedLockoutTime, 10);
-            if (Date.now() < lockoutUntil) {
-                // Lockout is still active
-                setIsRetryLockout(true);
-            } else {
-                // Lockout has expired
-                localStorage.removeItem('ai_retry_lockout_until');
-                setIsRetryLockout(false);
-            }
-        }
-    }, []);
+        if (!isOpen || !quiz?.id || !classData?.id) return;
 
-    // Function to Activate Persistent Lockout
-    const activateLockout = () => {
-        const resetTime = getNextResetTime();
-        localStorage.setItem('ai_retry_lockout_until', resetTime.toString());
-        setIsRetryLockout(true);
-    };
+        setIsLoadingData(true);
 
-    useEffect(() => {
-        if (!isBulkGrading) {
-            setLocalQuizScores(quizScores || []);
-        }
-    }, [quizScores, isBulkGrading]);
+        const qScores = query(
+            collection(db, 'quizSubmissions'), 
+            where('quizId', '==', quiz.id),
+            where('classId', '==', classData.id)
+        );
 
-    useEffect(() => {
-        if (quiz?.id && localQuizScores) {
-            let pending = false;
-            let failed = false;
-
-            localQuizScores.forEach(score => {
-                if (score.quizId === quiz.id) {
-                    if (score.hasPendingEssays === true || score.status === 'pending_ai_grading') {
-                        pending = true;
-                    }
-                    if (Array.isArray(score.answers) && score.answers.some(a => a.status === 'grading_failed')) {
-                        failed = true;
-                    }
-                }
-            });
-
-            setHasPendingEssaysForThisQuiz(pending);
-            setHasFailedEssays(failed);
-        }
-    }, [localQuizScores, quiz?.id]);
-
-    useEffect(() => {
-        setIsProcessing(true);
-        const timer = setTimeout(() => {
-            if (!classData?.students || !quiz?.id || !quiz?.postId) {
-                setProcessedData([]);
-                setIsProcessing(false);
-                return;
-            }
-
-            const maxAttempts = quiz?.settings?.maxAttempts ?? 3;
-            const availableUntilDate = quiz?.availableUntil?.toDate ? quiz.availableUntil.toDate() : new Date(quiz.availableUntil);
-
-            let allStudents = classData.students.map(student => {
-                const studentAttempts = localQuizScores.filter(s => 
-                    s.studentId === student.id && 
-                    s.quizId === quiz.id &&
-                    s.postId === quiz.postId
-                ).sort((a, b) => (a.attemptNumber || 0) - (b.attemptNumber || 0));
-
-                const isActuallyLocked = quizLocks.some(l => l.studentId === student.id && l.quizId === quiz.id && l.postId === quiz.postId);
-                const isLocked = isActuallyLocked && !optimisticUnlocked.has(student.id);
-
-                let status = 'Not Started';
-                let highestScoreAttempt = null;
-
-                if (studentAttempts.length > 0) {
-                    highestScoreAttempt = studentAttempts.reduce((maxAttempt, currentAttempt) => {
-                        const maxScore = maxAttempt?.score ?? -1;
-                        const currentScore = currentAttempt?.score ?? -1;
-                        return (currentScore >= maxScore ? currentAttempt : maxAttempt);
-                    }, { score: -1 });
-
-                    if (!highestScoreAttempt || highestScoreAttempt.score === -1) {
-                        highestScoreAttempt = studentAttempts[studentAttempts.length - 1];
-                    }
-                    const latestAttempt = studentAttempts[studentAttempts.length - 1];
-                    if (Array.isArray(latestAttempt.answers) && latestAttempt.answers.some(a => a.status === 'grading_failed')) {
-                        status = 'grading_failed';
-                    } else {
-                        status = latestAttempt.status || 'graded';
-                    }
-                } else if (isLocked) {
-                    status = 'Locked';
-                }
-
-                const attemptsDisplay = Array(maxAttempts).fill(null);
-                studentAttempts.slice(0, maxAttempts).forEach((attempt, index) => {
-                    const getJsDate = (timestamp) => {
-                        if (!timestamp) return null;
-                        if (typeof timestamp.toDate === 'function') return timestamp.toDate();
-                        if (timestamp instanceof Date) return timestamp;
-                        try {
-                            const date = new Date(timestamp);
-                            if (!isNaN(date.getTime())) return date;
-                        } catch (e) {}
-                        return null;
-                    };
-
-                    const submissionDate = getJsDate(attempt.submittedAt);
-                    const isLate = !!(availableUntilDate && submissionDate && submissionDate > availableUntilDate);
-                    attemptsDisplay[index] = { ...attempt, isLate };
-                });
-
-                const totalPossible = highestScoreAttempt?.totalItems ?? (quiz?.questions?.reduce((sum, q) => sum + (Number(q.points) || 1), 0) || 0);
-
-                return {
-                    ...student,
-                    status,
-                    highestScore: highestScoreAttempt ? (highestScoreAttempt.score ?? -1) : -1,
-                    totalItems: totalPossible,
-                    attemptsDisplay,
-                    isLocked
-                };
-            });
-
-            if (searchTerm) {
-                const lowerTerm = searchTerm.toLowerCase();
-                allStudents = allStudents.filter(s => 
-                    s.firstName.toLowerCase().includes(lowerTerm) || 
-                    s.lastName.toLowerCase().includes(lowerTerm)
-                );
-            }
-
-            allStudents.sort((a, b) => {
-                const direction = sortConfig.direction === 'ascending' ? 1 : -1;
-                if (sortConfig.key === 'name') {
-                    return `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`) * direction;
-                } else if (sortConfig.key === 'status') {
-                    return a.status.localeCompare(b.status) * direction;
-                } else if (sortConfig.key === 'score') {
-                    return (a.highestScore - b.highestScore) * direction;
-                }
-                return 0;
-            });
-
-            setProcessedData(allStudents);
-            setIsProcessing(false);
-        }, 50);
-
-        return () => clearTimeout(timer);
-    }, [classData?.students, localQuizScores, quizLocks, quiz, sortConfig, searchTerm, optimisticUnlocked]);
-
-    const requestSort = (key) => {
-        let direction = 'ascending';
-        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
-            direction = 'descending';
-        }
-        setSortConfig({ key, direction });
-    };
-
-    const { averageScorePercent, completedCount, highestScorePercent, totalStudents } = useMemo(() => {
-        const relevantSubmissions = localQuizScores.filter(s => s.quizId === quiz?.id);
-        const uniqueStudentIds = [...new Set(relevantSubmissions.map(s => s.studentId))];
-        const totalPoints = quiz?.questions?.reduce((sum, q) => sum + (Number(q.points) || 1), 0) || 0;
-
-        const studentHighestScores = uniqueStudentIds.map(studentId => {
-            const attempts = relevantSubmissions.filter(s => s.studentId === studentId);
-            return Math.max(0, ...attempts.map(a => a.score ?? 0));
+        const unsubScores = onSnapshot(qScores, (snapshot) => {
+            const scoresData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setFetchedScores(scoresData);
+            setIsLoadingData(false);
+        }, (err) => {
+            console.error("Error fetching scores:", err);
+            setIsLoadingData(false);
         });
 
-        const avgScore = studentHighestScores.length > 0
-            ? studentHighestScores.reduce((acc, s) => acc + s, 0) / studentHighestScores.length
-            : 0;
-        
-        return {
-            averageScorePercent: totalPoints > 0 ? (avgScore / totalPoints) * 100 : 0,
-            completedCount: uniqueStudentIds.length,
-            highestScorePercent: totalPoints > 0 ? (Math.max(...studentHighestScores, 0) / totalPoints) * 100 : 0,
-            totalStudents: classData?.students?.length || 0
+        const qLocks = query(
+            collection(db, 'quizLocks'),
+            where('quizId', '==', quiz.id)
+        );
+
+        const unsubLocks = onSnapshot(qLocks, (snapshot) => {
+            const locksData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setFetchedLocks(locksData);
+        }, (err) => {
+            console.error("Error fetching locks:", err);
+        });
+
+        return () => {
+            unsubScores();
+            unsubLocks();
         };
-    }, [localQuizScores, quiz, classData]);
+    }, [isOpen, quiz?.id, classData?.id]);
 
-    const initiateUnlock = (quizId, studentId) => {
-        setLocalConfirmModal({ isOpen: true, quizId, studentId });
-    };
+    // --- PROCESSING DATA ---
+    const { processedStudents, summaryStats, hasPendingEssays, hasFailedEssays } = useMemo(() => {
+        if (!classData?.students) return { processedStudents: [], summaryStats: {}, hasPendingEssays: false, hasFailedEssays: false };
 
-    const handleConfirmUnlock = async () => {
-        const { quizId, studentId } = localConfirmModal;
-        setOptimisticUnlocked(prev => new Set(prev).add(studentId));
-        setLocalConfirmModal({ isOpen: false, quizId: null, studentId: null });
-        if (onUnlockQuiz) {
-            await onUnlockQuiz(quizId, studentId);
-        }
-    };
-
-    const handleBulkGradeEssays = async () => {
-        if (!classData?.id || !quiz?.id) return;
+        const maxAttempts = quiz?.settings?.maxAttempts ?? 1;
         
-        if (isRetryLockout) {
-            showToast("Retry limit reached. Resets at 8:00 AM.", "error");
-            return;
-        }
+        let pending = false;
+        let failed = false;
 
+        const students = classData.students.map(student => {
+            const myScores = fetchedScores.filter(s => s.studentId === student.id)
+                .sort((a, b) => (a.attemptNumber || 0) - (b.attemptNumber || 0));
+
+            const lockRecord = fetchedLocks.find(l => l.studentId === student.id);
+            const isLocked = !!lockRecord;
+
+            let status = 'Not Started';
+            let bestScore = null;
+
+            if (myScores.length > 0) {
+                const latest = myScores[myScores.length - 1];
+                status = latest.status || 'graded';
+                
+                if (latest.status === 'pending_ai_grading' || latest.hasPendingEssays) pending = true;
+                if (latest.answers?.some(a => a.status === 'grading_failed')) failed = true;
+
+                const bestAttempt = myScores.reduce((max, curr) => (curr.score ?? -1) >= (max.score ?? -1) ? curr : max, { score: -1 });
+                bestScore = bestAttempt.score;
+            } else if (isLocked) {
+                status = 'Locked';
+            }
+
+            return {
+                ...student,
+                attempts: myScores,
+                bestScore,
+                status,
+                isLocked,
+                lockId: lockRecord?.id 
+            };
+        });
+
+        const filtered = searchTerm 
+            ? students.filter(s => `${s.firstName} ${s.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()))
+            : students;
+
+        const attemptedCount = students.filter(s => s.attempts.length > 0).length;
+        const validScores = students.filter(s => s.bestScore !== null).map(s => s.bestScore);
+        const avgScore = validScores.length ? (validScores.reduce((a, b) => a + b, 0) / validScores.length) : 0;
+        const highestScore = validScores.length ? Math.max(...validScores) : 0;
+        
+        const totalPoints = quiz?.questions?.reduce((sum, q) => sum + (Number(q.points) || 1), 0) || 1;
+
+        return {
+            processedStudents: filtered,
+            hasPendingEssays: pending,
+            hasFailedEssays: failed,
+            summaryStats: {
+                attempted: attemptedCount,
+                totalStudents: students.length,
+                avg: (avgScore / totalPoints) * 100,
+                high: (highestScore / totalPoints) * 100
+            }
+        };
+    }, [classData, fetchedScores, fetchedLocks, quiz, searchTerm]);
+
+    // --- ACTIONS ---
+
+    const handleUnlock = async (lockId) => {
+        if (!lockId) return;
+        try {
+            await deleteDoc(doc(db, 'quizLocks', lockId));
+            showToast("Quiz unlocked successfully.", "success");
+        } catch (error) {
+            console.error(error);
+            showToast("Failed to unlock.", "error");
+        }
+    };
+
+    const handleBulkGrade = async () => {
+        if (isBulkGrading) return;
         setIsBulkGrading(true);
-        showToast("Starting AI grading sequence...", "info");
-        
-        let cycleHasErrors = false;
+        showToast("Starting Auto-Grading...", "info");
 
         try {
-            const submissionsRef = collection(db, 'quizSubmissions');
-            const q = query(submissionsRef,
-                where('classId', '==', classData.id),
-                where('quizId', '==', quiz.id)
+            // Find all pending submissions
+            const pendingSubmissions = fetchedScores.filter(s => 
+                s.hasPendingEssays || s.status === 'pending_ai_grading' || s.answers?.some(a => a.status === 'grading_failed')
             );
-            
-            const snapshot = await getDocs(q);
-            const relevantSubmissions = snapshot.docs.filter(doc => {
-                const data = doc.data();
-                if (hasFailedEssays) {
-                    return Array.isArray(data.answers) && data.answers.some(a => a.status === 'grading_failed');
-                }
-                return data.hasPendingEssays === true;
-            });
 
-            if (relevantSubmissions.length === 0) {
-                showToast("No gradable essays found.", "success");
-                setHasPendingEssaysForThisQuiz(false);
-                setHasFailedEssays(false);
+            if (pendingSubmissions.length === 0) {
+                showToast("No essays need grading.", "success");
                 setIsBulkGrading(false);
                 return;
             }
 
-            let limitReached = false;
-
-            for (const docSnap of relevantSubmissions) {
-                if (limitReached) break;
-                const submissionId = docSnap.id;
-                const submissionData = docSnap.data();
-                let updatedAnswers = JSON.parse(JSON.stringify(submissionData.answers || []));
-                let needsUpdate = false;
+            for (const sub of pendingSubmissions) {
+                let updatedAnswers = [...(sub.answers || [])];
+                let changed = false;
 
                 for (let i = 0; i < updatedAnswers.length; i++) {
                     const ans = updatedAnswers[i];
-                    const isTarget = ans.questionType === 'essay' && 
-                                     (ans.status === 'pending_ai_grading' || ans.status === 'grading_failed');
-
-                    if (isTarget) {
+                    if (ans.questionType === 'essay' && (ans.status === 'pending_ai_grading' || ans.status === 'grading_failed')) {
                         try {
-                            await delay(2000); 
-                            const gradingResult = await gradeEssayWithAI(
-                                ans.questionText,
-                                ans.rubric,
-                                ans.selectedAnswer
-                            );
-                            updatedAnswers[i].aiGradingResult = gradingResult;
-                            updatedAnswers[i].score = gradingResult.totalScore;
-                            updatedAnswers[i].status = 'graded';
-                            needsUpdate = true;
-                        } catch (error) {
-                            console.error("AI Error:", error);
+                            // Call AI Service
+                            const result = await gradeEssayWithAI(ans.questionText, ans.rubric, ans.selectedAnswer);
+                            updatedAnswers[i] = { ...ans, aiGradingResult: result, score: result.totalScore, status: 'graded' };
+                            changed = true;
+                        } catch (err) {
+                            console.error(err);
                             updatedAnswers[i].status = 'grading_failed';
-                            cycleHasErrors = true; 
-                            
-                            if (error.message?.includes("limit") || error.message?.includes("LIMIT_REACHED")) {
-                                limitReached = true;
-                                showToast("AI Daily Limit Reached.", "error");
-                                activateLockout(); // Trigger Persistent Lockout
-                                break;
-                            }
                         }
                     }
                 }
 
-                if (needsUpdate || (submissionData.hasPendingEssays && !limitReached) || cycleHasErrors) {
-                    const newTotalScore = updatedAnswers.reduce((sum, a) => sum + (Number(a.score) || 0), 0);
-                    const hasStillPending = updatedAnswers.some(a => a.status === 'pending_ai_grading');
-                    const hasStillFailed = updatedAnswers.some(a => a.status === 'grading_failed');
+                if (changed) {
+                    const newScore = updatedAnswers.reduce((sum, a) => sum + (Number(a.score) || 0), 0);
+                    const newStatus = updatedAnswers.some(a => a.status === 'grading_failed') ? 'pending_review' : 'graded';
                     
-                    const finalStatus = hasStillFailed ? 'pending_review' : (hasStillPending ? 'pending_ai_grading' : 'graded');
-
-                    await updateDoc(doc(db, 'quizSubmissions', submissionId), {
+                    await updateDoc(doc(db, 'quizSubmissions', sub.id), {
                         answers: updatedAnswers,
-                        score: Math.round(newTotalScore),
-                        status: finalStatus,
-                        hasPendingEssays: hasStillPending
+                        score: Math.round(newScore),
+                        status: newStatus,
+                        hasPendingEssays: false
                     });
-
-                    setLocalQuizScores(prevScores => prevScores.map(score => {
-                        if (score.id === submissionId) {
-                            return {
-                                ...score,
-                                answers: updatedAnswers,
-                                score: Math.round(newTotalScore),
-                                status: finalStatus,
-                                hasPendingEssays: hasStillPending
-                            };
-                        }
-                        return score;
-                    }));
                 }
             }
-
-            if (cycleHasErrors) {
-                setRetryCount(prev => {
-                    const newCount = prev + 1;
-                    if (newCount >= 5) {
-                        activateLockout(); // Trigger Persistent Lockout
-                        showToast("Too many failures. AI Grading disabled until 8:00 AM.", "error");
-                    } else {
-                        showToast(`Grading incomplete. Retry attempt ${newCount}/5 available.`, "warning");
-                    }
-                    return newCount;
-                });
-            } else {
-                showToast("Grading cycle complete.", "success");
-                setRetryCount(0);
-            }
-
+            showToast("Auto-Grading Complete!", "success");
         } catch (error) {
             console.error(error);
-            showToast("Error during bulk grading.", "error");
+            showToast("Auto-Grading failed.", "error");
         } finally {
             setIsBulkGrading(false);
         }
     };
 
     return (
-        <>
-            <Modal 
-                isOpen={isOpen} 
-                onClose={onClose} 
-                size="screen" 
-                showCloseButton={false} 
-                containerClassName="bg-transparent p-0 sm:p-4 flex items-center justify-center"
-            >
-                <div className="relative w-full h-full sm:h-[90vh] max-w-7xl bg-white dark:bg-[#1A1D24] sm:rounded-[32px] shadow-2xl border border-slate-200 dark:border-slate-700 flex flex-col overflow-hidden">
-                    
-                    {/* Header */}
-                    <div className="flex-shrink-0 px-4 py-4 sm:px-8 sm:py-6 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1A1D24]">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                            <div className="flex justify-between items-start sm:items-center w-full">
-                                <div>
-                                    <h2 className="text-lg sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight line-clamp-1">
-                                        {quiz?.title}
-                                    </h2>
-                                    <p className="text-slate-500 dark:text-slate-400 font-medium mt-1 text-xs sm:text-sm flex items-center gap-2">
-                                        <ChartBarIcon className="w-4 h-4" /> Performance Overview
-                                    </p>
-                                </div>
-                                <button onClick={onClose} className="p-2 sm:p-2.5 ml-2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors flex-shrink-0">
-                                    <XCircleIcon className="w-6 h-6" />
-                                </button>
-                            </div>
+        <Modal isOpen={isOpen} onClose={onClose} size="screen" showCloseButton={false} containerClassName="bg-transparent p-0 sm:p-4 flex items-center justify-center">
+            <div className="relative w-full h-full sm:h-[90vh] max-w-7xl bg-[#F9F9F9] dark:bg-[#101010] sm:rounded-[32px] shadow-2xl border border-slate-200 dark:border-white/5 flex flex-col overflow-hidden font-sans">
+                
+                {/* --- HEADER --- */}
+                <div className="flex-shrink-0 px-6 py-6 border-b border-slate-200 dark:border-white/5 bg-white dark:bg-[#1E1E1E]">
+                    <div className="flex justify-between items-start mb-6">
+                        <div>
+                            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">{quiz?.title}</h2>
+                            <p className="text-slate-500 dark:text-slate-400 font-medium mt-1 text-sm flex items-center gap-2">
+                                <ChartBarIcon className="w-4 h-4" /> Performance Overview
+                            </p>
                         </div>
-
-                        {/* Stats Row */}
-                        <div className="mt-6 flex sm:grid sm:grid-cols-3 gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-2 sm:pb-0">
-                            <StatCard icon={UsersIcon} title="Completion" value={`${completedCount}/${totalStudents}`} color="blue" />
-                            <StatCard icon={AcademicCapIcon} title="Avg. Score" value={`${averageScorePercent.toFixed(0)}%`} color="teal" />
-                            <StatCard icon={SparklesIcon} title="Highest" value={`${highestScorePercent.toFixed(0)}%`} color="purple" />
-                        </div>
+                        <button onClick={onClose} className="p-2.5 rounded-full bg-slate-100 dark:bg-white/5 text-slate-500 hover:bg-red-100 hover:text-red-500 dark:hover:bg-white/10 transition-colors">
+                            <XCircleIcon className="w-8 h-8" />
+                        </button>
                     </div>
 
-                    {/* Controls */}
-                    <div className="flex-shrink-0 px-4 sm:px-8 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
-                        <div className="relative w-full sm:w-72 group">
-                            <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
-                            <input 
-                                type="text" 
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                placeholder="Search students..." 
-                                className="w-full pl-11 pr-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all placeholder:text-slate-400 dark:text-white shadow-sm text-sm"
-                            />
-                        </div>
-
-                        <div className="flex items-center gap-2 w-full sm:w-auto">
-                            <button
-                                onClick={handleBulkGradeEssays}
-                                disabled={(!hasPendingEssaysForThisQuiz && !hasFailedEssays) || isBulkGrading || isRetryLockout}
-                                className={`flex-1 sm:flex-none px-4 sm:px-6 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-sm active:scale-[0.98]
-                                    ${isBulkGrading 
-                                        ? 'bg-slate-100 text-slate-400 cursor-wait' 
-                                        : isRetryLockout 
-                                            ? 'bg-red-50 text-red-400 border border-red-200 cursor-not-allowed'
-                                            : hasFailedEssays 
-                                                ? 'bg-red-600 text-white hover:bg-red-700 hover:shadow-red-500/30' 
-                                                : hasPendingEssaysForThisQuiz 
-                                                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:shadow-md'
-                                                    : 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed'
-                                    }`}
-                            >
-                                {isBulkGrading ? (
-                                    <ClockOutlineIcon className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
-                                ) : isRetryLockout ? (
-                                    <LockClosedIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-                                ) : hasFailedEssays ? (
-                                    <ArrowPathIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-                                ) : (
-                                    <SparklesIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-                                )}
-                                
-                                {isBulkGrading 
-                                    ? 'Grading...' 
-                                    : isRetryLockout 
-                                        ? 'Limit Reached' 
-                                        : hasFailedEssays 
-                                            ? 'Retry Failed' 
-                                            : 'Auto-Grade'}
-                            </button>
-
-                            <button
-                                onClick={() => setIsReportModalOpen(true)}
-                                className="flex-1 sm:flex-none px-4 sm:px-6 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-white dark:bg-slate-800 text-slate-700 dark:text-white border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center justify-center gap-2 transition-all shadow-sm"
-                            >
-                                <DocumentChartBarIcon className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500" />
-                                Report
-                            </button>
-                        </div>
+                    <div className="flex flex-wrap gap-4">
+                        <StatCard icon={UsersIcon} title="Submitted" value={`${summaryStats.attempted}/${summaryStats.totalStudents}`} color="blue" monet={monet} />
+                        <StatCard icon={AcademicCapIcon} title="Average" value={`${summaryStats.avg.toFixed(0)}%`} color="teal" monet={monet} />
+                        <StatCard icon={SparklesIcon} title="Highest" value={`${summaryStats.high.toFixed(0)}%`} color="purple" monet={monet} />
                     </div>
+                </div>
 
-                    {/* Content Area */}
-                    <div className="flex-grow overflow-y-auto custom-scrollbar p-0 sm:p-8 bg-slate-50 dark:bg-slate-900">
-                        {isProcessing ? (
-                            <div className="flex items-center justify-center h-64">
-                                <Spinner size="lg" />
+                {/* --- TOOLBAR --- */}
+                <div className="flex-shrink-0 px-6 py-4 flex flex-col sm:flex-row gap-4 bg-white/50 dark:bg-[#151515] border-b border-slate-200 dark:border-white/5 backdrop-blur-md">
+                    <div className="relative flex-1">
+                        <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                        <input 
+                            value={searchTerm} 
+                            onChange={(e) => setSearchTerm(e.target.value)} 
+                            placeholder="Search students..." 
+                            className="w-full pl-11 pr-4 py-3 rounded-[18px] bg-white dark:bg-[#1E1E1E] border border-slate-200 dark:border-white/5 focus:ring-2 focus:ring-blue-500/20 outline-none text-sm font-medium transition-all shadow-sm"
+                        />
+                    </div>
+                    <div className="flex gap-2">
+                        {/* Auto-Grade Button */}
+                        <button 
+                            onClick={handleBulkGrade}
+                            disabled={isBulkGrading || (!hasPendingEssays && !hasFailedEssays)}
+                            className={`px-6 py-3 rounded-[18px] font-bold text-sm flex items-center gap-2 transition-all shadow-sm active:scale-95 disabled:opacity-50 
+                                ${monet ? `${monet.lightAccent} ${monet.text}` : 'bg-white dark:bg-[#1E1E1E] text-slate-700 dark:text-slate-200'}`}
+                        >
+                            {isBulkGrading ? <Spinner size="sm" /> : <SparklesIcon className="w-5 h-5" />}
+                            {hasFailedEssays ? 'Retry Failed' : 'Auto-Grade'}
+                        </button>
+
+                        {/* RESTORED: Report Button */}
+                        <button 
+                            onClick={() => setIsReportModalOpen(true)}
+                            className="px-6 py-3 rounded-[18px] font-bold text-sm bg-white dark:bg-[#1E1E1E] text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5 transition-all shadow-sm active:scale-95 flex items-center gap-2"
+                        >
+                            <DocumentChartBarIcon className="w-5 h-5 text-blue-500" /> Report
+                        </button>
+                    </div>
+                </div>
+
+                {/* --- CONTENT --- */}
+                <div className="flex-grow overflow-y-auto custom-scrollbar bg-slate-50 dark:bg-black/20 p-4 sm:p-6">
+                    {isLoadingData ? (
+                        <div className="h-full flex items-center justify-center"><Spinner /></div>
+                    ) : (
+                        <div className="space-y-4">
+                            {/* Desktop Header */}
+                            <div className="hidden sm:grid grid-cols-12 gap-4 px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-slate-400">
+                                <div className="col-span-4">Student</div>
+                                <div className="col-span-2 text-center">Status</div>
+                                <div className="col-span-4 text-center">Attempts</div>
+                                <div className="col-span-2 text-right">Actions</div>
                             </div>
-                        ) : (
-                            <div className="sm:rounded-2xl border-y sm:border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm bg-white dark:bg-[#1A1D24]">
-                                <div className="overflow-x-auto">
-                                    <div className="min-w-[800px] sm:min-w-full">
-                                        <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 sticky top-0 z-10">
-                                            <div className="col-span-4 cursor-pointer hover:text-blue-500 flex items-center gap-1" onClick={() => requestSort('name')}>
-                                                Student {sortConfig.key === 'name' && (sortConfig.direction === 'ascending' ? <ArrowUpIcon className="w-3 h-3" /> : <ArrowDownIcon className="w-3 h-3" />)}
+
+                            {/* List */}
+                            {processedStudents.map(student => (
+                                <div key={student.id} className="group bg-white dark:bg-[#1E1E1E] rounded-[24px] border border-slate-200 dark:border-white/5 shadow-sm p-4 sm:px-6 sm:py-4 transition-all hover:shadow-md">
+                                    <div className="flex flex-col sm:grid sm:grid-cols-12 gap-4 items-center">
+                                        
+                                        {/* Name */}
+                                        <div className="col-span-4 flex items-center gap-4 w-full">
+                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${monet ? monet.lightAccent + ' ' + monet.text : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600'}`}>
+                                                {student.firstName[0]}{student.lastName[0]}
                                             </div>
-                                            <div className="col-span-3 cursor-pointer hover:text-blue-500 flex items-center gap-1" onClick={() => requestSort('status')}>
-                                                Status {sortConfig.key === 'status' && (sortConfig.direction === 'ascending' ? <ArrowUpIcon className="w-3 h-3" /> : <ArrowDownIcon className="w-3 h-3" />)}
+                                            <div className="min-w-0">
+                                                <p className="font-bold text-slate-900 dark:text-white truncate">{student.lastName}, {student.firstName}</p>
+                                                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{student.email}</p>
                                             </div>
-                                            <div className="col-span-3 text-center">Attempts</div>
-                                            <div className="col-span-2 text-right">Actions</div>
                                         </div>
 
-                                        <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                                            {processedData.map(student => (
-                                                <div key={student.id} className="grid grid-cols-12 gap-4 px-6 py-4 items-center hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                                    <div className="col-span-4 flex items-center gap-3">
-                                                        <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xs font-bold flex-shrink-0 border border-blue-200 dark:border-blue-800/50">
-                                                            {student.firstName?.[0]}{student.lastName?.[0]}
-                                                        </div>
-                                                        <div className="truncate">
-                                                            <p className="font-bold text-slate-800 dark:text-slate-200 text-sm truncate">
-                                                                {student.lastName}, {student.firstName}
-                                                            </p>
-                                                        </div>
-                                                    </div>
+                                        {/* Status */}
+                                        <div className="col-span-2 w-full sm:w-auto flex justify-between sm:justify-center items-center">
+                                            <span className="sm:hidden text-xs font-bold text-slate-400 uppercase">Status:</span>
+                                            <StatusPill status={student.status} monet={monet} />
+                                        </div>
 
-                                                    <div className="col-span-3">
-                                                        <StatusPill status={student.status} />
-                                                    </div>
+                                        {/* Attempts */}
+                                        <div className="col-span-4 w-full flex justify-center gap-2">
+                                            {Array.from({ length: quiz?.settings?.maxAttempts || 3 }).map((_, idx) => {
+                                                const attempt = student.attempts[idx];
+                                                let bgClass = 'bg-slate-50 dark:bg-black/20 text-slate-300 border-dashed border-slate-200 dark:border-white/5';
+                                                
+                                                if (attempt) {
+                                                    const scorePercent = (attempt.score / (attempt.totalItems || 1)) * 100;
+                                                    if (scorePercent >= 90) bgClass = 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400';
+                                                    else if (scorePercent >= 70) bgClass = 'bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400';
+                                                    else bgClass = 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400';
+                                                }
 
-                                                    <div className="col-span-3 flex items-center justify-center gap-2">
-                                                        {student.attemptsDisplay.map((attempt, idx) => (
-                                                            <div key={idx} className="w-12">
-                                                                {attempt ? (
-                                                                    <ScoreBadge 
-                                                                        score={attempt.score} 
-                                                                        totalItems={attempt.totalItems} 
-                                                                        isLate={attempt.isLate} 
-                                                                    />
-                                                                ) : (
-                                                                    <div className="h-1.5 w-4 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto"/>
-                                                                )}
-                                                            </div>
-                                                        ))}
+                                                return (
+                                                    <div key={idx} className={`w-full sm:w-12 h-9 rounded-[10px] flex items-center justify-center text-xs font-bold border ${bgClass}`}>
+                                                        {attempt ? attempt.score : '-'}
                                                     </div>
+                                                );
+                                            })}
+                                        </div>
 
-                                                    <div className="col-span-2 flex justify-end">
-                                                        {student.isLocked ? (
-                                                            <button 
-                                                                onClick={() => initiateUnlock(quiz.id, student.id)}
-                                                                className="px-3 py-1.5 rounded-full bg-white dark:bg-slate-800 text-red-600 text-xs font-bold border border-red-200 dark:border-red-900 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors shadow-sm"
-                                                            >
-                                                                Unlock
-                                                            </button>
-                                                        ) : (
-                                                            <div className="w-8"/>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                            
-                                            {processedData.length === 0 && (
-                                                <div className="p-12 text-center text-slate-400 dark:text-slate-500 text-sm">
-                                                    No students found matching your filters.
-                                                </div>
+                                        {/* Actions */}
+                                        <div className="col-span-2 w-full flex justify-end">
+                                            {student.isLocked ? (
+                                                <button 
+                                                    onClick={() => handleUnlock(student.lockId)}
+                                                    className="flex items-center gap-2 px-4 py-2 rounded-[14px] bg-red-50 text-red-600 hover:bg-red-100 font-bold text-xs transition-colors w-full sm:w-auto justify-center"
+                                                >
+                                                    <LockClosedIcon className="w-3.5 h-3.5" /> Unlock
+                                                </button>
+                                            ) : (
+                                                <div className="text-xs text-slate-400 font-medium px-2">—</div>
                                             )}
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        )}
-                    </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
-            </Modal>
-
-            <Modal
-                isOpen={localConfirmModal.isOpen}
-                onClose={() => setLocalConfirmModal({ isOpen: false, quizId: null, studentId: null })}
-                title="Confirm Unlock"
-                size="sm"
-                showCloseButton={false}
-                className="z-[9999]" 
-                containerClassName="bg-black/50 flex items-center justify-center p-4"
-                contentClassName="bg-white dark:bg-[#1A1D24] p-0 rounded-[24px] shadow-xl overflow-hidden"
-            >
-                <div className="p-6 text-center">
-                    <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-4 mx-auto">
-                        <TrashIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
-                    </div>
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Unlock Quiz?</h3>
-                    <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
-                        Are you sure you want to unlock this quiz?
-                    </p>
-                    <div className="grid grid-cols-2 gap-3">
-                        <button 
-                            onClick={() => setLocalConfirmModal({ isOpen: false, quizId: null, studentId: null })}
-                            className="py-3 rounded-xl font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-                        >
-                            Cancel
-                        </button>
-                        <button 
-                            onClick={handleConfirmUnlock}
-                            className="py-3 rounded-xl font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/30 transition-all active:scale-95"
-                        >
-                            Unlock
-                        </button>
-                    </div>
-                </div>
-            </Modal>
-        </>
+            </div>
+        </Modal>
     );
 };
 

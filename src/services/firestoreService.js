@@ -15,7 +15,10 @@ import {
   where,
   setDoc,
   arrayUnion,
-  serverTimestamp
+  serverTimestamp,
+  orderBy,     // <-- ADDED for Pagination
+  limit,       // <-- ADDED for Pagination
+  startAfter   // <-- ADDED for Pagination
 } from 'firebase/firestore';
 import localforage from "localforage";
 
@@ -105,8 +108,79 @@ if (typeof window !== "undefined") {
 }
 
 // ==============================
-// 🔹 USER MANAGEMENT
+// 🔹 USER MANAGEMENT (OPTIMIZED)
 // ==============================
+
+// 🛠️ ONE-TIME FIX: Run this to assign 'srcs_main' to users with no schoolId
+export const fixOrphanUsers = async () => {
+  try {
+    console.log("🛠️ Starting Orphan User Fix...");
+    const usersRef = collection(db, 'users');
+    const snapshot = await getDocs(usersRef);
+    const batch = writeBatch(db);
+    let count = 0;
+
+    snapshot.docs.forEach((doc) => {
+      const data = doc.data();
+      // If schoolId is missing, assign it to Default
+      if (!data.schoolId) {
+        batch.update(doc.ref, { schoolId: DEFAULT_SCHOOL_ID });
+        count++;
+      }
+    });
+
+    if (count > 0) {
+      await batch.commit();
+      console.log(`✅ Fixed ${count} orphan users. You can now use Paginated Queries safely.`);
+    } else {
+      console.log("✅ No orphan users found. Database is clean.");
+    }
+    return count;
+  } catch (err) {
+    console.error("❌ fixOrphanUsers failed", err);
+    throw err;
+  }
+};
+
+// ⚡ PAGINATED FETCH: Use this for the Admin Table to save costs
+// Returns: { users: [...], lastDoc: QueryDocumentSnapshot }
+export const getUsersPaginated = async (schoolId, lastVisibleDoc = null, pageSize = 20) => {
+  try {
+    const targetSchool = schoolId || DEFAULT_SCHOOL_ID;
+    const usersRef = collection(db, 'users');
+
+    // Base query: Filter by school and Sort by Name
+    let q = query(
+      usersRef,
+      where("schoolId", "==", targetSchool),
+      orderBy("lastName"), 
+      limit(pageSize)
+    );
+
+    // If we have a "Next Page" cursor, start after it
+    if (lastVisibleDoc) {
+      q = query(
+        usersRef,
+        where("schoolId", "==", targetSchool),
+        orderBy("lastName"),
+        startAfter(lastVisibleDoc),
+        limit(pageSize)
+      );
+    }
+
+    const snapshot = await getDocs(q);
+    
+    return {
+      users: snapshot.docs.map(d => ({ id: d.id, ...d.data() })),
+      lastDoc: snapshot.docs[snapshot.docs.length - 1] || null
+    };
+
+  } catch (err) {
+    console.error("❌ getUsersPaginated failed", err);
+    throw err;
+  }
+};
+
 export const getUserProfile = async (uid) => {
   try {
     const userDocRef = doc(db, "users", uid);
@@ -118,26 +192,23 @@ export const getUserProfile = async (uid) => {
   }
 };
 
-// 🔒 UPDATED: Handle "Legacy" users (missing schoolId) for the Main School
+// ⚠️ LEGACY: Downloads ALL users. Use getUsersPaginated instead if possible.
 export const getAllUsers = async (schoolId) => {
   try {
     const targetSchool = schoolId || DEFAULT_SCHOOL_ID;
     const usersRef = collection(db, 'users');
     
     // 1. If we are the MAIN SCHOOL, fetch ALL users first
-    // This allows us to "adopt" users who have no schoolId yet.
     if (targetSchool === DEFAULT_SCHOOL_ID) {
       const snapshot = await getDocs(usersRef);
       return snapshot.docs
         .map(d => ({ id: d.id, ...d.data() }))
         .filter(user => 
-          // Keep if they belong to Main School OR have no school assigned (legacy)
           user.schoolId === DEFAULT_SCHOOL_ID || !user.schoolId
         );
     }
 
     // 2. If we are a SISTER SCHOOL, use strict filtering
-    // They should NEVER see "unassigned" users.
     const q = query(usersRef, where("schoolId", "==", targetSchool));
     const snapshot = await getDocs(q);
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -610,6 +681,8 @@ const firestoreService = {
   getAllSubjects,
   getUserProfile,
   getAllUsers,
+  getUsersPaginated, // <-- EXPORTED NEW FUNCTION
+  fixOrphanUsers,    // <-- EXPORTED NEW HELPER
   addUser,
   deleteUser,
   addMultipleUsers,
@@ -630,7 +703,7 @@ const firestoreService = {
   joinClassWithCode,
   updateClassArchiveStatus,
   deleteClass,
-  getAllClasses, // <-- UPDATED
+  getAllClasses, 
   addStudentsToClass, 
 
   updateAnnouncement,

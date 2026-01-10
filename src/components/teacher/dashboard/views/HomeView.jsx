@@ -1,4 +1,5 @@
-import React, { useState, lazy, Suspense, memo, useEffect, Fragment } from 'react';
+// src/components/teacher/dashboard/views/HomeView.jsx
+import React, { useState, lazy, Suspense, memo, useEffect, Fragment, useCallback } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { ShieldCheck, Share2, CheckCircle2, Check } from 'lucide-react'; 
 import DashboardHeader from './components/DashboardHeader';
@@ -11,7 +12,7 @@ import SchoolBrandingHandler from '../../../common/SchoolBrandingHandler';
 
 const ScheduleModal = lazy(() => import('../widgets/ScheduleModal'));
 
-// (Keep getSchoolName and getSchoolLogo helpers here...)
+// --- STATIC HELPERS (Excellent - Keep outside component) ---
 const getSchoolName = (schoolId) => {
     const schools = {
         'srcs_main': 'San Ramon Catholic School',
@@ -51,15 +52,20 @@ const HomeView = ({
     const [dontShowAgain, setDontShowAgain] = useState(false);
 
     // --- RACE CONDITION FIX ---
-    // 1. Starts FALSE. SchoolBrandingHandler is blocked.
     const [readyForBranding, setReadyForBranding] = useState(false);
+
+    const effectiveSchoolId = userProfile?.schoolId || 'srcs_main';
 
     const {
         scheduleActivities,
         onAddActivity,
         onUpdateActivity,
         onDeleteActivity,
-    } = useSchedule(showToast, userProfile?.schoolId || 'srcs_main');
+    } = useSchedule(showToast, effectiveSchoolId);
+
+    // 1. OPTIMIZED: Handlers wrapped in useCallback to prevent child re-renders
+    const openScheduleModal = useCallback(() => setIsScheduleModalOpen(true), []);
+    const closeScheduleModal = useCallback(() => setIsScheduleModalOpen(false), []);
 
     // 2. CHECK IF WELCOME MODAL IS NEEDED
     useEffect(() => {
@@ -68,20 +74,16 @@ const HomeView = ({
         const hasOptedOut = localStorage.getItem(`welcome_opt_out_${userProfile.id}`);
         const hasSeenSession = sessionStorage.getItem(`welcome_seen_session_${userProfile.id}`);
         
-        // Logic:
-        // If they need to see Welcome -> Show Welcome, KEEP Branding BLOCKED (false).
-        // If they DON'T need Welcome -> Show Branding IMMEDIATELY (true).
-        
         if (!hasOptedOut && !hasSeenSession) {
             setIsWelcomeModalOpen(true);
-            setReadyForBranding(false); // Ensure it's blocked
+            setReadyForBranding(false); 
         } else {
-            setReadyForBranding(true);  // Unblock immediately
+            setReadyForBranding(true);  
         }
     }, [userProfile?.id]);
 
-    // 3. WHEN WELCOME MODAL CLOSES
-    const handleCloseWelcome = () => {
+    // 3. OPTIMIZED: Handler dependent on state
+    const handleCloseWelcome = useCallback(() => {
         if (userProfile?.id) {
             sessionStorage.setItem(`welcome_seen_session_${userProfile.id}`, 'true');
             if (dontShowAgain) {
@@ -90,28 +92,22 @@ const HomeView = ({
         }
         setIsWelcomeModalOpen(false);
 
-        // 4. NOW we unblock the branding check
-        // We use a small timeout to ensure the modal animation clears first
+        // Unblock branding after animation
         setTimeout(() => {
             setReadyForBranding(true);
         }, 300);
-    };
-
-    const openScheduleModal = () => setIsScheduleModalOpen(true);
-    const closeScheduleModal = () => setIsScheduleModalOpen(false);
-    
-    const effectiveSchoolId = userProfile?.schoolId || 'srcs_main';
+    }, [userProfile?.id, dontShowAgain]);
 
     return (
         <div 
             className="w-full space-y-6 md:space-y-8 font-sans pb-32 lg:pb-8 relative z-10"
+            // content-visibility is a great modern optimization you already had!
             style={{ contentVisibility: 'auto' }} 
         >
-            {/* --- PASSIVE BRANDING HANDLER --- */}
-            {/* This will NOT run until readyForBranding turns TRUE */}
             <SchoolBrandingHandler shouldCheck={readyForBranding} />
 
             <div className="flex flex-col gap-4 sm:gap-8">
+                {/* Now these children won't re-render when 'readyForBranding' changes */}
                 <DashboardHeader
                     userProfile={userProfile}
                     showToast={showToast}
@@ -175,7 +171,6 @@ const HomeView = ({
                             >
                                 <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-[32px] bg-white dark:bg-[#1c1c1e] p-8 text-left align-middle shadow-2xl transition-all border border-white/20 ring-1 ring-black/5 relative">
                                     
-                                    {/* Modal Content... */}
                                     <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-[24px] bg-slate-50 dark:bg-slate-800/50 mb-6 border border-slate-100 dark:border-slate-700 shadow-sm p-4">
                                         <img 
                                             src={getSchoolLogo(effectiveSchoolId)} 
@@ -235,7 +230,7 @@ const HomeView = ({
                                     <div className="mt-8">
                                         <div 
                                             className="flex items-center justify-center gap-2.5 mb-5 cursor-pointer group"
-                                            onClick={() => setDontShowAgain(!dontShowAgain)}
+                                            onClick={() => setDontShowAgain(prev => !prev)}
                                         >
                                             <div className={`
                                                 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-200
@@ -269,4 +264,4 @@ const HomeView = ({
     );
 };
 
-export default React.memo(HomeView);
+export default memo(HomeView);

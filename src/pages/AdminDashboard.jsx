@@ -1,6 +1,6 @@
 // src/pages/AdminDashboard.jsx
 
-import React, { useState, useEffect, Fragment, memo, useCallback } from 'react';
+import React, { useState, useEffect, Fragment, memo, useCallback, lazy, Suspense, useRef } from 'react';
 import { useAuth, DEFAULT_SCHOOL_ID } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -19,56 +19,175 @@ import {
   Settings,
   AlertTriangle,
   Info,
-  Check, 
+  Check,
+  Loader2 
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import { Dialog, Transition } from '@headlessui/react';
 
-import AddUserModal from '../components/admin/AddUserModal';
-import GenerateUsersModal from '../components/admin/GenerateUsersModal';
-import DownloadAccountsModal from '../components/admin/DownloadAccountsModal';
-import EditUserModal from '../components/admin/EditUserModal';
+// --- CUSTOM AUTO-SIZER (Replaces react-virtualized-auto-sizer) ---
+// This eliminates the import errors by using a native browser observer instead of an external library.
+const SimpleAutoSizer = ({ children }) => {
+  const containerRef = useRef(null);
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
-// --- MONET STYLE GENERATOR ---
-const getMonetStyles = (activeOverlay) => {
+  useEffect(() => {
+    if (!containerRef.current) return;
+    
+    // Initial measurement
+    const measure = () => {
+      if (containerRef.current) {
+        const { offsetWidth, offsetHeight } = containerRef.current;
+        setDimensions({ width: offsetWidth, height: offsetHeight });
+      }
+    };
+    measure();
+
+    // Observer for changes
+    const resizeObserver = new ResizeObserver(() => measure());
+    resizeObserver.observe(containerRef.current);
+
+    return () => resizeObserver.disconnect();
+  }, []);
+
+  return (
+    <div ref={containerRef} className="w-full h-full" style={{ minHeight: '100px' }}>
+      {dimensions.width > 0 && dimensions.height > 0 ? (
+        children(dimensions)
+      ) : (
+        <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+          Loading layout...
+        </div>
+      )}
+    </div>
+  );
+};
+
+// --- LAZY FIXED SIZE LIST (Robust Import) ---
+const LazyFixedSizeList = lazy(async () => {
+  try {
+    const mod = await import('react-window');
+    // Handle both Named export and Default export patterns
+    const Component = mod.FixedSizeList || mod.default?.FixedSizeList;
+    if (Component) return { default: Component };
+    throw new Error('FixedSizeList not found');
+  } catch (error) {
+    console.warn("Virtualization failed, falling back to standard list:", error);
+    // Fallback: A component that renders a standard scrollable div (Non-virtualized)
+    return {
+      default: ({ children, itemCount, itemSize, height, width, itemData }) => (
+        <div style={{ height, width, overflow: 'auto' }}>
+          <div style={{ height: itemCount * itemSize, position: 'relative' }}>
+            {Array.from({ length: itemCount }).map((_, index) => (
+              children({
+                index,
+                style: {
+                  position: 'absolute',
+                  top: index * itemSize,
+                  left: 0,
+                  width: '100%',
+                  height: itemSize,
+                },
+                data: itemData
+              })
+            ))}
+          </div>
+        </div>
+      )
+    };
+  }
+});
+
+const FixedSizeListWrapper = (props) => (
+  <Suspense fallback={<div className="w-full h-full bg-gray-50 dark:bg-[#252525] animate-pulse" />}>
+    <LazyFixedSizeList {...props} />
+  </Suspense>
+);
+
+// --- LAZY LOADED MODALS ---
+const AddUserModal = lazy(() => import('../components/admin/AddUserModal'));
+const GenerateUsersModal = lazy(() => import('../components/admin/GenerateUsersModal'));
+const DownloadAccountsModal = lazy(() => import('../components/admin/DownloadAccountsModal'));
+const EditUserModal = lazy(() => import('../components/admin/EditUserModal'));
+
+// --- ERROR BOUNDARY ---
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error("Uncaught error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-[50vh] flex flex-col items-center justify-center p-8 text-center">
+          <AlertTriangle className="w-16 h-16 text-red-500 mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Something went wrong</h2>
+          <p className="text-gray-500 dark:text-gray-400 mb-6">The dashboard encountered an unexpected error.</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-6 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors"
+          >
+            Reload Page
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// --- CUSTOM HOOK: MONET THEME ---
+const useMonetTheme = () => {
+  const { activeOverlay } = useTheme();
+
+  return React.useMemo(() => {
     if (!activeOverlay || activeOverlay === 'none') return null;
 
     switch (activeOverlay) {
-        case 'christmas':
-            return {
-                iconBg: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300",
-                btnPrimary: "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20",
-                btnTonal: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 hover:bg-emerald-200",
-                tabActive: "bg-emerald-600 text-white",
-                textAccent: "text-emerald-700 dark:text-emerald-400"
-            };
-        case 'valentines':
-            return {
-                iconBg: "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300",
-                btnPrimary: "bg-rose-600 hover:bg-rose-700 text-white shadow-rose-500/20",
-                btnTonal: "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300 hover:bg-rose-200",
-                tabActive: "bg-rose-600 text-white",
-                textAccent: "text-rose-700 dark:text-rose-400"
-            };
-        case 'cyberpunk':
-            return {
-                iconBg: "bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-500/20 dark:text-fuchsia-300",
-                btnPrimary: "bg-fuchsia-600 hover:bg-fuchsia-700 text-white shadow-fuchsia-500/20",
-                btnTonal: "bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-500/20 dark:text-fuchsia-300 hover:bg-fuchsia-200",
-                tabActive: "bg-fuchsia-600 text-white",
-                textAccent: "text-fuchsia-700 dark:text-fuchsia-400"
-            };
-        case 'space':
-            return {
-                iconBg: "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300",
-                btnPrimary: "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-500/20",
-                btnTonal: "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300 hover:bg-indigo-200",
-                tabActive: "bg-indigo-600 text-white",
-                textAccent: "text-indigo-700 dark:text-indigo-400"
-            };
-        default:
-            return null; // Fallback to default OneUI Blue
+      case 'christmas':
+        return {
+          iconBg: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300",
+          btnPrimary: "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20",
+          btnTonal: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 hover:bg-emerald-200",
+          tabActive: "bg-emerald-600 text-white",
+          textAccent: "text-emerald-700 dark:text-emerald-400"
+        };
+      case 'valentines':
+        return {
+          iconBg: "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300",
+          btnPrimary: "bg-rose-600 hover:bg-rose-700 text-white shadow-rose-500/20",
+          btnTonal: "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300 hover:bg-rose-200",
+          tabActive: "bg-rose-600 text-white",
+          textAccent: "text-rose-700 dark:text-rose-400"
+        };
+      case 'cyberpunk':
+        return {
+          iconBg: "bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-500/20 dark:text-fuchsia-300",
+          btnPrimary: "bg-fuchsia-600 hover:bg-fuchsia-700 text-white shadow-fuchsia-500/20",
+          btnTonal: "bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-500/20 dark:text-fuchsia-300 hover:bg-fuchsia-200",
+          tabActive: "bg-fuchsia-600 text-white",
+          textAccent: "text-fuchsia-700 dark:text-fuchsia-400"
+        };
+      case 'space':
+        return {
+          iconBg: "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300",
+          btnPrimary: "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-500/20",
+          btnTonal: "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300 hover:bg-indigo-200",
+          tabActive: "bg-indigo-600 text-white",
+          textAccent: "text-indigo-700 dark:text-indigo-400"
+        };
+      default:
+        return null;
     }
+  }, [activeOverlay]);
 };
 
 // --- ONE UI DESIGN TOKENS ---
@@ -86,6 +205,15 @@ const TableSkeleton = () => (
         </div>
       </div>
       <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-[#2C2C2E]"></div>
+    </div>
+  </div>
+);
+
+// --- MODAL LOADING SPINNER ---
+const ModalLoader = () => (
+  <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/20 dark:bg-black/50 backdrop-blur-sm">
+    <div className="bg-white dark:bg-[#1C1C1E] p-4 rounded-full shadow-xl">
+      <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
     </div>
   </div>
 );
@@ -254,13 +382,144 @@ export const ConfirmActionModal = memo(({
   );
 });
 
-// --- OPTIMIZED COLLAPSIBLE TABLE ---
+// --- ROW COMPONENT FOR VIRTUALIZED LIST ---
+const VirtualizedUserRow = ({ index, style, data }) => {
+  const { 
+    users, 
+    selectedUserIds, 
+    handleSelectUser, 
+    isRestrictedTable, 
+    handleSetRestriction, 
+    monet, 
+    localActionMenuOpenFor, 
+    setLocalActionMenuOpenFor,
+    handleShowPassword,
+    handleEditUser,
+    handleSingleDelete,
+    checkboxClass 
+  } = data;
+
+  const user = users[index];
+  const isSelected = selectedUserIds.has(user.id);
+
+  return (
+    <div style={style} className={`flex items-center border-b border-gray-100 dark:border-white/5 hover:bg-[#F2F2F7] dark:hover:bg-[#252525] transition-colors ${isSelected ? (monet ? monet.iconBg : 'bg-blue-50/60 dark:bg-blue-900/10') : ''}`}>
+      {/* Checkbox Column */}
+      <div className="w-16 flex justify-center flex-shrink-0">
+        <div className="relative flex items-center justify-center">
+          <input
+            type="checkbox"
+            onChange={() => handleSelectUser(user.id)}
+            checked={isSelected}
+            className={`peer h-5 w-5 rounded-full border-2 border-gray-300 dark:border-gray-600 bg-transparent focus:ring-0 transition-all cursor-pointer appearance-none ${checkboxClass}`}
+          />
+          <Check size={12} strokeWidth={4} className="absolute text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-all scale-50 peer-checked:scale-100" />
+        </div>
+      </div>
+
+      {/* Name Column */}
+      <div className="flex-1 px-4 min-w-[150px] whitespace-nowrap overflow-hidden text-ellipsis">
+        <span className="text-[15px] font-semibold text-gray-900 dark:text-gray-100">{user.firstName} {user.lastName}</span>
+      </div>
+
+      {/* Email Column */}
+      <div className="flex-1 px-4 hidden sm:block whitespace-nowrap overflow-hidden text-ellipsis text-[14px] text-gray-500 dark:text-gray-400 font-medium">
+        {user.email}
+      </div>
+
+      {/* Role Column */}
+      <div className="w-32 px-4 hidden md:block">
+        <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold bg-gray-100 text-gray-600 dark:bg-[#2C2C2E] dark:text-gray-300 uppercase tracking-wide">
+          {user.role}
+        </span>
+      </div>
+
+      {/* Actions Column */}
+      <div className="w-24 px-6 text-right relative flex-shrink-0">
+        {isRestrictedTable ? (
+          <button
+            onClick={() => handleSetRestriction(user.id, false, `${user.firstName} ${user.lastName}`)}
+            className="p-2.5 rounded-full text-green-600 bg-green-100 hover:bg-green-200 dark:bg-green-500/20 dark:hover:bg-green-500/30 transition-colors"
+            title="Unrestrict Account"
+          >
+            <UserCheck size={18} />
+          </button>
+        ) : (
+          <>
+            <button
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={(e) => {
+                e.stopPropagation();
+                setLocalActionMenuOpenFor(user.id === localActionMenuOpenFor ? null : user.id);
+              }}
+              className={`p-2.5 rounded-full transition-all active:scale-95 ${monet ? `hover:${monet.iconBg}` : 'text-gray-400 hover:text-[#007AFF] hover:bg-blue-50 dark:hover:bg-blue-500/10'}`}
+              title="Actions"
+            >
+              <Settings size={20} strokeWidth={2} />
+            </button>
+
+            {localActionMenuOpenFor === user.id && (
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="absolute right-12 top-0 z-50 w-52 bg-white dark:bg-[#252525] rounded-[20px] shadow-[0_10px_40px_rgba(0,0,0,0.1)] border border-gray-100 dark:border-white/5 py-2 origin-top-right animate-in fade-in zoom-in-95 duration-200"
+              >
+                <button
+                  onClick={() => {
+                    handleShowPassword(user.password);
+                    setLocalActionMenuOpenFor(null);
+                  }}
+                  className={`w-[calc(100%-12px)] mx-1.5 text-left px-4 py-2.5 text-[14px] font-medium rounded-[14px] flex items-center gap-3 transition-colors ${monet ? `hover:${monet.btnPrimary} hover:text-white text-gray-700 dark:text-gray-200` : 'text-gray-700 dark:text-gray-200 hover:bg-[#F2F2F7] dark:hover:bg-[#3A3A3C]'}`}
+                >
+                  <Eye size={16} />
+                  Show Password
+                </button>
+                <button
+                  onClick={() => {
+                    handleEditUser(user);
+                    setLocalActionMenuOpenFor(null);
+                  }}
+                  className={`w-[calc(100%-12px)] mx-1.5 text-left px-4 py-2.5 text-[14px] font-medium rounded-[14px] flex items-center gap-3 transition-colors ${monet ? `hover:${monet.btnPrimary} hover:text-white text-gray-700 dark:text-gray-200` : 'text-gray-700 dark:text-gray-200 hover:bg-[#F2F2F7] dark:hover:bg-[#3A3A3C]'}`}
+                >
+                  <Edit size={16} />
+                  Edit User
+                </button>
+                <button
+                  onClick={() => {
+                    handleSetRestriction(user.id, true, `${user.firstName} ${user.lastName}`);
+                    setLocalActionMenuOpenFor(null);
+                  }}
+                  className="w-[calc(100%-12px)] mx-1.5 text-left px-4 py-2.5 text-[14px] font-medium text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-500/10 rounded-[14px] flex items-center gap-3 transition-colors"
+                >
+                  <UserX size={16} />
+                  Restrict Account
+                </button>
+                <div className="h-px bg-gray-100 dark:bg-white/5 my-1.5 mx-3"></div>
+                <button
+                  onClick={() => {
+                    handleSingleDelete(user.id, `${user.firstName} ${user.lastName}`);
+                    setLocalActionMenuOpenFor(null);
+                  }}
+                  className="w-[calc(100%-12px)] mx-1.5 text-left px-4 py-2.5 text-[14px] font-medium text-[#FF3B30] hover:bg-red-50 dark:hover:bg-red-500/10 rounded-[14px] flex items-center gap-3 transition-colors"
+                >
+                  <Trash2 size={16} />
+                  Delete User
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// --- OPTIMIZED COLLAPSIBLE TABLE WITH VIRTUALIZATION ---
 const CollapsibleUserTable = memo(({
   title,
-  sectionKey, // Unique key for this section (e.g., 'Grade 7')
+  sectionKey,
   users,
   icon,
-  onToggle, // Function expecting (sectionKey)
+  onToggle,
   isOpen,
   isRestrictedTable = false,
   handleSetRestriction,
@@ -275,7 +534,6 @@ const CollapsibleUserTable = memo(({
   
   const [localActionMenuOpenFor, setLocalActionMenuOpenFor] = useState(null);
 
-  // Close action menu on outside click
   useEffect(() => {
     if (!localActionMenuOpenFor) return;
     const handleClickOutside = () => setLocalActionMenuOpenFor(null);
@@ -287,7 +545,6 @@ const CollapsibleUserTable = memo(({
   const allInTableSelected =
     userIdsInTable.length > 0 && userIdsInTable.every((id) => selectedUserIds.has(id));
 
-  // Dynamic Styles
   const iconBoxClass = monet 
     ? monet.iconBg 
     : "bg-[#F2F2F7] dark:bg-[#2C2C2E] text-[#007AFF]";
@@ -301,10 +558,10 @@ const CollapsibleUserTable = memo(({
     : `checked:bg-[#007AFF] checked:border-[#007AFF]`;
 
   return (
-    <div className={`${oneUiCard} mb-4`}>
+    <div className={`${oneUiCard} mb-4 flex flex-col`}>
       <button
         onClick={() => onToggle(sectionKey)}
-        className="w-full flex justify-between items-center p-5 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#252525] transition-colors duration-200 group outline-none"
+        className="w-full flex justify-between items-center p-5 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#252525] transition-colors duration-200 group outline-none shrink-0"
       >
         <div className="flex items-center gap-5">
           <div className={`w-12 h-12 rounded-[20px] flex items-center justify-center transition-transform group-hover:scale-105 duration-300 ${iconBoxClass}`}>
@@ -320,145 +577,64 @@ const CollapsibleUserTable = memo(({
         </div>
       </button>
       
-      {/* Lag Fix: Removed 'transition-all' from height for large lists, using simple conditional rendering for huge lists or fast-rendering CSS */}
       {isOpen && (
-        <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-          <div className="h-px w-full bg-gray-100 dark:bg-white/5 mx-auto w-[calc(100%-40px)]" />
+        <div className="flex-1 flex flex-col animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="h-px w-[calc(100%-40px)] bg-gray-100 dark:bg-white/5 mx-auto shrink-0" />
           
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm text-left">
-              <thead className="bg-white dark:bg-[#1C1C1E] text-[11px] uppercase font-bold text-gray-400 tracking-wider">
-                <tr>
-                  <th className="px-6 py-4 w-16 text-center">
-                    <div className="relative flex items-center justify-center">
-                      <input
-                        type="checkbox"
-                        onChange={() => handleSelectAll(userIdsInTable)}
-                        checked={allInTableSelected}
-                        disabled={userIdsInTable.length === 0}
-                        className={`peer h-5 w-5 rounded-full border-2 border-gray-300 dark:border-gray-600 bg-transparent focus:ring-0 transition-all cursor-pointer appearance-none ${checkboxClass}`}
-                      />
-                      <Check size={12} strokeWidth={4} className="absolute text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-all scale-50 peer-checked:scale-100" />
-                    </div>
-                  </th>
-                  <th className="px-4 py-4">Name</th>
-                  <th className="px-4 py-4">Email</th>
-                  <th className="px-4 py-4">Role</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-white/5">
-                {users.length > 0 ? (
-                  users.map((user) => (
-                    <tr
-                      key={user.id}
-                      className={`group transition-colors ${selectedUserIds.has(user.id) ? (monet ? monet.iconBg : 'bg-blue-50/60 dark:bg-blue-900/10') : 'hover:bg-[#F2F2F7] dark:hover:bg-[#252525]'}`}
-                    >
-                      <td className="px-6 py-4 text-center">
-                        <div className="relative flex items-center justify-center">
-                          <input
-                            type="checkbox"
-                            onChange={() => handleSelectUser(user.id)}
-                            checked={selectedUserIds.has(user.id)}
-                            className={`peer h-5 w-5 rounded-full border-2 border-gray-300 dark:border-gray-600 bg-transparent focus:ring-0 transition-all cursor-pointer appearance-none ${checkboxClass}`}
-                          />
-                          <Check size={12} strokeWidth={4} className="absolute text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-all scale-50 peer-checked:scale-100" />
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                          <span className="text-[15px] font-semibold text-gray-900 dark:text-gray-100">{user.firstName} {user.lastName}</span>
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-[14px] text-gray-500 dark:text-gray-400 font-medium">{user.email}</td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold bg-gray-100 text-gray-600 dark:bg-[#2C2C2E] dark:text-gray-300 uppercase tracking-wide">
-                          {user.role}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right relative">
-                        {isRestrictedTable ? (
-                          <button
-                            onClick={() => handleSetRestriction(user.id, false, `${user.firstName} ${user.lastName}`)}
-                            className="p-2.5 rounded-full text-green-600 bg-green-100 hover:bg-green-200 dark:bg-green-500/20 dark:hover:bg-green-500/30 transition-colors"
-                            title="Unrestrict Account"
-                          >
-                            <UserCheck size={18} />
-                          </button>
-                        ) : (
-                          <>
-                            <button
-                              onMouseDown={(e) => e.preventDefault()}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setLocalActionMenuOpenFor(user.id === localActionMenuOpenFor ? null : user.id);
-                              }}
-                              className={`p-2.5 rounded-full transition-all active:scale-95 ${monet ? `hover:${monet.iconBg}` : 'text-gray-400 hover:text-[#007AFF] hover:bg-blue-50 dark:hover:bg-blue-500/10'}`}
-                              title="Actions"
-                            >
-                              <Settings size={20} strokeWidth={2} />
-                            </button>
+          {/* Header Row */}
+          <div className="flex items-center bg-white dark:bg-[#1C1C1E] text-[11px] uppercase font-bold text-gray-400 tracking-wider h-12 border-b border-gray-100 dark:border-white/5 shrink-0">
+            <div className="w-16 flex justify-center">
+              <div className="relative flex items-center justify-center">
+                <input
+                  type="checkbox"
+                  onChange={() => handleSelectAll(userIdsInTable)}
+                  checked={allInTableSelected}
+                  disabled={userIdsInTable.length === 0}
+                  className={`peer h-5 w-5 rounded-full border-2 border-gray-300 dark:border-gray-600 bg-transparent focus:ring-0 transition-all cursor-pointer appearance-none ${checkboxClass}`}
+                />
+                <Check size={12} strokeWidth={4} className="absolute text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-all scale-50 peer-checked:scale-100" />
+              </div>
+            </div>
+            <div className="flex-1 px-4">Name</div>
+            <div className="flex-1 px-4 hidden sm:block">Email</div>
+            <div className="w-32 px-4 hidden md:block">Role</div>
+            <div className="w-24 px-6 text-right">Actions</div>
+          </div>
 
-                            {localActionMenuOpenFor === user.id && (
-                              <div
-                                onClick={(e) => e.stopPropagation()}
-                                className="absolute right-12 top-6 z-30 w-52 bg-white dark:bg-[#252525] rounded-[20px] shadow-[0_10px_40px_rgba(0,0,0,0.1)] border border-gray-100 dark:border-white/5 py-2 origin-top-right animate-in fade-in zoom-in-95 duration-200"
-                              >
-                                <button
-                                  onClick={() => {
-                                    handleShowPassword(user.password);
-                                    setLocalActionMenuOpenFor(null);
-                                  }}
-                                  className={`w-[calc(100%-12px)] mx-1.5 text-left px-4 py-2.5 text-[14px] font-medium rounded-[14px] flex items-center gap-3 transition-colors ${monet ? `hover:${monet.btnPrimary} hover:text-white text-gray-700 dark:text-gray-200` : 'text-gray-700 dark:text-gray-200 hover:bg-[#F2F2F7] dark:hover:bg-[#3A3A3C]'}`}
-                                >
-                                  <Eye size={16} />
-                                  Show Password
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    handleEditUser(user);
-                                    setLocalActionMenuOpenFor(null);
-                                  }}
-                                  className={`w-[calc(100%-12px)] mx-1.5 text-left px-4 py-2.5 text-[14px] font-medium rounded-[14px] flex items-center gap-3 transition-colors ${monet ? `hover:${monet.btnPrimary} hover:text-white text-gray-700 dark:text-gray-200` : 'text-gray-700 dark:text-gray-200 hover:bg-[#F2F2F7] dark:hover:bg-[#3A3A3C]'}`}
-                                >
-                                  <Edit size={16} />
-                                  Edit User
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    handleSetRestriction(user.id, true, `${user.firstName} ${user.lastName}`);
-                                    setLocalActionMenuOpenFor(null);
-                                  }}
-                                  className="w-[calc(100%-12px)] mx-1.5 text-left px-4 py-2.5 text-[14px] font-medium text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-500/10 rounded-[14px] flex items-center gap-3 transition-colors"
-                                >
-                                  <UserX size={16} />
-                                  Restrict Account
-                                </button>
-                                <div className="h-px bg-gray-100 dark:bg-white/5 my-1.5 mx-3"></div>
-                                <button
-                                  onClick={() => {
-                                    handleSingleDelete(user.id, `${user.firstName} ${user.lastName}`);
-                                    setLocalActionMenuOpenFor(null);
-                                  }}
-                                  className="w-[calc(100%-12px)] mx-1.5 text-left px-4 py-2.5 text-[14px] font-medium text-[#FF3B30] hover:bg-red-50 dark:hover:bg-red-500/10 rounded-[14px] flex items-center gap-3 transition-colors"
-                                >
-                                  <Trash2 size={16} />
-                                  Delete User
-                                </button>
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="5" className="text-center text-gray-400 dark:text-gray-500 py-10 text-sm font-medium">
-                      No users found.
-                    </td>
-                  </tr>
+          {/* Virtualized Body */}
+          <div className="w-full relative" style={{ height: '500px', maxHeight: '60vh' }}>
+            {users.length > 0 ? (
+              <SimpleAutoSizer>
+                {({ height, width }) => (
+                  <FixedSizeListWrapper
+                    height={height}
+                    itemCount={users.length}
+                    itemSize={65} 
+                    width={width}
+                    itemData={{
+                      users,
+                      selectedUserIds,
+                      handleSelectUser,
+                      isRestrictedTable,
+                      handleSetRestriction,
+                      monet,
+                      localActionMenuOpenFor,
+                      setLocalActionMenuOpenFor,
+                      handleShowPassword,
+                      handleEditUser,
+                      handleSingleDelete,
+                      checkboxClass
+                    }}
+                  >
+                    {VirtualizedUserRow}
+                  </FixedSizeListWrapper>
                 )}
-              </tbody>
-            </table>
+              </SimpleAutoSizer>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-sm text-gray-400 dark:text-gray-500">
+                No users found.
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -470,8 +646,8 @@ const AdminDashboard = () => {
   const { firestoreService, userProfile } = useAuth();
   const { showToast } = useToast();
   
-  const { activeOverlay } = useTheme();
-  const monet = getMonetStyles(activeOverlay);
+  // Use extracted theme hook
+  const monet = useMonetTheme();
 
   const [allUsers, setAllUsers] = useState([]);
   const [groupedUsers, setGroupedUsers] = useState({ admins: [], teachers: [], students: [] });
@@ -512,8 +688,6 @@ const AdminDashboard = () => {
   const [confirmModalState, setConfirmModalState] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {}, confirmText: 'Confirm', variant: 'info' });
 
   // --- OPTIMIZED HANDLERS (useCallback) ---
-  // Fixes lag by preventing re-creation on every render
-  
   const toggleSection = useCallback((section) => {
     setOpenSections((prev) => ({ ...prev, [section]: !prev[section] }));
   }, []);
@@ -680,7 +854,6 @@ const AdminDashboard = () => {
   }, [selectedUserIds, firestoreService, showToast, monet]);
 
   const handleGenerateUsers = async (data) => {
-    // ... (Generate Logic kept same, no callback needed as it's passed to modal once)
     let usersToCreate = [];
     const { names, quantity, role, gradeLevel, schoolId } = data;
     const generatePassword = () => Math.random().toString(36).slice(-8);
@@ -742,14 +915,24 @@ const AdminDashboard = () => {
     }
   };
 
-  const exportToXlsx = (users, roleName) => {
-    const tableData = users.map((user) => ({
-      Name: `${user.firstName} ${user.lastName}`, Username: user.email, Password: user.password, Role: user.role, 'Grade Level': user.gradeLevel || 'N/A',
-    }));
-    const ws = XLSX.utils.json_to_sheet(tableData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'User Accounts');
-    XLSX.writeFile(wb, `${roleName}-accounts-${new Date().toLocaleDateString()}.xlsx`);
+  // Dynamically import XLSX to reduce main bundle size
+  const exportToXlsx = async (users, roleName) => {
+    try {
+      showToast("Preparing download...", "info");
+      const XLSX = await import('xlsx');
+      
+      const tableData = users.map((user) => ({
+        Name: `${user.firstName} ${user.lastName}`, Username: user.email, Password: user.password, Role: user.role, 'Grade Level': user.gradeLevel || 'N/A',
+      }));
+      const ws = XLSX.utils.json_to_sheet(tableData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'User Accounts');
+      XLSX.writeFile(wb, `${roleName}-accounts-${new Date().toLocaleDateString()}.xlsx`);
+      showToast("Download started!", "success");
+    } catch (error) {
+      console.error("Export failed", error);
+      showToast("Failed to load export module.", "error");
+    }
   };
 
   // Dynamic Button Classes
@@ -768,7 +951,8 @@ const AdminDashboard = () => {
   const currentStudentsByGrade = activeTab === 'active' ? studentsByGrade : restrictedStudentsByGrade;
   
   return (
-   <div className="min-h-[calc(100vh-2rem)] m-4 rounded-[42px] bg-[#F2F2F2] dark:bg-black/75 font-sans pb-10 overflow-hidden shadow-2xl backdrop-blur-xl border border-white/10">
+   <ErrorBoundary>
+     <div className="min-h-[calc(100vh-2rem)] m-4 rounded-[42px] bg-[#F2F2F2] dark:bg-black/75 font-sans pb-10 overflow-hidden shadow-2xl backdrop-blur-xl border border-white/10">
       <div className="p-6 sm:p-10 max-w-[1400px] mx-auto">
         
         <header className="mb-10">
@@ -923,7 +1107,6 @@ const AdminDashboard = () => {
                     </div>
                   </button>
                   
-                  {/* LAG FIX: Removed height transition on container to avoid layout thrashing on massive lists */}
                   {openSections[activeTab === 'active' ? 'studentsContainer' : 'restrictedStudentsContainer'] && (
                     <div className="animate-in fade-in slide-in-from-top-2 duration-300">
                       <div className="p-4 space-y-4 bg-[#F9F9F9]/50 dark:bg-[#151515]/50 border-t border-gray-100 dark:border-white/5">
@@ -962,29 +1145,31 @@ const AdminDashboard = () => {
         )}
       </div>
 
-      {/* --- RENDER ALL MODALS --- */}
-      {isAddModalOpen && (
-        <AddUserModal onSubmit={() => {}} onClose={() => setAddModalOpen(false)} />
-      )}
-      {isGenerateModalOpen && (
-        <GenerateUsersModal onSubmit={handleGenerateUsers} onClose={() => setGenerateModalOpen(false)} />
-      )}
-      {isDownloadModalOpen && (
-        <DownloadAccountsModal
-          groupedUsers={{ ...groupedUsers, restricted: restrictedUsers }}
-          onExport={exportToXlsx}
-          onClose={() => setDownloadModalOpen(false)}
-        />
-      )}
-      {isEditUserModalOpen && selectedUser && (
-        <EditUserModal
-          user={selectedUser}
-          onSubmit={handleUpdateUser}
-          onUpdatePassword={handleUpdatePassword}
-          onClose={() => setIsEditUserModalOpen(false)}
-          isLoading={isUpdatingUser}
-        />
-      )}
+      {/* --- RENDER ALL MODALS WITH SUSPENSE --- */}
+      <Suspense fallback={<ModalLoader />}>
+        {isAddModalOpen && (
+          <AddUserModal onSubmit={() => {}} onClose={() => setAddModalOpen(false)} />
+        )}
+        {isGenerateModalOpen && (
+          <GenerateUsersModal onSubmit={handleGenerateUsers} onClose={() => setGenerateModalOpen(false)} />
+        )}
+        {isDownloadModalOpen && (
+          <DownloadAccountsModal
+            groupedUsers={{ ...groupedUsers, restricted: restrictedUsers }}
+            onExport={exportToXlsx}
+            onClose={() => setDownloadModalOpen(false)}
+          />
+        )}
+        {isEditUserModalOpen && selectedUser && (
+          <EditUserModal
+            user={selectedUser}
+            onSubmit={handleUpdateUser}
+            onUpdatePassword={handleUpdatePassword}
+            onClose={() => setIsEditUserModalOpen(false)}
+            isLoading={isUpdatingUser}
+          />
+        )}
+      </Suspense>
       
       <AlertModal
         isOpen={alertModalState.isOpen}
@@ -1006,6 +1191,7 @@ const AdminDashboard = () => {
       />
 
     </div>
+   </ErrorBoundary>
   );
 };
 

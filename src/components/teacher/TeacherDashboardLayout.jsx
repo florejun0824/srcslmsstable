@@ -1,28 +1,15 @@
 // src/components/teacher/TeacherDashboardLayout.jsx
-import React, { useState, Suspense, lazy, Fragment, useEffect, useRef, useLayoutEffect, memo, useMemo } from 'react';
+import React, { useState, Suspense, lazy, Fragment, useEffect, useRef, useLayoutEffect, useMemo, useCallback, memo } from 'react';
 import { CSSTransition } from 'react-transition-group'; 
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { Menu, Transition } from '@headlessui/react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// --- NEW AESTHETIC ICONS (Lucide React) ---
+// --- ICONS (Lucide React) ---
 import { 
-    Home, 
-    Users, 
-    GraduationCap, // For Classes
-    BookOpen,      // For Subjects
-    UserCircle, 
-    Settings,      // For Admin
-    BarChart2,     // For Analytics
-    Rocket,        // For Lounge
-    Menu as MenuIcon,
-    X,
-    LayoutGrid,    // For Mobile Menu
-    Palette,
-    LogOut,
-    Power,
-    ChevronDown,
-    Sparkles
+    Home, Users, GraduationCap, BookOpen, UserCircle, Settings, 
+    BarChart2, Rocket, Menu as MenuIcon, X, LayoutGrid, Palette, 
+    LogOut, Power, ChevronDown, Sparkles
 } from 'lucide-react';
 
 import { NavLink } from 'react-router-dom';
@@ -73,9 +60,9 @@ const DeleteConfirmationModal = lazy(() => import('./DeleteConfirmationModal'));
 const EditSubjectModal = lazy(() => import('./EditSubjectModal'));
 const DeleteSubjectModal = lazy(() => import('./DeleteSubjectModal'));
 
-// 将 SCHOOL BRANDING CONFIGURATION
+// 将 SCHOOL BRANDING CONFIGURATION (Static)
 const SCHOOL_BRANDING = {
-    'srcs_main': { name: 'SRCS LMS', logo: '/logo.png' }, // Default
+    'srcs_main': { name: 'SRCS LMS', logo: '/logo.png' },
     'hras_sipalay': { name: 'HRA LMS', logo: '/logos/hra.png' },
     'kcc_kabankalan': { name: 'KCC LMS', logo: '/logos/kcc.png' },
     'icad_dancalan': { name: 'ICA LMS', logo: '/logos/ica.png' },
@@ -83,39 +70,29 @@ const SCHOOL_BRANDING = {
     'ichs_ilog': { name: 'ICHS LMS', logo: '/logos/ichs.png' }
 };
 
-const getSchoolBranding = (schoolId) => {
-    return SCHOOL_BRANDING[schoolId] || SCHOOL_BRANDING['srcs_main'];
-};
+const getSchoolBranding = (schoolId) => SCHOOL_BRANDING[schoolId] || SCHOOL_BRANDING['srcs_main'];
 
-// --- CUSTOM CSS: OPTIMIZED FOR PERFORMANCE ---
+// --- CUSTOM CSS (Static) ---
 const macOsStyles = `
-  /* Global Scrollbar Styling */
   ::-webkit-scrollbar { width: 0px; height: 0px; }
   .mac-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
   .mac-scrollbar::-webkit-scrollbar-track { background: transparent; }
   .mac-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(0, 0, 0, 0.1); border-radius: 100px; }
   .dark .mac-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(255, 255, 255, 0.1); }
-
-  /* Glass Morphism Utilities */
+  
   .glass-panel {
     background: rgba(255, 255, 255, 0.85);
     border: 1px solid rgba(255, 255, 255, 0.5);
-    box-shadow: 
-        0 4px 6px -1px rgba(0, 0, 0, 0.05),
-        0 10px 15px -3px rgba(0, 0, 0, 0.1),
-        inset 0 1px 0 rgba(255,255,255,0.5);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255,255,255,0.5);
     backdrop-filter: blur(20px);
   }
   .dark .glass-panel {
     background: rgba(30, 30, 30, 0.7);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 
-        0 4px 6px -1px rgba(0, 0, 0, 0.3),
-        0 10px 15px -3px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
     backdrop-filter: blur(20px);
   }
   
-  /* macOS Dock */
   .macos-dock {
     background: rgba(255, 255, 255, 0.85);
     border: 1px solid rgba(255, 255, 255, 0.4);
@@ -130,8 +107,8 @@ const macOsStyles = `
   }
 `;
 
-// --- SKELETAL LOADING STATE ---
-const DashboardSkeleton = () => (
+// --- SKELETAL LOADING STATE (Memoized) ---
+const DashboardSkeleton = memo(() => (
     <div className="w-full h-full p-6 space-y-8 animate-pulse">
         <div className="w-full h-48 bg-slate-200 dark:bg-slate-800 rounded-[2.5rem]"></div>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
@@ -146,11 +123,10 @@ const DashboardSkeleton = () => (
             ))}
         </div>
     </div>
-);
+));
 
-// --- ONE UI 8.5 THEME DROPDOWN ---
-// --- ONE UI 8.5 THEME DROPDOWN ---
-const ThemeDropdown = ({ size = 'desktop', showTutorial = false, onTutorialComplete }) => {
+// --- ONE UI 8.5 COMPONENTS (Memoized) ---
+const ThemeDropdown = memo(({ size = 'desktop', showTutorial = false, onTutorialComplete }) => {
   const buttonSize = size === 'desktop' ? 'w-12 h-12' : 'w-10 h-10';
   const iconSize = size === 'desktop' ? 22 : 20;
 
@@ -160,7 +136,7 @@ const ThemeDropdown = ({ size = 'desktop', showTutorial = false, onTutorialCompl
         <Menu.Button
           className={`relative flex items-center justify-center ${buttonSize} rounded-[18px] bg-white/60 dark:bg-[#2C2C2E]/60 backdrop-blur-xl border border-white/40 dark:border-white/10 shadow-sm transition-all duration-300 hover:scale-105 active:scale-95 text-slate-600 dark:text-slate-300 group hover:shadow-lg hover:shadow-purple-500/20 ${showTutorial ? 'ring-4 ring-blue-500/50 z-50' : ''}`}
           title="Change Theme"
-          onClick={() => { if (showTutorial && onTutorialComplete) onTutorialComplete(); }}
+          onClick={onTutorialComplete}
         >
           <Palette size={iconSize} strokeWidth={1.5} className="group-hover:text-purple-500 transition-colors" />
           {showTutorial && <span className="absolute inset-0 rounded-[18px] animate-ping bg-blue-400/30"></span>}
@@ -194,10 +170,6 @@ const ThemeDropdown = ({ size = 'desktop', showTutorial = false, onTutorialCompl
           leaveTo="transform opacity-0 scale-95 translate-y-2"
         >
           <Menu.Items className="absolute right-0 mt-3 w-80 origin-top-right focus:outline-none z-[60]">
-             {/* UPDATED OPACITY HERE: 
-                 Changed bg-white/90 -> bg-white/95 
-                 Changed dark:bg-[#1C1C1E]/90 -> dark:bg-[#1C1C1E]/95
-             */}
              <div className="rounded-[28px] bg-white/95 dark:bg-[#1C1C1E]/95 backdrop-blur-3xl border border-white/20 dark:border-white/10 shadow-[0_20px_50px_-10px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_50px_-10px_rgba(0,0,0,0.5)] overflow-hidden p-2">
                <div className="px-4 py-3 border-b border-black/5 dark:border-white/5 mb-1">
                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Appearance</span>
@@ -209,9 +181,9 @@ const ThemeDropdown = ({ size = 'desktop', showTutorial = false, onTutorialCompl
       </Menu>
     </div>
   );
-};
-// --- ONE UI 8.5 PROFILE DROPDOWN ---
-const ProfileDropdown = ({ userProfile, onLogout, size = 'desktop' }) => {
+});
+
+const ProfileDropdown = memo(({ userProfile, onLogout, size = 'desktop' }) => {
   const buttonSize = size === 'desktop' ? 'w-12 h-12' : 'w-10 h-10';
   const avatarSize = size === 'desktop' ? 'full' : 'sm';
 
@@ -237,8 +209,6 @@ const ProfileDropdown = ({ userProfile, onLogout, size = 'desktop' }) => {
         leaveTo="transform opacity-0 scale-95 translate-y-2"
       >
         <Menu.Items className="absolute right-0 mt-4 w-72 origin-top-right rounded-[28px] bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-3xl shadow-[0_30px_60px_-15px_rgba(0,0,0,0.2)] dark:shadow-black/50 border border-white/40 dark:border-white/10 focus:outline-none overflow-hidden z-[60]">
-          
-          {/* Header Area */}
           <div className="relative px-6 py-6 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-[#2C2C2E] dark:to-[#1C1C1E]">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-purple-500"></div>
             <div className="flex items-center gap-4">
@@ -262,7 +232,6 @@ const ProfileDropdown = ({ userProfile, onLogout, size = 'desktop' }) => {
             </div>
           </div>
 
-          {/* Menu Items */}
           <div className="p-3 space-y-1">
             <Menu.Item>
               {({ active }) => (
@@ -297,36 +266,35 @@ const ProfileDropdown = ({ userProfile, onLogout, size = 'desktop' }) => {
       </Transition>
     </Menu>
   );
-};
+});
 
-// --- ONE UI 8.5 DESKTOP HEADER (Floating + Dynamic Monet) ---
-const DesktopHeader = ({ userProfile, setIsLogoutModalOpen, showTutorial, onTutorialComplete }) => {
-    // 1. DYNAMIC THEME CONTEXT
+// --- ONE UI 8.5 DESKTOP HEADER (Optimized) ---
+const DesktopHeader = memo(({ userProfile, onLogout, showTutorial, onTutorialComplete }) => {
     const { monetTheme } = useTheme();
-    const branding = getSchoolBranding(userProfile?.schoolId);
+    const branding = useMemo(() => getSchoolBranding(userProfile?.schoolId), [userProfile?.schoolId]);
 
-    const navItems = [
-        { view: 'home', text: 'Home', icon: Home },
-        { view: 'lounge', text: 'Lounge', icon: Rocket },
-        { view: 'studentManagement', text: 'Students', icon: Users },
-        { view: 'classes', text: 'Classes', icon: GraduationCap },
-        { view: 'courses', text: 'Subjects', icon: BookOpen },
-        { view: 'analytics', icon: BarChart2, text: 'Analytics' },
-        { view: 'profile', text: 'Profile', icon: UserCircle },
-    ];
-    if (userProfile?.role === 'admin') navItems.push({ view: 'admin', text: 'Admin', icon: Settings });
+    const navItems = useMemo(() => {
+        const items = [
+            { view: 'home', text: 'Home', icon: Home },
+            { view: 'lounge', text: 'Lounge', icon: Rocket },
+            { view: 'studentManagement', text: 'Students', icon: Users },
+            { view: 'classes', text: 'Classes', icon: GraduationCap },
+            { view: 'courses', text: 'Subjects', icon: BookOpen },
+            { view: 'analytics', icon: BarChart2, text: 'Analytics' },
+            { view: 'profile', text: 'Profile', icon: UserCircle },
+        ];
+        if (userProfile?.role === 'admin') items.push({ view: 'admin', text: 'Admin', icon: Settings });
+        return items;
+    }, [userProfile?.role]);
 
     return (
         <motion.div 
             initial={{ y: -40, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.8, type: "spring", bounce: 0.3 }}
-            // 2. APPLY DYNAMIC MONET GLASS STYLE
             style={monetTheme.glassStyle}
-            // 3. OPACITY REDUCED TO 90% (/90) FOR LESS TRANSPARENCY
             className="mx-auto max-w-[1920px] rounded-[32px] px-6 py-4 flex items-center justify-between relative w-full z-50 transition-all duration-500 bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-3xl shadow-[0_8px_32px_0_rgba(0,0,0,0.05)] border border-white/40 dark:border-white/5"
         >
-            {/* Left: Branding */}
             <div className="flex items-center gap-5 flex-shrink-0 z-20">
                 <div className="w-12 h-12 rounded-[18px] bg-gradient-to-br from-white to-slate-50 dark:from-[#2C2C2E] dark:to-[#1C1C1E] shadow-sm flex items-center justify-center border border-white/50 dark:border-white/10 ring-1 ring-black/5 dark:ring-white/5">
                     <img src={branding.logo} alt="Logo" className="w-7 h-7 object-contain drop-shadow-sm" />
@@ -341,7 +309,6 @@ const DesktopHeader = ({ userProfile, setIsLogoutModalOpen, showTutorial, onTuto
                 </div>
             </div>
 
-            {/* Center: Floating Tabbed Navigation */}
             <nav className="hidden lg:flex items-center justify-center absolute left-1/2 -translate-x-1/2 z-10">
                 <div className="flex items-center gap-1.5 p-1.5 bg-slate-100/50 dark:bg-black/20 rounded-[24px] border border-white/20 dark:border-white/5 backdrop-blur-md shadow-inner">
                     {navItems.map((item) => {
@@ -358,7 +325,6 @@ const DesktopHeader = ({ userProfile, setIsLogoutModalOpen, showTutorial, onTuto
                                             <motion.div
                                                 layoutId="desktopNavPill"
                                                 className="absolute inset-0 rounded-[20px] shadow-[0_4px_12px_rgba(0,0,0,0.1)] dark:shadow-black/20"
-                                                // 4. USE DYNAMIC ACCENT COLOR
                                                 style={{ backgroundColor: 'var(--monet-accent)' }}
                                                 transition={{ type: "spring", stiffness: 350, damping: 25 }}
                                             />
@@ -381,17 +347,15 @@ const DesktopHeader = ({ userProfile, setIsLogoutModalOpen, showTutorial, onTuto
                 </div>
             </nav>
 
-            {/* Right: Actions */}
             <div className="flex items-center gap-4 flex-shrink-0 z-20">
                 <div className="flex items-center gap-2 bg-slate-100/50 dark:bg-white/5 p-1.5 rounded-[22px] border border-white/20 dark:border-white/5">
                     <ThemeDropdown size="desktop" showTutorial={showTutorial} onTutorialComplete={onTutorialComplete} />
-                    <ProfileDropdown userProfile={userProfile} onLogout={() => setIsLogoutModalOpen(true)} size="desktop" />
+                    <ProfileDropdown userProfile={userProfile} onLogout={onLogout} size="desktop" />
                 </div>
             </div>
         </motion.div>
     );
-};
-
+});
 
 // Main Layout Component
 const TeacherDashboardLayout = (props) => {
@@ -412,7 +376,7 @@ const TeacherDashboardLayout = (props) => {
     const [showAmbienceTutorial, setShowAmbienceTutorial] = useState(false);
     const robotRef = useRef(null);
     
-    // Inject Custom CSS
+    // Inject Custom CSS Safely
     useLayoutEffect(() => {
         const styleId = 'teacher-dashboard-styles';
         if (!document.getElementById(styleId)) {
@@ -433,18 +397,25 @@ const TeacherDashboardLayout = (props) => {
         } else { setShowAmbienceTutorial(false); }
     }, [activeView, loading]);
 
-    const handleTutorialComplete = () => {
+    // HANDLERS (Memoized)
+    const handleTutorialComplete = useCallback(() => {
         setShowAmbienceTutorial(false);
         localStorage.setItem('hasSeenAmbienceTutorial', 'true');
-    };
+    }, []);
 
+    const handleLogoutClick = useCallback(() => setIsLogoutModalOpen(true), []);
+    const confirmLogout = useCallback(() => { setIsLogoutModalOpen(false); logout(); }, [logout]);
+    const cancelLogout = useCallback(() => setIsLogoutModalOpen(false), []);
+    const handleCloseChat = useCallback(() => setIsChatOpen(false), [setIsChatOpen]);
+    const handleOpenChat = useCallback(() => setIsChatOpen(true), [setIsChatOpen]);
+    const handleCloseAiHub = useCallback(() => setIsAiHubOpen(false), [setIsAiHubOpen]);
+    const handleClosePasswordModal = useCallback(() => setChangePasswordModalOpen(false), []);
+    
     // --- MONET ENGINE INTEGRATION ---
     const { monetTheme } = useTheme(); 
-    
-    // 将 Get Dynamic Branding for Mobile Header
-    const branding = getSchoolBranding(userProfile?.schoolId);
+    const branding = useMemo(() => getSchoolBranding(userProfile?.schoolId), [userProfile?.schoolId]);
 
-    const handleRenameCategory = async (newName) => {
+    const handleRenameCategory = useCallback(async (newName) => {
         const oldName = categoryToEdit?.name;
         if (!oldName || !newName || oldName === newName) { setIsEditCategoryModalOpen(false); return; }
         const subjectsQuery = query(collection(db, 'courses'), where('category', '==', oldName));
@@ -459,43 +430,50 @@ const TeacherDashboardLayout = (props) => {
             showToast('Category renamed successfully!', 'success');
         } catch (error) { console.error('Error renaming category:', error); showToast('Failed to rename category.', 'error'); } 
         finally { setIsEditCategoryModalOpen(false); }
-    };
+    }, [categoryToEdit, showToast]);
 
-    const handleEditCategory = (category) => { setCategoryToEdit(category); setIsEditCategoryModalOpen(true); };
-    const courseCategories = [...new Set(courses.map((c) => c.category).filter(Boolean))].map((name) => ({ id: name, name: name }));
-    const handleAddSubjectWithCategory = (categoryName) => { setPreselectedCategoryForCourseModal(categoryName); rest.setCreateCourseModalOpen(true); };
+    const handleEditCategory = useCallback((category) => { setCategoryToEdit(category); setIsEditCategoryModalOpen(true); }, []);
+    
+    const courseCategories = useMemo(() => 
+        [...new Set(courses.map((c) => c.category).filter(Boolean))].map((name) => ({ id: name, name: name }))
+    , [courses]);
 
-    // UPDATED MOBILE DOCK ITEMS (Lucide)
-    const bottomNavItems = [
+    const handleAddSubjectWithCategory = useCallback((categoryName) => { 
+        setPreselectedCategoryForCourseModal(categoryName); 
+        rest.setCreateCourseModalOpen(true); 
+    }, [rest.setCreateCourseModalOpen]);
+
+    // MEMOIZED NAV CONFIGS (Prevents re-renders)
+    const bottomNavItems = useMemo(() => [
         { view: 'home', text: 'Home', icon: Home },
         { view: 'classes', text: 'Classes', icon: GraduationCap },
         { view: 'courses', text: 'Subjects', icon: BookOpen },
         { view: 'profile', text: 'Profile', icon: UserCircle },
-    ];
+    ], []);
 
-    // UPDATED ACTION MENU ITEMS (Lucide)
-    const actionMenuItems = [
+    const actionMenuItems = useMemo(() => [
         { view: 'lounge', text: 'Lounge', icon: Rocket },
         { view: 'studentManagement', text: 'Students', icon: Users },
         { view: 'analytics', text: 'Analytics', icon: BarChart2 },
         ...(userProfile?.role === 'admin' ? [{ view: 'admin', text: 'Admin', icon: Settings }] : [])
-    ];
+    ], [userProfile?.role]);
 
-    const handleStartOnlineClass = async (classId, meetingCode, meetLink) => {
+    const handleStartOnlineClass = useCallback(async (classId, meetingCode, meetLink) => {
         try {
             const classRef = doc(db, 'classes', classId);
             await updateDoc(classRef, { videoConference: { isLive: true, meetingCode: meetingCode, platform: 'GOOGLE_MEET', startTime: new Date().toISOString() } });
             showToast(`Class ${meetingCode} is now live! Opening Google Meet...`, 'success');
             window.open(meetLink, '_blank');
         } catch (error) { console.error("Error starting online class:", error); showToast('Failed to start the online class due to a system error.', 'error'); }
-    };
-    const handleEndOnlineClass = async (classId) => {
+    }, [showToast]);
+
+    const handleEndOnlineClass = useCallback(async (classId) => {
         try {
             const classRef = doc(db, 'classes', classId);
             await updateDoc(classRef, { 'videoConference.isLive': false, 'videoConference.meetingCode': null, 'videoConference.startTime': null });
             showToast('Online class successfully ended.', 'info');
         } catch (error) { console.error("Error ending online class:", error); showToast('Failed to end the online class.', 'error'); }
-    };
+    }, [showToast]);
 
     const renderMainContent = () => {
         if (loading || authLoading) return <DashboardSkeleton />;
@@ -522,8 +500,6 @@ const TeacherDashboardLayout = (props) => {
     return (
         <div 
             className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 font-sans antialiased text-slate-900 dark:text-slate-100 pb-24 lg:pb-0 relative overflow-hidden"
-            // --- FIX: INJECT VARIABLES AT THE ROOT LEVEL ---
-            // This ensures `var(--monet-accent)` works everywhere
             style={monetTheme.variables}
         >
             <UniversalBackground />
@@ -534,7 +510,6 @@ const TeacherDashboardLayout = (props) => {
                     initial={{ y: -50, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                    // Apply ONLY glass styles
                     style={monetTheme.glassStyle}
                     className="glass-panel relative flex items-center justify-between px-5 py-3 rounded-[1.5rem] shadow-lg transform-gpu transition-all duration-500"
                 >
@@ -550,16 +525,16 @@ const TeacherDashboardLayout = (props) => {
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0 z-20">
                         <ThemeDropdown size="mobile" showTutorial={showAmbienceTutorial} onTutorialComplete={handleTutorialComplete} />
-                        <ProfileDropdown userProfile={userProfile} onLogout={() => setIsLogoutModalOpen(true)} size="mobile" />
+                        <ProfileDropdown userProfile={userProfile} onLogout={handleLogoutClick} size="mobile" />
                     </div>
                 </motion.div>
             </div>
 
-            {/* DESKTOP HEADER - PADDING REDUCED TO pt-2 FOR LESS GAP */}
+            {/* DESKTOP HEADER */}
             <div className="hidden lg:block fixed top-0 left-0 right-0 z-[50] px-4 md:px-6 lg:px-8 pt-1 pb-2 w-full max-w-[1920px] mx-auto transition-all duration-300">
                 <DesktopHeader 
                     userProfile={userProfile} 
-                    setIsLogoutModalOpen={setIsLogoutModalOpen} 
+                    onLogout={handleLogoutClick} 
                     showTutorial={showAmbienceTutorial}
                     onTutorialComplete={handleTutorialComplete}
                 />
@@ -575,7 +550,6 @@ const TeacherDashboardLayout = (props) => {
             <div className="fixed bottom-1 left-0 right-0 flex justify-center z-[49] lg:hidden pointer-events-none">
                 <motion.div 
                     initial={{ y: 100 }} animate={{ y: 0 }} transition={{ type: "spring", stiffness: 250, damping: 25, delay: 0.2 }} layout
-                    // Apply ONLY glass styles
                     style={monetTheme.glassStyle}
                     className="macos-dock pointer-events-auto px-2 py-2 rounded-[2.5rem] flex items-center justify-between w-auto min-w-[90%] max-w-md sm:gap-2 shadow-2xl transform-gpu transition-all duration-500"
                 >
@@ -647,15 +621,15 @@ const TeacherDashboardLayout = (props) => {
                     nodeRef={robotRef}
                 >
                     <div ref={robotRef} className="fixed bottom-40 right-4 z-[45] lg:bottom-8 lg:right-8">
-                        <AnimatedRobot onClick={() => setIsChatOpen(true)} />
+                        <AnimatedRobot onClick={handleOpenChat} />
                     </div>
                 </CSSTransition>
 
-                {isAiHubOpen && <AiGenerationHub isOpen={isAiHubOpen} onClose={() => setIsAiHubOpen(false)} subjectId={activeSubject?.id} unitId={activeUnit?.id} />}
-                {isChatOpen && <ChatDialog isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} messages={messages} onSendMessage={handleAskAiWrapper} isAiThinking={isAiThinking} userFirstName={userProfile?.firstName} />}
+                {isAiHubOpen && <AiGenerationHub isOpen={isAiHubOpen} onClose={handleCloseAiHub} subjectId={activeSubject?.id} unitId={activeUnit?.id} />}
+                {isChatOpen && <ChatDialog isOpen={isChatOpen} onClose={handleCloseChat} messages={messages} onSendMessage={handleAskAiWrapper} isAiThinking={isAiThinking} userFirstName={userProfile?.firstName} />}
                 {rest.isArchivedModalOpen && <ArchivedClassesModal isOpen={rest.isArchivedModalOpen} onClose={() => rest.setIsArchivedModalOpen(false)} archivedClasses={rest.archivedClasses} onUnarchive={rest.handleUnarchiveClass} onDelete={props.handleDeleteClass} />}
                 {rest.isEditProfileModalOpen && <EditProfileModal isOpen={rest.isEditProfileModalOpen} onClose={() => rest.setEditProfileModalOpen(false)} userProfile={userProfile} onUpdate={rest.handleUpdateProfile} setChangePasswordModalOpen={setChangePasswordModalOpen} />}
-                <ChangePasswordModal isOpen={isChangePasswordModalOpen} onClose={() => setChangePasswordModalOpen(false)} onSubmit={rest.handleChangePassword} />
+                <ChangePasswordModal isOpen={isChangePasswordModalOpen} onClose={handleClosePasswordModal} onSubmit={rest.handleChangePassword} />
                 <CreateCategoryModal isOpen={rest.isCreateCategoryModalOpen} onClose={() => rest.setCreateCategoryModalOpen(false)} teacherId={user?.uid || user?.id} />
                 {categoryToEdit && <EditCategoryModal isOpen={isEditCategoryModalOpen} onClose={() => setIsEditCategoryModalOpen(false)} categoryName={categoryToEdit.name} onSave={handleRenameCategory} />}
                 <CreateClassModal isOpen={rest.isCreateClassModalOpen} onClose={() => rest.setCreateClassModalOpen(false)} teacherId={user?.uid || user?.id} courses={courses} />
@@ -683,8 +657,8 @@ const TeacherDashboardLayout = (props) => {
                         <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2 tracking-tight">Sign Out?</h2>
                         <p className="text-sm text-slate-500 dark:text-slate-400 mb-8 leading-relaxed font-medium">You are about to end your session. <br/> Are you sure you want to continue?</p>
                         <div className="flex flex-col gap-3">
-                            <button onClick={() => { setIsLogoutModalOpen(false); logout(); }} className="w-full py-3.5 rounded-2xl font-bold text-white bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 shadow-lg shadow-red-500/30 transition-all active:scale-95 text-sm tracking-wide">Yes, Log Out</button>
-                            <button onClick={() => setIsLogoutModalOpen(false)} className="w-full py-3.5 rounded-2xl font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all text-sm tracking-wide">Cancel</button>
+                            <button onClick={confirmLogout} className="w-full py-3.5 rounded-2xl font-bold text-white bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 shadow-lg shadow-red-500/30 transition-all active:scale-95 text-sm tracking-wide">Yes, Log Out</button>
+                            <button onClick={cancelLogout} className="w-full py-3.5 rounded-2xl font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all text-sm tracking-wide">Cancel</button>
                         </div>
                     </div>
                 </div>
@@ -693,4 +667,4 @@ const TeacherDashboardLayout = (props) => {
     );
 };
 
-export default React.memo(TeacherDashboardLayout);
+export default memo(TeacherDashboardLayout);

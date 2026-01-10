@@ -1,6 +1,6 @@
 // src/components/teacher/dashboard/views/StudentManagementView.jsx
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, memo, useCallback } from 'react';
 import { useAuth } from '../../../../contexts/AuthContext'; 
 import { useToast } from '../../../../contexts/ToastContext'; 
 import { useTheme } from '../../../../contexts/ThemeContext';
@@ -9,13 +9,12 @@ import {
   Search,
   UserPlus,
   X,
-  CheckIcon,
   ListFilter,
   Trash2,
-  ChevronLeft,
-  ChevronRight,
+  ChevronDown,
   ChevronsUpDown,
-  GraduationCap
+  GraduationCap,
+  Loader2
 } from 'lucide-react';
 import { CheckCircleIcon } from '@heroicons/react/24/solid'; 
 import { motion, AnimatePresence } from 'framer-motion';
@@ -24,7 +23,8 @@ import EditUserModal from '../../../admin/EditUserModal';
 import ImportToClassModal from './ImportToClassModal'; 
 import UserInitialsAvatar from '../../../common/UserInitialsAvatar';
 
-// --- ONE UI 8.5 + MONET THEME HELPER ---
+// --- STATIC THEME CONFIGURATION ---
+// Moved outside component to prevent recreation on every render
 const getThemeStyles = (overlay) => {
     switch (overlay) {
         case 'christmas':
@@ -78,11 +78,11 @@ const getThemeStyles = (overlay) => {
     }
 };
 
-// --- SKELETAL LOADING ---
-const StudentTableSkeleton = () => (
+// --- SKELETAL LOADING (Memoized) ---
+const StudentTableSkeleton = memo(() => (
   <div className="flex-1 flex flex-col animate-pulse h-full">
     <div className="space-y-3 overflow-hidden flex-1 p-4">
-      {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+      {[1, 2, 3, 4, 5].map((i) => (
         <div key={i} className="flex items-center gap-4 p-4 rounded-[1.8rem] bg-white/40 dark:bg-white/5 border border-white/20">
            <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 flex-shrink-0"></div>
            <div className="flex-1 space-y-2">
@@ -93,10 +93,10 @@ const StudentTableSkeleton = () => (
       ))}
     </div>
   </div>
-);
+));
 
-// --- COMPONENT: Student Mobile Card ---
-const StudentMobileCard = ({ user, enrolledClasses, onEdit, onSelect, isSelected, theme }) => {
+// --- COMPONENT: Student Mobile Card (Memoized) ---
+const StudentMobileCard = memo(({ user, enrolledClasses, onEdit, onSelect, isSelected, theme }) => {
   return (
     <motion.div 
         layout
@@ -115,14 +115,18 @@ const StudentMobileCard = ({ user, enrolledClasses, onEdit, onSelect, isSelected
                 <input 
                     type="checkbox" 
                     checked={isSelected} 
-                    onChange={onSelect} 
+                    onChange={() => onSelect(user.id)} 
                     className={`peer appearance-none w-6 h-6 rounded-full border-2 transition-all cursor-pointer border-slate-300 dark:border-slate-600 ${theme.checkbox}`}
                 />
                 <CheckCircleIcon className="absolute w-6 h-6 pointer-events-none opacity-0 peer-checked:opacity-100 transition-all scale-50 peer-checked:scale-100 text-white" />
             </div>
 
             <div className="flex-shrink-0 w-12 h-12 rounded-full ring-2 ring-white dark:ring-white/10 overflow-hidden bg-slate-100 dark:bg-slate-800 shadow-md">
-                <UserInitialsAvatar user={user} size="full" className="w-full h-full text-sm font-bold" />
+                {user.photoURL ? (
+                    <img src={user.photoURL} alt="" className="w-full h-full object-cover" />
+                ) : (
+                    <UserInitialsAvatar user={user} size="full" className="w-full h-full text-sm font-bold" />
+                )}
             </div>
 
             <div className="flex-1 min-w-0">
@@ -135,7 +139,7 @@ const StudentMobileCard = ({ user, enrolledClasses, onEdit, onSelect, isSelected
             </div>
             
             <button
-                onClick={onEdit}
+                onClick={() => onEdit(user)}
                 className="p-2.5 rounded-2xl bg-white dark:bg-white/10 text-slate-400 hover:text-indigo-600 dark:hover:text-white shadow-sm border border-slate-100 dark:border-white/5 transition-colors"
             >
                 <Cog size={20} />
@@ -143,10 +147,10 @@ const StudentMobileCard = ({ user, enrolledClasses, onEdit, onSelect, isSelected
         </div>
     </motion.div>
   );
-};
+});
 
-// --- COMPONENT: Student Desktop Row ---
-const StudentDesktopRow = ({ user, enrolledClasses, onEdit, onSelect, isSelected, theme }) => {
+// --- COMPONENT: Student Desktop Row (Memoized) ---
+const StudentDesktopRow = memo(({ user, enrolledClasses, onEdit, onSelect, isSelected, theme }) => {
   return (
     <tr 
         className={`
@@ -154,51 +158,53 @@ const StudentDesktopRow = ({ user, enrolledClasses, onEdit, onSelect, isSelected
             ${isSelected ? theme.lightBg : 'hover:bg-slate-50/50 dark:hover:bg-white/5'}
         `}
     >
-        <td className="px-6 py-4 w-16">
+        <td className="px-6 py-4 w-16 align-middle">
             <div className="relative flex items-center justify-center w-5 h-5 mx-auto z-0">
                 <input 
                     type="checkbox" 
                     checked={isSelected} 
-                    onChange={onSelect} 
+                    onChange={() => onSelect(user.id)} 
                     className={`peer appearance-none w-5 h-5 rounded-full border-2 transition-all cursor-pointer border-slate-300 dark:border-slate-600 ${theme.checkbox}`}
                 />
                 <CheckCircleIcon className="absolute w-5 h-5 pointer-events-none opacity-0 peer-checked:opacity-100 transition-all scale-50 peer-checked:scale-100 text-white" />
             </div>
         </td>
-        <td className="px-6 py-4">
+        <td className="px-6 py-4 align-middle">
             <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full ring-2 ring-white dark:ring-white/10 overflow-hidden relative z-0 shadow-sm">
-                    <UserInitialsAvatar user={user} size="full" className="w-full h-full text-xs font-bold" />
+                <div className="w-10 h-10 rounded-full ring-2 ring-white dark:ring-white/10 overflow-hidden relative z-0 shadow-sm flex-shrink-0">
+                    {user.photoURL ? (
+                        <img src={user.photoURL} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                        <UserInitialsAvatar user={user} size="full" className="w-full h-full text-xs font-bold" />
+                    )}
                 </div>
                 <div className="flex flex-col">
                     <span className="font-bold text-slate-700 dark:text-slate-200 text-sm">{user.lastName}, {user.firstName}</span>
+                    <span className="text-xs text-slate-400">{user.email}</span>
                 </div>
             </div>
         </td>
-        <td className="px-6 py-4">
+        <td className="px-6 py-4 align-middle">
             <span className="inline-flex items-center px-3 py-1 rounded-[0.8rem] text-xs font-bold bg-white dark:bg-white/5 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-white/10 shadow-sm">
                 {user.gradeLevel || 'N/A'}
             </span>
         </td>
-        <td className="px-6 py-4">
+        <td className="px-6 py-4 align-middle max-w-md">
           {enrolledClasses.length > 0 ? (
             <div className="flex flex-wrap gap-1.5">
-                {enrolledClasses.slice(0, 2).map(className => (
-                    <span key={className} className="text-[10px] font-bold px-2.5 py-1 rounded-lg border bg-white dark:bg-white/5 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10 shadow-sm">
+                {enrolledClasses.map(className => (
+                    <span key={className} className="text-[10px] font-bold px-2.5 py-1 rounded-lg border bg-white dark:bg-white/5 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10 shadow-sm whitespace-nowrap">
                         {className}
                     </span>
                 ))}
-                {enrolledClasses.length > 2 && (
-                    <span className="text-[10px] font-bold text-slate-400 px-1 pt-1">+{enrolledClasses.length - 2}</span>
-                )}
             </div>
           ) : (
             <span className="text-xs text-slate-400 italic opacity-60">Unassigned</span>
           )}
         </td>
-        <td className="px-6 py-4 text-right">
+        <td className="px-6 py-4 text-right align-middle">
           <button
-            onClick={onEdit}
+            onClick={() => onEdit(user)}
             className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-indigo-500 dark:hover:bg-indigo-600 transition-all active:scale-95"
           >
             <Cog size={18} />
@@ -206,10 +212,10 @@ const StudentDesktopRow = ({ user, enrolledClasses, onEdit, onSelect, isSelected
         </td>
     </tr>
   );
-};
+});
 
-// --- FILTER POPUP ---
-const FilterPopup = ({ allClasses, filters, onFilterChange, onClose, onClear, theme }) => {
+// --- FILTER POPUP (Memoized) ---
+const FilterPopup = memo(({ allClasses, filters, onFilterChange, onClose, onClear, theme }) => {
   const [classSearch, setClassSearch] = useState('');
   const [isClassSearchOpen, setIsClassSearchOpen] = useState(false);
 
@@ -291,63 +297,81 @@ const FilterPopup = ({ allClasses, filters, onFilterChange, onClose, onClear, th
         </motion.div>
     </>
   );
-};
+});
 
 // --- MAIN COMPONENT ---
 const StudentManagementView = () => {
   const { firestoreService, userProfile } = useAuth();
   const { showToast } = useToast();
-  const { activeOverlay } = useTheme();
+  const { themeSettings } = useTheme();
   
-  // Get Dynamic Theme
-  const theme = getThemeStyles(activeOverlay);
+  // Memoize theme to prevent deep object recreation
+  const theme = useMemo(() => getThemeStyles(themeSettings?.overlay), [themeSettings?.overlay]);
 
+  // STATE
   const [allStudents, setAllStudents] = useState([]);
-  const [allClasses, setAllClasses] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 25;
+  const [allClasses, setAllClasses] = useState([]); 
+  const [loading, setLoading] = useState(false);
+  const [lastDoc, setLastDoc] = useState(null);
+  const [hasMore, setHasMore] = useState(true);
+
+  // UI STATE
   const [filters, setFilters] = useState({ name: '', grade: 'All', class: null });
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selectedStudentIds, setSelectedStudentIds] = useState(new Set());
+  
+  // MODAL STATE
   const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
 
   // FETCH DATA
-  const fetchData = async () => {
-    // SECURITY FIX: Ensure userProfile is loaded before fetching to prevent
-    // defaulting to 'srcs_main' and leaking data to non-admin schools.
-    if (!userProfile) return;
+  const fetchStudents = async (isLoadMore = false) => {
+    if (!userProfile?.schoolId) return;
+    if (loading) return;
 
     setLoading(true);
     try {
-      // Safely default to 'srcs_main' ONLY if userProfile exists but has no schoolId (legacy/admin)
-      const userSchoolId = userProfile.schoolId || 'srcs_main';
-      
-      const [users, rawClasses] = await Promise.all([
-        firestoreService.getAllUsers(userSchoolId),
-        firestoreService.getAllClasses()
-      ]);
+        const result = await firestoreService.getUsersPaginated(
+            userProfile.schoolId,
+            isLoadMore ? lastDoc : null
+        );
+        
+        const newStudents = result.users.filter(u => u.role === 'student');
 
-      const filteredClasses = rawClasses.filter(cls => {
-         const classSchoolId = cls.schoolId || 'srcs_main';
-         return classSchoolId === userSchoolId;
-      });
+        if (isLoadMore) {
+            setAllStudents(prev => [...prev, ...newStudents]);
+        } else {
+            setAllStudents(newStudents);
+        }
 
-      setAllStudents(users.filter(u => u.role === 'student' && !u.isRestricted));
-      setAllClasses(filteredClasses);
+        setLastDoc(result.lastDoc);
+        
+        if (!result.lastDoc || result.users.length < 20) {
+            setHasMore(false);
+        } else {
+            setHasMore(true);
+        }
+
+        if (!isLoadMore && allClasses.length === 0) {
+            const classesData = await firestoreService.getAllClasses(userProfile.schoolId);
+            setAllClasses(classesData);
+        }
+
     } catch (error) {
-      console.error("Error fetching data:", error);
-      showToast('Failed to fetch data.', 'error');
+        console.error("Error fetching data:", error);
+        showToast('Failed to fetch data.', 'error');
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
   };
 
-  // Add userProfile to dependencies to re-trigger when auth loads
-  useEffect(() => { fetchData(); }, [userProfile, userProfile?.schoolId]);
+  useEffect(() => { 
+      fetchStudents(false); 
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userProfile?.schoolId]);
 
+  // MAP CLASSES TO STUDENTS
   const enrolledClassesMap = useMemo(() => {
     const map = new Map();
     for (const student of allStudents) {
@@ -359,6 +383,7 @@ const StudentManagementView = () => {
     return map;
   }, [allStudents, allClasses]);
 
+  // FILTER LOGIC
   const filteredStudents = useMemo(() => {
     const lowerName = filters.name.toLowerCase();
     return allStudents
@@ -370,33 +395,61 @@ const StudentManagementView = () => {
       .sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''));
   }, [allStudents, filters, enrolledClassesMap]);
   
-  useEffect(() => { setCurrentPage(1); }, [filters, filteredStudents.length]);
+  // HANDLERS (Optimized with useCallback)
+  const handleFilterChange = useCallback((key, value) => setFilters(prev => ({ ...prev, [key]: value, ...(key === 'grade' ? { class: null } : {}) })), []);
+  
+  const handleClearFilters = useCallback(() => { 
+      setFilters({ name: '', grade: 'All', class: null }); // fixed to reset name too or keep as desired
+      setIsFilterOpen(false); 
+      showToast('Filters cleared', 'success'); 
+  }, [showToast]);
+  
+  const handleSelectStudent = useCallback((id) => {
+      setSelectedStudentIds(prev => { 
+          const n = new Set(prev); 
+          n.has(id) ? n.delete(id) : n.add(id); 
+          return n; 
+      });
+  }, []);
 
-  const paginatedStudents = useMemo(() => {
-      const startIndex = (currentPage - 1) * itemsPerPage;
-      return filteredStudents.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredStudents, currentPage]);
+  const handleEditClick = useCallback((user) => {
+      setSelectedUser(user);
+      setIsEditUserModalOpen(true);
+  }, []);
 
-  const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
-
-  const handleFilterChange = (key, value) => setFilters(prev => ({ ...prev, [key]: value, ...(key === 'grade' ? { class: null } : {}) }));
-  const handleClearFilters = () => { setFilters({ name: filters.name, grade: 'All', class: null }); setIsFilterOpen(false); showToast('Filters cleared', 'success'); };
-  const handleSelectStudent = (id) => setSelectedStudentIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
-  const handleSelectAll = () => {
-    const allSelected = paginatedStudents.every(s => selectedStudentIds.has(s.id));
+  const handleSelectAll = useCallback(() => {
+    const allSelected = filteredStudents.length > 0 && filteredStudents.every(s => selectedStudentIds.has(s.id));
     setSelectedStudentIds(prev => {
         const n = new Set(prev);
-        paginatedStudents.forEach(s => allSelected ? n.delete(s.id) : n.add(s.id));
+        filteredStudents.forEach(s => allSelected ? n.delete(s.id) : n.add(s.id));
         return n;
     });
-  };
-  const isAllPageSelected = paginatedStudents.length > 0 && paginatedStudents.every(s => selectedStudentIds.has(s.id));
+  }, [filteredStudents, selectedStudentIds]);
+  
+  const isAllPageSelected = filteredStudents.length > 0 && filteredStudents.every(s => selectedStudentIds.has(s.id));
   const activeFilterCount = (filters.grade !== 'All' ? 1 : 0) + (filters.class ? 1 : 0);
 
-  const handleUpdateUser = async (updates) => {
-    try { await firestoreService.updateUserDetails(selectedUser.id, updates); showToast('Updated!', 'success'); setIsEditUserModalOpen(false); fetchData(); } 
-    catch (e) { showToast(e.message, 'error'); }
-  };
+  // UPDATE USER HANDLER
+  const handleUpdateUser = useCallback(async (arg1, arg2) => {
+    let uid, data;
+    if (typeof arg1 === 'string') {
+        uid = arg1;
+        data = arg2;
+    } else {
+        uid = selectedUser?.id;
+        data = arg1;
+    }
+
+    try { 
+        await firestoreService.updateUserDetails(uid, data); 
+        showToast('Updated!', 'success'); 
+        setIsEditUserModalOpen(false); 
+        
+        setAllStudents(prev => prev.map(s => s.id === uid ? { ...s, ...data } : s));
+    } catch (e) { 
+        showToast(e.message, 'error'); 
+    }
+  }, [firestoreService, showToast, selectedUser]);
 
   return (
     <div className="flex flex-col h-[calc(100vh-100px)] overflow-visible font-sans space-y-5 relative z-10 p-1">
@@ -413,10 +466,9 @@ const StudentManagementView = () => {
               
               <div className="flex items-center justify-between md:block mt-2 md:mt-1">
                   <p className="text-sm font-bold text-slate-500 dark:text-slate-400">
-                    Manage enrollment. <span className={`ml-2 px-2.5 py-0.5 rounded-lg text-xs font-black bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300`}>{filteredStudents.length} Active</span>
+                    Manage enrollment. <span className={`ml-2 px-2.5 py-0.5 rounded-lg text-xs font-black bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300`}>{filteredStudents.length} Loaded</span>
                   </p>
 
-                  {/* Mobile Button: Aligned with subtitle */}
                   <button
                     onClick={() => setIsImportModalOpen(true)}
                     disabled={selectedStudentIds.size === 0}
@@ -428,7 +480,6 @@ const StudentManagementView = () => {
               </div>
             </div>
             
-            {/* Desktop Button */}
             <button
               onClick={() => setIsImportModalOpen(true)}
               disabled={selectedStudentIds.size === 0}
@@ -449,7 +500,7 @@ const StudentManagementView = () => {
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none group-focus-within:text-indigo-500 transition-colors" />
                 <input
                     type="text"
-                    placeholder="Search by name..."
+                    placeholder="Search loaded students..."
                     value={filters.name}
                     onChange={(e) => handleFilterChange('name', e.target.value)}
                     className="w-full pl-12 pr-4 py-3 rounded-[1.4rem] bg-slate-100/50 dark:bg-black/20 border-none text-sm font-semibold text-slate-700 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:bg-white dark:focus:bg-black/40 focus:ring-2 focus:ring-indigo-500/10 transition-all"
@@ -473,18 +524,18 @@ const StudentManagementView = () => {
             </div>
         </motion.div>
 
-        {/* --- SCROLLABLE CONTENT AREA (Liquid Surface) --- */}
+        {/* --- SCROLLABLE CONTENT AREA --- */}
         <div className={`
             flex-1 min-h-0 rounded-[2.5rem] 
             bg-white/40 dark:bg-[#121212]/40 backdrop-blur-3xl backdrop-saturate-150
             border border-white/40 dark:border-white/5 shadow-[inset_0_0_20px_rgba(255,255,255,0.2)] dark:shadow-none
             overflow-hidden flex flex-col relative
         `}>
-            {loading ? (
+            {loading && allStudents.length === 0 ? (
                 <StudentTableSkeleton />
             ) : (
                 <>
-                    {/* DESKTOP TABLE Wrapper - Only this scrolls */}
+                    {/* DESKTOP TABLE Wrapper */}
                     <div className="hidden md:block flex-1 overflow-y-auto custom-scrollbar relative">
                         <table className="min-w-full text-sm border-separate border-spacing-0">
                             {/* STICKY TABLE HEADER */}
@@ -507,17 +558,16 @@ const StudentManagementView = () => {
                                     <th className="px-6 py-5 text-right font-bold text-slate-400 dark:text-slate-500 text-[11px] uppercase tracking-wider border-b border-slate-100 dark:border-white/5 last:rounded-tr-[2rem]">ACTION</th>
                                 </tr>
                             </thead>
-                            {/* SCROLLABLE BODY */}
                             <tbody className="bg-transparent">
-                                {paginatedStudents.length > 0 ? (
-                                    paginatedStudents.map(user => (
+                                {filteredStudents.length > 0 ? (
+                                    filteredStudents.map(user => (
                                         <StudentDesktopRow 
                                             key={user.id} 
                                             user={user} 
                                             enrolledClasses={enrolledClassesMap.get(user.id) || []}
-                                            onEdit={() => { setSelectedUser(user); setIsEditUserModalOpen(true); }} 
+                                            onEdit={handleEditClick} 
                                             isSelected={selectedStudentIds.has(user.id)}
-                                            onSelect={() => handleSelectStudent(user.id)}
+                                            onSelect={handleSelectStudent}
                                             theme={theme}
                                         />
                                     ))
@@ -526,11 +576,24 @@ const StudentManagementView = () => {
                                 )}
                             </tbody>
                         </table>
+                        
+                        {/* LOAD MORE BUTTON (Desktop) */}
+                        {hasMore && (
+                            <div className="p-6 flex justify-center">
+                                <button
+                                    onClick={() => fetchStudents(true)}
+                                    className="flex items-center gap-2 px-6 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full text-sm font-semibold text-slate-600 dark:text-slate-300 shadow-sm hover:shadow-md hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
+                                >
+                                    {loading ? <Loader2 className="animate-spin h-4 w-4" /> : <ChevronDown size={16} />}
+                                    Load More Students
+                                </button>
+                            </div>
+                        )}
                     </div>
 
-                    {/* MOBILE LIST Wrapper - Only this scrolls */}
+                    {/* MOBILE LIST Wrapper */}
                     <div className="md:hidden flex-1 overflow-y-auto p-4 custom-scrollbar relative">
-                         {paginatedStudents.length > 0 && (
+                         {filteredStudents.length > 0 && (
                             <div className="flex items-center gap-3 px-5 py-4 bg-white/80 dark:bg-[#1e1e1e]/90 backdrop-blur-xl rounded-[1.5rem] mb-4 border border-white/20 dark:border-white/5 sticky top-0 z-20 shadow-sm">
                                 <div className="relative flex items-center justify-center w-5 h-5">
                                     <input
@@ -541,32 +604,34 @@ const StudentManagementView = () => {
                                     />
                                     <CheckCircleIcon className="absolute w-5 h-5 text-white pointer-events-none opacity-0 peer-checked:opacity-100 transition-all scale-50 peer-checked:scale-100" />
                                 </div>
-                                <span className="font-bold text-slate-700 dark:text-slate-200 text-sm">Select All ({paginatedStudents.length})</span>
+                                <span className="font-bold text-slate-700 dark:text-slate-200 text-sm">Select All ({filteredStudents.length})</span>
                             </div>
                         )}
-                        {paginatedStudents.map(user => (
+                        {filteredStudents.map(user => (
                             <StudentMobileCard 
                                 key={user.id} 
                                 user={user} 
                                 enrolledClasses={enrolledClassesMap.get(user.id) || []}
-                                onEdit={() => { setSelectedUser(user); setIsEditUserModalOpen(true); }} 
+                                onEdit={handleEditClick} 
                                 isSelected={selectedStudentIds.has(user.id)}
-                                onSelect={() => handleSelectStudent(user.id)}
+                                onSelect={handleSelectStudent}
                                 theme={theme}
                             />
                         ))}
-                    </div>
-
-                    {/* FIXED FOOTER (PAGINATION) */}
-                    {totalPages > 1 && (
-                        <div className="flex-none p-4 border-t border-white/20 dark:border-white/5 bg-white/40 dark:bg-white/5 flex justify-between items-center backdrop-blur-md">
-                            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 ml-2">Page {currentPage} of {totalPages}</span>
-                            <div className="flex gap-2">
-                                <button onClick={() => setCurrentPage(p => Math.max(1, p-1))} disabled={currentPage===1} className="p-2.5 bg-white dark:bg-white/10 rounded-xl hover:bg-slate-50 dark:hover:bg-white/20 disabled:opacity-50 shadow-sm transition-all"><ChevronLeft size={16}/></button>
-                                <button onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))} disabled={currentPage===totalPages} className="p-2.5 bg-white dark:bg-white/10 rounded-xl hover:bg-slate-50 dark:hover:bg-white/20 disabled:opacity-50 shadow-sm transition-all"><ChevronRight size={16}/></button>
+                        
+                        {/* LOAD MORE BUTTON (Mobile) */}
+                        {hasMore && (
+                            <div className="py-6 flex justify-center">
+                                <button
+                                    onClick={() => fetchStudents(true)}
+                                    className="flex items-center gap-2 px-6 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full text-sm font-semibold text-slate-600 dark:text-slate-300 shadow-sm hover:shadow-md hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
+                                >
+                                    {loading ? <Loader2 className="animate-spin h-4 w-4" /> : <ChevronDown size={16} />}
+                                    Load More
+                                </button>
                             </div>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </>
             )}
         </div>
@@ -589,7 +654,7 @@ const StudentManagementView = () => {
           selectedStudentIds={Array.from(selectedStudentIds)}
           firestoreService={firestoreService}
           showToast={showToast}
-          onImportSuccess={() => { fetchData(); setSelectedStudentIds(new Set()); setIsImportModalOpen(false); }}
+          onImportSuccess={() => { setSelectedStudentIds(new Set()); setIsImportModalOpen(false); fetchStudents(false); }}
           userProfile={userProfile} 
         />
       )}

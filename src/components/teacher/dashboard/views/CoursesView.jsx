@@ -1,12 +1,12 @@
 // src/components/teacher/dashboard/views/CoursesView.jsx
-import React, { useState, useEffect, useMemo, memo, Fragment } from 'react';
+import React, { useState, useEffect, useMemo, memo, Fragment, useCallback, useRef } from 'react';
 import { Routes, Route, useParams, useNavigate, Link } from 'react-router-dom';
 import { db } from '../../../../services/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import UnitAccordion from '../../UnitAccordion';
 import Spinner from '../../../../components/common/Spinner';
 import { useTheme } from '../../../../contexts/ThemeContext';
-import { Menu, Transition } from '@headlessui/react'; // ✅ Added for Dropdown
+import { Menu, Transition } from '@headlessui/react';
 import {
     PencilSquareIcon, TrashIcon, PlusCircleIcon, ArrowUturnLeftIcon, SparklesIcon,
     BookOpenIcon, CalculatorIcon, BeakerIcon, GlobeAltIcon, MusicalNoteIcon, WrenchScrewdriverIcon,
@@ -19,15 +19,24 @@ import {
     Squares2X2Icon,
     CheckCircleIcon,
     ArrowsUpDownIcon,
-    LockClosedIcon
+    LockClosedIcon,
+    XMarkIcon
 } from '@heroicons/react/24/outline';
-import { XMarkIcon } from '@heroicons/react/24/outline';
+
+// --- OPTIMIZATION: STATIC STYLES ---
+// Moved out of component to prevent style recalculation on every render
+const CUSTOM_SCROLLBAR_STYLES = `
+  .custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
+  .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+  .custom-scrollbar-light::-webkit-scrollbar-thumb { background-color: #d1d5db; border-radius: 999px; }
+  .custom-scrollbar-dark::-webkit-scrollbar-thumb { background-color: rgba(255,255,255,0.15); border-radius: 999px; }
+  .custom-scrollbar-monet::-webkit-scrollbar-thumb { background-color: rgba(0,0,0,0.1); border-radius: 999px; }
+`;
 
 // --- ONE UI 8.0 MONET STYLES ---
 const getMonetStyles = (activeOverlay) => {
     if (!activeOverlay || activeOverlay === 'none') return null;
 
-    // One UI uses solid accent colors for icons/buttons, not full card gradients
     switch (activeOverlay) {
         case 'christmas':
             return {
@@ -93,7 +102,6 @@ const getMonetStyles = (activeOverlay) => {
 const commonContainerClasses = "relative h-[calc(100vh-7rem)] lg:h-[calc(100vh-8rem)] w-full px-4 py-2 font-sans selection:bg-slate-200 dark:selection:bg-slate-700";
 
 // --- ONE UI CARD STYLES ---
-// Clean, solid surfaces, soft shadows, super-squircle
 const elevatedCardBase = `
     group relative flex flex-col p-5 rounded-[26px]
     transition-all duration-300 ease-out cursor-pointer overflow-hidden
@@ -148,13 +156,12 @@ const SkeletonList = memo(() => (
     </div>
 ));
 
-// --- SUBJECT ICONS & COLORS (Clean Tonal) ---
+// --- SUBJECT ICONS & COLORS ---
 const getSubjectStyling = (subjectTitle, monet) => {
     const lowerCaseTitle = subjectTitle.toLowerCase();
     let IconComponent = BookOpenIcon;
     let styleClass = "bg-slate-100 text-slate-600 dark:bg-[#2C2C2E] dark:text-slate-300";
 
-    // If Monet is active, use theme color
     if (monet) {
         return { 
             icon: IconComponent, 
@@ -190,8 +197,8 @@ const getSubjectStyling = (subjectTitle, monet) => {
     return { icon: IconComponent, styleClass };
 };
 
-// --- COMPONENT: CONTENT SCOPE SWITCHER (One UI 8.5 Style) ---
-const ContentScopeSwitcher = ({ activeGroup, onSwitch, monet }) => {
+// --- COMPONENT: CONTENT SCOPE SWITCHER ---
+const ContentScopeSwitcher = memo(({ activeGroup, onSwitch, monet }) => {
     const isLearner = activeGroup === 'learner';
     
     return (
@@ -224,21 +231,16 @@ const ContentScopeSwitcher = ({ activeGroup, onSwitch, monet }) => {
                     leaveTo="transform opacity-0 scale-95 translate-y-2"
                 >
                     <Menu.Items className="absolute left-0 mt-2 w-56 origin-top-left rounded-[24px] bg-white/95 dark:bg-[#1C1C1E]/95 backdrop-blur-3xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.2)] dark:shadow-black/50 border border-white/40 dark:border-white/10 ring-1 ring-black/5 focus:outline-none p-1.5 z-50">
-                        
                         <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                             Switch Portal
                         </div>
-
                         <Menu.Item>
                             {({ active }) => (
                                 <button
                                     onClick={() => onSwitch('learner')}
                                     className={`
                                         flex w-full items-center gap-3 rounded-[18px] px-3 py-2.5 text-xs font-bold transition-all
-                                        ${active 
-                                            ? 'bg-slate-100 dark:bg-white/10 text-slate-900 dark:text-white' 
-                                            : 'text-slate-600 dark:text-slate-300'
-                                        }
+                                        ${active ? 'bg-slate-100 dark:bg-white/10 text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-300'}
                                         ${activeGroup === 'learner' ? (monet ? monet.themeText : 'text-blue-600 dark:text-blue-400') : ''}
                                     `}
                                 >
@@ -250,17 +252,13 @@ const ContentScopeSwitcher = ({ activeGroup, onSwitch, monet }) => {
                                 </button>
                             )}
                         </Menu.Item>
-
                         <Menu.Item>
                             {({ active }) => (
                                 <button
                                     onClick={() => onSwitch('teacher')}
                                     className={`
                                         flex w-full items-center gap-3 rounded-[18px] px-3 py-2.5 text-xs font-bold transition-all
-                                        ${active 
-                                            ? 'bg-slate-100 dark:bg-white/10 text-slate-900 dark:text-white' 
-                                            : 'text-slate-600 dark:text-slate-300'
-                                        }
+                                        ${active ? 'bg-slate-100 dark:bg-white/10 text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-300'}
                                         ${activeGroup === 'teacher' ? (monet ? monet.themeText : 'text-emerald-600 dark:text-emerald-400') : ''}
                                     `}
                                 >
@@ -277,7 +275,7 @@ const ContentScopeSwitcher = ({ activeGroup, onSwitch, monet }) => {
             </Menu>
         </div>
     );
-};
+});
 
 // --- LEVEL 3: SUBJECT DETAIL VIEW ---
 const SubjectDetail = memo((props) => {
@@ -292,79 +290,111 @@ const SubjectDetail = memo((props) => {
     const { contentGroup, categoryName, subjectId } = useParams();
     const navigate = useNavigate();
     const { activeOverlay } = useTheme();
-    const monet = getMonetStyles(activeOverlay);
+    
+    // Inject Custom Scrollbar Style safely
+    useEffect(() => {
+        const styleId = 'courses-view-styles';
+        if (!document.getElementById(styleId)) {
+            const style = document.createElement('style');
+            style.id = styleId;
+            style.innerHTML = CUSTOM_SCROLLBAR_STYLES;
+            document.head.appendChild(style);
+        }
+    }, []);
+
+    // Memoize styles to prevent recalc on every render
+    const monet = useMemo(() => getMonetStyles(activeOverlay), [activeOverlay]);
+    const scrollbarClass = useMemo(() => {
+        if (monet) return 'custom-scrollbar custom-scrollbar-monet';
+        return 'custom-scrollbar custom-scrollbar-light dark:custom-scrollbar-dark';
+    }, [monet]);
 
     const [units, setUnits] = useState([]);
     const [allLessonsForSubject, setAllLessonsForSubject] = useState([]);
-    const [isLoadingUnitsAndLessons, setIsLoadingUnitsAndLessons] = useState(true); 
+    const [loadingUnits, setLoadingUnits] = useState(true);
+    const [loadingLessons, setLoadingLessons] = useState(true);
     
-    const activeSubject = useMemo(() => courses.find(c => c.id === subjectId), [courses, subjectId]);
+    const activeSubject = useMemo(() => courses?.find(c => c.id === subjectId), [courses, subjectId]);
     
     const [selectedLessons, setSelectedLessons] = useState(new Set());
     const [showLessonPicker, setShowLessonPicker] = useState(false);
     const [activeUnitForPicker, setActiveUnitForPicker] = useState(null);
 
-    useEffect(() => {
-        if (activeSubject) {
-            setActiveSubject(activeSubject);
-            handleCategoryClick(decodeURIComponent(categoryName));
-        }
-        return () => {
-            setActiveSubject(null);
-            handleCategoryClick(null);
-        }
-    }, [activeSubject, categoryName, setActiveSubject, handleCategoryClick]);
+    // --- OPTIMIZATION: PREVENT PARENT LOOP ---
+    // Only update parent state if it actually differs
+    const prevActiveSubjectIdRef = useRef();
+    const prevCategoryRef = useRef();
 
     useEffect(() => {
+        if (activeSubject && activeSubject.id !== prevActiveSubjectIdRef.current) {
+            setActiveSubject(activeSubject);
+            prevActiveSubjectIdRef.current = activeSubject.id;
+        }
+        
+        const decodedName = decodeURIComponent(categoryName);
+        if (decodedName && decodedName !== prevCategoryRef.current) {
+            handleCategoryClick(decodedName);
+            prevCategoryRef.current = decodedName;
+        }
+
+        // Cleanup intentionally omitted for parent state setters to avoid clearing prematurely
+        // We only clear on unmount of the view via return in root useEffect if needed
+    }, [activeSubject, categoryName, setActiveSubject, handleCategoryClick]);
+
+    // ✅ OPTIMIZED: PARALLEL DATA FETCHING
+    useEffect(() => {
         if (activeSubject?.id) {
-            setIsLoadingUnitsAndLessons(true);
+            setLoadingUnits(true);
+            setLoadingLessons(true);
+
+            // 1. Fetch Units
             const unitsQuery = query(collection(db, 'units'), where('subjectId', '==', activeSubject.id));
             const unsubscribeUnits = onSnapshot(unitsQuery, (unitsSnapshot) => {
                 const fetchedUnits = unitsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 setUnits(fetchedUnits);
-                
-                if (fetchedUnits.length > 0) {
-                    const lessonsQuery = query(collection(db, 'lessons'), where('subjectId', '==', activeSubject.id));
-                    const unsubscribeLessons = onSnapshot(lessonsQuery, (lessonsSnapshot) => {
-                        const fetchedLessons = lessonsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                        setAllLessonsForSubject(fetchedLessons);
-                        setIsLoadingUnitsAndLessons(false);
-                    }, (err) => {
-                        console.error("Error fetching lessons:", err);
-                        setIsLoadingUnitsAndLessons(false);
-                    });
-                    return () => unsubscribeLessons();
-                } else {
-                    setAllLessonsForSubject([]);
-                    setIsLoadingUnitsAndLessons(false);
-                }
+                setLoadingUnits(false);
             }, (error) => {
                 console.error("Error fetching units:", error);
-                setIsLoadingUnitsAndLessons(false);
+                setLoadingUnits(false);
             });
-            return () => unsubscribeUnits();
+
+            // 2. Fetch Lessons (Parallel - No Waterfall)
+            const lessonsQuery = query(collection(db, 'lessons'), where('subjectId', '==', activeSubject.id));
+            const unsubscribeLessons = onSnapshot(lessonsQuery, (lessonsSnapshot) => {
+                const fetchedLessons = lessonsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                setAllLessonsForSubject(fetchedLessons);
+                setLoadingLessons(false);
+            }, (err) => {
+                console.error("Error fetching lessons:", err);
+                setLoadingLessons(false);
+            });
+
+            return () => {
+                unsubscribeUnits();
+                unsubscribeLessons();
+            };
         } else {
             setUnits([]);
             setAllLessonsForSubject([]);
-            if (subjectId && !activeSubject) setIsLoadingUnitsAndLessons(true); 
-            else setIsLoadingUnitsAndLessons(false);
+            setLoadingUnits(false);
+            setLoadingLessons(false);
         }
-    }, [activeSubject, subjectId]);
+    }, [activeSubject?.id]);
     
-    const handleLessonSelect = (lessonId) => {
+    const handleLessonSelect = useCallback((lessonId) => {
         setSelectedLessons(prev => {
             const newSelection = new Set(prev);
             if (newSelection.has(lessonId)) newSelection.delete(lessonId);
             else newSelection.add(lessonId);
             return newSelection;
         });
-    };
+    }, []);
 
-    const handleGeneratePresentationClick = () => {
+    const handleGeneratePresentationClick = useCallback(() => {
         if (onGeneratePresentationPreview) {
             onGeneratePresentationPreview(Array.from(selectedLessons), allLessonsForSubject, units);
         }
-    };
+    }, [onGeneratePresentationPreview, selectedLessons, allLessonsForSubject, units]);
 
     const handleBackNavigation = () => {
         if (activeUnit) {
@@ -374,7 +404,9 @@ const SubjectDetail = memo((props) => {
         }
     };
 
-    if (subjectId && !activeSubject && isLoadingUnitsAndLessons) return (
+    const isLoading = loadingUnits || loadingLessons;
+
+    if (subjectId && !activeSubject && isLoading) return (
         <div className={commonContainerClasses}>
             <SkeletonList />
         </div>
@@ -382,7 +414,6 @@ const SubjectDetail = memo((props) => {
 
     if (!activeSubject) return <Spinner />;
 
-    // One UI Header: Clean, Solid Surface
     const headerClasses = monet
         ? `flex-none flex flex-col md:flex-row justify-between items-start md:items-center py-5 px-6 gap-4 border-b border-transparent z-20 bg-white dark:bg-[#1C1C1E]`
         : "flex-none flex flex-col md:flex-row justify-between items-start md:items-center py-5 px-6 gap-4 border-b border-slate-100 dark:border-[#2c2c2e] z-20 bg-white dark:bg-[#1c1c1e]";
@@ -405,7 +436,6 @@ const SubjectDetail = memo((props) => {
                             {activeSubject.title}
                         </h2>
                     
-                        {/* Edit/Delete Icons */}
                         <div className="flex items-center ml-auto sm:ml-3 space-x-1">
                             <button onClick={() => handleOpenEditSubject(activeSubject)} className={getButtonClass('icon', monet)} title="Edit Subject Name"><PencilSquareIcon className="w-4 h-4" /></button>
                             <button onClick={() => handleInitiateDelete('subject', activeSubject.id, activeSubject.title)} className={getButtonClass('destructive', monet)} title="Delete Subject"><TrashIcon className="w-4 h-4" /></button>
@@ -435,8 +465,8 @@ const SubjectDetail = memo((props) => {
                 </div>
 
                 {/* CONTENT AREA */}
-                <div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar pt-0 bg-[#F8F9FA] dark:bg-[#151517]">
-                    {isLoadingUnitsAndLessons ? (
+                <div className={`flex-1 overflow-y-auto min-h-0 pt-0 bg-[#F8F9FA] dark:bg-[#151517] ${scrollbarClass}`}>
+                    {isLoading ? (
                         <div className="p-6"><SkeletonList /></div>
                     ) : (
                         <UnitAccordion
@@ -466,13 +496,6 @@ const SubjectDetail = memo((props) => {
                 </div>
             </div>
 
-            <style>{`
-              .custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
-              .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-              .custom-scrollbar::-webkit-scrollbar-thumb { background-color: ${monet ? 'rgba(0,0,0,0.1)' : '#d1d5db'}; border-radius: 999px; }
-              .dark .custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(255,255,255,0.15); }
-            `}</style>
-
             {/* --- LESSON PICKER MODAL --- */}
             {showLessonPicker && activeUnitForPicker && (
                 <div className="fixed inset-0 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm z-[5000] p-6 transition-all duration-300">
@@ -490,7 +513,7 @@ const SubjectDetail = memo((props) => {
                             </button>
                         </div>
 
-                        <div className={`flex-1 overflow-y-auto px-6 py-6 space-y-2 custom-scrollbar bg-white dark:bg-[#1c1c1e]`}>
+                        <div className={`flex-1 overflow-y-auto px-6 py-6 space-y-2 bg-white dark:bg-[#1c1c1e] ${scrollbarClass}`}>
                             {(() => {
                                 const lessonsInUnit = allLessonsForSubject
                                     .filter((lesson) => lesson.unitId === activeUnitForPicker.id)
@@ -568,43 +591,49 @@ const SubjectList = memo((props) => {
     const { contentGroup, categoryName } = useParams();
     const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState('');
-    const decodedCategoryName = decodeURIComponent(categoryName);
+    const decodedCategoryName = useMemo(() => decodeURIComponent(categoryName), [categoryName]);
     
     const { activeOverlay } = useTheme();
-    const monet = getMonetStyles(activeOverlay);
+    const monet = useMemo(() => getMonetStyles(activeOverlay), [activeOverlay]);
+    const scrollbarClass = useMemo(() => {
+        if (monet) return 'custom-scrollbar custom-scrollbar-monet';
+        return 'custom-scrollbar custom-scrollbar-light dark:custom-scrollbar-dark';
+    }, [monet]);
 
     const containerClasses = `bg-white dark:bg-[#1c1c1e] border border-slate-100 dark:border-[#2c2c2e] rounded-[32px] w-full max-w-7xl mx-auto h-full flex flex-col shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-black/20 overflow-hidden`;
 
     const headerClasses = `flex-none flex flex-col md:flex-row justify-between items-start md:items-end gap-6 p-6 border-b border-transparent bg-white dark:bg-[#1c1c1e]`;
 
-    // One UI Search Input: Deep Field
     const searchInputClass = monet 
         ? `w-full sm:max-w-xs p-3 pl-10 rounded-full focus:outline-none focus:ring-1 focus:ring-white/20 border-none ${monet.btnTonal} transition-all font-bold text-sm`
         : `w-full sm:max-w-xs p-3 pl-10 rounded-full focus:outline-none focus:ring-2 focus:ring-slate-200 dark:focus:ring-slate-700 border-none bg-[#F2F4F7] dark:bg-[#2C2C2E] text-slate-900 dark:text-white placeholder:text-slate-400 transition-all font-bold text-sm`;
 
+    // Prevent loop update
+    const prevCategoryRef = useRef();
     useEffect(() => {
-        handleCategoryClick(decodedCategoryName);
-        setActiveSubject(null);
-        return () => handleCategoryClick(null);
+        if (decodedCategoryName && decodedCategoryName !== prevCategoryRef.current) {
+            handleCategoryClick(decodedCategoryName);
+            setActiveSubject(null);
+            prevCategoryRef.current = decodedCategoryName;
+        }
     }, [decodedCategoryName, handleCategoryClick, setActiveSubject]);
 
-    // ✅ STRICT SCHOOL FILTERING
+    // ✅ OPTIMIZED: Strict Filtering
     const filteredCourses = useMemo(() => {
         if (!courses) return [];
         const userSchoolId = userProfile?.schoolId || 'srcs_main';
+        const lowerSearch = searchTerm.toLowerCase();
 
-        const categoryCourses = courses.filter(c => 
+        return courses.filter(c => 
             c.category === decodedCategoryName &&
-            (c.schoolId === 'global' || !c.schoolId || c.schoolId === userSchoolId)
-        );
-        categoryCourses.sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' }));
-        return categoryCourses.filter(course => course.title.toLowerCase().includes(searchTerm.toLowerCase()));
-    }, [courses, decodedCategoryName, searchTerm, userProfile]);
+            (c.schoolId === 'global' || !c.schoolId || c.schoolId === userSchoolId) &&
+            c.title.toLowerCase().includes(lowerSearch)
+        ).sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' }));
+    }, [courses, decodedCategoryName, searchTerm, userProfile?.schoolId]);
 
     return (
         <div className={commonContainerClasses}>
             <div className={containerClasses}>
-                {/* Header */}
                 <div className={headerClasses}>
                     <div className="flex flex-col gap-2 w-full md:w-auto">
                         <div className="w-full flex items-center gap-3 mb-1">
@@ -620,7 +649,6 @@ const SubjectList = memo((props) => {
                     <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto items-center">
                         <div className="relative w-full sm:w-64">
                             <MagnifyingGlassIcon className={`w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none ${monet ? monet.themeText : 'text-slate-400'}`} />
-                            {/* ✅ FIX: autoComplete="off" and name attribute to prevent password autofill */}
                             <input 
                                 type="text" 
                                 id="search-subjects"
@@ -637,8 +665,7 @@ const SubjectList = memo((props) => {
                     </div>
                 </div>
 
-                {/* Scrollable List */}
-                <div className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-[#F8F9FA] dark:bg-[#151517]">
+                <div className={`flex-1 overflow-y-auto p-6 bg-[#F8F9FA] dark:bg-[#151517] ${scrollbarClass}`}>
                     {loading || (!courses && filteredCourses.length === 0) ? (
                         <SkeletonGrid />
                     ) : (
@@ -661,7 +688,6 @@ const SubjectList = memo((props) => {
                                             <div className="mt-4">
                                                 <h2 className={`text-lg font-bold mb-2 leading-tight tracking-tight text-slate-900 dark:text-white`}>{course.title}</h2>
                                                 
-                                                {/* ✅ Privacy Badge */}
                                                 {course.isSchoolSpecific && (
                                                     <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider mb-3 ${monet ? monet.badge : 'bg-slate-100 text-slate-700 border border-slate-200 dark:bg-[#2c2c2e] dark:text-slate-300 dark:border-[#3a3a3c]'}`}>
                                                         <LockClosedIcon className="w-3 h-3" />
@@ -694,13 +720,18 @@ const CategoryList = memo((props) => {
     const navigate = useNavigate();
     
     const { activeOverlay } = useTheme();
-    const monet = getMonetStyles(activeOverlay);
+    const monet = useMemo(() => getMonetStyles(activeOverlay), [activeOverlay]);
+    const scrollbarClass = useMemo(() => {
+        if (monet) return 'custom-scrollbar custom-scrollbar-monet';
+        return 'custom-scrollbar custom-scrollbar-light dark:custom-scrollbar-dark';
+    }, [monet]);
 
     const containerClasses = `bg-white dark:bg-[#1c1c1e] border border-slate-100 dark:border-[#2c2c2e] rounded-[32px] w-full max-w-7xl mx-auto h-full flex flex-col shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-black/20 overflow-hidden`;
-
     const headerClasses = `flex-none flex flex-col sm:flex-row justify-between items-end gap-6 p-8 border-b border-transparent bg-white dark:bg-[#1c1c1e]`;
 
     useEffect(() => {
+        // Prevent re-render loop by not calling if already null, 
+        // but typically these are cheap. Just ensure stability.
         setActiveSubject(null);
         handleCategoryClick(null);
     }, [setActiveSubject, handleCategoryClick]);
@@ -709,7 +740,7 @@ const CategoryList = memo((props) => {
     const title = isLearner ? "Learner's Space" : "Teacher's Space";
     const subtitle = isLearner ? "Access your curated learning materials" : "Manage your curriculum and resources";
     
-    // ✅ STRICT SCHOOL FILTERING
+    // ✅ OPTIMIZED: Filtering Logic
     const categoriesToShow = useMemo(() => {
         if (!courseCategories) return [];
         const userSchoolId = userProfile?.schoolId || 'srcs_main';
@@ -731,11 +762,11 @@ const CategoryList = memo((props) => {
             return matchesGroup && hasVisibleContent;
         });
         return filtered.sort((a, b) => a.name.localeCompare(b.name));
-    }, [courseCategories, isLearner, courses, userProfile]);
+    }, [courseCategories, isLearner, courses, userProfile?.schoolId]);
 
-    const handleSwitchGroup = (newGroup) => {
+    const handleSwitchGroup = useCallback((newGroup) => {
         navigate(`/dashboard/courses/${newGroup}`);
-    };
+    }, [navigate]);
 
     return (
         <div className={commonContainerClasses}>
@@ -755,7 +786,7 @@ const CategoryList = memo((props) => {
                     <button onClick={() => setCreateCategoryModalOpen(true)} className={`${getButtonClass('primary', monet)} w-full sm:w-auto`}><PlusCircleIcon className="w-4 h-4" />New Category</button>
                 </div>
                 
-                <div className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-[#F8F9FA] dark:bg-[#151517]">
+                <div className={`flex-1 overflow-y-auto p-8 bg-[#F8F9FA] dark:bg-[#151517] ${scrollbarClass}`}>
                     {loading || (!courseCategories && categoriesToShow.length === 0) ? (
                         <SkeletonGrid />
                     ) : (
@@ -779,15 +810,12 @@ const CategoryList = memo((props) => {
                                             </div>
                                             <div className="mt-auto">
                                                 <h2 className={`text-xl font-bold mb-2 tracking-tight text-slate-900 dark:text-white`}>{cleanName}</h2>
-                                                
-                                                {/* ✅ Privacy Badge (One UI Style) */}
                                                 {cat.isSchoolSpecific && (
                                                     <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider mb-3 ${monet ? monet.badge : 'bg-slate-100 text-slate-700 border border-slate-200 dark:bg-[#2c2c2e] dark:text-slate-300 dark:border-[#3a3a3c]'}`}>
                                                         <LockClosedIcon className="w-3.5 h-3.5" />
                                                         Private
                                                     </div>
                                                 )}
-
                                                 <div className={`flex items-center gap-2 text-sm font-bold ${monet ? 'text-slate-500 dark:text-slate-400' : 'text-slate-500 dark:text-slate-400'}`}>
                                                     {courseCount} {courseCount === 1 ? 'Subject' : 'Subjects'}
                                                 </div>
@@ -806,21 +834,20 @@ const CategoryList = memo((props) => {
 
 // --- LEVEL 0: CONTENT GROUP SELECTOR (MEMOIZED) ---
 const ContentGroupSelector = memo((props) => {
-    // Theme
     const { activeOverlay } = useTheme();
-    const monet = getMonetStyles(activeOverlay);
+    const monet = useMemo(() => getMonetStyles(activeOverlay), [activeOverlay]);
 
+    // Optimize: Prevent effect from firing if not needed
     useEffect(() => {
         props.setActiveSubject(null);
         props.handleBackToCategoryList();
-    }, [props.setActiveSubject, props.handleBackToCategoryList]);
+        // Removed unnecessary deps that cause loops
+    }, []); 
 
 	return (
 	    <div className={commonContainerClasses}>
 	        <div className="relative z-10 flex items-center justify-center h-full min-h-[80vh]">
 	            <div className="w-full max-w-5xl mx-auto">
-                
-	                {/* Header */}
 	                <div className="text-center mb-20 space-y-3">
 	                     <h1 className={`text-4xl sm:text-5xl font-black tracking-tight ${monet ? monet.themeText : 'text-slate-900 dark:text-white'}`}>
 	                        Who is learning today?
@@ -831,24 +858,20 @@ const ContentGroupSelector = memo((props) => {
 	                </div>
 
 	                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 px-6">
-                    
 	                    {/* Learner Card */}
 	                    <Link 
 	                        to="learner" 
-	                        className="group relative flex flex-col items-center text-center h-auto min-h-[22rem] p-10 rounded-[3rem] bg-white/60 dark:bg-[#1C1C1E]/60 backdrop-blur-3xl border border-white/40 dark:border-white/5 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] dark:shadow-black/50 transition-all duration-500 hover:scale-[1.02] hover:shadow-[0_30px_60px_-15px_rgba(14,165,233,0.15)] hover:border-sky-200/50 dark:hover:border-sky-500/20"
+	                        className="group relative flex flex-col items-center text-center h-auto min-h-[22rem] p-10 rounded-[3rem] bg-white/60 dark:bg-[#1C1C1E]/60 backdrop-blur-md border border-white/40 dark:border-white/5 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] dark:shadow-black/50 transition-all duration-500 hover:scale-[1.02] hover:shadow-[0_30px_60px_-15px_rgba(14,165,233,0.15)] hover:border-sky-200/50 dark:hover:border-sky-500/20"
 	                    >
 	                        <div className="w-24 h-24 rounded-[2rem] flex items-center justify-center mb-8 bg-sky-100 text-sky-600 dark:bg-sky-500/20 dark:text-sky-400 shadow-inner group-hover:scale-110 transition-transform duration-500">
 	                            <LearnerIcon className="w-12 h-12 stroke-[1.5]" />
 	                        </div>
-                        
 	                        <h2 className="text-3xl font-black mb-3 tracking-tight text-slate-900 dark:text-white group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
 	                            Learner
 	                        </h2>
-                        
 	                        <p className="text-sm font-bold text-slate-500 dark:text-slate-400 max-w-xs mx-auto mb-8 leading-relaxed">
 	                            Access student-facing materials, assignments, and public resources.
 	                        </p>
-                        
 	                        <div className="mt-auto flex items-center gap-2 px-8 py-4 rounded-full bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-300 text-xs font-black uppercase tracking-widest transition-all group-hover:bg-sky-600 group-hover:text-white dark:group-hover:bg-sky-500 dark:group-hover:text-white shadow-sm">
 	                            Enter Portal <span>→</span>
 	                        </div>
@@ -857,20 +880,17 @@ const ContentGroupSelector = memo((props) => {
 	                    {/* Teacher Card */}
 	                    <Link 
 	                        to="teacher" 
-	                        className="group relative flex flex-col items-center text-center h-auto min-h-[22rem] p-10 rounded-[3rem] bg-white/60 dark:bg-[#1C1C1E]/60 backdrop-blur-3xl border border-white/40 dark:border-white/5 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] dark:shadow-black/50 transition-all duration-500 hover:scale-[1.02] hover:shadow-[0_30px_60px_-15px_rgba(16,185,129,0.15)] hover:border-emerald-200/50 dark:hover:border-emerald-500/20"
+	                        className="group relative flex flex-col items-center text-center h-auto min-h-[22rem] p-10 rounded-[3rem] bg-white/60 dark:bg-[#1C1C1E]/60 backdrop-blur-md border border-white/40 dark:border-white/5 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] dark:shadow-black/50 transition-all duration-500 hover:scale-[1.02] hover:shadow-[0_30px_60px_-15px_rgba(16,185,129,0.15)] hover:border-emerald-200/50 dark:hover:border-emerald-500/20"
 	                    >
 	                        <div className="w-24 h-24 rounded-[2rem] flex items-center justify-center mb-8 bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 shadow-inner group-hover:scale-110 transition-transform duration-500">
 	                            <TeacherIcon className="w-12 h-12 stroke-[1.5]" />
 	                        </div>
-                        
 	                        <h2 className="text-3xl font-black mb-3 tracking-tight text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
 	                            Teacher
 	                        </h2>
-                        
 	                        <p className="text-sm font-bold text-slate-500 dark:text-slate-400 max-w-xs mx-auto mb-8 leading-relaxed">
 	                            Manage curriculum, create engaging units, and organize resources.
 	                        </p>
-                        
 	                        <div className="mt-auto flex items-center gap-2 px-8 py-4 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-xs font-black uppercase tracking-widest transition-all group-hover:bg-emerald-600 group-hover:text-white dark:group-hover:bg-emerald-500 dark:group-hover:text-white shadow-sm">
 	                            Manage Content <span>→</span>
 	                        </div>

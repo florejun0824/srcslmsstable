@@ -10,9 +10,13 @@ const sanitizeError = (text) => {
 };
 
 // --- ENVIRONMENT SETUP ---
-const PROD_API_URL = import.meta.env.VITE_API_BASE_URL;
+// Point strictly to your Vercel backend where the API folder lives
+const PROD_API_URL = "https://srcslms.vercel.app"; 
+
 const isNative = Capacitor.isNativePlatform();
-const API_BASE = isNative ? PROD_API_URL : '';
+
+// Always use the Vercel URL, whether you are on Mobile or the new Firebase Site
+const API_BASE = PROD_API_URL;
 
 // --- CONFIGURATION ---
 // TIER 1: OpenRouter (Xiaomi MiMo V2) - FREE & FAST

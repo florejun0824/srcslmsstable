@@ -1,6 +1,6 @@
 // src/components/teacher/dashboard/views/components/ViewLessonModal.jsx
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Dialog, Menu } from '@headlessui/react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
+import { Dialog } from '@headlessui/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     XMarkIcon,
@@ -30,7 +30,6 @@ import { useTheme } from '../../contexts/ThemeContext';
 // --- ONE UI 8.5 MONET STYLES ---
 const getMonetStyles = (activeOverlay) => {
     if (!activeOverlay || activeOverlay === 'none') return null;
-    
     switch (activeOverlay) {
         case 'christmas': return { text: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-200 dark:border-emerald-800' };
         case 'valentines': return { text: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-900/20', border: 'border-rose-200 dark:border-rose-800' };
@@ -43,7 +42,7 @@ const getMonetStyles = (activeOverlay) => {
     }
 };
 
-// --- OPTIMIZED ANIMATIONS ---
+// --- ANIMATION VARIANTS ---
 const backdropVariants = {
     hidden: { opacity: 0 },
     visible: { opacity: 1, transition: { duration: 0.2 } },
@@ -59,11 +58,24 @@ const modalVariants = {
     exit: { opacity: 0, scale: 0.98, y: 15, transition: { duration: 0.15 } },
 };
 
-const pageVariants = {
-    hidden: { opacity: 0, y: 10 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.25, ease: "easeOut" } },
-    exit: { opacity: 0, y: -10, transition: { duration: 0.15 } }
-};
+// --- OPTIMIZATION: Memoized Vertical Page Item ---
+// Prevents every page from re-rendering when you click a button in the header
+const VerticalLessonItem = memo(({ page, index, titleStyle }) => (
+    <div className="relative group">
+        <div className="flex items-center gap-4 mb-6 opacity-40">
+            <span className="text-[10px] font-black uppercase tracking-widest">Page {index + 1}</span>
+            <div className="h-px flex-1 bg-slate-300 dark:bg-white/20"></div>
+        </div>
+        <div className="prose prose-sm sm:prose-base dark:prose-invert max-w-none">
+            {page.title && (
+                <h2 className={`text-2xl font-black mb-4 tracking-tight ${titleStyle}`}>{page.title}</h2>
+            )}
+            <div className="text-slate-700 dark:text-slate-300 leading-relaxed">
+                <LessonPage page={page} isEditable={false} />
+            </div>
+        </div>
+    </div>
+));
 
 export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, className }) {
     const [currentPage, setCurrentPage] = useState(0);
@@ -73,8 +85,6 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
     const { showToast } = useToast();
     const { activeOverlay } = useTheme(); 
     const [isFinalizing, setIsFinalizing] = useState(false);
-    
-    // Page Nav Dropdown State
     const [isPageNavOpen, setIsPageNavOpen] = useState(false);
     
     const contentRef = useRef(null);
@@ -101,27 +111,34 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
     
     const pageData = useMemo(() => pages[currentPage], [pages, currentPage]);
 
+    const scrollToTop = () => {
+        if (contentRef.current) {
+            contentRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    };
+
     // Navigation
     const goToNextPage = useCallback(() => { 
         if (currentPage < totalPages - 1) { 
             setCurrentPage(prev => prev + 1); 
-            if (contentRef.current) contentRef.current.scrollTop = 0; 
+            scrollToTop();
         } 
     }, [currentPage, totalPages]);
 
     const goToPreviousPage = useCallback(() => { 
         if (currentPage > 0) { 
             setCurrentPage(prev => prev - 1); 
-            if (contentRef.current) contentRef.current.scrollTop = 0; 
+            scrollToTop();
         } 
     }, [currentPage]);
 
     const jumpToPage = (index) => {
         setCurrentPage(index);
         setIsPageNavOpen(false);
-        if (contentRef.current) contentRef.current.scrollTop = 0;
+        scrollToTop();
     };
 
+    // Keyboard & Swipe Logic
     useEffect(() => { 
         const handleKeyDown = (e) => { 
             if (!isOpen) return; 
@@ -137,6 +154,21 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
         window.addEventListener('keydown', handleKeyDown); 
         return () => window.removeEventListener('keydown', handleKeyDown); 
     }, [isOpen, goToNextPage, goToPreviousPage, onClose, isPageNavOpen, readingMode]);
+
+    // SWIPE HANDLER
+    const swipeConfidenceThreshold = 10000;
+    const swipePower = (offset, velocity) => {
+        return Math.abs(offset) * velocity;
+    };
+
+    const handleDragEnd = (e, { offset, velocity }) => {
+        const swipe = swipePower(offset.x, velocity.x);
+        if (swipe < -swipeConfidenceThreshold) {
+            goToNextPage();
+        } else if (swipe > swipeConfidenceThreshold) {
+            goToPreviousPage();
+        }
+    };
 
     // Handlers
     const handleFinalizeDiagram = async (finalizedContent) => {
@@ -175,7 +207,7 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
 
     if (!isOpen || !currentLesson) return null;
 
-    // --- ONE UI DESIGN TOKENS ---
+    // --- STYLES ---
     const capsuleBtn = `
         flex items-center justify-center gap-2 px-5 py-2.5 rounded-[1.5rem] 
         transition-all duration-200 active:scale-95 hover:scale-[1.02]
@@ -190,7 +222,6 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
         ? `${capsuleBtn} bg-slate-900 text-white dark:bg-white dark:text-black shadow-lg`
         : `${capsuleBtn} bg-[#007AFF] hover:bg-[#0062cc] text-white shadow-lg shadow-blue-500/30`;
 
-    // Updated Icon Button to be "Emphasized Circle" with background
     const iconBtn = `
         w-10 h-10 flex items-center justify-center rounded-full transition-all active:scale-90
         shadow-sm border border-transparent
@@ -198,8 +229,6 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
 
     return (
         <Dialog open={isOpen} onClose={onClose} className={`fixed inset-0 z-[5000] flex items-center justify-center font-sans ${className}`}>
-            
-            {/* Optimized Backdrop */}
             <motion.div 
                 variants={backdropVariants}
                 initial="hidden" animate="visible" exit="exit"
@@ -208,7 +237,6 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
                 onClick={onClose}
             />
             
-            {/* Main Container - FLEX COLUMN for Layout Stability */}
             <Dialog.Panel 
                 as={motion.div} 
                 variants={modalVariants} 
@@ -216,13 +244,10 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
                 className="relative w-full max-w-6xl h-[95vh] md:h-[90vh] flex flex-col rounded-[2.5rem] bg-[#F9F9F9] dark:bg-[#101010] shadow-2xl border border-white/40 dark:border-white/10 transform-gpu will-change-transform"
                 style={{ overflow: 'visible' }}
             >
-                {/* Inner Wrapper for Rounded Corners Clipping */}
                 <div className="flex flex-col h-full w-full overflow-hidden rounded-[2.5rem]">
                     
                     {/* --- HEADER --- */}
                     <header className="relative z-20 flex justify-between items-center px-6 py-4 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-b border-black/5 dark:border-white/5 flex-shrink-0">
-                        
-                        {/* Progress Line */}
                         {readingMode === 'horizontal' && (
                             <motion.div 
                                 initial={{ width: 0 }} 
@@ -232,7 +257,6 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
                             />
                         )}
 
-                        {/* Title Block */}
                         <div className="flex flex-col gap-0.5 relative">
                             <h2 className="text-[17px] font-bold tracking-tight text-slate-900 dark:text-white line-clamp-1 max-w-md">
                                 {lessonTitle}
@@ -248,7 +272,6 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
                                         <ChevronDownIcon className={`w-3 h-3 transition-transform duration-200 ${isPageNavOpen ? 'rotate-180' : ''}`} />
                                     </button>
 
-                                    {/* Page Dropdown */}
                                     <AnimatePresence>
                                         {isPageNavOpen && (
                                             <>
@@ -292,7 +315,6 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
                             )}
                         </div>
                         
-                        {/* Header Controls (Emphasized Circles) */}
                         <div className="flex items-center gap-3">
                             <button
                                 onClick={() => setReadingMode(prev => prev === 'horizontal' ? 'vertical' : 'horizontal')}
@@ -311,23 +333,31 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
                         </div>
                     </header>
                     
-                    {/* --- MAIN CONTENT (Scrollable Area) --- */}
+                    {/* --- MAIN CONTENT --- */}
                     <main 
                         ref={contentRef} 
                         className="flex-1 overflow-y-auto custom-scrollbar p-6 sm:p-10 relative transform-gpu bg-[#F9F9F9] dark:bg-[#101010]"
                     >
                         <div className="max-w-3xl mx-auto min-h-full pb-10"> 
                             
-                            {/* --- MODE: HORIZONTAL (Paged) --- */}
+                            {/* --- HORIZONTAL MODE (Swipeable) --- */}
                             {readingMode === 'horizontal' ? (
                                 <AnimatePresence mode="wait">
                                     <motion.div 
-                                        key={currentPage} 
-                                        variants={pageVariants} 
-                                        initial="hidden" animate="visible" exit="exit" 
-                                        className="w-full min-h-full"
+                                        key={currentPage}
+                                        initial={{ opacity: 0, x: 10 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0, x: -10 }}
+                                        transition={{ duration: 0.2 }}
+                                        
+                                        // SWIPE GESTURES ADDED HERE
+                                        drag="x"
+                                        dragConstraints={{ left: 0, right: 0 }}
+                                        dragElastic={0.1}
+                                        onDragEnd={handleDragEnd}
+                                        className="w-full min-h-full touch-pan-y"
                                     >
-                                        {/* Objectives */}
+                                        {/* Objectives (Only on Page 0) */}
                                         {currentPage === 0 && objectives.length > 0 && (
                                             <div className={`mb-8 p-6 rounded-[2rem] border ${monet ? `${monet.bg} ${monet.border}` : 'bg-white dark:bg-[#1E1E1E] border-slate-100 dark:border-white/5'} shadow-sm`}>
                                                 <h3 className="flex items-center gap-3 text-[15px] font-bold mb-4 text-slate-900 dark:text-white">
@@ -376,7 +406,7 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
                                     </motion.div>
                                 </AnimatePresence>
                             ) : (
-                                /* --- MODE: VERTICAL (Scroll) --- */
+                                /* --- VERTICAL MODE (Memoized List) --- */
                                 <div className="space-y-16">
                                     {objectives.length > 0 && (
                                         <div className={`p-6 rounded-[2rem] border ${monet ? `${monet.bg} ${monet.border}` : 'bg-white dark:bg-[#1E1E1E] border-slate-100 dark:border-white/5'} shadow-sm`}>
@@ -395,21 +425,12 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
                                     )}
 
                                     {pages.map((pData, idx) => (
-                                        <div key={idx} className="relative group">
-                                            <div className="flex items-center gap-4 mb-6 opacity-40">
-                                                <span className="text-[10px] font-black uppercase tracking-widest">Page {idx + 1}</span>
-                                                <div className="h-px flex-1 bg-slate-300 dark:bg-white/20"></div>
-                                            </div>
-
-                                            <div className="prose prose-sm sm:prose-base dark:prose-invert max-w-none">
-                                                {pData.title && (
-                                                    <h2 className="text-2xl font-black mb-4 tracking-tight text-slate-900 dark:text-white">{pData.title}</h2>
-                                                )}
-                                                <div className="text-slate-700 dark:text-slate-300 leading-relaxed">
-                                                    <LessonPage page={pData} isEditable={false} />
-                                                </div>
-                                            </div>
-                                        </div>
+                                        <VerticalLessonItem 
+                                            key={idx} 
+                                            page={pData} 
+                                            index={idx} 
+                                            titleStyle="text-slate-900 dark:text-white"
+                                        />
                                     ))}
 
                                     <div className="flex justify-center pt-8">
@@ -422,12 +443,11 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
                         </div>
                     </main>
                     
-                    {/* --- FOOTER (Separate Flex Item) --- */}
+                    {/* --- FOOTER --- */}
                     <footer className="flex-shrink-0 px-6 py-4 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-t border-black/5 dark:border-white/5 z-20 flex justify-center items-center">
                         <div className="flex items-center gap-3">
                             {readingMode === 'horizontal' ? (
                                 <>
-                                    {/* UPDATED: Emphasized "Secondary Capsule" for Previous Button */}
                                     <button 
                                         onClick={goToPreviousPage} 
                                         disabled={currentPage === 0} 
@@ -437,7 +457,6 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
                                         <span className="hidden sm:inline">Back</span>
                                     </button>
 
-                                    {/* Diagram Tools */}
                                     {pageData?.type === 'diagram-data' && (
                                         <div className="flex items-center gap-2 px-2 mx-1">
                                             <button onClick={() => lessonPageRef.current?.addImage()} className={`${iconBtn} bg-slate-100 dark:bg-white/5`} title="Add Image"><PhotoIcon className="h-5 w-5" /></button>
@@ -469,7 +488,6 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate, cla
                             )}
                         </div>
                     </footer>
-
                 </div>
             </Dialog.Panel>
         </Dialog>

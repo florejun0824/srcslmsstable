@@ -1,4 +1,19 @@
 {
+  "hosting": {
+    "site": "srcsdigital",
+    "public": "dist",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  },
   "functions": [
     {
       "codebase": "default",
@@ -13,25 +28,11 @@
     },
     {
       "codebase": "pdf",
-      "ignore": [
-        "venv",
-        ".git",
-        "firebase-debug.log",
-        "firebase-debug.*.log",
-        "*.local"
-      ],
       "source": "pdf",
       "runtime": "python313"
     },
     {
       "codebase": "lms",
-      "ignore": [
-        "venv",
-        ".git",
-        "firebase-debug.log",
-        "firebase-debug.*.log",
-        "*.local"
-      ],
       "source": "lms",
       "runtime": "python313"
     }

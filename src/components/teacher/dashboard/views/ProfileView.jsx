@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Fragment, useCallback, useRef } from 'react';
+import React, { useState, useEffect, Fragment, useCallback, useRef, useMemo } from 'react';
 import UserInitialsAvatar from '../../../common/UserInitialsAvatar';
 import { 
     IconPencil, 
@@ -34,6 +34,7 @@ import {
   onSnapshot,
   serverTimestamp,
   addDoc,
+  limit // Added limit for optimization
 } from 'firebase/firestore';
 
 // Post Components & Hook
@@ -151,9 +152,14 @@ const CreateTeacherPostModal = ({ isOpen, onClose, userProfile, onSubmit, isPost
     const [content, setContent] = useState('');
     const [audience, setAudience] = useState('Public');
     const { activeOverlay } = useTheme();
-    const modalStyle = activeOverlay !== 'none' 
-        ? { ...getThemeCardStyle(activeOverlay), backgroundColor: getThemeCardStyle(activeOverlay).backgroundColor.replace('0.6', '0.85') } 
-        : {};
+    
+    // Memoize modal style to prevent recalculation on every keypress
+    const modalStyle = useMemo(() => {
+        const baseStyle = getThemeCardStyle(activeOverlay);
+        return activeOverlay !== 'none' 
+            ? { ...baseStyle, backgroundColor: baseStyle.backgroundColor.replace('0.6', '0.85') } 
+            : {};
+    }, [activeOverlay]);
 
     const [selectedImages, setSelectedImages] = useState([]);
     const [imagePreviews, setImagePreviews] = useState([]);
@@ -375,7 +381,8 @@ const CreateTeacherPostModal = ({ isOpen, onClose, userProfile, onSubmit, isPost
     );
 };
 
-const InfoRowPreview = ({ icon: Icon, label, value }) => (
+// Optimization: Memoize this component to prevent unnecessary list re-renders
+const InfoRowPreview = React.memo(({ icon: Icon, label, value }) => (
     <div className="flex items-center gap-4 group">
         <div className="w-10 h-10 rounded-full bg-slate-50 dark:bg-white/5 flex items-center justify-center text-slate-400 group-hover:text-blue-500 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/20 transition-colors">
             <Icon size={18} stroke={2} />
@@ -385,7 +392,7 @@ const InfoRowPreview = ({ icon: Icon, label, value }) => (
             <p className="text-xs text-slate-400 dark:text-slate-500 uppercase tracking-wide font-medium">{label}</p>
         </div>
     </div>
-);
+));
 
 
 const ProfileView = ({
@@ -396,7 +403,9 @@ const ProfileView = ({
 }) => {
     const { showToast } = useToast();
     const { activeOverlay } = useTheme();
-    const dynamicCardStyle = getThemeCardStyle(activeOverlay);
+    
+    // Optimization: Memoize expensive style calculation
+    const dynamicCardStyle = useMemo(() => getThemeCardStyle(activeOverlay), [activeOverlay]);
 
     const [isBiometricSupported, setIsBiometricSupported] = useState(false);
     const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
@@ -408,46 +417,50 @@ const ProfileView = ({
     const [myPosts, setMyPosts] = useState([]); 
     const [isPostsLoading, setIsPostsLoading] = useState(true);
 
-	const {
-	        sortedPosts,
-	        editingPostId,
-	        editingPostText,
-	        setEditingPostText,
-	        expandedPosts,
-	        reactionsModalPost,
-	        isReactionsModalOpen,
-	        commentModalPost,
-	        isCommentModalOpen,
-	        handleStartEditPost,
-	        handleCancelEdit,
-	        handleUpdatePost,
-	        handleDeletePost,
-	        togglePostExpansion,
-	        handleToggleReaction,
-	        handleViewReactions,
-	        handleCloseReactions,
-	        handleViewComments,
-	        handleCloseComments,
-	    } = useStudentPosts(myPosts, setMyPosts, userProfile, showToast); // Pass full userProfile for hook access
+    const {
+            sortedPosts,
+            editingPostId,
+            editingPostText,
+            setEditingPostText,
+            expandedPosts,
+            reactionsModalPost,
+            isReactionsModalOpen,
+            commentModalPost,
+            isCommentModalOpen,
+            handleStartEditPost,
+            handleCancelEdit,
+            handleUpdatePost,
+            handleDeletePost,
+            togglePostExpansion,
+            handleToggleReaction,
+            handleViewReactions,
+            handleCloseReactions,
+            handleViewComments,
+            handleCloseComments,
+        } = useStudentPosts(myPosts, setMyPosts, userProfile, showToast); 
 
     useEffect(() => {
+        let mounted = true;
         const checkBiometricStatus = async () => {
             try {
                 const { isAvailable } = await BiometricAuth.checkBiometry();
-                setIsBiometricSupported(isAvailable);
+                if (mounted) {
+                    setIsBiometricSupported(isAvailable);
 
-                if (isAvailable) {
-                    const { value } = await Preferences.get({ key: 'userCredentials' });
-                    setIsBiometricEnabled(!!value);
+                    if (isAvailable) {
+                        const { value } = await Preferences.get({ key: 'userCredentials' });
+                        setIsBiometricEnabled(!!value);
+                    }
                 }
             } catch (error) {
                 console.error("Failed to check biometric status:", error);
-                setIsBiometricSupported(false);
+                if (mounted) setIsBiometricSupported(false);
             } finally {
-                setIsLoadingBiometrics(false);
+                if (mounted) setIsLoadingBiometrics(false);
             }
         };
         checkBiometricStatus();
+        return () => { mounted = false; };
     }, []);
 
     useEffect(() => {
@@ -460,7 +473,8 @@ const ProfileView = ({
         const postsQuery = query(
             collection(db, 'studentPosts'),
             where('authorId', '==', userProfile.id),
-            orderBy('createdAt', 'desc')
+            orderBy('createdAt', 'desc'),
+            limit(20) // Optimization: Limit initial fetch to 20 posts
         );
         const unsubscribe = onSnapshot(postsQuery, (snapshot) => {
             const posts = snapshot.docs.map(doc => ({
@@ -477,7 +491,7 @@ const ProfileView = ({
         return () => unsubscribe();
     }, [userProfile?.id, showToast]);
 
-    const handleBiometricToggle = async (enabled) => {
+    const handleBiometricToggle = useCallback(async (enabled) => {
         if (enabled) {
             showToast("Please log out and log in with your password to enable biometrics.", "info");
         } else {
@@ -490,10 +504,10 @@ const ProfileView = ({
                 showToast("Could not disable biometric login.", "error");
             }
         }
-    };
+    }, [showToast]);
 
     // --- Handle Create Post (Multiple Images to Cloudinary) ---
-    const handleCreatePost = async (content, audience, imageFiles) => {
+    const handleCreatePost = useCallback(async (content, audience, imageFiles) => {
         if (!content.trim() && (!imageFiles || imageFiles.length === 0)) { 
             showToast("Post cannot be empty.", "error");
             return; 
@@ -529,13 +543,11 @@ const ProfileView = ({
                 uploadedImageUrls = await Promise.all(uploadPromises);
             }
 
-            // ✅ CRITICAL FIX: Include schoolId so it shows in LoungeView!
             await addDoc(collection(db, 'studentPosts'), {
                 authorId: userProfile.id,
                 authorName: `${userProfile.firstName} ${userProfile.lastName}`.trim(),
                 authorPhotoURL: userProfile.photoURL || '',
                 
-                // ✅ SCHOOL ID ENFORCEMENT
                 schoolId: userProfile.schoolId || 'srcs_main', 
 
                 content: content,
@@ -555,17 +567,25 @@ const ProfileView = ({
         } finally {
             setIsCreatingPost(false);
         }
-    };
+    }, [userProfile, showToast]);
 
-    // ... (rest of the component render logic is the same) ...
-    // Note: I'm shortening the preview list definition for brevity in this fix block
-    const aboutInfoPreviewList = [
-        { icon: IconBriefcase, label: "Work", value: userProfile?.work },
-        { icon: IconSchool, label: "Education", value: userProfile?.education },
-        { icon: IconMapPin, label: "Lives in", value: userProfile?.current_city },
-    ].filter(item => item.value && item.value.trim() !== '');
+    // Optimization: Memoize the list calculation
+    const aboutInfoPreviewList = useMemo(() => {
+        return [
+            { icon: IconBriefcase, label: "Work", value: userProfile?.work },
+            { icon: IconSchool, label: "Education", value: userProfile?.education },
+            { icon: IconMapPin, label: "Lives in", value: userProfile?.current_city },
+        ].filter(item => item.value && item.value.trim() !== '');
+    }, [userProfile?.work, userProfile?.education, userProfile?.current_city]);
 
     const aboutInfoPreview = aboutInfoPreviewList.slice(0, 3);
+    
+    // Handlers for modal states to avoid inline functions
+    const openCreatePost = useCallback(() => setIsCreatePostModalOpen(true), []);
+    const closeCreatePost = useCallback(() => setIsCreatePostModalOpen(false), []);
+    const openAboutModal = useCallback(() => setIsAboutModalOpen(true), []);
+    const closeAboutModal = useCallback(() => setIsAboutModalOpen(false), []);
+    const openEditProfile = useCallback(() => setEditProfileModalOpen(true), []);
 
     return (
         <>
@@ -601,7 +621,7 @@ const ProfileView = ({
                                             )}
                                         </div>
                                     </div>
-                                    <button onClick={() => setEditProfileModalOpen(true)} className="mb-2 px-4 py-2 rounded-full bg-white/80 dark:bg-white/10 text-slate-700 dark:text-slate-200 text-xs font-bold uppercase tracking-wider backdrop-blur-md shadow-sm border border-white/20 hover:bg-white dark:hover:bg-white/20 transition-all flex items-center gap-2">
+                                    <button onClick={openEditProfile} className="mb-2 px-4 py-2 rounded-full bg-white/80 dark:bg-white/10 text-slate-700 dark:text-slate-200 text-xs font-bold uppercase tracking-wider backdrop-blur-md shadow-sm border border-white/20 hover:bg-white dark:hover:bg-white/20 transition-all flex items-center gap-2">
                                         <IconEdit size={14} /> Edit
                                     </button>
                                 </div>
@@ -626,7 +646,7 @@ const ProfileView = ({
                                     </div>
                                 </div>
                                 {aboutInfoPreview.map(item => (<InfoRowPreview key={item.label} icon={item.icon} label={item.label} value={item.value} />))}
-                                <button onClick={() => setIsAboutModalOpen(true)} className="w-full py-2 text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline mt-2">View Full Profile Details</button>
+                                <button onClick={openAboutModal} className="w-full py-2 text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline mt-2">View Full Profile Details</button>
                             </div>
                         </div>
 
@@ -657,10 +677,10 @@ const ProfileView = ({
                                 <div className="flex-shrink-0 w-12 h-12 rounded-full ring-2 ring-white dark:ring-white/10 overflow-hidden shadow-sm">
                                     <UserInitialsAvatar user={userProfile} size="full" />
                                 </div>
-                                <button onClick={() => setIsCreatePostModalOpen(true)} className="flex-1 text-left h-12 px-6 rounded-full bg-slate-100 dark:bg-white/5 border border-transparent hover:border-blue-500/30 hover:bg-white dark:hover:bg-white/10 text-slate-500 dark:text-slate-400 transition-all shadow-inner text-sm font-medium">
+                                <button onClick={openCreatePost} className="flex-1 text-left h-12 px-6 rounded-full bg-slate-100 dark:bg-white/5 border border-transparent hover:border-blue-500/30 hover:bg-white dark:hover:bg-white/10 text-slate-500 dark:text-slate-400 transition-all shadow-inner text-sm font-medium">
                                     What's on your mind, {userProfile?.firstName}?
                                 </button>
-                                <button onClick={() => setIsCreatePostModalOpen(true)} className="p-3 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors">
+                                <button onClick={openCreatePost} className="p-3 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors">
                                     <IconPhoto size={20} />
                                 </button>
                             </div>
@@ -676,7 +696,7 @@ const ProfileView = ({
                                 <div className={`${cardSurface} p-12 text-center flex flex-col items-center justify-center`} style={dynamicCardStyle}>
                                     <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center mb-4"><IconPencil size={32} className="text-slate-400" /></div>
                                     <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200">No Posts Yet</h3>
-                                    <button onClick={() => setIsCreatePostModalOpen(true)} className="mt-6 text-sm font-bold text-blue-600 dark:text-blue-400 hover:underline">Create your first post</button>
+                                    <button onClick={openCreatePost} className="mt-6 text-sm font-bold text-blue-600 dark:text-blue-400 hover:underline">Create your first post</button>
                                 </div>
                             ) : (
                                 sortedPosts.map(post => (
@@ -707,14 +727,14 @@ const ProfileView = ({
             </div>
 
             <AnimatePresence>
-                {isAboutModalOpen && <AboutInfoModal isOpen={isAboutModalOpen} onClose={() => setIsAboutModalOpen(false)} userProfile={userProfile} />}
+                {isAboutModalOpen && <AboutInfoModal isOpen={isAboutModalOpen} onClose={closeAboutModal} userProfile={userProfile} />}
             </AnimatePresence>
             
             <AnimatePresence>
                 {isCreatePostModalOpen && (
                     <CreateTeacherPostModal
                         isOpen={isCreatePostModalOpen}
-                        onClose={() => setIsCreatePostModalOpen(false)}
+                        onClose={closeCreatePost}
                         onSubmit={handleCreatePost}
                         userProfile={userProfile}
                         isPosting={isCreatingPost}
