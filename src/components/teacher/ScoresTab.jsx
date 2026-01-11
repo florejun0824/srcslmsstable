@@ -8,42 +8,37 @@ import {
     ClockIcon, 
     UsersIcon, 
     LockClosedIcon,
-    ExclamationCircleIcon
+    ExclamationCircleIcon,
+    DocumentChartBarIcon // <--- Imported Icon
 } from '@heroicons/react/24/solid';
 
 const ScoresTab = ({
     units = {},
-    quizScores = [], // Array of all submissions
-    sharedContentPosts = [], // Array of shared posts containing quizzes
-    quizLocks = [], // Array of active student locks
-    setIsReportModalOpen,
+    quizScores = [],
+    sharedContentPosts = [],
+    quizLocks = [],
+    setIsReportModalOpen, // <--- Already available here
     setSelectedQuizForScores,
     setScoresDetailModalOpen,
 }) => {
-    // --- STATE: Default to Collapsed (Expanded Sets start empty) ---
+    // --- STATE ---
     const [expandedPosts, setExpandedPosts] = useState(new Set());
     const [expandedUnits, setExpandedUnits] = useState(new Set());
 
     // --- OPTIMIZATION 1: High-Performance Stat Calculation ---
     const quizStatsMap = useMemo(() => {
         const stats = {};
-        
         if (!quizScores || quizScores.length === 0) return stats;
 
         quizScores.forEach(submission => {
             const qId = submission.quizId;
             if (!stats[qId]) {
-                stats[qId] = { 
-                    count: 0, 
-                    uniqueStudents: new Set(),
-                    totalScore: 0
-                };
+                stats[qId] = { count: 0, uniqueStudents: new Set(), totalScore: 0 };
             }
             stats[qId].count += 1;
             stats[qId].uniqueStudents.add(submission.studentId);
             stats[qId].totalScore += (submission.score || 0);
         });
-
         return stats;
     }, [quizScores]);
 
@@ -103,6 +98,14 @@ const ScoresTab = ({
         setScoresDetailModalOpen(true);
     };
 
+    // --- NEW HANDLER: Open Report Modal directly ---
+    // Note: Since GenerateReportModal handles selection internally, 
+    // this simply opens it. The user can then select the specific quiz.
+    const handleOpenReport = (e) => {
+        e.stopPropagation();
+        setIsReportModalOpen(true);
+    };
+
     const customUnitSort = (a, b) => {
         if (a === 'Uncategorized') return 1;
         if (b === 'Uncategorized') return -1;
@@ -130,19 +133,28 @@ const ScoresTab = ({
     // --- MAIN RENDER ---
     return (
         <div className="space-y-4 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            
+            {/* --- NEW HEADER SECTION --- */}
+            <div className="flex justify-between items-center px-1 mb-2">
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                    Performance Summary
+                </h2>
+                <button
+                    onClick={() => setIsReportModalOpen(true)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white dark:bg-[#1c1c1e] text-slate-600 dark:text-slate-300 font-bold text-xs border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5 transition-all shadow-sm active:scale-95"
+                >
+                    <DocumentChartBarIcon className="w-4 h-4 text-blue-500" />
+                    Generate Report
+                </button>
+            </div>
+
             {sortedPostEntries.map(({ post, units: unitsInPost }) => {
                 const isExpanded = expandedPosts.has(post.id);
                 const sortedUnitKeys = Object.keys(unitsInPost).sort(customUnitSort);
                 const quizzesInPost = post.quizzes || [];
                 
-                // --- LOGIC: STATUS BADGES ---
-                
-                // 1. Check for Active Locks
-                const hasActiveLocks = quizzesInPost.some(q => 
-                    quizLocks.some(lock => lock.quizId === q.id)
-                );
-
-                // 2. Check for Overdue status
+                // Status Logic
+                const hasActiveLocks = quizzesInPost.some(q => quizLocks.some(lock => lock.quizId === q.id));
                 let isOverdue = false;
                 let untilDateLabel = null;
                 if (post.availableUntil) {
@@ -150,7 +162,6 @@ const ScoresTab = ({
                     untilDateLabel = untilDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
                     isOverdue = new Date() > untilDate;
                 }
-
                 const fromDate = post.availableFrom?.toDate ? post.availableFrom.toDate().toLocaleDateString([], { month: 'short', day: 'numeric' }) : 'N/A';
 
                 return (
@@ -166,27 +177,22 @@ const ScoresTab = ({
                                         <h3 className="font-bold text-[17px] text-slate-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                                             {post.title}
                                         </h3>
-                                        
-                                        {/* PRIORITY 1: DISPLAY LOCKED IF THERE ARE ACTIVE QUIZ LOCKS */}
                                         {hasActiveLocks ? (
                                             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/30 text-[10px] font-bold text-red-600 dark:text-red-400 uppercase tracking-wide">
                                                 <LockClosedIcon className="w-3 h-3" /> Locked
                                             </div>
                                         ) : isOverdue ? (
-                                            /* PRIORITY 2: DISPLAY OVERDUE IF TIME IS UP */
                                             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/30 text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wide">
                                                 <ExclamationCircleIcon className="w-3 h-3" /> Overdue
                                             </div>
                                         ) : null}
                                     </div>
-
                                     <div className="flex flex-wrap items-center gap-2">
                                         <Badge icon={CalendarDaysIcon} color="teal" text={`From: ${fromDate}`} />
                                         {untilDateLabel && <Badge icon={ClockIcon} color={isOverdue ? "red" : "amber"} text={`Until: ${untilDateLabel}`} />}
                                         <Badge icon={UsersIcon} color="indigo" text={post.targetAudience === 'specific' ? `${post.targetStudentIds?.length || 0} Students` : "All Students"} />
                                     </div>
                                 </div>
-
                                 <div className={`p-2 rounded-full bg-slate-100 dark:bg-white/5 text-slate-400 transition-transform duration-300 ${isExpanded ? 'rotate-180 bg-blue-50 dark:bg-blue-900/20 text-blue-500' : ''}`}>
                                     <ChevronDownIcon className="w-5 h-5" />
                                 </div>
@@ -202,7 +208,6 @@ const ScoresTab = ({
 
                                     return (
                                         <div key={unitKey} className="bg-white dark:bg-[#151515] rounded-[20px] border border-slate-200/60 dark:border-white/5 overflow-hidden shadow-sm">
-                                            
                                             <button 
                                                 onClick={() => toggleUnit(unitKey)}
                                                 className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
@@ -234,12 +239,23 @@ const ScoresTab = ({
                                                                     </div>
                                                                 </div>
                                                                 
-                                                                <button
-                                                                    onClick={() => handleViewScores(quiz, post)}
-                                                                    className="px-5 py-2.5 rounded-[14px] bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-xs font-bold border border-blue-100 dark:border-blue-800/30 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-all active:scale-95 w-full sm:w-auto text-center shadow-sm"
-                                                                >
-                                                                    View Scores
-                                                                </button>
+                                                                <div className="flex gap-2 w-full sm:w-auto">
+                                                                    {/* --- NEW BUTTON: Individual Report Button --- */}
+                                                                    <button
+                                                                        onClick={handleOpenReport}
+                                                                        title="Generate Report for this Quiz"
+                                                                        className="px-3 py-2.5 rounded-[14px] bg-white dark:bg-white/5 text-slate-500 dark:text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 border border-slate-200 dark:border-white/10 transition-colors shadow-sm active:scale-95"
+                                                                    >
+                                                                        <DocumentChartBarIcon className="w-5 h-5" />
+                                                                    </button>
+
+                                                                    <button
+                                                                        onClick={() => handleViewScores(quiz, post)}
+                                                                        className="flex-1 px-5 py-2.5 rounded-[14px] bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-xs font-bold border border-blue-100 dark:border-blue-800/30 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-all active:scale-95 text-center shadow-sm whitespace-nowrap"
+                                                                    >
+                                                                        View Scores
+                                                                    </button>
+                                                                </div>
                                                             </div>
                                                         );
                                                     })}

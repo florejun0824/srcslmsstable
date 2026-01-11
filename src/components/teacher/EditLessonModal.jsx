@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, memo, useDeferredValue, useMemo } from 'react';
 import { db } from '../../services/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { Dialog } from '@headlessui/react';
@@ -29,7 +29,6 @@ const getEmbedUrl = (url) => {
 // --- HELPER: Google Drive Image Fixer ---
 const convertGoogleDriveLink = (url) => {
     if (!url) return '';
-    // Check for standard "view" link: /file/d/FILE_ID/view
     const driveMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
     if (driveMatch && driveMatch[1]) {
         return `https://drive.google.com/uc?export=view&id=${driveMatch[1]}`;
@@ -37,8 +36,8 @@ const convertGoogleDriveLink = (url) => {
     return url;
 };
 
-// --- MOBILE RESTRICTION OVERLAY ---
-const MobileRestricted = ({ onClose }) => (
+// --- MOBILE RESTRICTION OVERLAY (Memoized) ---
+const MobileRestricted = memo(({ onClose }) => (
     <div className="fixed inset-0 z-[300] bg-[#f5f5f7] dark:bg-[#000000] flex flex-col items-center justify-center p-8 text-center md:hidden animate-in fade-in duration-300">
         <div className="w-24 h-24 rounded-[32px] bg-white dark:bg-[#1c1c1e] shadow-2xl flex items-center justify-center mb-8 border border-black/5 dark:border-white/10">
             <ComputerDesktopIcon className="w-12 h-12 text-slate-400 dark:text-slate-500" />
@@ -47,16 +46,7 @@ const MobileRestricted = ({ onClose }) => (
         <p className="text-base text-slate-500 dark:text-slate-400 max-w-xs leading-relaxed font-medium mb-8">
             This advanced editor is optimized for tablets and desktop computers. Please switch devices to continue.
         </p>
-        
         <div className="flex flex-col gap-3 w-full max-w-xs">
-            <a 
-                href="https://srcslms.netlify.app"
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="w-full py-3.5 rounded-[18px] bg-[#007AFF] text-white font-bold text-[15px] shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 active:scale-95 transition-all flex items-center justify-center gap-2"
-            >
-                Open Desktop Version
-            </a>
             <button 
                 onClick={onClose}
                 className="w-full py-3.5 rounded-[18px] bg-white dark:bg-[#1c1c1e] text-slate-900 dark:text-white font-bold text-[15px] shadow-sm border border-black/5 dark:border-white/10 active:scale-95 transition-all"
@@ -65,97 +55,62 @@ const MobileRestricted = ({ onClose }) => (
             </button>
         </div>
     </div>
-);
+));
 
-// --- CUSTOM ICONS ---
-const BoldIcon = (props) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" /><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" /></svg>);
-const ItalicIcon = (props) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...props}><line x1="19" y1="4" x2="10" y2="4" /><line x1="14" y1="20" x2="5" y2="20" /><line x1="15" y1="4" x2="9" y2="20" /></svg>);
-const UnderlineIcon = (props) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3" /><line x1="4" y1="21" x2="20" y2="21" /></svg>);
-const StrikethroughIcon = (props) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M5 12h14" /><path d="M16 6a4 4 0 0 0-8 0 4 4 0 0 0 4 4" /><path d="M16 18a4 4 0 0 1-8 0 4 4 0 0 1 4-4" /></svg>);
-const H1Icon = (props) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M4 12h8" /><path d="M4 18V6" /><path d="M12 18V6" /><path d="M17 18V6l-4 2" /></svg>);
-const H2Icon = (props) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M4 12h8" /><path d="M4 18V6" /><path d="M12 18V6" /><path d="M21 18h-4c0-4 4-3 4-6 0-1.5-2-2.5-4-1" /></svg>);
-const H3Icon = (props) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M4 12h8" /><path d="M4 18V6" /><path d="M12 18V6" /><path d="M17 16h2c1.5 0 2-1 2-2s-1-2-2-2h-1" /><path d="M17 12h2c1.5 0 2-1 2-2s-1-2-2-2h-2" /></svg>);
-
-// reorder helper
-const reorder = (list, startIndex, endIndex) => {
-    const result = Array.from(list);
-    const [removed] = result.splice(startIndex, 1);
-    result.splice(endIndex, 0, removed);
-    return result;
-};
-
-// Markdown editor
-const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here...", previewRef }) => {
+// --- MARKDOWN EDITOR (Optimized) ---
+const MarkdownEditor = memo(({ value, onValueChange, placeholder = "Type content here...", previewRef }) => {
     const textareaRef = useRef(null);
     const containerRef = useRef(null); 
     const [showColorPicker, setShowColorPicker] = useState(false);
     const [showSymbolPicker, setShowSymbolPicker] = useState(false);
 
-    const TEXT_COLORS = [
+    const TEXT_COLORS = useMemo(() => [
         { name: 'Blue', hex: '#007AFF' }, { name: 'Green', hex: '#34C759' },
         { name: 'Orange', hex: '#FF9500' }, { name: 'Red', hex: '#FF3B30' },
         { name: 'Purple', hex: '#AF52DE' }, { name: 'Black', hex: '#1d1d1f' },
-    ];
+    ], []);
 
-    // --- SCROLL SYNC LOGIC (Reusable) ---
-    const performSync = () => {
+    // Optimized Sync Logic
+    const performSync = useCallback(() => {
         if (!containerRef.current || !previewRef?.current) return;
-
         const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
         const maxScroll = scrollHeight - clientHeight;
-        
-        // Safety check to prevent division by zero
         const scrollRatio = maxScroll > 0 ? scrollTop / maxScroll : 0;
-        
         const preview = previewRef.current;
         const previewMaxScroll = preview.scrollHeight - preview.clientHeight;
-        
-        // Apply calculated scroll position
         preview.scrollTop = scrollRatio * previewMaxScroll;
-    };
+    }, [previewRef]);
 
-    // --- HEIGHT ADJUSTMENT & SCROLL HANDLING ---
-    const adjustHeight = () => {
+    const adjustHeight = useCallback(() => {
         const ta = textareaRef.current;
         const container = containerRef.current;
         if (!ta) return;
         
-        // 1. Capture current scroll state
         const currentScroll = container ? container.scrollTop : 0;
         const wasAtBottom = container ? (container.scrollHeight - container.scrollTop <= container.clientHeight + 10) : false;
 
-        // 2. Resize textarea
         ta.style.height = 'auto';
         ta.style.height = `${ta.scrollHeight}px`;
         
-        // 3. Restore scroll position or auto-scroll to bottom if needed
         if (container) {
-            if (wasAtBottom) {
-                container.scrollTop = container.scrollHeight; // Keep pinned to bottom
-            } else {
-                container.scrollTop = currentScroll; // Maintain position
-            }
+            if (wasAtBottom) container.scrollTop = container.scrollHeight;
+            else container.scrollTop = currentScroll;
         }
-    };
+    }, []);
 
-    // --- EFFECTS ---
-    
-    // Initial resize listener
     useEffect(() => {
         adjustHeight();
         window.addEventListener('resize', adjustHeight);
         return () => window.removeEventListener('resize', adjustHeight);
-    }, []);
+    }, [adjustHeight]);
 
-    // On Content Change: Adjust Height AND Sync Scroll
     useEffect(() => {
         adjustHeight();
-        // Use requestAnimationFrame to let the DOM update height before syncing
-        requestAnimationFrame(performSync);
-    }, [value]);
+        const rafId = requestAnimationFrame(performSync);
+        return () => cancelAnimationFrame(rafId);
+    }, [value, adjustHeight, performSync]);
 
-
-    const insertText = (textToInsert, cursorOffset = 0) => {
+    const insertText = useCallback((textToInsert, cursorOffset = 0) => {
         const ta = textareaRef.current;
         if (!ta) return;
         const start = ta.selectionStart;
@@ -169,12 +124,12 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
             adjustHeight();
             ta.focus({ preventScroll: true });
             ta.selectionStart = ta.selectionEnd = start + textToInsert.length + cursorOffset;
-            requestAnimationFrame(performSync); // Sync after insertion
+            requestAnimationFrame(performSync);
         }, 0);
         setShowSymbolPicker(false);
-    };
+    }, [onValueChange, adjustHeight, performSync]);
 
-    const applyStyle = (startTag, endTag = '', isBlock = false) => {
+    const applyStyle = useCallback((startTag, endTag = '', isBlock = false) => {
         const ta = textareaRef.current;
         if (!ta) return;
         const start = ta.selectionStart;
@@ -202,25 +157,26 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
             } else {
                 ta.selectionStart = ta.selectionEnd = cursorPos;
             }
-            requestAnimationFrame(performSync); // Sync after styling
+            requestAnimationFrame(performSync);
         }, 0);
-    };
-    
-    const applyColor = (hex) => {
+    }, [onValueChange, adjustHeight, performSync]);
+
+    const applyColor = useCallback((hex) => {
         applyStyle(`<span style="color: ${hex};">`, `</span>`);
         setShowColorPicker(false);
-    };
+    }, [applyStyle]);
 
-    const applyBlockQuote = () => {
+    // --- ADDED MISSING FUNCTION HERE ---
+    const applyBlockQuote = useCallback(() => {
         const ta = textareaRef.current;
         if (!ta) return;
         let selectedText = ta.value.substring(ta.selectionStart, ta.selectionEnd);
         if (!selectedText) selectedText = "Quoted text";
         const blockTextContent = selectedText.split('\n').map(line => `> ${line}`).join('\n');
         applyStyle(`\n${blockTextContent}\n`, '', true);
-    };
+    }, [applyStyle]);
 
-    const applyMarkdown = (syntax) => {
+    const applyMarkdown = useCallback((syntax) => {
         const ta = textareaRef.current;
         if (!ta) return;
         const start = ta.selectionStart;
@@ -252,11 +208,16 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
             adjustHeight();
             ta.focus({ preventScroll: true });
             ta.selectionStart = ta.selectionEnd = cursorPos + selectedText.length;
-            requestAnimationFrame(performSync); // Sync after markdown
+            requestAnimationFrame(performSync);
         }, 0);
-    };
+    }, [onValueChange, adjustHeight, performSync]);
 
-    const ToolbarButton = ({ icon: Icon, text, syntax, tooltip, onClick }) => (
+    // Toolbar Icons (Simple Components)
+    const H1Icon = memo(props => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M4 12h8" /><path d="M4 18V6" /><path d="M12 18V6" /><path d="M17 18V6l-4 2" /></svg>);
+    const H2Icon = memo(props => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M4 12h8" /><path d="M4 18V6" /><path d="M12 18V6" /><path d="M21 18h-4c0-4 4-3 4-6 0-1.5-2-2.5-4-1" /></svg>);
+    const H3Icon = memo(props => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M4 12h8" /><path d="M4 18V6" /><path d="M12 18V6" /><path d="M17 16h2c1.5 0 2-1 2-2s-1-2-2-2h-1" /><path d="M17 12h2c1.5 0 2-1 2-2s-1-2-2-2h-2" /></svg>);
+
+    const ToolbarButton = memo(({ icon: Icon, text, syntax, tooltip, onClick }) => (
         <button
             onClick={onClick || (() => applyMarkdown(syntax))}
             title={tooltip}
@@ -265,11 +226,11 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
         >
             {Icon ? <Icon className="w-5 h-5 stroke-[2]" /> : <span className="text-xs font-bold px-1">{text}</span>}
         </button>
-    );
+    ));
 
     return (
         <div className="border border-black/5 dark:border-white/10 rounded-[24px] overflow-hidden flex flex-col h-full bg-white dark:bg-[#1e1e1e] shadow-sm flex-shrink-0">
-            {/* Toolbar */}
+             {/* Toolbar UI */}
             <div className="flex items-center justify-center p-3 sticky top-0 z-20 bg-[#F9F9FA] dark:bg-[#252525] border-b border-black/5 dark:border-white/5">
                 <div className="flex flex-wrap items-center justify-center gap-1">
                     <ToolbarButton icon={BoldIcon} syntax="bold" tooltip="Bold" />
@@ -285,12 +246,11 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
                     
                     <div className="w-px h-5 bg-black/10 dark:bg-white/10 mx-1"></div>
 
-                    {/* Math & Science Tools */}
                     <ToolbarButton text="½" tooltip="Fraction" onClick={() => insertText('$\\frac{a}{b}$', -1)} />
                     <ToolbarButton text="x²" tooltip="Superscript/Exponent" onClick={() => insertText('$x^{2}$', -1)} />
                     <ToolbarButton text="x₂" tooltip="Subscript (Chemical)" onClick={() => insertText('$x_{2}$', -1)} />
                     <ToolbarButton text="°" tooltip="Degree" onClick={() => insertText('$\\degree$')} />
-
+                    
                     <div className="relative">
                         <ToolbarButton icon={CalculatorIcon} tooltip="Symbols" onClick={() => setShowSymbolPicker(s => !s)} />
                         {showSymbolPicker && (
@@ -301,7 +261,7 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
                             </div>
                         )}
                     </div>
-
+                    
                     <div className="w-px h-5 bg-black/10 dark:bg-white/10 mx-1"></div>
 
                     <ToolbarButton icon={QueueListIcon} syntax="list" tooltip="Bulleted List" />
@@ -330,10 +290,9 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
                 </div>
             </div>
 
-            {/* Content Area with Ref for Scroll Management & Sync */}
             <div 
                 ref={containerRef}
-                onScroll={performSync} // Trigger Sync on Manual Scroll
+                onScroll={performSync}
                 className="flex-grow p-6 overflow-y-auto custom-scrollbar bg-white dark:bg-[#1e1e1e]"
             >
                 <textarea
@@ -347,9 +306,54 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
             </div>
         </div>
     );
-};
+});
 
-// StrictModeDroppable wrapper for react-beautiful-dnd
+// --- ICONS (Memoized for SidebarItem) ---
+const BoldIcon = memo((props) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" /><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" /></svg>));
+const ItalicIcon = memo((props) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...props}><line x1="19" y1="4" x2="10" y2="4" /><line x1="14" y1="20" x2="5" y2="20" /><line x1="15" y1="4" x2="9" y2="20" /></svg>));
+const UnderlineIcon = memo((props) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3" /><line x1="4" y1="21" x2="20" y2="21" /></svg>));
+const StrikethroughIcon = memo((props) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M5 12h14" /><path d="M16 6a4 4 0 0 0-8 0 4 4 0 0 0 4 4" /><path d="M16 18a4 4 0 0 1-8 0 4 4 0 0 1 4-4" /></svg>));
+
+// --- SIDEBAR ITEM (Isolated Component) ---
+const SidebarPageItem = memo(({ page, index, isActive, onClick, onRemove, provided, isListRestricted }) => {
+    return (
+        <div
+            ref={provided.innerRef}
+            {...provided.draggableProps}
+            {...provided.dragHandleProps}
+            onClick={onClick}
+            className={`group relative flex items-center justify-between p-3.5 rounded-[14px] cursor-pointer transition-all duration-200 border
+                ${isActive 
+                    ? 'bg-[#007AFF]/10 dark:bg-[#007AFF]/20 border-[#007AFF]/20' 
+                    : 'bg-white dark:bg-[#2c2c2e] border-transparent hover:bg-slate-50 dark:hover:bg-[#3a3a3c] text-slate-600 dark:text-slate-400'
+                }`}
+        >
+            {isActive && (
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 h-8 w-1 bg-[#007AFF] rounded-r-full" />
+            )}
+            <div className="flex items-center gap-3 overflow-hidden pl-2">
+                <Bars3Icon className="h-5 w-5 stroke-[2] text-slate-400 dark:text-slate-500"/>
+                <div className="flex flex-col">
+                    <span className={`font-bold text-[14px] truncate leading-tight ${isActive ? 'text-[#007AFF] dark:text-[#5faaff]' : 'text-slate-700 dark:text-slate-200'}`}>
+                        {page.title || `Page ${index + 1}`}
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-bold tracking-wide uppercase mt-0.5">
+                        {page.type === 'diagram-data' ? 'Image' : page.type}
+                    </span>
+                </div>
+            </div>
+            <button
+                onClick={(e) => { e.stopPropagation(); onRemove(index); }}
+                disabled={isListRestricted}
+                className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all opacity-0 group-hover:opacity-100 disabled:hidden active:scale-90"
+            >
+                <TrashIcon className="h-4 w-4 stroke-[2.5]"/>
+            </button>
+        </div>
+    );
+});
+
+// StrictModeDroppable
 const StrictModeDroppable = ({ children, ...props }) => {
     const [enabled, setEnabled] = useState(false);
     useEffect(() => {
@@ -360,6 +364,7 @@ const StrictModeDroppable = ({ children, ...props }) => {
     return <Droppable {...props}>{children}</Droppable>;
 };
 
+// --- MAIN COMPONENT ---
 export default function EditLessonModal({ isOpen, onClose, lesson }) {
     const [title, setTitle] = useState('');
     const [studyGuideUrl, setStudyGuideUrl] = useState('');
@@ -368,9 +373,7 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     
-    // NEW: Reference to the preview container for sync scrolling
     const previewRef = useRef(null);
-
     const inputClass = "w-full bg-slate-50 dark:bg-[#2c2c2e] border border-black/5 dark:border-white/10 rounded-[14px] px-4 py-2.5 text-[15px] font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-[#007AFF]/20 focus:border-[#007AFF] outline-none transition-all shadow-sm";
 
     useEffect(() => {
@@ -404,64 +407,78 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
         }
     }, [lesson]);
 
-    if (!lesson) return null;
+    // --- OPTIMIZATION: Memoized Handlers ---
+    
+    const handlePageChange = useCallback((field, value) => {
+        setPages(prevPages => {
+            const newPages = [...prevPages];
+            // Access activePageIndex via closure (using a ref is better but this works for simple cases if re-created on index change)
+            // Note: Since we need the current active index, this function is re-created when activePageIndex changes.
+            // This is acceptable as typing updates don't change the page index.
+            const index = activePageIndex; 
+            
+            let pageData = { ...newPages[index] };
 
-    const handlePageChange = (field, value) => {
-        const newPages = [...pages];
-        let pageData = { ...newPages[activePageIndex] };
+            if (field === 'type') {
+                pageData.type = value;
+                if (value === 'diagram-data') {
+                    pageData.content = { labels: [], imageUrls: [] };
+                } else if (value === 'video') {
+                    pageData.content = ''; 
+                } else {
+                    pageData.content = ''; 
+                }
+            } else if (pageData.type === 'diagram-data') {
+                let newContent = { ...(pageData.content || { labels: [], imageUrls: [] }) };
+                if (field === 'diagram_labels') {
+                    newContent.labels = value.split(',').map(label => label.trim());
+                } else if (field === 'imageUrls') {
+                    newContent.imageUrls = value;
+                } else if (field === 'caption') {
+                    pageData.caption = value;
+                }
+                if (field !== 'caption') pageData.content = newContent;
 
-        if (field === 'type') {
-            pageData.type = value;
-            if (value === 'diagram-data') {
-                pageData.content = { labels: [], imageUrls: [] };
-            } else if (value === 'video') {
-                pageData.content = ''; 
+            } else if (pageData.type === 'video') {
+                 if (field === 'caption') {
+                    pageData.caption = value;
+                } else {
+                    pageData.content = value; 
+                }
             } else {
-                pageData.content = ''; 
+                pageData[field] = value;
             }
-        } else if (pageData.type === 'diagram-data') {
-            let newContent = { ...(pageData.content || { labels: [], imageUrls: [] }) };
-            if (field === 'diagram_labels') {
-                newContent.labels = value.split(',').map(label => label.trim());
-            } else if (field === 'imageUrls') {
-                newContent.imageUrls = value;
-            } else if (field === 'caption') {
-                pageData.caption = value;
-            }
-            if (field !== 'caption') pageData.content = newContent;
+            newPages[index] = pageData;
+            return newPages;
+        });
+    }, [activePageIndex]);
 
-        } else if (pageData.type === 'video') {
-             if (field === 'caption') {
-                pageData.caption = value;
-            } else {
-                pageData.content = value; 
-            }
-        } else {
-            pageData[field] = value;
-        }
-        newPages[activePageIndex] = pageData;
-        setPages(newPages);
-    };
+    const addPage = useCallback(() => {
+        setPages(prev => [
+            ...prev, 
+            { id: `page-${Math.random()}`, title: `Page ${prev.length + 1}`, content: '', type: 'text', caption: '' }
+        ]);
+        setActivePageIndex(prev => prev + 1); // safe guess
+    }, []);
 
-    const addPage = () => {
-        const newPage = { id: `page-${Math.random()}`, title: `Page ${pages.length + 1}`, content: '', type: 'text', caption: '' };
-        setPages([...pages, newPage]);
-        setActivePageIndex(pages.length);
-    };
+    const removePage = useCallback((index) => {
+        setPages(prev => {
+            if (prev.length <= 1) return prev;
+            return prev.filter((_, i) => i !== index);
+        });
+        setActivePageIndex(prev => Math.max(0, Math.min(prev, prev - 1))); // approximate
+    }, []);
 
-    const removePage = (index) => {
-        if (pages.length <= 1) return;
-        const newPages = pages.filter((_, i) => i !== index);
-        setPages(newPages);
-        setActivePageIndex(prev => Math.max(0, Math.min(prev, newPages.length - 1)));
-    };
-
-    const handleOnDragEnd = (result) => {
+    const handleOnDragEnd = useCallback((result) => {
         if (!result.destination) return;
-        const items = reorder(pages, result.source.index, result.destination.index);
-        setPages(items);
+        setPages(prev => {
+            const items = Array.from(prev);
+            const [removed] = items.splice(result.source.index, 1);
+            items.splice(result.destination.index, 0, removed);
+            return items;
+        });
         setActivePageIndex(result.destination.index);
-    };
+    }, []);
 
     const handleUpdateLesson = async () => {
         if (!title.trim()) { setError('Lesson title cannot be empty.'); return; }
@@ -471,7 +488,6 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
             const pagesToSave = pages.map(({ id, ...page }) => {
                 const cleanPage = { ...page };
                 cleanPage.caption = cleanPage.caption || '';
-
                 if (cleanPage.type === "diagram-data") {
                     cleanPage.content = {
                         labels: (cleanPage.content?.labels || []).filter(Boolean),
@@ -490,7 +506,6 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
                 studyGuideUrl,
                 pages: pagesToSave,
             });
-
             onClose();
         } catch (error) {
             console.error("Error updating lesson:", error);
@@ -500,12 +515,17 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
         }
     };
 
+    if (!lesson) return null;
+
     const activePage = pages[activePageIndex] || { title: '', content: '', type: 'text' };
+    
+    // --- OPTIMIZATION: Deferred values for smooth typing ---
+    const deferredContent = useDeferredValue(activePage.content);
+    const deferredCaption = useDeferredValue(activePage.caption);
 
     return (
         <Dialog open={isOpen} onClose={onClose} className="relative z-50">
             <div className="fixed inset-0 bg-slate-200/50 dark:bg-black/80 backdrop-blur-sm transition-opacity" aria-hidden="true" />
-
             <div className="fixed inset-0 flex items-center justify-center p-4">
                 <MobileRestricted onClose={onClose} />
 
@@ -524,18 +544,8 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
                                 </div>
                             </div>
                             <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
-                                <input 
-                                    placeholder="Lesson Title" 
-                                    value={title} 
-                                    onChange={(e) => setTitle(e.target.value)} 
-                                    className={`${inputClass} font-bold w-full md:w-72`} 
-                                />
-                                <input 
-                                    placeholder="Study Guide URL" 
-                                    value={studyGuideUrl} 
-                                    onChange={(e) => setStudyGuideUrl(e.target.value)} 
-                                    className={`${inputClass} w-full md:w-72`} 
-                                />
+                                <input placeholder="Lesson Title" value={title} onChange={(e) => setTitle(e.target.value)} className={`${inputClass} font-bold w-full md:w-72`} />
+                                <input placeholder="Study Guide URL" value={studyGuideUrl} onChange={(e) => setStudyGuideUrl(e.target.value)} className={`${inputClass} w-full md:w-72`} />
                             </div>
                         </div>
                     </div>
@@ -555,44 +565,17 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
                                             <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-3">
                                                 {pages.map((page, index) => (
                                                     <Draggable key={page.id} draggableId={String(page.id)} index={index}>
-                                                        {(provided, snapshot) => {
-                                                            const isActive = activePageIndex === index;
-                                                            return (
-                                                                <div
-                                                                    ref={provided.innerRef}
-                                                                    {...provided.draggableProps}
-                                                                    {...provided.dragHandleProps}
-                                                                    onClick={() => setActivePageIndex(index)}
-                                                                    className={`group relative flex items-center justify-between p-3.5 rounded-[14px] cursor-pointer transition-all duration-200 border
-                                                                        ${isActive 
-                                                                            ? 'bg-[#007AFF]/10 dark:bg-[#007AFF]/20 border-[#007AFF]/20' 
-                                                                            : 'bg-white dark:bg-[#2c2c2e] border-transparent hover:bg-slate-50 dark:hover:bg-[#3a3a3c] text-slate-600 dark:text-slate-400'
-                                                                        }`}
-                                                                >
-                                                                    {isActive && (
-                                                                        <div className="absolute left-0 top-1/2 -translate-y-1/2 h-8 w-1 bg-[#007AFF] rounded-r-full" />
-                                                                    )}
-                                                                    <div className="flex items-center gap-3 overflow-hidden pl-2">
-                                                                        <Bars3Icon className="h-5 w-5 stroke-[2] text-slate-400 dark:text-slate-500"/>
-                                                                        <div className="flex flex-col">
-                                                                            <span className={`font-bold text-[14px] truncate leading-tight ${isActive ? 'text-[#007AFF] dark:text-[#5faaff]' : 'text-slate-700 dark:text-slate-200'}`}>
-                                                                                {page.title || `Page ${index + 1}`}
-                                                                            </span>
-                                                                            <span className="text-[10px] text-slate-400 font-bold tracking-wide uppercase mt-0.5">
-                                                                                {page.type === 'diagram-data' ? 'Image' : page.type}
-                                                                            </span>
-                                                                        </div>
-                                                                    </div>
-                                                                    <button
-                                                                        onClick={(e) => { e.stopPropagation(); removePage(index); }}
-                                                                        disabled={pages.length <= 1}
-                                                                        className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all opacity-0 group-hover:opacity-100 disabled:hidden active:scale-90"
-                                                                    >
-                                                                        <TrashIcon className="h-4 w-4 stroke-[2.5]"/>
-                                                                    </button>
-                                                                </div>
-                                                            );
-                                                        }}
+                                                        {(provided) => (
+                                                            <SidebarPageItem 
+                                                                page={page} 
+                                                                index={index} 
+                                                                isActive={activePageIndex === index}
+                                                                onClick={() => setActivePageIndex(index)}
+                                                                onRemove={removePage}
+                                                                provided={provided}
+                                                                isListRestricted={pages.length <= 1}
+                                                            />
+                                                        )}
                                                     </Draggable>
                                                 ))}
                                                 {provided.placeholder}
@@ -609,20 +592,13 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
                             </div>
                         </div>
 
-                        {/* Editor Area */}
+                        {/* Editor */}
                         <div className="flex-grow flex flex-col min-h-0 bg-white dark:bg-[#1c1c1e] border border-black/5 dark:border-white/5 rounded-[20px] shadow-sm overflow-hidden">
-                             {/* Editor Toolbar */}
                             <div className="flex items-center justify-between p-5 border-b border-black/5 dark:border-white/5 bg-white dark:bg-[#1c1c1e]">
                                 <div className="flex items-center gap-4 flex-1">
                                     <span className="text-[11px] font-bold uppercase text-slate-400 dark:text-slate-500 tracking-widest">Editing</span>
-                                    <input 
-                                        placeholder="Page Title" 
-                                        value={activePage.title} 
-                                        onChange={(e) => handlePageChange('title', e.target.value)} 
-                                        className="bg-transparent border-none p-0 text-xl font-bold text-slate-900 dark:text-white focus:ring-0 placeholder-slate-400 w-full tracking-tight"
-                                    />
+                                    <input placeholder="Page Title" value={activePage.title} onChange={(e) => handlePageChange('title', e.target.value)} className="bg-transparent border-none p-0 text-xl font-bold text-slate-900 dark:text-white focus:ring-0 placeholder-slate-400 w-full tracking-tight"/>
                                 </div>
-                                
                                 <div className="flex p-1 bg-slate-100 dark:bg-[#2c2c2e] rounded-[14px]">
                                     {['Text', 'Image', 'Video'].map((type, idx) => {
                                         const value = ['text', 'diagram-data', 'video'][idx];
@@ -630,15 +606,7 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
                                         const icons = [BookOpenIcon, PhotoIcon, VideoCameraIcon];
                                         const Icon = icons[idx];
                                         return (
-                                            <button 
-                                                key={type} 
-                                                onClick={() => handlePageChange('type', value)}
-                                                className={`flex items-center gap-2 rounded-[10px] py-2 px-4 text-[13px] font-bold transition-all duration-200 outline-none
-                                                ${isSelected 
-                                                    ? 'bg-white dark:bg-[#3A3A3C] text-slate-900 dark:text-white shadow-sm' 
-                                                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5'
-                                                }`}
-                                            >
+                                            <button key={type} onClick={() => handlePageChange('type', value)} className={`flex items-center gap-2 rounded-[10px] py-2 px-4 text-[13px] font-bold transition-all duration-200 outline-none ${isSelected ? 'bg-white dark:bg-[#3A3A3C] text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5'}`}>
                                                 <Icon className="w-4 h-4 stroke-[2.5]" />
                                                 <span className="hidden sm:inline">{type}</span>
                                             </button>
@@ -647,190 +615,98 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
                                 </div>
                             </div>
 
-                            {/* Main Content Render */}
+                            {/* Main Content */}
                             <div className="flex-grow overflow-hidden p-6 sm:p-8 bg-[#FAFAFA] dark:bg-[#151515]">
-                                {/* MODE: TEXT */}
                                 {activePage.type === 'text' && (
                                     <div className="h-full flex flex-col lg:flex-row gap-8">
                                         <div className="flex-1 h-full min-h-0">
-                                            <MarkdownEditor
-                                                value={typeof activePage.content === 'string' ? activePage.content : ''}
-                                                onValueChange={(val) => handlePageChange('content', val)}
-                                                previewRef={previewRef} // PASS PREVIEW REF
-                                            />
+                                            <MarkdownEditor value={typeof activePage.content === 'string' ? activePage.content : ''} onValueChange={(val) => handlePageChange('content', val)} previewRef={previewRef} />
                                         </div>
                                         <div className="flex-1 h-full min-h-0 hidden lg:block">
-                                            <div 
-                                                ref={previewRef} // ATTACH PREVIEW REF
-                                                className="w-full h-full border border-black/5 dark:border-white/5 rounded-[24px] bg-white dark:bg-[#1c1c1e] p-8 overflow-y-auto custom-scrollbar prose prose-slate dark:prose-invert max-w-none shadow-sm"
-                                            >
-                                                <div className="mb-6 text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                                    <EyeIcon className="w-4 h-4" /> Live Preview
-                                                </div>
-                                                <ContentRenderer text={typeof activePage.content === 'string' ? activePage.content : ''} />
+                                            <div ref={previewRef} className="w-full h-full border border-black/5 dark:border-white/5 rounded-[24px] bg-white dark:bg-[#1c1c1e] p-8 overflow-y-auto custom-scrollbar prose prose-slate dark:prose-invert max-w-none shadow-sm">
+                                                <div className="mb-6 text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2"><EyeIcon className="w-4 h-4" /> Live Preview</div>
+                                                <ContentRenderer text={typeof deferredContent === 'string' ? deferredContent : ''} />
                                             </div>
                                         </div>
                                     </div>
                                 )}
 
-                                {/* MODE: IMAGE */}
+                                {/* Image Mode (Deferred Content) */}
                                 {activePage.type === 'diagram-data' && (
                                     <div className="h-full flex flex-col lg:flex-row gap-8">
                                         <div className="flex-1 flex flex-col gap-6 h-full min-h-0 overflow-y-auto custom-scrollbar p-1">
                                             <div className="w-full p-6 bg-white dark:bg-[#1c1c1e] rounded-[24px] border border-black/5 dark:border-white/5 shadow-sm">
+                                                {/* Image Config (Inputs are cheap, no need to defer) */}
                                                 <div className="space-y-5">
                                                     <div className="flex items-center gap-3 mb-2">
-                                                        <div className="p-3 rounded-[14px] bg-blue-50 dark:bg-blue-900/20 text-[#007AFF] dark:text-blue-400">
-                                                            <PhotoIcon className="w-6 h-6 stroke-[2]" />
-                                                        </div>
+                                                        <div className="p-3 rounded-[14px] bg-blue-50 dark:bg-blue-900/20 text-[#007AFF] dark:text-blue-400"><PhotoIcon className="w-6 h-6 stroke-[2]" /></div>
                                                         <label className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wide">Image Configuration</label>
                                                     </div>
                                                     <div className="space-y-3">
                                                         {Array.isArray(activePage.content?.imageUrls) && activePage.content.imageUrls.map((url, idx) => (
                                                             <div key={idx} className="flex gap-2 items-center">
-                                                                {/* GOOGLE DRIVE FIX APPLIED HERE */}
-                                                                <input 
-                                                                    placeholder={`Paste Image URL #${idx + 1}`} 
-                                                                    value={url} 
-                                                                    onChange={(e) => { 
-                                                                        const newUrls = [...activePage.content.imageUrls]; 
-                                                                        // Automatically convert Google Drive links on input
-                                                                        newUrls[idx] = convertGoogleDriveLink(e.target.value); 
-                                                                        handlePageChange('imageUrls', newUrls); 
-                                                                    }} 
-                                                                    className={inputClass}
-                                                                />
-                                                                <button onClick={() => { const newUrls = activePage.content.imageUrls.filter((_, i) => i !== idx); handlePageChange('imageUrls', newUrls); }} className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-[12px] transition-colors border border-transparent hover:border-red-100">
-                                                                    <TrashIcon className="w-5 h-5 stroke-[2.5]"/>
-                                                                </button>
+                                                                <input placeholder={`Paste Image URL #${idx + 1}`} value={url} onChange={(e) => { const newUrls = [...activePage.content.imageUrls]; newUrls[idx] = convertGoogleDriveLink(e.target.value); handlePageChange('imageUrls', newUrls); }} className={inputClass}/>
+                                                                <button onClick={() => { const newUrls = activePage.content.imageUrls.filter((_, i) => i !== idx); handlePageChange('imageUrls', newUrls); }} className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-[12px] transition-colors border border-transparent hover:border-red-100"><TrashIcon className="w-5 h-5 stroke-[2.5]"/></button>
                                                             </div>
                                                         ))}
                                                     </div>
-                                                    <button onClick={() => handlePageChange('imageUrls', [...(activePage.content?.imageUrls || []), ''])} className="w-full flex justify-center items-center gap-2 px-4 py-3 bg-gradient-to-r from-[#007AFF] to-[#0051A8] text-white rounded-[14px] font-bold text-[14px] transition-all hover:shadow-lg shadow-blue-500/20 active:scale-[0.98]">
-                                                        <PlusCircleIcon className="w-5 h-5 stroke-[2.5]"/>
-                                                        Add Image Source
-                                                    </button>
+                                                    <button onClick={() => handlePageChange('imageUrls', [...(activePage.content?.imageUrls || []), ''])} className="w-full flex justify-center items-center gap-2 px-4 py-3 bg-gradient-to-r from-[#007AFF] to-[#0051A8] text-white rounded-[14px] font-bold text-[14px] transition-all hover:shadow-lg shadow-blue-500/20 active:scale-[0.98]"><PlusCircleIcon className="w-5 h-5 stroke-[2.5]"/>Add Image Source</button>
                                                     <div className="mt-4 pt-5 border-t border-black/5 dark:border-white/5">
                                                         <label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2 block ml-1">Labels (Optional)</label>
                                                         <input placeholder="Comma-separated labels" value={Array.isArray(activePage.content?.labels) ? activePage.content.labels.join(', ') : ''} onChange={(e) => handlePageChange('diagram_labels', e.target.value)} className={inputClass}/>
                                                     </div>
                                                 </div>
                                             </div>
-
                                             <div className="flex-1 min-h-[300px] relative rounded-[24px] overflow-hidden shadow-sm border border-black/5 dark:border-white/5 bg-white dark:bg-[#1c1c1e]">
-                                                <div className="absolute top-0 left-0 right-0 px-6 py-3 bg-slate-50/80 dark:bg-[#252525]/80 backdrop-blur-md border-b border-black/5 dark:border-white/5 z-10">
-                                                    <span className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Description / Caption</span>
-                                                </div>
+                                                <div className="absolute top-0 left-0 right-0 px-6 py-3 bg-slate-50/80 dark:bg-[#252525]/80 backdrop-blur-md border-b border-black/5 dark:border-white/5 z-10"><span className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Description / Caption</span></div>
                                                 <div className="pt-12 h-full">
-                                                    <MarkdownEditor
-                                                        value={activePage.caption || ''}
-                                                        onValueChange={(val) => handlePageChange('caption', val)}
-                                                        placeholder="Write a caption, introduction, or detailed explanation..."
-                                                        previewRef={previewRef} // PASS PREVIEW REF
-                                                    />
+                                                    <MarkdownEditor value={activePage.caption || ''} onValueChange={(val) => handlePageChange('caption', val)} placeholder="Write a caption..." previewRef={previewRef} />
                                                 </div>
                                             </div>
                                         </div>
-                                        
                                         <div className="flex-1 h-full hidden lg:block min-h-0">
-                                            <div 
-                                                ref={previewRef} // ATTACH PREVIEW REF
-                                                className="w-full h-full border border-black/5 dark:border-white/5 rounded-[24px] bg-white dark:bg-[#1c1c1e] p-8 overflow-y-auto custom-scrollbar shadow-sm"
-                                            >
-                                                <div className="mb-6 text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                                    <EyeIcon className="w-4 h-4" /> Live Preview
-                                                </div>
+                                            <div ref={previewRef} className="w-full h-full border border-black/5 dark:border-white/5 rounded-[24px] bg-white dark:bg-[#1c1c1e] p-8 overflow-y-auto custom-scrollbar shadow-sm">
+                                                <div className="mb-6 text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2"><EyeIcon className="w-4 h-4" /> Live Preview</div>
                                                 <div className="space-y-8">
                                                     <div className="grid grid-cols-1 gap-6">
                                                         {Array.isArray(activePage.content?.imageUrls) && activePage.content.imageUrls.map((url, idx) => (
-                                                            url ? (
-                                                                <div key={idx} className="rounded-[16px] overflow-hidden shadow-md border border-black/5 dark:border-white/10">
-                                                                    <img src={url} alt={`Preview ${idx}`} className="w-full h-auto object-cover" onError={(e) => e.target.style.display = 'none'} />
-                                                                </div>
-                                                            ) : (
-                                                                <div key={idx} className="h-48 rounded-[16px] bg-slate-50 dark:bg-[#2c2c2e] flex items-center justify-center border-2 border-dashed border-slate-300 dark:border-slate-600">
-                                                                    <p className="text-[14px] text-slate-400 font-medium">Image {idx + 1} Placeholder</p>
-                                                                </div>
-                                                            )
+                                                            url ? <div key={idx} className="rounded-[16px] overflow-hidden shadow-md border border-black/5 dark:border-white/10"><img src={url} alt={`Preview ${idx}`} className="w-full h-auto object-cover" onError={(e) => e.target.style.display = 'none'} /></div> : <div key={idx} className="h-48 rounded-[16px] bg-slate-50 dark:bg-[#2c2c2e] flex items-center justify-center border-2 border-dashed border-slate-300 dark:border-slate-600"><p className="text-[14px] text-slate-400 font-medium">Image {idx + 1} Placeholder</p></div>
                                                         ))}
                                                     </div>
-                                                    {activePage.caption && (
-                                                        <div className="prose prose-sm max-w-none prose-slate dark:prose-invert p-6 bg-slate-50 dark:bg-[#2c2c2e] rounded-[16px] border border-black/5 dark:border-white/5">
-                                                            <ContentRenderer text={activePage.caption} />
-                                                        </div>
-                                                    )}
+                                                    {deferredCaption && <div className="prose prose-sm max-w-none prose-slate dark:prose-invert p-6 bg-slate-50 dark:bg-[#2c2c2e] rounded-[16px] border border-black/5 dark:border-white/5"><ContentRenderer text={deferredCaption} /></div>}
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
                                 )}
 
-                                {/* MODE: VIDEO */}
+                                {/* Video Mode */}
                                 {activePage.type === 'video' && (
                                     <div className="h-full flex flex-col lg:flex-row gap-8">
                                         <div className="flex-1 flex flex-col gap-6 h-full min-h-0 overflow-y-auto custom-scrollbar p-1">
                                             <div className="w-full p-8 bg-white dark:bg-[#1c1c1e] rounded-[24px] border border-black/5 dark:border-white/5 shadow-sm text-center">
                                                 <div className="flex flex-col items-center gap-5 max-w-lg mx-auto">
-                                                    <div className="w-20 h-20 mx-auto bg-gradient-to-br from-pink-500 to-rose-600 rounded-[24px] flex items-center justify-center shadow-lg shadow-pink-500/30">
-                                                        <VideoCameraIcon className="w-10 h-10 text-white stroke-[1.5]" />
-                                                    </div>
+                                                    <div className="w-20 h-20 mx-auto bg-gradient-to-br from-pink-500 to-rose-600 rounded-[24px] flex items-center justify-center shadow-lg shadow-pink-500/30"><VideoCameraIcon className="w-10 h-10 text-white stroke-[1.5]" /></div>
                                                     <div className="w-full">
                                                         <h4 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Embed Video</h4>
-                                                        <p className="text-[13px] text-slate-500 dark:text-slate-400 mb-6 font-medium">Paste a YouTube or Vimeo link to embed content.</p>
-                                                        <input 
-                                                            placeholder="https://youtube.com/watch?v=..." 
-                                                            value={typeof activePage.content === 'string' ? activePage.content : ''} 
-                                                            onChange={(e) => handlePageChange('content', e.target.value)} 
-                                                            className={`${inputClass} text-center font-medium shadow-sm`}
-                                                        />
+                                                        <p className="text-[13px] text-slate-500 dark:text-slate-400 mb-6 font-medium">Paste a YouTube or Vimeo link.</p>
+                                                        <input placeholder="https://youtube.com/watch?v=..." value={typeof activePage.content === 'string' ? activePage.content : ''} onChange={(e) => handlePageChange('content', e.target.value)} className={`${inputClass} text-center font-medium shadow-sm`}/>
                                                     </div>
                                                 </div>
                                             </div>
-
                                             <div className="flex-1 min-h-[300px] relative rounded-[24px] overflow-hidden shadow-sm border border-black/5 dark:border-white/5 bg-white dark:bg-[#1c1c1e]">
-                                                <div className="absolute top-0 left-0 right-0 px-6 py-3 bg-slate-50/80 dark:bg-[#252525]/80 backdrop-blur-md border-b border-black/5 dark:border-white/5 z-10">
-                                                    <span className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Description / Caption</span>
-                                                </div>
-                                                <div className="pt-12 h-full">
-                                                    <MarkdownEditor
-                                                        value={activePage.caption || ''}
-                                                        onValueChange={(val) => handlePageChange('caption', val)}
-                                                        placeholder="Write a caption, introduction, or explanation..."
-                                                        previewRef={previewRef} // PASS PREVIEW REF
-                                                    />
-                                                </div>
+                                                <div className="absolute top-0 left-0 right-0 px-6 py-3 bg-slate-50/80 dark:bg-[#252525]/80 backdrop-blur-md border-b border-black/5 dark:border-white/5 z-10"><span className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Description / Caption</span></div>
+                                                <div className="pt-12 h-full"><MarkdownEditor value={activePage.caption || ''} onValueChange={(val) => handlePageChange('caption', val)} placeholder="Write a caption..." previewRef={previewRef} /></div>
                                             </div>
                                         </div>
-
                                         <div className="flex-1 h-full hidden lg:block min-h-0">
-                                            <div 
-                                                ref={previewRef} // ATTACH PREVIEW REF
-                                                className="w-full h-full border border-black/5 dark:border-white/5 rounded-[24px] bg-white dark:bg-[#1c1c1e] p-8 overflow-y-auto custom-scrollbar shadow-sm"
-                                            >
-                                                <div className="mb-6 text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                                    <EyeIcon className="w-4 h-4" /> Live Preview
-                                                </div>
+                                            <div ref={previewRef} className="w-full h-full border border-black/5 dark:border-white/5 rounded-[24px] bg-white dark:bg-[#1c1c1e] p-8 overflow-y-auto custom-scrollbar shadow-sm">
+                                                <div className="mb-6 text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2"><EyeIcon className="w-4 h-4" /> Live Preview</div>
                                                 <div className="space-y-8">
                                                     <div className="aspect-video rounded-[24px] overflow-hidden bg-black shadow-lg">
-                                                        {activePage.content ? (
-                                                            <iframe
-                                                                className="w-full h-full"
-                                                                src={getEmbedUrl(activePage.content)}
-                                                                title="Video Preview"
-                                                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                                                allowFullScreen
-                                                            ></iframe>
-                                                        ) : (
-                                                            <div className="w-full h-full flex items-center justify-center">
-                                                                <p className="text-slate-500 text-[15px] font-medium">No Video URL Provided</p>
-                                                            </div>
-                                                        )}
+                                                        {activePage.content ? <iframe className="w-full h-full" src={getEmbedUrl(activePage.content)} title="Video Preview" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe> : <div className="w-full h-full flex items-center justify-center"><p className="text-slate-500 text-[15px] font-medium">No Video URL Provided</p></div>}
                                                     </div>
-                                                    {activePage.caption && (
-                                                        <div className="prose prose-sm max-w-none prose-slate dark:prose-invert p-6 bg-slate-50 dark:bg-[#2c2c2e] rounded-[16px] border border-black/5 dark:border-white/5">
-                                                            <ContentRenderer text={activePage.caption} />
-                                                        </div>
-                                                    )}
+                                                    {deferredCaption && <div className="prose prose-sm max-w-none prose-slate dark:prose-invert p-6 bg-slate-50 dark:bg-[#2c2c2e] rounded-[16px] border border-black/5 dark:border-white/5"><ContentRenderer text={deferredCaption} /></div>}
                                                 </div>
                                             </div>
                                         </div>
@@ -839,9 +715,8 @@ export default function EditLessonModal({ isOpen, onClose, lesson }) {
                             </div>
                         </div>
                     </div>
-
                     {/* Footer */}
-                    <div className="flex-shrink-0 flex justify-between items-center px-8 py-5 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#1c1c1e] z-20">
+                     <div className="flex-shrink-0 flex justify-between items-center px-8 py-5 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#1c1c1e] z-20">
                          <p className="text-sm font-bold text-red-500 ml-2">{error}</p>
                         <div className="flex gap-4 ml-auto">
                             <button className="px-8 py-3 rounded-[16px] font-bold text-[14px] text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-[#2c2c2e] hover:bg-slate-200 dark:hover:bg-[#3a3a3c] transition-all shadow-sm active:scale-95" onClick={onClose}>

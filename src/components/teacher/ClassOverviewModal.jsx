@@ -1,7 +1,7 @@
 // src/components/teacher/ClassOverviewModal.jsx
 
-import React, { useState, useEffect, useCallback, memo, forwardRef } from 'react';
-import { createPortal } from 'react-dom'; // <--- IMPORT ADDED
+import React, { useState, useEffect, useCallback, memo, forwardRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import Modal from '../common/Modal';
 import { db } from '../../services/firebase';
 import {
@@ -96,6 +96,11 @@ const ClassOverviewModal = forwardRef(({ isOpen, onClose, classData, onRemoveStu
     const [quizLocks, setQuizLocks] = useState([]);
 
     const [confirmModal, setConfirmModal] = useState({ isOpen: false, message: '', onConfirm: () => {}, confirmText: 'Delete', confirmColor: 'red' });
+
+    // --- OPTIMIZATION: Memoize expensive array operations ---
+    const allQuizzes = useMemo(() => {
+        return sharedContentPosts.flatMap(p => p.quizzes || []);
+    }, [sharedContentPosts]);
 
     // --- 4. EFFECTS ---
 
@@ -317,7 +322,7 @@ const ClassOverviewModal = forwardRef(({ isOpen, onClose, classData, onRemoveStu
             case 'scores':
                 return (
                     <ScoresTab 
-                        quizzes={sharedContentPosts.flatMap(p => p.quizzes || [])} 
+                        quizzes={allQuizzes} // Using Memoized prop
                         units={units}
                         sharedContentPosts={sharedContentPosts}
                         quizScores={quizScores}
@@ -336,7 +341,8 @@ const ClassOverviewModal = forwardRef(({ isOpen, onClose, classData, onRemoveStu
 
     return (
         <div ref={ref} className="h-full w-full pointer-events-auto">
-            <Modal isOpen={isOpen} onClose={onClose} size="screen" roundedClass="rounded-none sm:rounded-3xl" containerClassName="h-full sm:p-4 bg-black/50 backdrop-blur-sm" contentClassName="p-0 w-full h-full" showCloseButton={false}>
+            {/* OPTIMIZATION: Removed 'backdrop-blur-sm' from container to avoid stacking blurs (lag) */}
+            <Modal isOpen={isOpen} onClose={onClose} size="screen" roundedClass="rounded-none sm:rounded-3xl" containerClassName="h-full sm:p-4 bg-black/50" contentClassName="p-0 w-full h-full" showCloseButton={false}>
                 <div className="relative w-full h-full sm:h-[85vh] bg-[#f8fafc] dark:bg-black overflow-hidden flex flex-col rounded-none sm:rounded-[32px] shadow-2xl border border-white/20 dark:border-white/10">
                     <AuroraBackground />
                     
@@ -377,29 +383,86 @@ const ClassOverviewModal = forwardRef(({ isOpen, onClose, classData, onRemoveStu
                     </div>
                 </div>
                 
-                {/* AUXILIARY MODALS - USING PORTALS TO ESCAPE PARENT Z-INDEX */}
+                {/* AUXILIARY MODALS - OPTIMIZATION: Conditional Rendering applied here */}
                 {createPortal(
                     <>
-                        <GenerateReportModal isOpen={isReportModalOpen} onClose={() => setIsReportModalOpen(false)} classData={classData} availableQuizzes={sharedContentPosts.flatMap(p => p.quizzes || [])} quizScores={quizScores} units={units} sharedContentPosts={sharedContentPosts} className="z-[9999]"/>
-                        <ViewLessonModal isOpen={!!viewLessonData} onClose={() => setViewLessonData(null)} lesson={viewLessonData} className="z-[9999]" />
-                        <ViewQuizModal isOpen={!!viewQuizData} onClose={() => setViewQuizData(null)} quiz={viewQuizData} userProfile={userProfile} classId={classData?.id} isTeacherView={true} className="z-[9999]" />
-                        <EditAvailabilityModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} post={postToEdit} classId={classData?.id} onUpdate={() => {}} classData={classData} className="z-[9999]" />
-                        {selectedQuizForScores && (<QuizScoresModal isOpen={isScoresDetailModalOpen} onClose={() => setScoresDetailModalOpen(false)} quiz={selectedQuizForScores} classData={classData} quizScores={quizScores} setQuizScores={setQuizScores} quizLocks={quizLocks} onUnlockQuiz={handleUnlockQuiz} setIsReportModalOpen={setIsReportModalOpen} className="z-[9999]" />)}
+                        {isReportModalOpen && (
+                            <GenerateReportModal 
+                                isOpen={true} 
+                                onClose={() => setIsReportModalOpen(false)} 
+                                classData={classData} 
+                                availableQuizzes={allQuizzes} // Using Memoized prop
+                                quizScores={quizScores} 
+                                units={units} 
+                                sharedContentPosts={sharedContentPosts} 
+                                className="z-[9999]"
+                            />
+                        )}
+                        
+                        {viewLessonData && (
+                            <ViewLessonModal 
+                                isOpen={true} 
+                                onClose={() => setViewLessonData(null)} 
+                                lesson={viewLessonData} 
+                                className="z-[9999]" 
+                            />
+                        )}
+
+                        {viewQuizData && (
+                            <ViewQuizModal 
+                                isOpen={true} 
+                                onClose={() => setViewQuizData(null)} 
+                                quiz={viewQuizData} 
+                                userProfile={userProfile} 
+                                classId={classData?.id} 
+                                isTeacherView={true} 
+                                className="z-[9999]" 
+                            />
+                        )}
+
+                        {isEditModalOpen && (
+                            <EditAvailabilityModal 
+                                isOpen={true} 
+                                onClose={() => setIsEditModalOpen(false)} 
+                                post={postToEdit} 
+                                classId={classData?.id} 
+                                onUpdate={() => {}} 
+                                classData={classData} 
+                                className="z-[9999]" 
+                            />
+                        )}
+
+                        {selectedQuizForScores && isScoresDetailModalOpen && (
+                            <QuizScoresModal 
+                                isOpen={true} 
+                                onClose={() => setScoresDetailModalOpen(false)} 
+                                quiz={selectedQuizForScores} 
+                                classData={classData} 
+                                quizScores={quizScores} 
+                                setQuizScores={setQuizScores} 
+                                quizLocks={quizLocks} 
+                                onUnlockQuiz={handleUnlockQuiz} 
+                                setIsReportModalOpen={setIsReportModalOpen} 
+                                className="z-[9999]" 
+                            />
+                        )}
                         
                         {/* Confirmation Modal */}
-                        <Modal isOpen={confirmModal.isOpen} onClose={() => setConfirmModal(p => ({ ...p, isOpen: false }))} title="Confirmation" size="sm" className="z-[9999]" contentClassName="p-0" roundedClass="rounded-[28px]" containerClassName="bg-black/50 backdrop-blur-sm">
-                            <div className="p-6 bg-white dark:bg-[#1A1D24] rounded-[28px]">
-                                <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-4 mx-auto">
-                                    <TrashIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
+                        {confirmModal.isOpen && (
+                            <Modal isOpen={true} onClose={() => setConfirmModal(p => ({ ...p, isOpen: false }))} title="Confirmation" size="sm" className="z-[9999]" contentClassName="p-0" roundedClass="rounded-[28px]" containerClassName="bg-black/50 backdrop-blur-sm">
+                                <div className="p-6 bg-white dark:bg-[#1A1D24] rounded-[28px]">
+                                    <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-4 mx-auto">
+                                        <TrashIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
+                                    </div>
+                                    <h3 className="text-lg font-bold text-center text-slate-900 dark:text-white mb-2">Are you sure?</h3>
+                                    <p className="text-center text-slate-600 dark:text-slate-400 mb-8 leading-relaxed">{confirmModal.message}</p>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button onClick={() => setConfirmModal(p => ({ ...p, isOpen: false }))} className="py-3 rounded-xl font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200">Cancel</button>
+                                        <button onClick={() => { confirmModal.onConfirm(); setConfirmModal(p => ({ ...p, isOpen: false })); }} className={`py-3 rounded-xl font-semibold text-white shadow-lg ${confirmModal.confirmColor === 'red' ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500'}`}>{confirmModal.confirmText}</button>
+                                    </div>
                                 </div>
-                                <h3 className="text-lg font-bold text-center text-slate-900 dark:text-white mb-2">Are you sure?</h3>
-                                <p className="text-center text-slate-600 dark:text-slate-400 mb-8 leading-relaxed">{confirmModal.message}</p>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <button onClick={() => setConfirmModal(p => ({ ...p, isOpen: false }))} className="py-3 rounded-xl font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200">Cancel</button>
-                                    <button onClick={() => { confirmModal.onConfirm(); setConfirmModal(p => ({ ...p, isOpen: false })); }} className={`py-3 rounded-xl font-semibold text-white shadow-lg ${confirmModal.confirmColor === 'red' ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500'}`}>{confirmModal.confirmText}</button>
-                                </div>
-                            </div>
-                        </Modal>
+                            </Modal>
+                        )}
                     </>,
                     document.body
                 )}

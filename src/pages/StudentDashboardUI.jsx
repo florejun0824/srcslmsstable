@@ -1,8 +1,7 @@
 // src/pages/StudentDashboardUI.jsx
-import React, { useState, useRef, useEffect, useMemo, Fragment } from 'react';
-import { NavLink } from 'react-router-dom';
+import React, { useState, useRef, useEffect, useMemo, Fragment, useCallback, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, Transition, Dialog } from '@headlessui/react'; // ✅ Added Dialog
+import { Menu, Transition, Dialog } from '@headlessui/react';
 import {
     ClipboardDocumentCheckIcon,
     UserIcon,
@@ -22,8 +21,7 @@ import {
     AcademicCapIcon
 } from '@heroicons/react/24/solid';
 import { IconPalette } from '@tabler/icons-react';
-// ✅ Added Lucide Icons for Welcome Modal
-import { ShieldCheck, Share2, CheckCircle2, Check, School } from 'lucide-react';
+import { ShieldCheck, Share2, CheckCircle2, Check } from 'lucide-react';
 
 // Sub-Pages & Components
 import StudentProfilePage from './StudentProfilePage';
@@ -40,14 +38,12 @@ import InstallPWA from '../components/common/InstallPWA';
 import UniversalBackground from '../components/common/UniversalBackground';
 import ThemeToggle from '../components/common/ThemeToggle';
 
-// Contexts
-import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../contexts/AuthContext';
 
-// 🏫 SCHOOL BRANDING CONFIGURATION
+// --- CONSTANTS ---
 const SCHOOL_BRANDING = {
-    'srcs_main': { name: 'SRCS', logo: '/logo.png' }, // Default
+    'srcs_main': { name: 'SRCS', logo: '/logo.png' },
     'hras_sipalay': { name: 'HRA', logo: '/logos/hra.png' },
     'kcc_kabankalan': { name: 'KCC', logo: '/logos/kcc.png' },
     'icad_dancalan': { name: 'ICA', logo: '/logos/ica.png' },
@@ -55,213 +51,13 @@ const SCHOOL_BRANDING = {
     'ichs_ilog': { name: 'ICHS', logo: '/logos/ichs.png' }
 };
 
-const getSchoolBranding = (schoolId) => {
-    return SCHOOL_BRANDING[schoolId] || SCHOOL_BRANDING['srcs_main'];
-};
-
-// ✅ Helper for Full Name in Modal
-const getFullSchoolName = (schoolId) => {
-    const schools = {
-        'srcs_main': 'San Ramon Catholic School',
-        'hras_sipalay': 'Holy Rosary Academy',
-        'kcc_kabankalan': 'Kabankalan Catholic College',
-        'icad_dancalan': 'Immaculate Conception Academy',
-        'mchs_magballo': 'Magballo Catholic High School',
-        'ichs_ilog': 'Ilog Catholic High School'
-    };
-    return schools[schoolId] || 'Your School';
-};
-
-// --- CUSTOM CSS: MAC OS SCROLLBARS & UTILS ---
-const scrollbarStyles = `
-  /* Global Scrollbar Styling - Ultra Thin & Floating */
-  ::-webkit-scrollbar { width: 0px; height: 0px; }
-  
-  .app-scroll-container::-webkit-scrollbar { width: 6px; height: 6px; }
-  .app-scroll-container::-webkit-scrollbar-track { background: transparent; }
-  .app-scroll-container::-webkit-scrollbar-thumb { background-color: rgba(0, 0, 0, 0.1); border-radius: 100px; }
-  .dark .app-scroll-container::-webkit-scrollbar-thumb { background-color: rgba(255, 255, 255, 0.1); }
-
-  /* Glass Morphism Utilities */
-  .glass-panel {
-    background: rgba(255, 255, 255, 0.75);
-    backdrop-filter: blur(25px) saturate(180%);
-    -webkit-backdrop-filter: blur(25px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.6);
-    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
-  }
-  .dark .glass-panel {
-    background: rgba(30, 41, 59, 0.70);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
-  }
-  
-  /* macOS Dock */
-  .macos-dock {
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(30px) saturate(200%);
-    -webkit-backdrop-filter: blur(30px) saturate(200%);
-    border: 1px solid rgba(255, 255, 255, 0.4);
-    border-top: 1px solid rgba(255, 255, 255, 0.8);
-    box-shadow: 
-        0 25px 50px -12px rgba(0, 0, 0, 0.15),
-        inset 0 0 0 1px rgba(255, 255, 255, 0.2);
-    transition: width 0.3s ease;
-  }
-  .dark .macos-dock {
-    background: rgba(15, 23, 42, 0.8);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-top: 1px solid rgba(255, 255, 255, 0.15);
-    box-shadow: 
-        0 30px 60px -15px rgba(0, 0, 0, 0.6),
-        inset 0 0 0 1px rgba(255, 255, 255, 0.05);
-  }
-
-  /* Mobile Theme Text Adjustment */
-  @media (max-width: 640px) {
-    .mobile-theme-adjust * {
-        font-size: 0.50rem !important; /* text-xs */
-        line-height: 1rem !important;
-    }
-  }
-`;
-
-// --- HELPER: MONET EFFECT COLOR EXTRACTION (Background) ---
-const getMonetStyle = (activeOverlay) => {
-    if (activeOverlay === 'christmas') return { background: 'rgba(15, 23, 66, 0.85)', borderColor: 'rgba(100, 116, 139, 0.2)' }; 
-    if (activeOverlay === 'valentines') return { background: 'rgba(60, 10, 20, 0.85)', borderColor: 'rgba(255, 100, 100, 0.15)' }; 
-    if (activeOverlay === 'graduation') return { background: 'rgba(30, 25, 10, 0.85)', borderColor: 'rgba(255, 215, 0, 0.15)' }; 
-    if (activeOverlay === 'rainy') return { background: 'rgba(20, 35, 20, 0.85)', borderColor: 'rgba(100, 150, 100, 0.2)' };
-    if (activeOverlay === 'cyberpunk') return { background: 'rgba(35, 5, 45, 0.85)', borderColor: 'rgba(180, 0, 255, 0.2)' };
-    if (activeOverlay === 'spring') return { background: 'rgba(50, 10, 20, 0.85)', borderColor: 'rgba(255, 150, 180, 0.2)' };
-    if (activeOverlay === 'space') return { background: 'rgba(5, 5, 10, 0.85)', borderColor: 'rgba(100, 100, 255, 0.15)' };
-    return {}; 
-};
-
-// --- HELPER: MONET TEXT COLOR (For Logo) ---
-const getLogoClass = (activeOverlay) => {
-    if (activeOverlay === 'christmas') return 'text-blue-100';
-    if (activeOverlay === 'valentines') return 'text-pink-100';
-    if (activeOverlay === 'graduation') return 'text-amber-100';
-    if (activeOverlay === 'rainy') return 'text-emerald-100';
-    if (activeOverlay === 'cyberpunk') return 'text-cyan-100';
-    if (activeOverlay === 'spring') return 'text-rose-100';
-    if (activeOverlay === 'space') return 'text-indigo-100';
-    return 'text-slate-800 dark:text-slate-100'; // Default
-};
-
-// --- HELPER: Class Theming ---
-const getClassTheme = (subject) => {
-    const s = (subject || '').toLowerCase();
-    if (s.includes('math') || s.includes('algebra')) return { accent: 'text-blue-500', dot: 'bg-blue-500', gradient: 'bg-gradient-to-br from-blue-900/30 via-slate-800/60 to-slate-900', border: 'border-blue-500/20' };
-    if (s.includes('science') || s.includes('bio')) return { accent: 'text-emerald-500', dot: 'bg-emerald-500', gradient: 'bg-gradient-to-br from-emerald-900/30 via-slate-800/60 to-slate-900', border: 'border-emerald-500/20' };
-    if (s.includes('history')) return { accent: 'text-orange-500', dot: 'bg-orange-500', gradient: 'bg-gradient-to-br from-orange-900/30 via-slate-800/60 to-slate-900', border: 'border-orange-500/20' };
-    if (s.includes('english')) return { accent: 'text-violet-500', dot: 'bg-violet-500', gradient: 'bg-gradient-to-br from-violet-900/30 via-slate-800/60 to-slate-900', border: 'border-violet-500/20' };
-    if (s.includes('art')) return { accent: 'text-pink-500', dot: 'bg-pink-500', gradient: 'bg-gradient-to-br from-pink-900/30 via-slate-800/60 to-slate-900', border: 'border-pink-500/20' };
-    return { accent: 'text-slate-400', dot: 'bg-slate-500', gradient: 'bg-gradient-to-br from-slate-800/40 via-slate-800/60 to-slate-900', border: 'border-slate-700/30' };
-};
-
-// --- SKELETON ---
-const DashboardSkeleton = () => (
-    <div className="space-y-6 p-4 animate-pulse max-w-[1920px] mx-auto">
-        <div className="h-48 w-full bg-slate-800/30 rounded-[2rem]"></div>
-        <div className="space-y-4">
-            <div className="h-4 w-32 bg-slate-800/30 rounded-full"></div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {[1,2,3,4,5,6].map(i => <div key={i} className="h-40 w-full bg-slate-800/30 rounded-[2rem]"></div>)}
-            </div>
-        </div>
-    </div>
-);
-
-// --- XP RING & QUOTES ---
-const XPProgressRing = ({ xp = 0, level = 1, size = "small" }) => {
-  const currentLevel = Math.max(1, level || 1);
-  const currentXP = Math.max(0, xp || 0);
-  const percent = Math.min(100, (currentXP / ((currentLevel) * 500)) * 100); 
-  
-  const radius = size === "small" ? 28 : 36; 
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (percent / 100) * circumference;
-  const boxSize = size === "small" ? 70 : 80;
-
-  return (
-    <div className={`relative flex items-center justify-center`} style={{ width: boxSize, height: boxSize }}>
-      <svg className="absolute inset-0 w-full h-full rotate-[-90deg]" viewBox="0 0 100 100">
-        <defs>
-          <linearGradient id="xpGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#60A5FA" />
-            <stop offset="50%" stopColor="#8B5CF6" />
-            <stop offset="100%" stopColor="#F472B6" />
-          </linearGradient>
-        </defs>
-        <circle cx="50" cy="50" r={radius} stroke="currentColor" strokeOpacity="0.1" strokeWidth="6" fill="none" className="text-slate-400 dark:text-slate-600" />
-        <motion.circle
-          cx="50" cy="50" r={radius} stroke="url(#xpGradient)" strokeWidth="6" fill="none"
-          strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round"
-          animate={{ strokeDashoffset: offset }} transition={{ duration: 1, ease: 'easeOut' }}
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-        <span className="text-[9px] text-slate-500 dark:text-slate-400 leading-none font-bold tracking-wider opacity-80">LVL</span>
-        <span className={`font-black text-transparent bg-clip-text bg-gradient-to-br from-slate-700 to-slate-900 dark:from-white dark:to-slate-300 leading-tight ${size === 'small' ? 'text-xl' : 'text-2xl'}`}>{currentLevel}</span>
-      </div>
-    </div>
-  );
-};
-
-const DailyQuote = ({ compact = false }) => {
-  const quotes = [
-    "Small steps add up.", "Every challenge helps you grow.",
-    "Effort shapes tomorrow.", "Progress, not perfection.",
-    "Keep learning.", "Create your future.",
-    "Dream big. Work hard.", "Slow progress is progress.",
-  ];
-  const [quote, setQuote] = useState("");
-  const today = new Date();
-  const index = today.getDate() % quotes.length;
-  useEffect(() => { setQuote(quotes[index]); }, [index, quotes]);
-  return (
-    <motion.div
-      key={quote} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }}
-      transition={{ duration: 0.8, ease: "easeInOut" }}
-      className={`text-slate-500 dark:text-slate-400 text-[10px] font-medium italic leading-snug opacity-90`}
-    > “{quote}” </motion.div>
-  );
-};
-
-// --- THEME DROPDOWN (Mobile Optimized) ---
-const ThemeDropdown = ({ size = 'desktop' }) => {
-  const buttonSize = size === 'desktop' ? 'w-11 h-11' : 'w-9 h-9';
-  const iconSize = size === 'desktop' ? 20 : 18;
-
-  return (
-    <Menu as="div" className="relative z-50 flex-shrink-0">
-      <Menu.Button
-        className={`flex items-center justify-center ${buttonSize} rounded-full bg-white/50 dark:bg-black/20 backdrop-blur-md border border-white/40 dark:border-white/10 shadow-sm transition-all duration-300 hover:scale-105 active:scale-95 text-slate-600 dark:text-slate-300`}
-        title="Change Theme"
-      >
-        <IconPalette size={iconSize} stroke={1.5} />
-      </Menu.Button>
-      <Transition
-        as={Fragment}
-        enter="transition ease-out duration-200"
-        enterFrom="transform opacity-0 scale-95 translate-y-2"
-        enterTo="transform opacity-100 scale-100 translate-y-0"
-        leave="transition ease-in duration-150"
-        leaveFrom="transform opacity-100 scale-100 translate-y-0"
-        leaveTo="transform opacity-0 scale-95 translate-y-2"
-      >
-        {/* CHANGED: Increased width to w-72 for better spacing */}
-        <Menu.Items className="absolute left-1/2 -translate-x-1/2 mt-2 w-72 max-w-[90vw] origin-top focus:outline-none z-[60]">
-           {/* CHANGED: Added mobile-theme-adjust class to force font downsize on small screens via CSS */}
-           <div className="relative mobile-theme-adjust">
-             <ThemeToggle />
-           </div>
-        </Menu.Items>
-      </Transition>
-    </Menu>
-  );
+const SCHOOL_NAMES = {
+    'srcs_main': 'San Ramon Catholic School',
+    'hras_sipalay': 'Holy Rosary Academy',
+    'kcc_kabankalan': 'Kabankalan Catholic College',
+    'icad_dancalan': 'Immaculate Conception Academy',
+    'mchs_magballo': 'Magballo Catholic High School',
+    'ichs_ilog': 'Ilog Catholic High School'
 };
 
 const BADGE_MAP = {
@@ -272,187 +68,321 @@ const BADGE_MAP = {
   'badge_legend': { icon: SparklesIcon, title: 'Legend' },
 };
 
-const EmptyState = ({ icon: Icon, title, message, actionText, onActionClick }) => (
-    <div className="glass-panel flex flex-col items-center justify-center text-center p-8 rounded-[2rem] max-w-sm mx-auto mt-8 backdrop-blur-xl">
-        <div className="h-12 w-12 rounded-2xl bg-white/5 flex items-center justify-center mb-4 shadow-inner">
-             <Icon className="h-6 w-6 text-slate-500" />
+const QUOTES = [
+    "Small steps add up.", "Every challenge helps you grow.",
+    "Effort shapes tomorrow.", "Progress, not perfection.",
+    "Keep learning.", "Create your future.",
+    "Dream big. Work hard.", "Slow progress is progress.",
+];
+
+const INSPIRATIONAL_PHRASES = [
+    "Ready to shape your future?",
+    "Unlock your potential today.",
+    "Let's turn curiosity into knowledge.",
+    "Your journey continues here.",
+    "Make today a masterpiece."
+];
+
+// --- UTILITIES ---
+const getSchoolBranding = (schoolId) => SCHOOL_BRANDING[schoolId] || SCHOOL_BRANDING['srcs_main'];
+const getFullSchoolName = (schoolId) => SCHOOL_NAMES[schoolId] || 'Your School';
+
+const getClassTheme = (subject) => {
+    const s = (subject || '').toLowerCase();
+    if (s.includes('math') || s.includes('algebra')) return { accent: 'text-blue-500', dot: 'bg-blue-500', gradient: 'from-blue-500/10 to-blue-600/10', border: 'border-blue-200 dark:border-blue-800' };
+    if (s.includes('science') || s.includes('bio')) return { accent: 'text-emerald-500', dot: 'bg-emerald-500', gradient: 'from-emerald-500/10 to-emerald-600/10', border: 'border-emerald-200 dark:border-emerald-800' };
+    if (s.includes('history')) return { accent: 'text-orange-500', dot: 'bg-orange-500', gradient: 'from-orange-500/10 to-orange-600/10', border: 'border-orange-200 dark:border-orange-800' };
+    if (s.includes('english')) return { accent: 'text-violet-500', dot: 'bg-violet-500', gradient: 'from-violet-500/10 to-violet-600/10', border: 'border-violet-200 dark:border-violet-800' };
+    if (s.includes('art')) return { accent: 'text-pink-500', dot: 'bg-pink-500', gradient: 'from-pink-500/10 to-pink-600/10', border: 'border-pink-200 dark:border-pink-800' };
+    return { accent: 'text-slate-500', dot: 'bg-slate-500', gradient: 'from-slate-500/10 to-slate-600/10', border: 'border-slate-200 dark:border-slate-700' };
+};
+
+const getMonetStyle = (activeOverlay) => {
+    switch(activeOverlay) {
+        case 'christmas': return { accent: 'text-red-500', bg: 'bg-red-50 dark:bg-red-900/20' };
+        case 'valentines': return { accent: 'text-pink-500', bg: 'bg-pink-50 dark:bg-pink-900/20' };
+        case 'graduation': return { accent: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-900/20' };
+        case 'rainy': return { accent: 'text-blue-400', bg: 'bg-blue-50 dark:bg-blue-900/20' };
+        case 'cyberpunk': return { accent: 'text-fuchsia-500', bg: 'bg-fuchsia-50 dark:bg-fuchsia-900/20' };
+        default: return { accent: 'text-blue-500', bg: 'bg-white dark:bg-slate-800' };
+    }
+};
+
+const scrollbarStyles = `
+  ::-webkit-scrollbar { width: 0px; height: 0px; }
+  .app-scroll-container::-webkit-scrollbar { width: 6px; height: 6px; }
+  .app-scroll-container::-webkit-scrollbar-track { background: transparent; }
+  .app-scroll-container::-webkit-scrollbar-thumb { background-color: rgba(0, 0, 0, 0.1); border-radius: 100px; }
+  .dark .app-scroll-container::-webkit-scrollbar-thumb { background-color: rgba(255, 255, 255, 0.1); }
+`;
+
+// --- ANIMATION VARIANTS ---
+const itemVariants = {
+    hidden: { opacity: 0, y: 20, scale: 0.95 },
+    show: { opacity: 1, y: 0, scale: 1, transition: { type: "spring", stiffness: 400, damping: 30 } }
+};
+
+const containerVariants = {
+    hidden: { opacity: 0 },
+    show: { opacity: 1, transition: { staggerChildren: 0.05 } }
+};
+
+// --- ONEUI CARD ---
+const OneUICard = memo(({ children, className = "", onClick }) => (
+    <motion.div 
+        variants={itemVariants}
+        onClick={onClick}
+        whileTap={onClick ? { scale: 0.97 } : {}}
+        className={`
+            relative overflow-hidden
+            bg-white dark:bg-slate-900 
+            border border-slate-100 dark:border-slate-800
+            shadow-sm hover:shadow-lg dark:shadow-none
+            transition-all duration-300
+            rounded-[2.2rem]
+            ${onClick ? 'cursor-pointer touch-manipulation' : ''}
+            ${className}
+        `}
+    >
+        {children}
+    </motion.div>
+));
+OneUICard.displayName = 'OneUICard';
+
+// --- SUB-COMPONENTS ---
+
+const DailyQuote = memo(() => {
+  const [quote, setQuote] = useState("");
+  useEffect(() => {
+      const index = new Date().getDate() % QUOTES.length;
+      setQuote(QUOTES[index]);
+  }, []);
+  
+  return (
+    <motion.div
+      key={quote} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}
+      className="text-slate-500 dark:text-slate-400 text-[11px] font-semibold italic opacity-80"
+    > “{quote}” </motion.div>
+  );
+});
+
+const ThemeDropdown = memo(({ size = 'desktop' }) => {
+  const buttonSize = size === 'desktop' ? 'w-12 h-12' : 'w-10 h-10';
+  const iconSize = size === 'desktop' ? 22 : 18;
+
+  return (
+    <Menu as="div" className="relative z-50 flex-shrink-0">
+      <Menu.Button className={`flex items-center justify-center ${buttonSize} rounded-full bg-white dark:bg-slate-800 shadow-sm border border-slate-100 dark:border-slate-700 transition-transform active:scale-90 text-slate-600 dark:text-slate-300`}>
+        <IconPalette size={iconSize} stroke={1.5} />
+      </Menu.Button>
+      <Transition
+        as={Fragment}
+        enter="transition ease-out duration-200" enterFrom="opacity-0 scale-95 translate-y-2" enterTo="opacity-100 scale-100 translate-y-0"
+        leave="transition ease-in duration-150" leaveFrom="opacity-100 scale-100 translate-y-0" leaveTo="opacity-0 scale-95 translate-y-2"
+      >
+        <Menu.Items className="absolute right-0 mt-3 w-72 origin-top-right focus:outline-none z-[60]">
+           <div className="relative"><ThemeToggle /></div>
+        </Menu.Items>
+      </Transition>
+    </Menu>
+  );
+});
+
+const EmptyState = memo(({ icon: Icon, title, message, actionText, onActionClick }) => (
+    <OneUICard className="flex flex-col items-center justify-center text-center p-10 min-h-[300px]">
+        <div className="h-16 w-16 rounded-[1.5rem] bg-slate-50 dark:bg-slate-800 flex items-center justify-center mb-4">
+             <Icon className="h-8 w-8 text-slate-400" />
         </div>
-        <h3 className="text-lg font-bold text-white mb-1 tracking-tight">{title}</h3>
-        <p className="text-xs text-slate-400 mb-6 leading-relaxed max-w-[90%] mx-auto">{message}</p>
+        <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">{title}</h3>
+        <p className="text-sm text-slate-500 max-w-[250px] mx-auto mb-6 leading-relaxed">{message}</p>
         {onActionClick && (
-            <button onClick={onActionClick} className="flex items-center justify-center gap-2 bg-white text-slate-900 font-bold rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 ease-out py-2.5 px-5 text-xs">
+            <button onClick={onActionClick} className="px-6 py-3 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-sm font-bold shadow-lg active:scale-95 transition-transform">
                 {actionText}
             </button>
         )}
+    </OneUICard>
+));
+
+const DashboardSkeleton = () => (
+    <div className="space-y-6 p-4 animate-pulse max-w-[1920px] mx-auto">
+        <div className="h-56 w-full bg-slate-200 dark:bg-slate-800 rounded-[2.5rem]"></div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {[1,2,3,4].map(i => <div key={i} className="h-44 w-full bg-slate-200 dark:bg-slate-800 rounded-[2.2rem]"></div>)}
+        </div>
     </div>
 );
 
-// --- DASHBOARD HOME ---
-const DashboardHome = ({ userProfile, myClasses, setSelectedClass, handleViewChange, monetStyle, logoClass }) => {
+// --- DASHBOARD HOME VIEW ---
+const DashboardHome = memo(({ userProfile, myClasses, setSelectedClass, handleViewChange, monetStyle }) => {
     
-    // Greeting Logic
-    const getGreeting = () => {
+    const greeting = useMemo(() => {
         const hour = new Date().getHours();
         if (hour < 12) return 'Good morning';
         if (hour < 18) return 'Good afternoon';
         return 'Good evening';
-    };
+    }, []);
 
-    const getInspirationalPhrase = () => {
-        const phrases = [
-            "Ready to shape your future?",
-            "Unlock your potential today.",
-            "Let's turn curiosity into knowledge.",
-            "Your journey continues here.",
-            "Make today a masterpiece."
-        ];
-        const index = new Date().getDate() % phrases.length;
-        return phrases[index];
-    };
+    const inspirationalPhrase = useMemo(() => {
+        const index = new Date().getDate() % INSPIRATIONAL_PHRASES.length;
+        return INSPIRATIONAL_PHRASES[index];
+    }, []);
 
-    const genericBadges = (userProfile?.genericBadges || []).slice(-3).reverse();
-    const getTeacherName = (classItem) => classItem.teacherName || classItem.teacher?.displayName || 'Teacher';
+    const genericBadges = useMemo(() => 
+        (userProfile?.genericBadges || []).slice(-3).reverse(), 
+    [userProfile?.genericBadges]);
 
     return (
-        <div className="space-y-8 p-6 pb-36 max-w-[1920px] mx-auto w-full">
-            
-            {/* --- 1. HERO SECTION (Greetings Card) --- */}
-            <div className="w-full">
-                <div 
-                    style={monetStyle} // MONET EFFECT APPLIED HERE
-                    className={`w-full min-h-[180px] h-auto rounded-[2.5rem] p-6 sm:p-8 shadow-xl border border-white/5 flex flex-col justify-between relative overflow-hidden group transition-colors duration-500 ${!monetStyle.background ? 'bg-gradient-to-br from-slate-800 to-slate-900' : ''}`}
-                >
-                    <div className="relative z-10 mb-4">
-                        <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight leading-tight break-words">
-                            {getGreeting()}, <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">{userProfile?.firstName}</span>
-                        </h1>
-                        <p className="text-sm sm:text-base text-slate-400 mt-2 font-medium max-w-2xl leading-relaxed">
-                            {getInspirationalPhrase()}
-                        </p>
-                    </div>
-                    <div className="relative z-10 flex items-center gap-3">
-                        <div className="bg-orange-500/10 px-4 py-2 rounded-full border border-orange-500/20 flex items-center gap-2">
-                             <FireIcon className="w-4 h-4 text-orange-500" />
-                             <span className="text-xs font-bold text-orange-400">
-                                {userProfile?.loginStreak || 0} Day Streak
-                             </span>
-                        </div>
-                        <DailyQuote />
-                    </div>
+        <motion.div 
+            variants={containerVariants}
+            initial="hidden"
+            animate="show"
+            className="space-y-6 px-4 sm:px-6 pb-36 max-w-[1920px] mx-auto w-full pt-4"
+        >
+            {/* 1. HERO SECTION */}
+            <OneUICard className="p-6 sm:p-8 min-h-[220px] flex flex-col justify-between group">
+                <div className={`absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4 pointer-events-none`}></div>
+                
+                <div className="relative z-10">
+                    <h1 className="text-3xl sm:text-5xl font-black text-slate-900 dark:text-white tracking-tight leading-tight mb-3">
+                        {greeting}, <br/>
+                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400">
+                            {userProfile?.firstName}
+                        </span>
+                    </h1>
+                    <p className="text-sm sm:text-base font-medium text-slate-500 dark:text-slate-400 max-w-lg leading-relaxed">
+                        {inspirationalPhrase}
+                    </p>
                 </div>
-            </div>
 
-            {/* --- 2. ACHIEVEMENTS SECTION (Monet Card) --- */}
-            <div 
-                style={monetStyle} // MONET EFFECT APPLIED HERE
-                className={`w-full p-6 rounded-[2.5rem] shadow-lg border border-white/5 transition-colors duration-500 ${!monetStyle.background ? 'bg-slate-900/40' : ''}`}
-            >
-                <div className="flex items-center justify-between px-2 mb-4">
-                    <h2 className="text-lg font-bold text-white flex items-center gap-2"> 
+                <div className="relative z-10 flex flex-wrap items-center gap-4 mt-6">
+                    <div className="px-4 py-2 rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 flex items-center gap-2.5">
+                         <div className="p-1 bg-orange-100 dark:bg-orange-900/30 rounded-full text-orange-500">
+                            <FireIcon className="w-3.5 h-3.5" />
+                         </div>
+                         <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                            {userProfile?.loginStreak || 0} Day Streak
+                         </span>
+                    </div>
+                    <div className="hidden sm:block h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-700"></div>
+                    <DailyQuote />
+                </div>
+            </OneUICard>
+
+            {/* 2. ACHIEVEMENTS SECTION (Horizontal Scroll) */}
+            <OneUICard className="p-6">
+                <div className="flex items-center justify-between mb-4 px-1">
+                    <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2"> 
                         <StarIcon className="h-5 w-5 text-yellow-500" /> Achievements
                     </h2>
-                    <button onClick={() => handleViewChange('profile')} className="text-xs font-bold text-blue-400 hover:bg-blue-900/30 px-3 py-1.5 rounded-full transition-colors">View All</button>
+                    <button onClick={() => handleViewChange('profile')} className="text-xs font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors">
+                        View All
+                    </button>
                 </div>
-                <div className="flex gap-4 overflow-x-auto no-scrollbar py-2 px-1">
+                
+                <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
                     {genericBadges.length > 0 ? (
                         genericBadges.map((badgeKey, idx) => {
                             const badge = BADGE_MAP[badgeKey];
                             if (!badge) return null;
                             const { icon: Icon, title } = badge;
                             return (
-                                <motion.div
-                                    key={`${badgeKey}-${idx}`} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: idx * 0.1 }}
-                                    className="min-w-[90px] flex-shrink-0 flex flex-col items-center gap-2 group"
+                                <div
+                                    key={`${badgeKey}-${idx}`}
+                                    className="flex-shrink-0 flex flex-col items-center gap-2 w-20 group cursor-pointer"
                                 >
-                                    <div className="h-14 w-14 rounded-full bg-gradient-to-b from-slate-700 to-slate-900 flex items-center justify-center text-amber-400 shadow-lg ring-2 ring-slate-700 ring-opacity-50 group-hover:scale-110 transition-transform duration-300">
-                                        <Icon className="h-7 w-7 drop-shadow-sm" />
+                                    <div className="h-16 w-16 rounded-[1.2rem] bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-amber-500 shadow-sm border border-slate-100 dark:border-slate-700 group-hover:scale-105 transition-transform">
+                                        <Icon className="h-8 w-8 drop-shadow-sm" />
                                     </div>
-                                    <span className="text-[10px] font-bold text-slate-400 leading-tight text-center w-full line-clamp-1">{title}</span>
-                                </motion.div>
+                                    <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 text-center line-clamp-1 w-full">{title}</span>
+                                </div>
                             );
                         })
                     ) : (
-                         <div className="w-full text-center py-4 text-sm text-slate-400 font-medium">
-                            Start your journey to earn badges!
+                         <div className="w-full py-6 flex flex-col items-center justify-center text-center border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-[1.5rem]">
+                            <p className="text-sm font-bold text-slate-400">No badges yet</p>
+                            <p className="text-[10px] text-slate-300 dark:text-slate-500">Keep learning to unlock!</p>
                          </div>
                     )}
                 </div>
-            </div>
+            </OneUICard>
 
-            {/* --- 3. CLASSES GRID (Monet Cards) --- */}
+            {/* 3. CLASSES GRID (With Restored Buttons) */}
             <div>
-                <h2 className="text-lg font-bold text-white mb-4 px-2 flex items-center gap-2">
-                    <RectangleGroupIcon className="h-5 w-5 text-slate-400" /> My Classes
+                <h2 className="text-xl font-black text-slate-900 dark:text-white mb-4 px-2 flex items-center gap-2">
+                    My Classes
                 </h2>
                 
                 {(!myClasses || myClasses.length === 0) ? (
                     <EmptyState icon={InboxIcon} title="No Classes" message="Join a class to get started." />
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                         {myClasses.map((classItem, idx) => {
                             const isLive = classItem.videoConference?.isLive || false;
                             const meetLink = classItem.meetLink || null;
                             const canJoin = isLive && meetLink;
                             const theme = getClassTheme(classItem.subject);
-                            const teacherName = getTeacherName(classItem);
+                            const teacherName = classItem.teacherName || classItem.teacher?.displayName || 'Teacher';
 
                             return (
-                                <motion.div
+                                <OneUICard
                                     key={classItem.id || idx}
-                                    whileHover={{ scale: 1.02, y: -2 }}
-                                    whileTap={{ scale: 0.97 }}
-                                    style={monetStyle} // MONET EFFECT APPLIED HERE
-                                    className={`relative group w-full h-full rounded-[2rem] overflow-hidden backdrop-blur-2xl transition-all duration-500 shadow-lg hover:shadow-2xl ring-1 ring-white/10 border ${theme.border} border-opacity-40 ${!monetStyle.background ? theme.gradient : ''}`}
+                                    className={`group flex flex-col justify-between p-5 border-l-4 ${theme.border} bg-gradient-to-br ${theme.gradient}`}
                                 >
-                                    <div className="relative z-10 p-5 flex flex-col h-full justify-between">
-                                        {/* Header */}
-                                        <div className="flex justify-between items-center mb-4 gap-2">
-                                            <div className={`flex-1 min-w-0 px-3 py-1.5 rounded-full bg-black/30 backdrop-blur-md border border-white/5 text-[10px] font-bold uppercase tracking-wider ${theme.accent} flex items-center gap-2 shadow-sm`}>
-                                                <span className={`w-1.5 h-1.5 rounded-full ${theme.dot} flex-shrink-0`}></span>
-                                                <UserIcon className="w-3 h-3 opacity-70 flex-shrink-0" />
-                                                <span className="truncate">{teacherName}</span>
-                                            </div>
-                                            {canJoin ? (
-                                                <div className="px-3 py-1.5 rounded-full bg-red-500 text-white text-[9px] font-bold uppercase tracking-widest flex items-center gap-1.5 shadow-lg shadow-red-500/30 backdrop-blur-sm animate-pulse flex-shrink-0">
-                                                    <span className="w-1.5 h-1.5 bg-white rounded-full"></span>
-                                                    LIVE
-                                                </div>
-                                            ) : (
-                                                <div className="text-[9px] font-bold uppercase tracking-widest text-slate-500 opacity-60 px-1 flex-shrink-0">Offline</div>
-                                            )}
-                                        </div>
+                                    {/* Header */}
+                                    <div className="flex justify-between items-start gap-2 mb-2">
+                                        <span className="px-2.5 py-1 rounded-md bg-white/60 dark:bg-black/20 text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 backdrop-blur-sm">
+                                            {classItem.section || 'Class'}
+                                        </span>
+                                        {isLive && (
+                                            <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-red-500 text-white text-[9px] font-bold uppercase tracking-wider shadow-sm animate-pulse">
+                                                <div className="w-1.5 h-1.5 bg-white rounded-full"></div> LIVE
+                                            </span>
+                                        )}
+                                    </div>
 
-                                        {/* Content */}
-                                        <button onClick={() => setSelectedClass(classItem)} className="text-left focus:outline-none mb-5 group-hover:translate-x-1 transition-transform duration-300">
-                                            <h3 className={`text-xl font-bold text-slate-100 leading-tight mb-1 line-clamp-2 tracking-tight`}>{classItem.name}</h3>
-                                        </button>
-
-                                        {/* Footer Actions */}
-                                        <div className="flex gap-3 mt-auto pt-4 border-t border-white/5">
-                                            <button onClick={() => setSelectedClass(classItem)} className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-bold backdrop-blur-md transition-all border border-white/10 hover:scale-[1.02]">
-                                                View Class
-                                            </button>
-                                            <button
-                                                onClick={(e) => { if (canJoin) window.open(meetLink, '_blank'); e.preventDefault(); e.stopPropagation(); }}
-                                                disabled={!canJoin}
-                                                className={`flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 backdrop-blur-md border border-transparent transition-all hover:scale-[1.02] ${canJoin ? 'bg-red-500 text-white shadow-lg shadow-red-500/30 hover:bg-red-600' : 'bg-slate-800/40 text-slate-600 cursor-not-allowed'}`}
-                                            >
-                                                <VideoCameraIcon className="h-3.5 w-3.5" />
-                                                {canJoin ? 'Join Now' : 'Join'}
-                                            </button>
+                                    {/* Content */}
+                                    <div>
+                                        <h3 className="text-lg font-black text-slate-900 dark:text-white leading-tight mb-1 line-clamp-2">
+                                            {classItem.name}
+                                        </h3>
+                                        <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                            <UserIcon className="w-3.5 h-3.5" />
+                                            {teacherName}
                                         </div>
                                     </div>
-                                </motion.div>
+
+                                    {/* Footer Actions (Restored & Redesigned) */}
+                                    <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-700/50 flex items-center gap-3">
+                                        <button 
+                                            onClick={() => setSelectedClass(classItem)} 
+                                            className="flex-1 py-2.5 rounded-xl bg-white/80 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                                        >
+                                            View
+                                        </button>
+                                        <button
+                                            onClick={(e) => { 
+                                                e.stopPropagation(); 
+                                                if (canJoin) window.open(meetLink, '_blank'); 
+                                            }}
+                                            disabled={!canJoin}
+                                            className={`flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${canJoin ? 'bg-red-500 text-white shadow-md shadow-red-500/20 hover:bg-red-600 active:scale-95' : 'bg-slate-200 dark:bg-slate-700/50 text-slate-400 cursor-not-allowed'}`}
+                                        >
+                                            <VideoCameraIcon className="w-3.5 h-3.5" />
+                                            {canJoin ? 'Join' : 'Offline'}
+                                        </button>
+                                    </div>
+                                </OneUICard>
                             );
                         })}
                     </div>
                 )}
             </div>
-        </div>
+        </motion.div>
     );
-};
+});
 
-// --- MAIN STUDENT UI ---
+
+// --- MAIN STUDENT UI COMPONENT ---
 const StudentDashboardUI = ({
     userProfile, logout, view, isSidebarOpen, setIsSidebarOpen, handleViewChange,
     setJoinClassModalOpen, selectedClass, setSelectedClass, myClasses,
@@ -463,35 +393,33 @@ const StudentDashboardUI = ({
 }) => {
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
-    
-    // ✅ Welcome Modal State
     const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(false);
     const [dontShowAgain, setDontShowAgain] = useState(false);
 
     const profileMenuRef = useRef(null);
-    const { isSessionConflictModalOpen, sessionConflictMessage, setIsSessionConflictModalOpen, performLogout } = useAuth();
+    const { isSessionConflictModalOpen, sessionConflictMessage, performLogout } = useAuth();
     
-    // 🏫 Get Dynamic Branding
-    const branding = getSchoolBranding(userProfile?.schoolId);
+    // Ensure Branding Fallback
+    const branding = useMemo(() => {
+        const schoolId = userProfile?.schoolId || 'srcs_main';
+        return SCHOOL_BRANDING[schoolId] || SCHOOL_BRANDING['srcs_main'];
+    }, [userProfile?.schoolId]);
 
-    // --- THEME CONTEXT & MONET STYLE ---
     const { activeOverlay } = useTheme();
-    const monetStyle = getMonetStyle(activeOverlay);
-    const logoClass = getLogoClass(activeOverlay);
+    const monetStyle = useMemo(() => getMonetStyle(activeOverlay), [activeOverlay]);
 
-    // ✅ EFFECT: Welcome Modal Logic (Persistent)
+    // Welcome Modal Logic
     useEffect(() => {
         if (userProfile?.id) {
             const hasOptedOut = localStorage.getItem(`welcome_opt_out_${userProfile.id}`);
             const hasSeenSession = sessionStorage.getItem(`welcome_seen_session_${userProfile.id}`);
-
             if (!hasOptedOut && !hasSeenSession) {
                 setIsWelcomeModalOpen(true);
             }
         }
     }, [userProfile?.id]);
 
-    const handleCloseWelcome = () => {
+    const handleCloseWelcome = useCallback(() => {
         if (userProfile?.id) {
             sessionStorage.setItem(`welcome_seen_session_${userProfile.id}`, 'true');
             if (dontShowAgain) {
@@ -499,31 +427,13 @@ const StudentDashboardUI = ({
             }
         }
         setIsWelcomeModalOpen(false);
-    };
+    }, [userProfile?.id, dontShowAgain]);
 
     useEffect(() => {
-        if (selectedClass && view !== 'classes') {
-            setSelectedClass(null);
-        }
+        if (selectedClass && view !== 'classes') setSelectedClass(null);
     }, [view, selectedClass, setSelectedClass]);
 
-    const sidebarNavItems = [
-        { view: 'classes', text: 'Home', icon: HomeIcon }, 
-        { view: 'lounge', text: 'Lounge', icon: RocketLaunchIcon }, 
-        { view: 'lessons', text: 'Lessons', icon: BookOpenIcon },
-        { view: 'quizzes', text: 'Quizzes', icon: ClipboardDocumentCheckIcon },
-        { view: 'rewards', text: 'Rewards', icon: GiftIcon },
-        { view: 'profile', text: 'Profile', icon: UserIcon }
-    ];
-    
-    const desktopSidebarNavItems = [...sidebarNavItems];
-
-    const hasUnclaimedRewards = useMemo(() => {
-        const unlocked = userProfile?.unlockedRewards || [];
-        const claimed = userProfile?.claimedRewards || [];
-        return unlocked.some(rewardId => !claimed.includes(rewardId));
-    }, [userProfile]);
-
+    // Click Outside Profile
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
@@ -534,15 +444,10 @@ const StudentDashboardUI = ({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const handleProfileClick = () => {
-        handleViewChange('profile');
-        setIsProfileMenuOpen(false);
-    };
-
-    const renderView = () => {
+    const renderView = useCallback(() => {
         if (selectedClass) {
             return (
-                <div className="p-4 sm:p-6 lg:p-8 pb-32 max-w-[1920px] mx-auto w-full animate-fade-in-up">
+                <div className="pb-32 w-full animate-fade-in-up px-4 sm:px-6 pt-4">
                     <StudentClassDetailView 
                         selectedClass={selectedClass} 
                         onBack={() => setSelectedClass(null)} 
@@ -560,60 +465,66 @@ const StudentDashboardUI = ({
         switch (view) {
             case 'classes':
             case 'default':
-                return (
-                  <DashboardHome
-                    userProfile={userProfile}
-                    myClasses={myClasses}
-                    setSelectedClass={setSelectedClass}
-                    handleViewChange={handleViewChange}
-                    monetStyle={monetStyle}
-                    logoClass={logoClass} // Pass logo class
-                    upNextTask={upNextTask} 
-                  />
-                );
+                return <DashboardHome userProfile={userProfile} myClasses={myClasses} setSelectedClass={setSelectedClass} handleViewChange={handleViewChange} monetStyle={monetStyle} />;
             case 'lounge':
-                return <div className="max-w-7xl mx-auto pb-24 w-full"><LoungeView isPostsLoading={isLoungeLoading} publicPosts={loungePosts} usersMap={loungeUsersMap} fetchPublicPosts={fetchLoungePosts} {...loungePostUtils} /></div>;
+                return <LoungeView isPostsLoading={isLoungeLoading} publicPosts={loungePosts} usersMap={loungeUsersMap} fetchPublicPosts={fetchLoungePosts} {...loungePostUtils} />;
             case 'lessons':
-                return <div className="relative p-4 sm:p-6 lg:p-8 pb-32 max-w-[1920px] mx-auto w-full">{allLessonsEmpty && !isFetching ? <EmptyState icon={BookOpenIcon} title="No Lessons Found" message="Check back soon!" actionText={isFetching ? "Checking..." : "Check"} onActionClick={fetchContent} /> : <StudentLessonsTab lessons={lessons} units={units} setLessonToView={setLessonToView} isFetchingContent={isFetching} onRefreshLessons={fetchContent} />}</div>;
+                return <div className="relative pt-4">{allLessonsEmpty && !isFetching ? <EmptyState icon={BookOpenIcon} title="No Lessons" message="Check back soon!" actionText="Refresh" onActionClick={fetchContent} /> : <StudentLessonsTab lessons={lessons} units={units} setLessonToView={setLessonToView} isFetchingContent={isFetching} onRefreshLessons={fetchContent} />}</div>;
             case 'quizzes':
-                return <div className="p-4 sm:p-6 lg:p-8 pb-32 max-w-[1920px] mx-auto w-full">{allQuizzesEmpty && !isFetching ? <EmptyState icon={ClipboardDocumentCheckIcon} title="No Quizzes Found" message="No active or completed quizzes." /> : <StudentQuizzesTab quizzes={quizzes} units={units} handleTakeQuizClick={handleTakeQuizClick} isFetchingContent={isFetching} userProfile={userProfile} />}</div>;
+                return <div className="pt-4">{allQuizzesEmpty && !isFetching ? <EmptyState icon={ClipboardDocumentCheckIcon} title="No Quizzes" message="You're all caught up." /> : <StudentQuizzesTab quizzes={quizzes} units={units} handleTakeQuizClick={handleTakeQuizClick} isFetchingContent={isFetching} userProfile={userProfile} onRefresh={fetchContent} />}</div>;
             case 'rewards':
-                return <div className="p-4 sm:p-6 lg:p-8 pb-32 max-w-[1920px] mx-auto w-full"><RewardsPage /></div>;
+                return <div className="pt-4"><RewardsPage /></div>;
             case 'profile':
-                return <div className="max-w-[1920px] mx-auto pb-24 w-full"><StudentProfilePage /></div>;
+                return <div className="pt-4"><StudentProfilePage /></div>;
             default:
                 return null;
         }
-    };
+    }, [selectedClass, view, userProfile, myClasses, monetStyle, isLoungeLoading, loungePosts, loungeUsersMap, fetchLoungePosts, loungePostUtils, lessons, units, isFetching, fetchContent, quizzes, handleTakeQuizClick, setSelectedClass, handleViewChange, setLessonToView]);
+
+    const sidebarNavItems = useMemo(() => [
+        { view: 'classes', text: 'Home', icon: HomeIcon }, 
+        { view: 'lounge', text: 'Lounge', icon: RocketLaunchIcon }, 
+        { view: 'lessons', text: 'Lessons', icon: BookOpenIcon },
+        { view: 'quizzes', text: 'Quizzes', icon: ClipboardDocumentCheckIcon },
+        { view: 'rewards', text: 'Rewards', icon: GiftIcon },
+        { view: 'profile', text: 'Profile', icon: UserIcon }
+    ], []);
+
+    const hasUnclaimedRewards = useMemo(() => {
+        const unlocked = userProfile?.unlockedRewards || [];
+        const claimed = userProfile?.claimedRewards || [];
+        return unlocked.some(rewardId => !claimed.includes(rewardId));
+    }, [userProfile?.unlockedRewards, userProfile?.claimedRewards]);
 
     return (
-        <div className="h-screen w-full font-sans bg-slate-950 text-slate-100 selection:bg-blue-500/30 overflow-hidden flex flex-col">
+        <div className="h-screen w-full font-sans bg-slate-50 dark:bg-black text-slate-900 dark:text-slate-100 overflow-hidden flex flex-col transition-colors duration-500">
             <style>{scrollbarStyles}</style>
             
-            {/* ADDED UNIVERSAL BACKGROUND */}
             <UniversalBackground />
 
-            {/* HEADER with Dynamic Tint */}
-            {/* CHANGED: pt-2 to pt-0 to remove gap at top */}
-            <header className="flex-none z-50 relative px-4 pt-0 pb-2 transition-all duration-300">
-                <div 
-                    style={monetStyle}
-                    className="glass-panel mx-auto max-w-[1920px] rounded-[1.5rem] px-4 py-2.5 shadow-lg flex items-center justify-between relative transition-colors duration-500"
-                >
-                    {/* Left: Dynamic Logo */}
-                    <div className="flex items-center gap-3 flex-shrink-0 z-20">
-                        <div className="w-10 h-10 rounded-2xl bg-white/10 shadow-md flex items-center justify-center flex-shrink-0">
-                            {/* 🏫 UPDATED: Dynamic Logo */}
-                            <img src={branding.logo} alt="School Logo" className="w-6 h-6 object-contain" />
+            {/* HEADER: Floating Island */}
+            <header className="flex-none z-50 relative px-4 pt-4 pb-2">
+                <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl mx-auto max-w-[1920px] rounded-[2rem] px-5 py-3 shadow-sm border border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                    
+                    {/* Brand - Restored Prominence */}
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-2xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center p-1.5 shadow-sm">
+                            <img src={branding.logo} alt="Logo" className="w-full h-full object-contain" />
                         </div>
-                        {/* 🏫 UPDATED: Dynamic Name */}
-                        <span className={`font-extrabold text-xl tracking-tight block ${logoClass}`}>{branding.name}</span>
+                        <div>
+                            <span className="font-black text-lg tracking-tight block leading-none text-slate-900 dark:text-white">
+                                {branding.name}
+                            </span>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                Student Portal
+                            </span>
+                        </div>
                     </div>
 
-                    {/* Center: Desktop Nav */}
-                    <nav className="hidden lg:flex items-center justify-center absolute left-1/2 -translate-x-1/2 z-10">
-                        <div className="flex items-center gap-1 p-1.5 bg-black/40 backdrop-blur-xl rounded-full border border-white/5 shadow-inner">
-                            {desktopSidebarNavItems.map((item) => {
+                    {/* Desktop Nav (Pills) */}
+                    <nav className="hidden lg:flex items-center justify-center absolute left-1/2 -translate-x-1/2">
+                        <div className="flex items-center gap-1 p-1.5 bg-slate-100/50 dark:bg-slate-800/50 backdrop-blur-md rounded-full border border-slate-200/50 dark:border-slate-700/50">
+                            {sidebarNavItems.map((item) => {
                                 const isActive = item.view === 'classes' ? (view === 'classes' || view === 'default') : view === item.view;
                                 const showDot = (item.view === 'lessons' && hasNewLessons) || (item.view === 'quizzes' && hasNewQuizzes) || (item.view === 'rewards' && hasUnclaimedRewards);
 
@@ -623,11 +534,11 @@ const StudentDashboardUI = ({
                                         onClick={() => handleViewChange(item.view)}
                                         className={`relative flex items-center gap-2 px-5 py-2.5 rounded-full transition-all duration-300 ease-out
                                             ${isActive 
-                                                ? 'bg-slate-800 text-white shadow-md' 
-                                                : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                                                ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-md' 
+                                                : 'text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-700'
                                             }`}
                                     >
-                                        <item.icon className={`h-4 w-4 ${isActive ? 'text-blue-500' : ''}`} />
+                                        <item.icon className="h-4 w-4" />
                                         <span className="text-xs font-bold">{item.text}</span>
                                         {showDot && <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span>}
                                     </button>
@@ -636,28 +547,25 @@ const StudentDashboardUI = ({
                         </div>
                     </nav>
 
-                    {/* Right: Actions */}
-                    <div className="flex items-center gap-2 sm:gap-3 z-20">
-                        {/* Theme Dropdown */}
+                    {/* Right Actions */}
+                    <div className="flex items-center gap-3">
                         <ThemeDropdown size="mobile" />
-
                         <InstallPWA />
                         
-                        <div className="h-5 w-[1px] bg-white/10 mx-1"></div>
-
+                        {/* Join Button */}
                         <button 
                             onClick={() => setJoinClassModalOpen(true)} 
-                            className="flex items-center justify-center bg-white text-slate-900 font-bold rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 py-1.5 px-3 sm:px-4 text-[10px] uppercase tracking-wide"
+                            className="hidden sm:flex items-center gap-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold rounded-full py-2.5 px-5 text-xs shadow-lg active:scale-95 transition-transform"
                         >
-                            <PlusCircleIcon className="h-3.5 w-3.5 mr-1.5" /> 
-                            <span className="hidden xs:inline">Join Class</span>
-                            <span className="xs:hidden">Join</span>
+                            <PlusCircleIcon className="h-4 w-4" /> 
+                            <span>Join Class</span>
                         </button>
 
+                        {/* Profile Toggle */}
                         {userProfile && (
                             <div ref={profileMenuRef} className="relative">
-                                <button className="w-9 h-9 relative rounded-full ring-2 ring-slate-700 shadow-md overflow-hidden active:scale-95 transition-transform" onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}>
-                                    <UserInitialsAvatar user={userProfile} size="full" borderType={userProfile?.selectedBorder || 'none'} effectsEnabled={userProfile?.cosmeticsEnabled ?? true} className="w-full h-full text-[10px]" />
+                                <button className="w-11 h-11 relative rounded-full ring-2 ring-white dark:ring-slate-800 shadow-md active:scale-95 transition-transform" onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}>
+                                    <UserInitialsAvatar user={userProfile} size="full" borderType={userProfile?.selectedBorder} effectsEnabled={userProfile?.cosmeticsEnabled} className="w-full h-full text-[10px]" />
                                 </button>
                                 <AnimatePresence>
                                     {isProfileMenuOpen && (
@@ -665,14 +573,14 @@ const StudentDashboardUI = ({
                                             initial={{ opacity: 0, scale: 0.9, y: 10 }}
                                             animate={{ opacity: 1, scale: 1, y: 0 }}
                                             exit={{ opacity: 0, scale: 0.9, y: 10 }}
-                                            className="absolute right-0 mt-3 w-56 glass-panel rounded-2xl shadow-2xl py-2 z-50 overflow-hidden bg-[#1A1D24]"
+                                            className="absolute right-0 mt-4 w-60 bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl p-2 z-50 border border-slate-100 dark:border-slate-800 origin-top-right"
                                         >
-                                            <div className="px-4 py-2 border-b border-white/5 mb-1">
-                                                <p className="text-xs font-bold text-white">{userProfile.firstName} {userProfile.lastName}</p>
-                                                <p className="text-[10px] text-slate-500">{userProfile.email}</p>
+                                            <div className="px-4 py-3 mb-2 bg-slate-50 dark:bg-slate-800/50 rounded-[1.5rem]">
+                                                <p className="text-xs font-black text-slate-900 dark:text-white truncate">{userProfile.firstName} {userProfile.lastName}</p>
+                                                <p className="text-[10px] font-medium text-slate-500 truncate">{userProfile.email}</p>
                                             </div>
-                                            <button onClick={handleProfileClick} className="w-full text-left px-4 py-2.5 text-slate-200 hover:bg-white/10 transition-colors text-xs font-bold flex items-center gap-3"> <UserIcon className="h-4 w-4" /> My Profile </button>
-                                            <button onClick={() => setIsLogoutModalOpen(true)} className="w-full text-left px-4 py-2.5 text-red-400 hover:bg-red-900/20 transition-colors text-xs font-bold flex items-center gap-3"> <PowerIcon className="h-4 w-4" /> Sign Out </button>
+                                            <button onClick={() => { handleViewChange('profile'); setIsProfileMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-[1.2rem] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-xs font-bold flex items-center gap-3"> <UserIcon className="h-4 w-4" /> My Profile </button>
+                                            <button onClick={() => setIsLogoutModalOpen(true)} className="w-full text-left px-4 py-3 rounded-[1.2rem] text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-xs font-bold flex items-center gap-3"> <PowerIcon className="h-4 w-4" /> Sign Out </button>
                                         </motion.div>
                                     )}
                                 </AnimatePresence>
@@ -682,7 +590,7 @@ const StudentDashboardUI = ({
                 </div>
             </header>
 
-            {/* Main Content */}
+            {/* SCROLLABLE CONTENT */}
             <main className="flex-1 relative z-0 w-full flex flex-col overflow-hidden">
                 <AnimatePresence mode="wait">
                     {isFetching ? (
@@ -695,7 +603,7 @@ const StudentDashboardUI = ({
                             initial={{ opacity: 0, y: 20, scale: 0.98 }} 
                             animate={{ opacity: 1, y: 0, scale: 1 }}    
                             exit={{ opacity: 0, y: -20, scale: 0.98 }}  
-                            transition={{ duration: 0.35, ease: [0.25, 1, 0.5, 1] }}
+                            transition={{ duration: 0.4, ease: [0.25, 1, 0.5, 1] }} // Elegant ease
                             className="w-full h-full flex flex-col overflow-y-auto app-scroll-container scroll-smooth"
                         >
                             {renderView()}
@@ -704,186 +612,94 @@ const StudentDashboardUI = ({
                 </AnimatePresence>
             </main>
 
-            {/* Mobile Bottom Dock with Dynamic Tint */}
+            {/* MOBILE DOCK (Floating Island) */}
             <div className="fixed bottom-6 left-0 right-0 flex justify-center z-40 lg:hidden pointer-events-none">
-                <motion.div 
-                    layout 
-                    style={monetStyle}
-                    className="macos-dock pointer-events-auto px-2 py-2 rounded-full flex items-center justify-between w-[90%] max-w-sm sm:gap-3 transition-colors duration-500"
-                >
+                <div className="pointer-events-auto bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-white/50 dark:border-slate-800 shadow-2xl rounded-full px-2 py-2 flex items-center gap-1 max-w-[95%] sm:max-w-md">
                     {sidebarNavItems.map(item => { 
                          const isActive = item.view === 'classes' ? (view === 'classes' || view === 'default') : view === item.view;
-                         const showLessonDot = item.view === 'lessons' && hasNewLessons;
-                         const showQuizDot = item.view === 'quizzes' && hasNewQuizzes;
-                         const showRewardDot = item.view === 'rewards' && hasUnclaimedRewards;
+                         const showDot = (item.view === 'lessons' && hasNewLessons) || (item.view === 'quizzes' && hasNewQuizzes) || (item.view === 'rewards' && hasUnclaimedRewards);
 
                         return (
-                            <motion.button
+                            <button
                                 key={item.view}
                                 onClick={() => handleViewChange(item.view)}
-                                layout
-                                className={`relative group flex items-center justify-center gap-2 p-2 rounded-full transition-colors outline-none flex-1
+                                className={`relative p-3 rounded-full transition-all duration-300 active:scale-90
                                     ${isActive 
-                                        ? 'bg-slate-800 text-blue-400' 
-                                        : 'text-slate-400 hover:bg-white/10'}`}
+                                        ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' 
+                                        : 'text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
                             >
-                                <motion.div className="relative" whileHover={{ y: -5, scale: 1.2 }} transition={{ type: "spring", stiffness: 300 }}>
-                                    <item.icon className={`h-6 w-6 ${isActive ? 'scale-105' : 'opacity-80'}`} />
-                                    {(showLessonDot || showQuizDot || showRewardDot) && (
-                                        <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-slate-800 shadow-sm z-10 animate-bounce"></span>
-                                    )}
-                                </motion.div>
-                                {isActive && (
-                                    <motion.span initial={{ opacity: 0, width: 0 }} animate={{ opacity: 1, width: "auto" }} exit={{ opacity: 0, width: 0 }} className="text-[10px] font-bold tracking-wide whitespace-nowrap overflow-hidden">
-                                        {item.text}
-                                    </motion.span>
+                                <item.icon className="h-6 w-6" />
+                                {showDot && (
+                                    <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-slate-900 animate-pulse"></span>
                                 )}
-                            </motion.button>
+                            </button>
                         )
                     })}
-                </motion.div>
+                </div>
             </div>
 
-            {/* Logout Modal */}
+            {/* LOGOUT MODAL */}
             <AnimatePresence>
                 {isLogoutModalOpen && (
-                    <motion.div
-                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/30 backdrop-blur-sm"
-                    >
+                    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsLogoutModalOpen(false)} />
                         <motion.div
-                            initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                            className="glass-panel rounded-[2rem] p-8 w-72 text-center shadow-2xl bg-[#1A1D24]"
+                            initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+                            className="relative bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl text-center border border-slate-100 dark:border-slate-800"
                         >
-                            <div className="w-10 h-10 rounded-full bg-red-900/30 text-red-500 mx-auto mb-3 flex items-center justify-center shadow-inner">
-                                <PowerIcon className="h-5 w-5" />
+                            <div className="w-14 h-14 rounded-full bg-red-50 dark:bg-red-900/20 text-red-500 mx-auto mb-4 flex items-center justify-center">
+                                <PowerIcon className="h-7 w-7" />
                             </div>
-                            <h2 className="text-lg font-bold text-white mb-2">Sign Out</h2>
-                            <p className="text-xs text-slate-400 mb-5 leading-relaxed">Are you sure you want to end your session?</p>
-                            <div className="flex flex-col gap-2.5">
-                                <button onClick={() => { setIsLogoutModalOpen(false); logout(); }} className="w-full py-2.5 rounded-xl font-bold text-white bg-red-500 hover:bg-red-600 shadow-lg shadow-red-500/30 transition-all active:scale-95 text-xs">Yes, Log Out</button>
-                                <button onClick={() => setIsLogoutModalOpen(false)} className="w-full py-2.5 rounded-xl font-bold text-slate-300 hover:bg-white/5 transition-colors text-xs">Cancel</button>
+                            <h2 className="text-xl font-black text-slate-900 dark:text-white mb-2">Sign Out</h2>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Are you sure you want to end your session?</p>
+                            <div className="flex flex-col gap-3">
+                                <button onClick={() => { setIsLogoutModalOpen(false); logout(); }} className="w-full py-3.5 rounded-2xl font-bold text-white bg-red-500 hover:bg-red-600 active:scale-95 transition-all text-sm shadow-lg shadow-red-500/20">Yes, Log Out</button>
+                                <button onClick={() => setIsLogoutModalOpen(false)} className="w-full py-3.5 rounded-2xl font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95 transition-all text-sm">Cancel</button>
                             </div>
                         </motion.div>
-                    </motion.div>
+                    </div>
                 )}
             </AnimatePresence>
 
-            {/* ✅ ADDED: WELCOME MODAL */}
+            {/* WELCOME MODAL */}
             <Transition appear show={isWelcomeModalOpen} as={Fragment}>
                 <Dialog as="div" className="relative z-[100]" onClose={() => {}}>
                     <Transition.Child
                         as={Fragment}
-                        enter="ease-out duration-300"
-                        enterFrom="opacity-0"
-                        enterTo="opacity-100"
-                        leave="ease-in duration-200"
-                        leaveFrom="opacity-100"
-                        leaveTo="opacity-0"
+                        enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100"
+                        leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0"
                     >
-                        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" />
+                        <div className="fixed inset-0 bg-black/40 backdrop-blur-md" />
                     </Transition.Child>
 
                     <div className="fixed inset-0 overflow-y-auto">
                         <div className="flex min-h-full items-center justify-center p-4 text-center">
                             <Transition.Child
                                 as={Fragment}
-                                enter="ease-out duration-300"
-                                enterFrom="opacity-0 scale-95 translate-y-4"
-                                enterTo="opacity-100 scale-100 translate-y-0"
-                                leave="ease-in duration-200"
-                                leaveFrom="opacity-100 scale-100 translate-y-0"
-                                leaveTo="opacity-0 scale-95 translate-y-4"
+                                enter="ease-out duration-300" enterFrom="opacity-0 scale-95 translate-y-8" enterTo="opacity-100 scale-100 translate-y-0"
+                                leave="ease-in duration-200" leaveFrom="opacity-100 scale-100 translate-y-0" leaveTo="opacity-0 scale-95 translate-y-8"
                             >
-                                <Dialog.Panel className="w-full max-w-md md:max-w-xl transform overflow-hidden rounded-[2.5rem] bg-white dark:bg-[#1c1c1e] p-8 text-left align-middle shadow-2xl transition-all border border-white/20 ring-1 ring-black/5 relative">
-                                    
-                                    {/* Dynamic School Logo Header */}
-                                    <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-3xl bg-slate-50 dark:bg-slate-800/50 mb-6 border border-slate-100 dark:border-slate-700 shadow-sm p-4">
-                                        <img 
-                                            src={branding.logo} 
-                                            alt="School Logo" 
-                                            className="w-full h-full object-contain drop-shadow-sm" 
-                                        />
+                                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-[2.8rem] bg-white dark:bg-slate-900 p-8 text-left align-middle shadow-2xl transition-all border border-white/20 relative">
+                                    <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[1.5rem] bg-slate-50 dark:bg-slate-800 mb-6 p-4">
+                                        <img src={branding.logo} alt="School Logo" className="w-full h-full object-contain" />
                                     </div>
-
-                                    <Dialog.Title
-                                        as="h3"
-                                        className="text-2xl font-black leading-tight text-slate-900 dark:text-white text-center mb-2 tracking-tight"
-                                    >
-                                        Welcome back,<br/>
-                                        <span className="text-blue-600 dark:text-blue-400">{userProfile?.firstName}!</span>
+                                    <Dialog.Title as="h3" className="text-2xl font-black text-slate-900 dark:text-white text-center mb-2 tracking-tight">
+                                        Welcome back,<br/><span className="text-blue-600 dark:text-blue-400">{userProfile?.firstName}!</span>
                                     </Dialog.Title>
-                                    
                                     <div className="mt-2 text-center mb-8">
-                                        <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
-                                            You are securely logged into
-                                        </p>
-                                        <p className="text-lg font-bold text-slate-800 dark:text-slate-200 mt-1">
-                                            {getFullSchoolName(userProfile?.schoolId)}
-                                        </p>
+                                        <p className="text-sm font-bold text-slate-400 uppercase tracking-wider">{getFullSchoolName(userProfile?.schoolId)}</p>
                                     </div>
-
-                                    {/* Privacy Info Box */}
-                                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-5 border border-slate-100 dark:border-slate-700/50 space-y-5">
-                                        
-                                        <div className="flex gap-4">
-                                            <div className="flex-shrink-0 mt-0.5">
-                                                <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl">
-                                                    <Share2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" strokeWidth={2} />
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <h4 className="text-sm font-bold text-slate-900 dark:text-white">Shared Resources</h4>
-                                                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mt-1">
-                                                    Subject content is shared across our sister schools to foster collaboration.
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        <div className="w-full h-px bg-slate-200 dark:bg-slate-700/50" />
-
-                                        <div className="flex gap-4">
-                                            <div className="flex-shrink-0 mt-0.5">
-                                                <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl">
-                                                    <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400" strokeWidth={2} />
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <h4 className="text-sm font-bold text-slate-900 dark:text-white">Private & Secure</h4>
-                                                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mt-1">
-                                                    Your <strong>Student Data, Classes, and Records</strong> are strictly isolated and visible only to your school.
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                    </div>
-
+                                    
                                     <div className="mt-8">
-                                        {/* CUSTOM CIRCULAR CHECKBOX */}
-                                        <div 
-                                            className="flex items-center justify-center gap-2.5 mb-5 cursor-pointer group"
-                                            onClick={() => setDontShowAgain(!dontShowAgain)}
-                                        >
-                                            <div className={`
-                                                w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-200
-                                                ${dontShowAgain 
-                                                    ? 'bg-blue-600 border-blue-600 dark:bg-blue-500 dark:border-blue-500' 
-                                                    : 'bg-transparent border-slate-300 dark:border-slate-600 group-hover:border-blue-400'}
-                                            `}>
-                                                <Check className={`w-3.5 h-3.5 text-white transition-opacity duration-200 ${dontShowAgain ? 'opacity-100' : 'opacity-0'}`} strokeWidth={3} />
+                                        <div className="flex items-center justify-center gap-2.5 mb-5 cursor-pointer group" onClick={() => setDontShowAgain(!dontShowAgain)}>
+                                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${dontShowAgain ? 'bg-blue-600 border-blue-600' : 'bg-transparent border-slate-300'}`}>
+                                                <Check className={`w-3.5 h-3.5 text-white transition-opacity ${dontShowAgain ? 'opacity-100' : 'opacity-0'}`} strokeWidth={3} />
                                             </div>
-                                            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 select-none group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-colors">
-                                                Don't show this message again
-                                            </span>
+                                            <span className="text-xs font-bold text-slate-500 select-none">Don't show this again</span>
                                         </div>
-
-                                        <button
-                                            type="button"
-                                            className="w-full inline-flex justify-center items-center gap-2 rounded-2xl border border-transparent bg-blue-600 px-4 py-4 text-sm font-bold text-white hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 transition-all active:scale-95 shadow-xl shadow-blue-500/20 hover:shadow-blue-500/30"
-                                            onClick={handleCloseWelcome}
-                                        >
+                                        <button type="button" className="w-full inline-flex justify-center items-center gap-2 rounded-[1.5rem] bg-slate-900 dark:bg-white px-4 py-4 text-sm font-bold text-white dark:text-slate-900 active:scale-95 transition-transform" onClick={handleCloseWelcome}>
                                             <CheckCircle2 className="w-5 h-5" strokeWidth={2.5} />
-                                            Continue to Dashboard
+                                            Continue
                                         </button>
                                     </div>
                                 </Dialog.Panel>
@@ -898,4 +714,4 @@ const StudentDashboardUI = ({
     );
 };
 
-export default StudentDashboardUI;
+export default React.memo(StudentDashboardUI);

@@ -41,7 +41,7 @@ const getBase64ImageFromUrl = async (imageUrl) => {
 };
 
 /**
- * MAIN EXPORT FUNCTION
+ * MAIN EXPORT FUNCTION - FIXED FOR MULTIPLE CHOICE ANSWER KEY
  */
 export const handleExportPdf = async (quiz, showToast) => {
     if (!quiz?.questions || quiz.questions.length === 0) {
@@ -53,33 +53,26 @@ export const handleExportPdf = async (quiz, showToast) => {
         showToast("Generating PDF...", "info");
         const doc = new jsPDF();
         
-        // --- CONFIG ---
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
         const margin = 20;
         const maxLineWidth = pageWidth - (margin * 2);
         let yPos = 20;
-        
-        // Global Question Counter
         let qCounter = 1; 
         
-        // --- HEADER ---
         const drawHeader = (isFirstPage = false) => {
             if (isFirstPage) {
-                // Title
                 doc.setFont("helvetica", "bold");
                 doc.setFontSize(22);
                 doc.text(quiz.title || "Quiz", pageWidth / 2, yPos, { align: 'center' });
                 yPos += 10;
 
-                // Subject / Subtitle
                 doc.setFontSize(12);
                 doc.setFont("helvetica", "normal");
                 const subText = quiz.subjectId ? `Subject Code: ${quiz.subjectId}` : "Assessment";
                 doc.text(subText, pageWidth / 2, yPos, { align: 'center' });
                 yPos += 20;
 
-                // Student Info Fields
                 doc.setFontSize(11);
                 doc.text("Name: _________________________________", margin, yPos);
                 doc.text("Date: ___________________", pageWidth - margin - 50, yPos);
@@ -88,7 +81,6 @@ export const handleExportPdf = async (quiz, showToast) => {
                 doc.text("Score: ________ / " + quiz.questions.reduce((a, b) => a + (b.points || 1), 0), pageWidth - margin - 50, yPos);
                 yPos += 20;
 
-                // Divider
                 doc.setLineWidth(0.5);
                 doc.line(margin, yPos, pageWidth - margin, yPos);
                 yPos += 10;
@@ -103,7 +95,6 @@ export const handleExportPdf = async (quiz, showToast) => {
         };
 
         drawHeader(true);
-
         const answerKeyData = [];
 
         // --- QUESTIONS LOOP ---
@@ -112,36 +103,27 @@ export const handleExportPdf = async (quiz, showToast) => {
             const qText = stripHtml(q.text || q.question || "Question Text Missing");
             const points = Number(q.points) || 1;
             
-            // --- LOGIC UPDATE: Determine Range ---
             const isMatching = q.type === 'matching-type';
             const isEssay = q.type === 'essay';
             
-            // Essay now consumes points as items (e.g. 10pts = 10 items)
-            // Matching consumes based on number of prompts
             let itemsConsumed = 1;
             if (isMatching) itemsConsumed = q.prompts?.length || 0;
-            else if (isEssay) itemsConsumed = points; // Corrected logic for Essay
+            else if (isEssay) itemsConsumed = points;
 
             const start = qCounter;
             const end = qCounter + itemsConsumed - 1;
-            
-            // Generate Label: "7." or "7-12."
             const label = itemsConsumed > 1 ? `${start}-${end}.` : `${start}.`;
 
             checkPageBreak(20);
             doc.setFont("helvetica", "bold");
             doc.setFontSize(11);
 
-            // 1. RENDER HEADER
             if (isMatching) {
-                // Header: "For items 2-6: Instructions..."
                 const rangeLabel = itemsConsumed > 1 ? `For items ${start}-${end}:` : `Item ${start}:`;
                 const splitTitle = doc.splitTextToSize(`${rangeLabel} ${qText}`, maxLineWidth);
                 doc.text(splitTitle, margin, yPos);
                 yPos += (splitTitle.length * 6) + 4;
-
             } else {
-                // Standard Header: "7-10. Question Text... (4 pts)"
                 const fullQuestionText = `${label} ${qText} (${points} pts)`;
                 const splitTitle = doc.splitTextToSize(fullQuestionText, maxLineWidth);
                 doc.text(splitTitle, margin, yPos);
@@ -151,23 +133,42 @@ export const handleExportPdf = async (quiz, showToast) => {
             doc.setFont("helvetica", "normal");
             doc.setFontSize(11);
 
-            // 2. RENDER CONTENT & ANSWER KEY
+            // --- 2. RENDER CONTENT & CORRECTED ANSWER KEY LOGIC ---
             if (q.type === 'multiple-choice') {
                 (q.options || []).forEach((opt, idx) => {
                     checkPageBreak(8);
-                    const optText = stripHtml(opt.text || opt);
-                    const letter = String.fromCharCode(65 + idx); // A, B, C
+                    // Handle both string and object options
+                    const optText = typeof opt === 'object' ? stripHtml(opt.text || '') : stripHtml(opt);
+                    const letter = String.fromCharCode(65 + idx);
                     const splitOpt = doc.splitTextToSize(`${letter}. ${optText}`, maxLineWidth - 10);
                     
                     doc.text(splitOpt, margin + 8, yPos); 
                     yPos += (splitOpt.length * 6) + 2;
                 });
 
-                // Answer Key
-                const correctOptIndex = typeof q.correctAnswerIndex === 'number' 
-                    ? q.correctAnswerIndex 
-                    : q.options.findIndex(o => o.isCorrect);
-                const correctLetter = correctOptIndex > -1 ? String.fromCharCode(65 + correctOptIndex) : 'N/A';
+                // --- ROBUST SEARCH FOR CORRECT ANSWER ---
+                let correctOptIndex = -1;
+
+                // Priority 1: Check correctAnswerIndex (Manual Creator / AiQuizGenerator)
+                if (typeof q.correctAnswerIndex === 'number' && q.correctAnswerIndex > -1) {
+                    correctOptIndex = q.correctAnswerIndex;
+                } 
+                // Priority 2: Check for isCorrect property inside options (AiQuizGenerator)
+                else if (Array.isArray(q.options)) {
+                    correctOptIndex = q.options.findIndex(o => o.isCorrect === true || o.correct === true);
+                }
+                // Priority 3: Check for "A", "B", "C" label in correctAnswer (AiQuizModal)
+                if (correctOptIndex === -1 && typeof q.correctAnswer === 'string') {
+                    const labelMatch = q.correctAnswer.trim().toUpperCase();
+                    if (labelMatch.length === 1) {
+                        correctOptIndex = labelMatch.charCodeAt(0) - 65;
+                    }
+                }
+
+                const correctLetter = (correctOptIndex >= 0 && correctOptIndex < (q.options?.length || 4)) 
+                    ? String.fromCharCode(65 + correctOptIndex) 
+                    : 'N/A';
+                
                 answerKeyData.push([label, correctLetter]);
 
             } else if (q.type === 'true-false') {
@@ -177,12 +178,11 @@ export const handleExportPdf = async (quiz, showToast) => {
                 doc.text("B. False", margin + 8, yPos);
                 yPos += 8;
 
-                const ans = q.correctAnswer === true || q.correctAnswer === 'true' ? 'True' : 'False';
+                const ans = (q.correctAnswer === true || String(q.correctAnswer).toLowerCase() === 'true') ? 'True' : 'False';
                 answerKeyData.push([label, ans]);
 
             } else if (q.type === 'matching-type') {
                 checkPageBreak(40);
-                
                 const colA_X = margin + 5;
                 const colB_X = (pageWidth / 2) + 10;
                 const colWidth = (pageWidth / 2) - margin - 10;
@@ -193,7 +193,7 @@ export const handleExportPdf = async (quiz, showToast) => {
                 yPos += 8;
                 doc.setFont("helvetica", "normal");
 
-                const maxCount = Math.max(q.prompts?.length || 0, q.options?.length || 0);
+                const maxCount = Math.max((q.prompts || []).length, (q.options || []).length);
                 
                 for (let j = 0; j < maxCount; j++) {
                     if (yPos + 15 > pageHeight - margin) {
@@ -209,92 +209,38 @@ export const handleExportPdf = async (quiz, showToast) => {
                     let heightA = 0;
                     let heightB = 0;
 
-                    // Render A (Numbered with Global Counter)
-                    if (q.prompts[j]) {
+                    if (q.prompts?.[j]) {
                         const pText = stripHtml(q.prompts[j].text);
-                        // Individual numbering: 2. 3. 4.
                         const currentNum = qCounter + j;
                         const lines = doc.splitTextToSize(`${currentNum}. ${pText}`, colWidth);
                         doc.text(lines, colA_X, yPos);
                         heightA = lines.length * 5;
                         
-                        // Add to Answer Key now
                         const correctId = q.correctPairs?.[q.prompts[j].id];
-                        const optIdx = q.options.findIndex(o => o.id === correctId);
+                        const optIdx = (q.options || []).findIndex(o => o.id === correctId);
                         const letter = optIdx > -1 ? String.fromCharCode(65 + optIdx) : '?';
                         answerKeyData.push([`${currentNum}.`, letter]);
                     }
 
-                    // Render B (Lettered A, B, C...)
-                    if (q.options[j]) {
+                    if (q.options?.[j]) {
                         const oText = stripHtml(q.options[j].text);
                         const letter = String.fromCharCode(65 + j);
                         const lines = doc.splitTextToSize(`${letter}. ${oText}`, colWidth);
                         doc.text(lines, colB_X, yPos);
                         heightB = lines.length * 5;
                     }
-
                     yPos += Math.max(heightA, heightB) + 4;
                 }
 
-            } else if (q.type === 'image-labeling') {
-                // ... Image Logic (Same as before) ...
-                if (q.image) {
-                    const imgData = await getBase64ImageFromUrl(q.image);
-                    if (imgData) {
-                        checkPageBreak(90);
-                        try {
-                            const imgWidth = 120;
-                            const imgHeight = 80;
-                            const xCentered = (pageWidth - imgWidth) / 2;
-                            doc.addImage(imgData, 'JPEG', xCentered, yPos, imgWidth, imgHeight);
-                            yPos += imgHeight + 10;
-                        } catch (err) {
-                            doc.text("[Image Placeholder]", margin + 10, yPos);
-                            yPos += 15;
-                        }
-                    }
-                }
-                
-                checkPageBreak(20);
-                doc.text("Identify the parts labeled in the image:", margin + 8, yPos);
-                yPos += 10;
-                
-                (q.parts || []).forEach((part) => {
-                    checkPageBreak(10);
-                    doc.text(`${part.number}. _____________________________`, margin + 15, yPos);
-                    yPos += 10;
-                    // Answer Key
-                    answerKeyData.push([`${label} (#${part.number})`, stripHtml(part.correctAnswer)]);
-                });
-
             } else if (q.type === 'essay') {
                 checkPageBreak(40);
-                // Draw lines for writing
                 for (let k = 0; k < 6; k++) {
                     doc.line(margin + 5, yPos + (k * 8), pageWidth - margin, yPos + (k * 8));
                 }
                 yPos += 50;
-                
-                if (q.rubric && q.rubric.length > 0) {
-                    checkPageBreak(20);
-                    doc.setFont("helvetica", "italic");
-                    doc.setFontSize(9);
-                    doc.text("Grading Rubric:", margin + 5, yPos);
-                    yPos += 5;
-                    q.rubric.forEach(r => {
-                        doc.text(`• ${stripHtml(r.criteria)} (${r.points} pts)`, margin + 10, yPos);
-                        yPos += 5;
-                    });
-                    doc.setFont("helvetica", "normal");
-                    doc.setFontSize(11);
-                }
-                
-                // Answer Key - Show Range
                 answerKeyData.push([label, "Essay (See Rubric)"]);
 
             } else {
-                // Identification
                 checkPageBreak(15);
                 doc.text("Answer: _________________________________________", margin + 8, yPos);
                 yPos += 12;
@@ -302,72 +248,42 @@ export const handleExportPdf = async (quiz, showToast) => {
             }
 
             yPos += 8; 
-            
-            // Advance the global counter by the number of items this question block consumed
             qCounter += itemsConsumed;
         }
 
         // --- ANSWER KEY PAGE ---
         doc.addPage();
-        
         doc.setFont("helvetica", "bold");
         doc.setFontSize(16);
         doc.text("Answer Key", pageWidth / 2, 20, { align: 'center' });
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.text(quiz.title || "Quiz", pageWidth / 2, 28, { align: 'center' });
         
         autoTable(doc, {
             head: [['Question No.', 'Correct Answer']],
             body: answerKeyData,
             startY: 40,
             theme: 'grid',
-            headStyles: { 
-                fillColor: [30, 30, 30], 
-                textColor: 255, 
-                fontStyle: 'bold',
-                halign: 'center'
-            },
-            styles: { 
-                fontSize: 10, 
-                cellPadding: 3, 
-                valign: 'middle' 
-            },
-            columnStyles: { 
-                0: { cellWidth: 30, halign: 'center', fontStyle: 'bold' },
-                1: { cellWidth: 'auto' }
-            },
-            margin: { left: margin, right: margin }
+            headStyles: { fillColor: [30, 30, 30], textColor: 255, halign: 'center' },
+            columnStyles: { 0: { cellWidth: 30, halign: 'center' } }
         });
 
         // --- SAVE FILE ---
-        const quizTitleToExport = (quiz.title || 'quiz').replace(/[\\/:"*?<>|]+/g, '_');
-        const filename = `${quizTitleToExport}_Exam.pdf`;
+        const filename = `${(quiz.title || 'quiz').replace(/[\\/:"*?<>|]+/g, '_')}_Exam.pdf`;
 
         if (Capacitor.isNativePlatform()) {
-            let permStatus = await Filesystem.checkPermissions();
-            if (permStatus.publicStorage !== 'granted') permStatus = await Filesystem.requestPermissions();
-            
-            if (permStatus.publicStorage === 'granted') {
-                const base64Data = doc.output('datauristring').split(',')[1];
-                const result = await Filesystem.writeFile({
-                    path: filename,
-                    data: base64Data,
-                    directory: Directory.Documents,
-                    recursive: true
-                });
-                showToast("Saved to Documents folder.", "success");
-                await FileOpener.open({ filePath: result.uri, contentType: 'application/pdf' });
-            } else {
-                showToast("Storage permission denied.", "error");
-            }
+            const base64Data = doc.output('datauristring').split(',')[1];
+            const result = await Filesystem.writeFile({
+                path: filename,
+                data: base64Data,
+                directory: Directory.Documents
+            });
+            await FileOpener.open({ filePath: result.uri, contentType: 'application/pdf' });
         } else {
             doc.save(filename);
             showToast("Quiz exported successfully!", "success");
         }
 
     } catch (error) {
-        console.error("Error exporting PDF:", error);
+        console.error("Export failed:", error);
         showToast(`Export failed: ${error.message}`, "error");
     }
 };

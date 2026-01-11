@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, memo, useDeferredValue } from 'react';
 import { db } from '../../services/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '../../contexts/ToastContext';
@@ -8,9 +8,10 @@ import {
     CodeBracketIcon, LinkIcon, QueueListIcon, PaintBrushIcon, ChatBubbleLeftRightIcon,
     DocumentTextIcon, PhotoIcon, VideoCameraIcon,
     CheckIcon, ComputerDesktopIcon, EyeIcon,
-    CalculatorIcon // Added
+    CalculatorIcon
 } from '@heroicons/react/24/outline';
 import ContentRenderer from './ContentRenderer';
+import ConfirmationModal from './ConfirmationModal'; // Ensure this file exists
 
 // --- DND-KIT IMPORTS ---
 import {
@@ -35,14 +36,14 @@ const MATH_SYMBOLS = [
     'π', '∑', '√', '∞', '≈', '≠', '≤', '≥', '±', '×', '÷', '°', 'θ', 'Δ', 'Ω', 'μ', 'α', 'β', '→', '⇌', '↑', '↓'
 ];
 
-// --- CUSTOM ICONS ---
-const BoldIcon = (props) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" /><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" /></svg>);
-const ItalicIcon = (props) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" {...props}><line x1="19" y1="4" x2="10" y2="4" /><line x1="14" y1="20" x2="5" y2="20" /><line x1="15" y1="4" x2="9" y2="20" /></svg>);
-const UnderlineIcon = (props) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3" /><line x1="4" y1="21" x2="20" y2="21" /></svg>);
-const StrikethroughIcon = (props) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M5 12h14" /><path d="M16 6a4 4 0 0 0-8 0 4 4 0 0 0 4 4" /><path d="M16 18a4 4 0 0 1-8 0 4 4 0 0 1 4-4" /></svg>);
-const H1Icon = (props) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M4 12h8" /><path d="M4 18V6" /><path d="M12 18V6" /><path d="M17 18V6l-4 2" /></svg>);
-const H2Icon = (props) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M4 12h8" /><path d="M4 18V6" /><path d="M12 18V6" /><path d="M21 18h-4c0-4 4-3 4-6 0-1.5-2-2.5-4-1" /></svg>);
-const H3Icon = (props) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M4 12h8" /><path d="M4 18V6" /><path d="M12 18V6" /><path d="M17 16h2c1.5 0 2-1 2-2s-1-2-2-2h-1" /><path d="M17 12h2c1.5 0 2-1 2-2s-1-2-2-2h-2" /></svg>);
+// --- ICONS (Memoized to prevent recreation) ---
+const BoldIcon = memo((props) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" /><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" /></svg>));
+const ItalicIcon = memo((props) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" {...props}><line x1="19" y1="4" x2="10" y2="4" /><line x1="14" y1="20" x2="5" y2="20" /><line x1="15" y1="4" x2="9" y2="20" /></svg>));
+const UnderlineIcon = memo((props) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3" /><line x1="4" y1="21" x2="20" y2="21" /></svg>));
+const StrikethroughIcon = memo((props) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M5 12h14" /><path d="M16 6a4 4 0 0 0-8 0 4 4 0 0 0 4 4" /><path d="M16 18a4 4 0 0 1-8 0 4 4 0 0 1 4-4" /></svg>));
+const H1Icon = memo((props) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M4 12h8" /><path d="M4 18V6" /><path d="M12 18V6" /><path d="M17 18V6l-4 2" /></svg>));
+const H2Icon = memo((props) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M4 12h8" /><path d="M4 18V6" /><path d="M12 18V6" /><path d="M21 18h-4c0-4 4-3 4-6 0-1.5-2-2.5-4-1" /></svg>));
+const H3Icon = memo((props) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M4 12h8" /><path d="M4 18V6" /><path d="M12 18V6" /><path d="M17 16h2c1.5 0 2-1 2-2s-1-2-2-2h-1" /><path d="M17 12h2c1.5 0 2-1 2-2s-1-2-2-2h-2" /></svg>));
 
 // --- HELPER: Video URL to Embed ---
 const getEmbedUrl = (url) => {
@@ -55,40 +56,20 @@ const getEmbedUrl = (url) => {
 };
 
 // --- SKELETON LOADING STATE ---
-const LessonCreatorSkeleton = () => (
+const LessonCreatorSkeleton = memo(() => (
     <div className="flex flex-col h-full w-full animate-pulse bg-[#f5f5f7] dark:bg-[#121212]">
         <div className="flex-shrink-0 px-8 py-5 border-b border-black/5 dark:border-white/5">
-            <div className="flex justify-between items-center">
-                <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-slate-200 dark:bg-white/10"></div>
-                    <div className="space-y-2">
-                        <div className="h-5 w-48 bg-slate-200 dark:bg-white/10 rounded-md"></div>
-                        <div className="h-3 w-32 bg-slate-200 dark:bg-white/10 rounded-md"></div>
-                    </div>
-                </div>
-                <div className="flex gap-4">
-                    <div className="h-12 w-32 bg-slate-200 dark:bg-white/10 rounded-2xl"></div>
-                    <div className="h-12 w-32 bg-slate-200 dark:bg-white/10 rounded-2xl"></div>
-                </div>
-            </div>
+             <div className="h-12 w-full bg-slate-200 dark:bg-white/10 rounded-2xl"></div>
         </div>
         <div className="flex-grow flex gap-6 p-8 overflow-hidden">
-            <div className="w-[320px] flex-shrink-0 flex flex-col gap-4">
-                <div className="h-10 w-32 bg-slate-200 dark:bg-white/10 rounded-lg mb-2"></div>
-                {[1, 2, 3, 4].map(i => (
-                    <div key={i} className="h-16 w-full bg-slate-200 dark:bg-white/10 rounded-3xl"></div>
-                ))}
-            </div>
-            <div className="flex-1 flex flex-col gap-6">
-                <div className="h-20 w-full bg-slate-200 dark:bg-white/10 rounded-3xl"></div>
-                <div className="flex-1 bg-slate-200 dark:bg-white/10 rounded-[32px]"></div>
-            </div>
+             <div className="w-[320px] h-full bg-slate-200 dark:bg-white/10 rounded-2xl"></div>
+             <div className="flex-1 h-full bg-slate-200 dark:bg-white/10 rounded-2xl"></div>
         </div>
     </div>
-);
+));
 
 // --- MOBILE RESTRICTION OVERLAY ---
-const MobileRestricted = ({ onClose }) => (
+const MobileRestricted = memo(({ onClose }) => (
     <div className="fixed inset-0 z-[300] bg-[#f5f5f7] dark:bg-[#000000] flex flex-col items-center justify-center p-8 text-center md:hidden animate-in fade-in duration-300">
         <div className="w-24 h-24 rounded-[32px] bg-white dark:bg-[#1c1c1e] shadow-2xl flex items-center justify-center mb-8 border border-black/5 dark:border-white/10">
             <ComputerDesktopIcon className="w-12 h-12 text-slate-400 dark:text-slate-500" />
@@ -115,37 +96,34 @@ const MobileRestricted = ({ onClose }) => (
             </button>
         </div>
     </div>
-);
+));
 
-// --- MARKDOWN EDITOR (With Sync & Advanced Toolbar) ---
-const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here...", previewRef }) => {
+// --- MARKDOWN EDITOR (Memoized) ---
+const MarkdownEditor = memo(({ value, onValueChange, placeholder = "Type content here...", previewRef }) => {
     const textareaRef = useRef(null);
     const containerRef = useRef(null);
     const [showColorPicker, setShowColorPicker] = useState(false);
     const [showSymbolPicker, setShowSymbolPicker] = useState(false);
 
-    const TEXT_COLORS = [
+    const TEXT_COLORS = useMemo(() => [
         { name: 'Blue', hex: '#007AFF' }, { name: 'Green', hex: '#34C759' },
         { name: 'Orange', hex: '#FF9500' }, { name: 'Red', hex: '#FF3B30' },
         { name: 'Purple', hex: '#AF52DE' }, { name: 'Black', hex: '#1d1d1f' },
-    ];
+    ], []);
 
     // --- SCROLL SYNC LOGIC ---
-    const performSync = () => {
+    const performSync = useCallback(() => {
         if (!containerRef.current || !previewRef?.current) return;
-
         const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
         const maxScroll = scrollHeight - clientHeight;
-        
         const scrollRatio = maxScroll > 0 ? scrollTop / maxScroll : 0;
         
         const preview = previewRef.current;
         const previewMaxScroll = preview.scrollHeight - preview.clientHeight;
-        
         preview.scrollTop = scrollRatio * previewMaxScroll;
-    };
+    }, [previewRef]);
 
-    const adjustHeight = () => {
+    const adjustHeight = useCallback(() => {
         const ta = textareaRef.current;
         const container = containerRef.current;
         if (!ta) return;
@@ -163,21 +141,21 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
                 container.scrollTop = currentScroll;
             }
         }
-    };
+    }, []);
 
     useEffect(() => {
         adjustHeight();
         window.addEventListener('resize', adjustHeight);
         return () => window.removeEventListener('resize', adjustHeight);
-    }, []);
+    }, [adjustHeight]);
 
     useEffect(() => {
         adjustHeight();
-        requestAnimationFrame(performSync);
-    }, [value]);
+        const rafId = requestAnimationFrame(performSync);
+        return () => cancelAnimationFrame(rafId);
+    }, [value, adjustHeight, performSync]);
 
-    // --- INSERTION & FORMATTING ---
-    const insertText = (textToInsert, cursorOffset = 0) => {
+    const insertText = useCallback((textToInsert, cursorOffset = 0) => {
         const ta = textareaRef.current;
         if (!ta) return;
         const start = ta.selectionStart;
@@ -194,9 +172,9 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
             requestAnimationFrame(performSync);
         }, 0);
         setShowSymbolPicker(false);
-    };
+    }, [onValueChange, adjustHeight, performSync]);
 
-    const applyStyle = (startTag, endTag = '', isBlock = false) => {
+    const applyStyle = useCallback((startTag, endTag = '', isBlock = false) => {
         const ta = textareaRef.current;
         if (!ta) return;
         const start = ta.selectionStart;
@@ -226,23 +204,23 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
             }
             requestAnimationFrame(performSync);
         }, 0);
-    };
+    }, [onValueChange, adjustHeight, performSync]);
 
-    const applyColor = (hex) => {
+    const applyColor = useCallback((hex) => {
         applyStyle(`<span style="color: ${hex};">`, `</span>`);
         setShowColorPicker(false);
-    };
+    }, [applyStyle]);
 
-    const applyBlockQuote = () => {
+    const applyBlockQuote = useCallback(() => {
         const ta = textareaRef.current;
         if (!ta) return;
         let selectedText = ta.value.substring(ta.selectionStart, ta.selectionEnd);
         if (!selectedText) selectedText = "Quoted text";
         const blockTextContent = selectedText.split('\n').map(line => `> ${line}`).join('\n');
         applyStyle(`\n${blockTextContent}\n`, '', true);
-    };
+    }, [applyStyle]);
     
-    const applyMarkdown = (syntax) => {
+    const applyMarkdown = useCallback((syntax) => {
         const ta = textareaRef.current;
         if (!ta) return;
         const start = ta.selectionStart;
@@ -276,38 +254,26 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
             ta.selectionStart = ta.selectionEnd = cursorPos + selectedText.length;
             requestAnimationFrame(performSync);
         }, 0);
-    };
-
-    const ToolbarButton = ({ icon: Icon, text, syntax, tooltip, onClick }) => (
-        <button
-            onClick={onClick || (() => applyMarkdown(syntax))}
-            title={tooltip}
-            onMouseDown={(e) => e.preventDefault()}
-            className="p-1.5 min-w-[32px] rounded-lg text-slate-500 hover:text-slate-900 hover:bg-black/5 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white transition-all active:scale-90 flex items-center justify-center"
-        >
-            {Icon ? <Icon className="w-5 h-5 stroke-[2]" /> : <span className="text-xs font-bold px-1">{text}</span>}
-        </button>
-    );
+    }, [onValueChange, adjustHeight, performSync]);
 
     return (
         <div className="border border-black/5 dark:border-white/10 rounded-[28px] overflow-hidden flex flex-col h-full bg-white dark:bg-[#1e1e1e] shadow-sm flex-shrink-0">
             {/* Toolbar */}
             <div className="flex items-center justify-center p-3 sticky top-0 z-10 bg-[#F9F9FA] dark:bg-[#252525] border-b border-black/5 dark:border-white/5">
                 <div className="flex flex-wrap items-center justify-center gap-1">
-                    <ToolbarButton icon={BoldIcon} syntax="bold" tooltip="Bold" />
-                    <ToolbarButton icon={ItalicIcon} syntax="italic" tooltip="Italic" />
-                    <ToolbarButton icon={UnderlineIcon} syntax="underline" tooltip="Underline" />
-                    <ToolbarButton icon={StrikethroughIcon} syntax="strikethrough" tooltip="Strikethrough" />
+                    <ToolbarButton icon={BoldIcon} syntax="bold" tooltip="Bold" onClick={() => applyMarkdown('bold')} />
+                    <ToolbarButton icon={ItalicIcon} syntax="italic" tooltip="Italic" onClick={() => applyMarkdown('italic')} />
+                    <ToolbarButton icon={UnderlineIcon} syntax="underline" tooltip="Underline" onClick={() => applyMarkdown('underline')} />
+                    <ToolbarButton icon={StrikethroughIcon} syntax="strikethrough" tooltip="Strikethrough" onClick={() => applyMarkdown('strikethrough')} />
                     
                     <div className="w-px h-5 bg-black/10 dark:bg-white/10 mx-1"></div>
                     
-                    <ToolbarButton icon={H1Icon} syntax="h1" tooltip="Heading 1" />
-                    <ToolbarButton icon={H2Icon} syntax="h2" tooltip="Heading 2" />
-                    <ToolbarButton icon={H3Icon} syntax="h3" tooltip="Heading 3" />
+                    <ToolbarButton icon={H1Icon} syntax="h1" tooltip="Heading 1" onClick={() => applyMarkdown('h1')} />
+                    <ToolbarButton icon={H2Icon} syntax="h2" tooltip="Heading 2" onClick={() => applyMarkdown('h2')} />
+                    <ToolbarButton icon={H3Icon} syntax="h3" tooltip="Heading 3" onClick={() => applyMarkdown('h3')} />
                     
                     <div className="w-px h-5 bg-black/10 dark:bg-white/10 mx-1"></div>
 
-                     {/* Math & Science Tools */}
                     <ToolbarButton text="½" tooltip="Fraction" onClick={() => insertText('$\\frac{a}{b}$', -1)} />
                     <ToolbarButton text="x²" tooltip="Superscript/Exponent" onClick={() => insertText('$x^{2}$', -1)} />
                     <ToolbarButton text="x₂" tooltip="Subscript (Chemical)" onClick={() => insertText('$x_{2}$', -1)} />
@@ -326,9 +292,9 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
 
                     <div className="w-px h-5 bg-black/10 dark:bg-white/10 mx-1"></div>
 
-                    <ToolbarButton icon={QueueListIcon} syntax="list" tooltip="Bulleted List" />
-                    <ToolbarButton icon={CodeBracketIcon} syntax="code" tooltip="Code" />
-                    <ToolbarButton icon={LinkIcon} syntax="link" tooltip="Link" />
+                    <ToolbarButton icon={QueueListIcon} syntax="list" tooltip="Bulleted List" onClick={() => applyMarkdown('list')} />
+                    <ToolbarButton icon={CodeBracketIcon} syntax="code" tooltip="Code" onClick={() => applyMarkdown('code')} />
+                    <ToolbarButton icon={LinkIcon} syntax="link" tooltip="Link" onClick={() => applyMarkdown('link')} />
                     
                     <div className="w-px h-5 bg-black/10 dark:bg-white/10 mx-1"></div>
                     
@@ -369,11 +335,22 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
             </div>
         </div>
     );
-};
+});
 
+// --- HELPER COMPONENT: Toolbar Button ---
+const ToolbarButton = memo(({ icon: Icon, text, tooltip, onClick }) => (
+    <button
+        onClick={onClick}
+        title={tooltip}
+        onMouseDown={(e) => e.preventDefault()}
+        className="p-1.5 min-w-[32px] rounded-lg text-slate-500 hover:text-slate-900 hover:bg-black/5 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white transition-all active:scale-90 flex items-center justify-center"
+    >
+        {Icon ? <Icon className="w-5 h-5 stroke-[2]" /> : <span className="text-xs font-bold px-1">{text}</span>}
+    </button>
+));
 
 // --- SORTABLE PAGE ITEM ---
-function SortablePageItem({ id, page, index, activePageIndex, setActivePageIndex, removePage, isOnlyPage }) {
+const SortablePageItem = memo(({ id, page, index, activePageIndex, setActivePageIndex, removePage, isOnlyPage }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
 
     const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 20 : 'auto' };
@@ -390,7 +367,6 @@ function SortablePageItem({ id, page, index, activePageIndex, setActivePageIndex
                            : 'bg-white dark:bg-[#2c2c2e] border-transparent hover:bg-slate-50 dark:hover:bg-[#3a3a3c] text-slate-600 dark:text-slate-400'
                        }`}
         >
-            {/* Active Indicator */}
             {isActive && (
                 <div className="absolute left-0 top-1/2 -translate-y-1/2 h-8 w-1 bg-[#007AFF] rounded-r-full" />
             )}
@@ -418,8 +394,9 @@ function SortablePageItem({ id, page, index, activePageIndex, setActivePageIndex
             </button>
         </div>
     );
-}
+});
 
+// --- MAIN COMPONENT ---
 export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId }) {
     const { showToast } = useToast();
     const [title, setTitle] = useState('');
@@ -434,8 +411,8 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
     const [activePageIndex, setActivePageIndex] = useState(0);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [showExitWarning, setShowExitWarning] = useState(false); // Modal state
 
-    // NEW: Reference to preview container for syncing
     const previewRef = useRef(null);
 
     const sensors = useSensors(
@@ -443,63 +420,74 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
     );
     
-    // Updated Input Style (less blur, solid bg)
     const inputClass = "w-full bg-slate-50 dark:bg-[#2c2c2e] border border-black/5 dark:border-white/10 rounded-[14px] px-4 py-2.5 text-[15px] font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-[#007AFF]/20 focus:border-[#007AFF] outline-none transition-all shadow-sm";
 
-    const handlePageChange = (field, value) => {
-        const newPages = [...pages];
-        let pageData = { ...newPages[activePageIndex] };
+    // --- HANDLERS ---
+    const handleExitAttempt = () => {
+        setShowExitWarning(true);
+    };
 
-        if (field === 'type') {
-            pageData.type = value;
-            if (value === 'diagram-data') {
-                pageData.content = { labels: [], imageUrls: [] }; 
-            } else if (value === 'video') {
-                pageData.content = ''; 
+    const confirmExit = () => {
+        setShowExitWarning(false);
+        onClose(); 
+    };
+
+    const handlePageChange = useCallback((field, value) => {
+        setPages(currentPages => {
+            const newPages = [...currentPages];
+            let pageData = { ...newPages[activePageIndex] };
+
+            if (field === 'type') {
+                pageData.type = value;
+                if (value === 'diagram-data') {
+                    pageData.content = { labels: [], imageUrls: [] }; 
+                } else if (value === 'video') {
+                    pageData.content = ''; 
+                } else {
+                    pageData.content = ''; 
+                }
+            } else if (pageData.type === 'diagram-data') {
+                let newContent = { ...(pageData.content || { labels: [], imageUrls: [] }) };
+                if (field === 'diagram_labels') {
+                    newContent.labels = value.split(',').map(label => label.trim());
+                } else if (field === 'imageUrls') {
+                    newContent.imageUrls = value;
+                } else if (field === 'caption') {
+                    pageData.caption = value;
+                }
+                if (field !== 'caption') pageData.content = newContent;
+
+            } else if (pageData.type === 'video') {
+                if (field === 'caption') {
+                    pageData.caption = value;
+                } else if (field !== 'type') {
+                    pageData.content = value;
+                }
             } else {
-                pageData.content = ''; 
+                pageData[field] = value;
             }
-        } else if (pageData.type === 'diagram-data') {
-            let newContent = { ...(pageData.content || { labels: [], imageUrls: [] }) };
-            if (field === 'diagram_labels') {
-                newContent.labels = value.split(',').map(label => label.trim());
-            } else if (field === 'imageUrls') {
-                newContent.imageUrls = value;
-            } else if (field === 'caption') {
-                pageData.caption = value;
-            }
-            if (field !== 'caption') pageData.content = newContent;
+            newPages[activePageIndex] = pageData;
+            return newPages;
+        });
+    }, [activePageIndex]);
 
-        } else if (pageData.type === 'video') {
-            if (field === 'caption') {
-                pageData.caption = value;
-            } else if (field !== 'type') {
-                pageData.content = value;
-            }
-        } else {
-            pageData[field] = value;
-        }
-        newPages[activePageIndex] = pageData;
-        setPages(newPages);
-    };
+    const addPage = useCallback(() => {
+        setPages(prev => {
+            const newPage = { id: `page-${Date.now()}`, title: `Page ${prev.length + 1}`, content: '', type: 'text', caption: '' };
+            return [...prev, newPage];
+        });
+        setActivePageIndex(prev => prev + 1);
+    }, []);
 
-    const addPage = () => {
-        const newPage = { id: `page-${Date.now()}`, title: `Page ${pages.length + 1}`, content: '', type: 'text', caption: '' };
-        setPages([...pages, newPage]);
-        setActivePageIndex(pages.length);
-    };
+    const removePage = useCallback((index) => {
+        setPages(prev => {
+            if (prev.length <= 1) return prev;
+            return prev.filter((_, i) => i !== index);
+        });
+        setActivePageIndex(prev => Math.max(0, Math.min(prev, prev.length - 2)));
+    }, []);
 
-    const removePage = (index) => {
-        if (pages.length <= 1) {
-            showToast("You cannot delete the last page.", "warning");
-            return;
-        }
-        const newPages = pages.filter((_, i) => i !== index);
-        setPages(newPages);
-        setActivePageIndex(prev => Math.max(0, Math.min(prev, newPages.length - 1)));
-    };
-
-    const handleDragEnd = (event) => {
+    const handleDragEnd = useCallback((event) => {
         const { active, over } = event;
         if (active.id !== over.id) {
             setPages((items) => {
@@ -508,7 +496,7 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
                 return arrayMove(items, oldIndex, newIndex);
             });
         }
-    };
+    }, []);
 
     const handleAddLesson = async () => {
         if (!title.trim()) { setError('Lesson title cannot be empty.'); return; }
@@ -542,6 +530,9 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
     const activePage = pages[activePageIndex] || { id: '', title: '', content: '', type: 'text' };
     const pageTypeIndex = ['text', 'diagram-data', 'video'].indexOf(activePage.type);
 
+    const deferredContent = useDeferredValue(activePage.content);
+    const deferredCaption = useDeferredValue(activePage.caption);
+
     if (loading) {
         return <LessonCreatorSkeleton />;
     }
@@ -549,17 +540,27 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
     return (
         <div className="fixed inset-0 z-50 flex flex-col h-full bg-[#F2F2F7] dark:bg-[#000000] font-sans text-slate-900 dark:text-white">
             
-            {/* Mobile Restriction (Visible < md) */}
+            {/* Confirmation Modal */}
+            <ConfirmationModal 
+                isOpen={showExitWarning} 
+                onClose={() => setShowExitWarning(false)}
+                onConfirm={confirmExit}
+                title="Discard Unsaved Lesson?"
+                message="You have unsaved changes. If you leave now, your work will be permanently lost and cannot be retrieved."
+            />
+
             <MobileRestricted onClose={onClose} />
 
-            {/* Desktop Content (Visible >= md) */}
             <div className="hidden md:flex flex-col h-full">
                 
                 {/* Header */}
                 <div className="flex-shrink-0 px-8 py-5 border-b border-black/5 dark:border-white/5 bg-white dark:bg-[#1c1c1e] z-20 sticky top-0">
                     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                         <div className="flex items-center gap-4">
-                            <button onClick={onClose} className="p-2.5 rounded-full bg-slate-100 dark:bg-[#2c2c2e] hover:bg-slate-200 dark:hover:bg-[#3a3a3c] transition-all active:scale-95">
+                            <button 
+                                onClick={handleExitAttempt}
+                                className="p-2.5 rounded-full bg-slate-100 dark:bg-[#2c2c2e] hover:bg-slate-200 dark:hover:bg-[#3a3a3c] transition-all active:scale-95"
+                            >
                                 <ArrowUturnLeftIcon className="w-5 h-5 stroke-[2.5] text-slate-600 dark:text-white" />
                             </button>
                             <div>
@@ -637,7 +638,6 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
                                 />
                             </div>
                             
-                            {/* Type Switcher (Segmented Control) */}
                             <Tab.Group selectedIndex={pageTypeIndex > -1 ? pageTypeIndex : 0} onChange={(index) => handlePageChange('type', ['text', 'diagram-data', 'video'][index])}>
                                 <Tab.List className="flex p-1 bg-slate-100 dark:bg-[#2c2c2e] rounded-[14px]">
                                     {['Text', 'Image', 'Video'].map((type, idx) => {
@@ -681,7 +681,7 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
                                             <div className="mb-6 text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                                 <EyeIcon className="w-4 h-4" /> Live Preview
                                             </div>
-                                            <ContentRenderer text={typeof activePage.content === 'string' ? activePage.content : ''} />
+                                            <ContentRenderer text={typeof deferredContent === 'string' ? deferredContent : ''} />
                                         </div>
                                     </div>
                                 </div>
@@ -690,9 +690,7 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
                             {/* MODE: IMAGE */}
                             {activePage.type === 'diagram-data' && (
                                 <div className="h-full flex flex-col lg:flex-row gap-8">
-                                    {/* Left: Config & Caption Editor */}
                                     <div className="flex-1 flex flex-col gap-6 h-full min-h-0 overflow-y-auto custom-scrollbar p-1">
-                                        {/* Image Config */}
                                         <div className="w-full p-6 bg-white dark:bg-[#1c1c1e] rounded-[24px] border border-black/5 dark:border-white/5 shadow-sm">
                                             <div className="space-y-5">
                                                 <div className="flex items-center gap-3 mb-2">
@@ -701,8 +699,6 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
                                                     </div>
                                                     <label className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wide">Image Configuration</label>
                                                 </div>
-                                                
-                                                {/* URL List */}
                                                 <div className="space-y-3">
                                                     {Array.isArray(activePage.content?.imageUrls) && activePage.content.imageUrls.map((url, idx) => (
                                                         <div key={idx} className="flex gap-2 items-center group">
@@ -724,7 +720,6 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
                                             </div>
                                         </div>
 
-                                        {/* Caption Editor */}
                                         <div className="flex-1 min-h-[300px] relative rounded-[24px] overflow-hidden shadow-sm border border-black/5 dark:border-white/5 bg-white dark:bg-[#1c1c1e]">
                                             <div className="absolute top-0 left-0 right-0 px-6 py-3 bg-slate-50/80 dark:bg-[#252525]/80 backdrop-blur-md border-b border-black/5 dark:border-white/5 z-10">
                                                 <span className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Description / Caption</span>
@@ -750,7 +745,6 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
                                                 <EyeIcon className="w-4 h-4" /> Live Preview
                                             </div>
                                             <div className="space-y-8">
-                                                {/* Image Preview */}
                                                 <div className="grid grid-cols-1 gap-6">
                                                     {Array.isArray(activePage.content?.imageUrls) && activePage.content.imageUrls.map((url, idx) => (
                                                         url ? (
@@ -764,10 +758,9 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
                                                         )
                                                     ))}
                                                 </div>
-                                                {/* Rendered Caption */}
-                                                {activePage.caption && (
+                                                {deferredCaption && (
                                                     <div className="prose prose-sm max-w-none prose-slate dark:prose-invert p-6 bg-slate-50 dark:bg-[#2c2c2e] rounded-[16px] border border-black/5 dark:border-white/5">
-                                                        <ContentRenderer text={activePage.caption} />
+                                                        <ContentRenderer text={deferredCaption} />
                                                     </div>
                                                 )}
                                             </div>
@@ -779,9 +772,7 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
                             {/* MODE: VIDEO */}
                             {activePage.type === 'video' && (
                                 <div className="h-full flex flex-col lg:flex-row gap-8">
-                                    {/* Left: Config & Caption Editor */}
                                     <div className="flex-1 flex flex-col gap-6 h-full min-h-0 overflow-y-auto custom-scrollbar p-1">
-                                        {/* Video Config */}
                                         <div className="w-full p-8 bg-white dark:bg-[#1c1c1e] rounded-[24px] border border-black/5 dark:border-white/5 shadow-sm text-center">
                                             <div className="flex flex-col items-center gap-5 max-w-lg mx-auto">
                                                 <div className="w-20 h-20 mx-auto bg-gradient-to-br from-pink-500 to-rose-600 rounded-[24px] flex items-center justify-center shadow-lg shadow-pink-500/30">
@@ -800,7 +791,6 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
                                             </div>
                                         </div>
 
-                                        {/* Caption Editor */}
                                         <div className="flex-1 min-h-[300px] relative rounded-[24px] overflow-hidden shadow-sm border border-black/5 dark:border-white/5 bg-white dark:bg-[#1c1c1e]">
                                             <div className="absolute top-0 left-0 right-0 px-6 py-3 bg-slate-50/80 dark:bg-[#252525]/80 backdrop-blur-md border-b border-black/5 dark:border-white/5 z-10">
                                                 <span className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Description / Caption</span>
@@ -816,7 +806,6 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
                                         </div>
                                     </div>
 
-                                    {/* Right: Preview */}
                                     <div className="flex-1 h-full hidden lg:block min-h-0">
                                         <div 
                                             ref={previewRef}
@@ -826,7 +815,6 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
                                                 <EyeIcon className="w-4 h-4" /> Live Preview
                                             </div>
                                             <div className="space-y-8">
-                                                {/* Video Embed Preview */}
                                                 <div className="aspect-video rounded-[24px] overflow-hidden bg-black shadow-lg">
                                                     {activePage.content ? (
                                                         <iframe
@@ -842,11 +830,9 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
                                                         </div>
                                                     )}
                                                 </div>
-                                                
-                                                {/* Rendered Caption */}
-                                                {activePage.caption && (
+                                                {deferredCaption && (
                                                     <div className="prose prose-sm max-w-none prose-slate dark:prose-invert p-6 bg-slate-50 dark:bg-[#2c2c2e] rounded-[16px] border border-black/5 dark:border-white/5">
-                                                        <ContentRenderer text={activePage.caption} />
+                                                        <ContentRenderer text={deferredCaption} />
                                                     </div>
                                                 )}
                                             </div>
@@ -862,7 +848,10 @@ export default function ManualLessonCreator({ onClose, onBack, unitId, subjectId
                 <div className="flex-shrink-0 flex justify-between items-center px-8 py-5 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#1c1c1e] z-20">
                     <p className="text-sm font-bold text-red-500 ml-2">{error}</p>
                     <div className="flex gap-4">
-                        <button className="px-8 py-3 rounded-[16px] font-bold text-[14px] text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-[#2c2c2e] hover:bg-slate-200 dark:hover:bg-[#3a3a3c] transition-all shadow-sm active:scale-95" onClick={onClose}>
+                        <button 
+                            className="px-8 py-3 rounded-[16px] font-bold text-[14px] text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-[#2c2c2e] hover:bg-slate-200 dark:hover:bg-[#3a3a3c] transition-all shadow-sm active:scale-95" 
+                            onClick={handleExitAttempt}
+                        >
                             Cancel
                         </button>
                         <button 

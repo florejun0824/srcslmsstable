@@ -287,22 +287,25 @@ export default function AiQuizModal({ isOpen, onClose, unitId, subjectId, lesson
                     return { ...base, rubric, points: totalPoints };
                 }
 
-                // 3. MULTIPLE CHOICE LOGIC (Fixing N/A Answer Key)
-                if (base.type === 'multiple-choice') {
-                    const options = q.options ? q.options.map(o => ({ text: String(o.text), isCorrect: !!o.isCorrect })) : [];
-                    
-                    // Determine the letter (A, B, C, D) for the correct answer
-                    const correctIndex = options.findIndex(o => o.isCorrect);
-                    const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
-                    const correctAnswerLabel = correctIndex > -1 ? letters[correctIndex] : '';
+				// 3. MULTIPLE CHOICE LOGIC (FIXED FOR PDF EXPORT)
+				if (base.type === 'multiple-choice') {
+				    const options = q.options ? q.options.map(o => ({ 
+				        text: String(o.text), 
+				        isCorrect: !!o.isCorrect 
+				    })) : [];
+    
+				    // Find the actual index (0, 1, 2, or 3)
+				    const correctIndex = options.findIndex(o => o.isCorrect);
 
-                    return { 
-                        ...base, 
-                        options, 
-                        points: 1, 
-                        correctAnswer: correctAnswerLabel // Saves "A", "B", etc. to DB for the Answer Key
-                    };
-                }
+				    return { 
+				        ...base, 
+				        options, 
+				        points: 1, 
+				        // Save BOTH to ensure compatibility with all components
+				        correctAnswerIndex: correctIndex > -1 ? correctIndex : 0,
+				        correctAnswer: correctIndex > -1 ? ['A', 'B', 'C', 'D'][correctIndex] : 'A'
+				    };
+				}
 
                 // 4. T/F & ID
                 return { 

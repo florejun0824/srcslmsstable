@@ -98,7 +98,7 @@ export const usePresentationGenerator = (showToast) => {
 
 		    2. **EXPLANATIONS (SIMPLIFY):**
 		       - After the definition, you must **paraphrase the explanation** into simple, conversational English.
-		       - Use the "Feynman Technique": Explain it as if teaching a student who is hearing it for the first time.
+		       - Use the "Feynman Technique": Explain it as if teaching a 10-year old student who is hearing it for the first time.
 		       - Address the student directly ("This means that when you...").
 
 		    3. **SCENARIO HANDLING:**
@@ -111,7 +111,12 @@ export const usePresentationGenerator = (showToast) => {
 
 		    **CRITICAL: SPEAKER NOTES (THE TEACHER'S CHEAT SHEET)**
 		    - The speaker notes must provide the "Deep Dive" for the teacher.
-		    - If the slide text is simplified, the Notes should contain the **original, complex context** or historical background (e.g., Greek vs. Christian logic) so the teacher can answer advanced questions.
+		    - - **Audience:** A 10-year-old student.
+            - **Style:** **Storyteller.** Do NOT just read the slide. ELABORATE on it.
+            - **Context:** **MANDATORY PHILIPPINE SCENARIO.**
+              - *Good:* "Think about the traffic in EDSA."
+              - *Good:* "Remember when you ask for 'aginaldo' at Christmas."
+              - *Good:* "Like waiting for a jeepney to fill up."
 
 		    **REQUIRED JSON SCHEMA:**
 		    {

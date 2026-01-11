@@ -1,97 +1,154 @@
-// src/pages/StudentLessonsTab.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   BookOpenIcon, 
   ArrowPathIcon, 
-  SparklesIcon 
+  SparklesIcon,
+  AcademicCapIcon,
+  ChevronRightIcon
 } from '@heroicons/react/24/solid';
 import Spinner from '../common/Spinner';
 import LessonsByUnitView from './LessonsByUnitView';
+import { motion, AnimatePresence } from 'framer-motion';
 
-// --- COMPONENT: Glass Card (Touch Optimized) ---
-const GlassCard = ({ children, className = "", onClick }) => (
-  <div 
-    onClick={onClick}
-    className={`
-      relative overflow-hidden
-      bg-white/80 dark:bg-slate-900/60 
-      backdrop-blur-md 
-      border border-white/60 dark:border-slate-700/50
-      shadow-sm hover:shadow-xl dark:shadow-black/40
-      transition-all duration-300 ease-out
-      active:scale-[0.97] touch-manipulation
-      rounded-[2rem]
-      ${className}
-    `}
-  >
-    {children}
-  </div>
-);
-
-// --- COMPONENT: Spatial Class Card ---
-const ClassCard = ({ title, onClick, lessonCount, isNew }) => {
-  // Toggle theme based on title length for visual variety
-  const isBlueTheme = title.length % 2 === 0;
-  
-  return (
-    <GlassCard 
-      onClick={onClick}
-      className="cursor-pointer min-h-[10rem] flex flex-col group"
-    >
-      {/* Gradient Blob (Ambient Light) */}
-      <div className={`
-        absolute -top-12 -right-12 w-40 h-40 rounded-full blur-3xl opacity-30 
-        transition-opacity duration-500
-        ${isBlueTheme ? 'bg-cyan-400' : 'bg-violet-400'}
-      `} />
-      
-      <div className="relative z-10 p-5 flex flex-col h-full">
-        <div className="flex justify-between items-start mb-3">
-          {/* Icon */}
-          <div className={`
-            h-11 w-11 rounded-2xl flex items-center justify-center shadow-inner
-            ${isBlueTheme 
-              ? 'bg-cyan-50 dark:bg-slate-800 text-cyan-600 dark:text-cyan-400' 
-              : 'bg-fuchsia-50 dark:bg-slate-800 text-fuchsia-600 dark:text-fuchsia-400'
-            }
-          `}>
-            <BookOpenIcon className="h-5 w-5" />
-          </div>
-
-          {/* New Badge */}
-          {isNew && (
-            <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-red-500 text-white text-[9px] font-bold uppercase tracking-wider shadow-md shadow-red-500/20">
-              <SparklesIcon className="h-3 w-3 text-yellow-200" /> New
-            </span>
-          )}
-        </div>
-
-        {/* Title */}
-        <h3 className="text-[1.05rem] font-bold text-slate-800 dark:text-slate-100 leading-tight line-clamp-2 mb-1">
-          {title}
-        </h3>
-
-        {/* Footer */}
-        <div className="mt-auto pt-3 flex items-center text-xs font-medium text-slate-500 dark:text-slate-400">
-          <div className="h-1.5 w-1.5 rounded-full bg-slate-300 dark:bg-slate-600 mr-2" />
-          {lessonCount} {lessonCount === 1 ? 'Lesson' : 'Lessons'}
-        </div>
-      </div>
-    </GlassCard>
-  );
+// =====================================================================
+// 🎨 ANIMATION CONSTANTS (OneUI Physics)
+// =====================================================================
+const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+        opacity: 1,
+        transition: { staggerChildren: 0.05 }
+    }
 };
 
-const EmptyState = ({ icon: Icon, text, subtext }) => (
-  <div className="flex flex-col items-center justify-center py-20 px-6 opacity-70">
-    <div className="bg-slate-100 dark:bg-slate-800 p-5 rounded-full mb-4">
-      <Icon className="h-10 w-10 text-slate-400" />
-    </div>
-    <p className="text-lg font-semibold text-slate-700 dark:text-slate-200">{text}</p>
-    <p className="text-sm text-slate-500 text-center max-w-xs">{subtext}</p>
-  </div>
-);
+const itemVariants = {
+    hidden: { opacity: 0, y: 20, scale: 0.95 },
+    show: { 
+        opacity: 1, 
+        y: 0, 
+        scale: 1, 
+        transition: { type: "spring", stiffness: 350, damping: 25 } 
+    }
+};
 
+// =====================================================================
+// 🧱 COMPONENT: OneUI Card
+// =====================================================================
+const OneUICard = memo(({ children, className = "", onClick }) => {
+  const handleKeyDown = (e) => {
+    if (onClick && (e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault();
+      onClick();
+    }
+  };
+
+  return (
+    <motion.div 
+      variants={itemVariants}
+      onClick={onClick}
+      onKeyDown={onClick ? handleKeyDown : undefined}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      whileHover={onClick ? { scale: 1.01 } : {}}
+      whileTap={onClick ? { scale: 0.96 } : {}}
+      className={`
+        relative overflow-hidden
+        bg-white dark:bg-slate-900 
+        border border-slate-100 dark:border-slate-800
+        shadow-[0_4px_20px_-8px_rgba(0,0,0,0.05)] dark:shadow-none
+        transition-all duration-300
+        rounded-[2.2rem]
+        focus:outline-none focus:ring-4 focus:ring-blue-500/20
+        ${className}
+        ${onClick ? 'cursor-pointer touch-manipulation' : ''}
+      `}
+    >
+      {children}
+    </motion.div>
+  );
+});
+OneUICard.displayName = 'OneUICard';
+
+// =====================================================================
+// 🏷️ COMPONENT: Class Card
+// =====================================================================
+const ClassCard = memo(({ title, onClick, lessonCount, isNew, index }) => {
+  // Dynamic OneUI Color palettes based on index
+  const themes = [
+    { bg: 'bg-blue-50 dark:bg-blue-900/20', text: 'text-blue-600 dark:text-blue-400', icon: 'bg-blue-500 text-white' },
+    { bg: 'bg-violet-50 dark:bg-violet-900/20', text: 'text-violet-600 dark:text-violet-400', icon: 'bg-violet-500 text-white' },
+    { bg: 'bg-emerald-50 dark:bg-emerald-900/20', text: 'text-emerald-600 dark:text-emerald-400', icon: 'bg-emerald-500 text-white' },
+    { bg: 'bg-rose-50 dark:bg-rose-900/20', text: 'text-rose-600 dark:text-rose-400', icon: 'bg-rose-500 text-white' },
+  ];
+  const theme = themes[index % themes.length];
+
+  return (
+    <OneUICard 
+      onClick={onClick}
+      className="min-h-[11rem] flex flex-col p-6 group"
+    >
+      {/* Header Row */}
+      <div className="flex justify-between items-start mb-4">
+        <div className={`h-14 w-14 rounded-[1.25rem] flex items-center justify-center shadow-sm ${theme.bg} ${theme.text} transition-transform duration-300 group-hover:scale-110`}>
+          <AcademicCapIcon className="h-7 w-7" />
+        </div>
+
+        {isNew && (
+          <span className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-rose-500 text-white text-[10px] font-black uppercase tracking-wider shadow-sm shadow-rose-500/30">
+            <SparklesIcon className="h-3 w-3 text-yellow-300" /> New
+          </span>
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="mt-2">
+        <h3 className="text-xl font-black text-slate-900 dark:text-white leading-tight line-clamp-2">
+          {title}
+        </h3>
+      </div>
+
+      {/* Footer */}
+      <div className="mt-auto pt-5 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+            <span className="flex items-center justify-center h-6 px-2.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                {lessonCount} {lessonCount === 1 ? 'Lesson' : 'Lessons'}
+            </span>
+        </div>
+        
+        {/* Subtle arrow interaction */}
+        <div className="h-8 w-8 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <ChevronRightIcon className="h-4 w-4" />
+        </div>
+      </div>
+    </OneUICard>
+  );
+});
+ClassCard.displayName = 'ClassCard';
+
+// =====================================================================
+// 🗑️ COMPONENT: Empty State
+// =====================================================================
+const EmptyState = memo(({ icon: Icon, text, subtext }) => (
+  <motion.div 
+    initial={{ opacity: 0, scale: 0.9 }} 
+    animate={{ opacity: 1, scale: 1 }}
+    className="flex flex-col items-center justify-center py-32 px-6 text-center"
+  >
+    <div className="w-24 h-24 bg-slate-50 dark:bg-slate-800/50 rounded-[2.5rem] flex items-center justify-center mb-6 text-slate-300 dark:text-slate-600">
+      <Icon className="h-10 w-10" />
+    </div>
+    <p className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">{text}</p>
+    <p className="mt-2 text-sm font-medium text-slate-400 max-w-xs leading-relaxed">
+      {subtext}
+    </p>
+  </motion.div>
+));
+EmptyState.displayName = 'EmptyState';
+
+// =====================================================================
+// 🚀 MAIN COMPONENT
+// =====================================================================
 const StudentLessonsTab = ({
   lessons = [],
   units = [],
@@ -100,81 +157,93 @@ const StudentLessonsTab = ({
   isFetchingContent,
   onRefreshLessons
 }) => {
-  const [lessonsByClass, setLessonsByClass] = useState({});
-  const [selectedClassData, setSelectedClassData] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-
   const location = useLocation();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (lessons.length > 0) {
-      const groupedLessons = lessons.reduce((acc, lesson) => {
-        const className = lesson.className || 'Uncategorized Class';
-        if (!acc[className]) {
-          acc[className] = { id: lesson.classId, name: className, lessons: [] };
-        }
-        acc[className].lessons.push(lesson);
-        return acc;
-      }, {});
+  // --- DERIVED STATE: Group Lessons ---
+  const lessonsByClass = useMemo(() => {
+    if (!lessons.length) return {};
 
-      Object.keys(groupedLessons).forEach(className => {
-        groupedLessons[className].lessons.sort((a, b) => {
-          const orderA = a.order ?? Infinity;
-          const orderB = b.order ?? Infinity;
-          if (orderA !== orderB) return orderA - orderB;
-          return a.title.localeCompare(b.title, 'en-US', { numeric: true });
-        });
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    const grouped = lessons.reduce((acc, lesson) => {
+      const className = lesson.className || 'Uncategorized Class';
+      if (!acc[className]) {
+        acc[className] = { 
+            id: lesson.classId, 
+            name: className, 
+            lessons: [],
+            hasNewContent: false
+        };
+      }
+      
+      acc[className].lessons.push(lesson);
+
+      if (!acc[className].hasNewContent && lesson?.createdAt) {
+          const createdAtDate = lesson.createdAt.toDate ? lesson.createdAt.toDate() : new Date(lesson.createdAt);
+          if (createdAtDate > sevenDaysAgo) {
+              acc[className].hasNewContent = true;
+          }
+      }
+
+      return acc;
+    }, {});
+
+    Object.keys(grouped).forEach(className => {
+      grouped[className].lessons.sort((a, b) => {
+        const orderA = a.order ?? Infinity;
+        const orderB = b.order ?? Infinity;
+        if (orderA !== orderB) return orderA - orderB;
+        return a.title.localeCompare(b.title, 'en-US', { numeric: true });
       });
+    });
 
-      setLessonsByClass(groupedLessons);
-    } else {
-      setLessonsByClass({});
-    }
+    return grouped;
   }, [lessons]);
 
-  useEffect(() => {
+  // --- ROUTING LOGIC ---
+  const selectedClassData = useMemo(() => {
     const pathParts = location.pathname.split('/');
     const classIdFromUrl = pathParts.length === 5 && pathParts[3] === 'class' ? pathParts[4] : null;
 
-    if (classIdFromUrl) {
-      if (Object.keys(lessonsByClass).length > 0) {
-        const matchingClass = Object.values(lessonsByClass).find(
-          (cls) => cls.id === classIdFromUrl
-        );
-
-        if (matchingClass) {
-          setSelectedClassData(matchingClass);
-        } else {
-          navigate('/student/lessons', { replace: true });
-        }
-      }
-    } else {
-      setSelectedClassData(null);
+    if (classIdFromUrl && Object.keys(lessonsByClass).length > 0) {
+       return Object.values(lessonsByClass).find(cls => cls.id === classIdFromUrl) || 'NOT_FOUND';
     }
-  }, [location.pathname, lessonsByClass, navigate]);
+    return null;
+  }, [location.pathname, lessonsByClass]);
 
-  const handleClassCardClick = (classData) => {
+  useEffect(() => {
+    if (selectedClassData === 'NOT_FOUND') {
+        navigate('/student/lessons', { replace: true });
+    }
+  }, [selectedClassData, navigate]);
+
+  // --- HANDLERS ---
+  const handleClassCardClick = useCallback((classData) => {
+    if (navigator?.vibrate) navigator.vibrate(20);
     navigate(`/student/lessons/class/${classData.id}`);
-  };
+  }, [navigate]);
   
-  const handleBackToClassList = () => {
+  const handleBackToClassList = useCallback(() => {
     navigate('/student/lessons');
-  };
+  }, [navigate]);
 
   const handleRefreshClick = async () => {
     if (!onRefreshLessons) return;
+    if (navigator?.vibrate) navigator.vibrate(30);
     setIsRefreshing(true);
-    try {
-      await onRefreshLessons();
-    } catch (err) {
-      console.error('Error refreshing lessons:', err);
-    } finally {
-      setIsRefreshing(false);
-    }
+    // Artificial delay to let the spinner animation play
+    await Promise.all([
+      onRefreshLessons(),
+      new Promise(resolve => setTimeout(resolve, 800))
+    ]);
+    setIsRefreshing(false);
   };
 
-  if (selectedClassData) {
+  // --- VIEW: Drill Down (LessonsByUnit) ---
+  if (selectedClassData && typeof selectedClassData === 'object') {
     return (
       <LessonsByUnitView
         selectedClass={selectedClassData}
@@ -188,112 +257,78 @@ const StudentLessonsTab = ({
   }
 
   const sortedClassNames = Object.keys(lessonsByClass).sort();
+  const isLoading = isFetchingContent || isFetchingUnits;
 
+  // --- VIEW: Class List (Main) ---
   return (
-    <div className="min-h-[60vh] relative pb-24 sm:pb-10 max-w-7xl mx-auto px-2 sm:px-4">
+    <div className="min-h-screen font-sans pb-36 px-2 sm:px-4">
       
-      {/* --- HEADER SECTION --- */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8 mt-4">
-        
-        {/* Title Area */}
+      {/* 1. ONEUI HEADER */}
+      <div className="pt-6 pb-2 px-6 flex items-end justify-between">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-            My Classes
-          </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Select a module to continue learning
-          </p>
+          <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Classes</h1>
+          <p className="text-sm font-bold text-slate-400 mt-0.5">Select a subject</p>
         </div>
 
-        {/* --- NEW: AESTHETIC TOP SYNC BUTTON --- */}
+        {/* Sync Button */}
         <button
           onClick={handleRefreshClick}
           disabled={isRefreshing}
           className={`
-            /* Layout: Full width on mobile, auto on desktop */
-            w-full sm:w-auto
-            
-            /* Positioning & Flex */
-            relative overflow-hidden
-            flex items-center justify-center gap-3 
-            px-6 py-3.5
-            
-            /* Aesthetic: Glassmorphism + Gradient Border */
-            rounded-2xl
-            bg-white/60 dark:bg-slate-800/60 
-            backdrop-blur-md
-            border border-white/60 dark:border-slate-700
-            
-            /* Typography */
-            text-sm font-bold tracking-wide
-            text-slate-700 dark:text-slate-200
-            
-            /* Interactions */
-            shadow-sm hover:shadow-lg hover:bg-white dark:hover:bg-slate-700
-            active:scale-[0.98] 
-            transition-all duration-300 ease-out
-            group
+            h-11 w-11 rounded-full flex items-center justify-center
+            bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300
+            hover:bg-blue-500 hover:text-white active:scale-90
+            transition-all duration-300
           `}
+          aria-label="Sync Lessons"
         >
-          {/* Icon */}
           <ArrowPathIcon
-            className={`h-5 w-5 text-blue-500 dark:text-blue-400 transition-transform duration-700 ${
-              isRefreshing ? 'animate-spin' : 'group-hover:rotate-180'
-            }`}
+            className={`h-6 w-6 ${isRefreshing ? 'animate-spin' : ''}`}
           />
-          
-          {/* Text */}
-          <span>{isRefreshing ? 'Syncing...' : 'Sync Lessons'}</span>
-          
-          {/* Subtle sheen effect overlay */}
-          <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
         </button>
-
       </div>
-      {/* --- END HEADER --- */}
 
-
-      {/* Content Grid */}
-      <div>
-        {isFetchingContent || isFetchingUnits ? (
-          <div className="flex justify-center items-center py-32">
-            <Spinner />
-          </div>
-        ) : sortedClassNames.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-            {sortedClassNames.map((className) => {
-              const classData = lessonsByClass[className];
-              
-              const sevenDaysAgo = new Date();
-              sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-              const hasNewLesson = (classData.lessons || []).some(lesson => {
-                if (lesson?.createdAt) {
-                  const createdAtDate = lesson.createdAt.toDate ? 
-                                        lesson.createdAt.toDate() : 
-                                        new Date(lesson.createdAt);
-                  return createdAtDate > sevenDaysAgo;
-                }
-                return false;
-              });
-
-              return (
-                <ClassCard
-                  key={classData.id || className}
-                  title={classData.name}
-                  lessonCount={classData.lessons.length}
-                  isNew={hasNewLesson} 
-                  onClick={() => handleClassCardClick(classData)} 
-                />
-              );
-            })}
-          </div>
-        ) : (
-          <EmptyState
-            icon={BookOpenIcon}
-            text="No Classes Found"
-            subtext="You haven't been enrolled in any classes yet."
-          />
-        )}
+      {/* 2. MAIN GRID */}
+      <div className="px-4 mt-6 min-h-[50vh]">
+        <AnimatePresence mode="wait">
+          {isLoading ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex justify-center items-center py-32"
+            >
+              <Spinner />
+            </motion.div>
+          ) : sortedClassNames.length > 0 ? (
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              animate="show"
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+            >
+              {sortedClassNames.map((className, idx) => {
+                const classData = lessonsByClass[className];
+                return (
+                  <ClassCard
+                    key={classData.id || className}
+                    index={idx}
+                    title={classData.name}
+                    lessonCount={classData.lessons.length}
+                    isNew={classData.hasNewContent} 
+                    onClick={() => handleClassCardClick(classData)} 
+                  />
+                );
+              })}
+            </motion.div>
+          ) : (
+            <EmptyState
+              icon={BookOpenIcon}
+              text="No Classes Found"
+              subtext="You haven't been enrolled in any classes yet."
+            />
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

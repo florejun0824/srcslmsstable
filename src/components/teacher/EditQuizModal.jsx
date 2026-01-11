@@ -1,5 +1,4 @@
-// src/components/teacher/EditQuizModal.jsx
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../services/firebase';
@@ -108,8 +107,8 @@ const uploadImageToCloudinary = async (file) => {
     return data.secure_url;
 };
 
-// --- MARKDOWN EDITOR COMPONENT ---
-const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here...", minHeight = "120px" }) => {
+// --- MARKDOWN EDITOR COMPONENT (Memoized) ---
+const MarkdownEditor = memo(({ value, onValueChange, placeholder = "Type content here...", minHeight = "120px" }) => {
     const textareaRef = useRef(null);
     const [showColorPicker, setShowColorPicker] = useState(false);
     const [showSymbolPicker, setShowSymbolPicker] = useState(false);
@@ -120,16 +119,16 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
         { name: 'Purple', hex: '#AF52DE' }, { name: 'Black', hex: '#1d1d1f' },
     ];
 
-    const adjustHeight = () => {
+    const adjustHeight = useCallback(() => {
         const ta = textareaRef.current;
         if (!ta) return;
         ta.style.height = 'auto';
         ta.style.height = `${ta.scrollHeight}px`;
-    };
+    }, []);
 
-    useEffect(() => { adjustHeight(); }, [value]);
+    useEffect(() => { adjustHeight(); }, [value, adjustHeight]);
 
-    const insertText = (textToInsert, cursorOffset = 0) => {
+    const insertText = useCallback((textToInsert, cursorOffset = 0) => {
         const ta = textareaRef.current;
         if (!ta) return;
         const start = ta.selectionStart;
@@ -145,9 +144,9 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
             ta.selectionStart = ta.selectionEnd = start + textToInsert.length + cursorOffset;
         }, 0);
         setShowSymbolPicker(false);
-    };
+    }, [onValueChange, adjustHeight]);
 
-    const applyStyle = (startTag, endTag = '') => {
+    const applyStyle = useCallback((startTag, endTag = '') => {
         const ta = textareaRef.current;
         if (!ta) return;
         const start = ta.selectionStart;
@@ -156,12 +155,12 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
         const selectedText = text.substring(start, end);
         const newText = `${text.substring(0, start)}${startTag}${selectedText}${endTag}${text.substring(end)}`;
         onValueChange && onValueChange(newText);
-    };
+    }, [onValueChange]);
 
-    const applyColor = (hex) => {
+    const applyColor = useCallback((hex) => {
         applyStyle(`<span style="color: ${hex};">`, `</span>`);
         setShowColorPicker(false);
-    };
+    }, [applyStyle]);
 
     const ToolbarButton = ({ icon: Icon, text, tooltip, onClick }) => (
         <button
@@ -221,7 +220,102 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
             />
         </div>
     );
-};
+});
+
+// --- IMAGE PIN CANVAS (OPTIMIZED DRAG STATE) ---
+const ImagePinCanvas = memo(({ image, parts, onPartsChange }) => {
+    const imageRef = useRef(null);
+    const [draggingId, setDraggingId] = useState(null);
+    // Local state to prevent global re-renders
+    const [localParts, setLocalParts] = useState(parts);
+
+    // Sync local state when prop changes, but NOT while dragging
+    useEffect(() => {
+        if (!draggingId) {
+            setLocalParts(parts);
+        }
+    }, [parts, draggingId]);
+
+    const handleMouseDown = (e, partId) => {
+        e.stopPropagation();
+        setDraggingId(partId);
+    };
+
+    const handleMouseMove = useCallback((e) => {
+        if (!draggingId || !imageRef.current) return;
+        
+        const rect = imageRef.current.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width) * 100;
+        const y = ((e.clientY - rect.top) / rect.height) * 100;
+
+        setLocalParts(prev => prev.map(p => 
+            p.id === draggingId 
+                ? { ...p, x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) } 
+                : p
+        ));
+    }, [draggingId]);
+
+    const handleMouseUp = useCallback(() => {
+        if (draggingId) {
+            // Commit changes to parent
+            onPartsChange(localParts);
+            setDraggingId(null);
+        }
+    }, [draggingId, localParts, onPartsChange]);
+
+    const handleImageClick = (e) => {
+        if (draggingId || !imageRef.current) return;
+
+        const rect = imageRef.current.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width) * 100;
+        const y = ((e.clientY - rect.top) / rect.height) * 100;
+        
+        const newPart = {
+            id: uniqueId(),
+            number: parts.length + 1,
+            correctAnswer: '',
+            x: Math.max(0, Math.min(100, x)),
+            y: Math.max(0, Math.min(100, y))
+        };
+        onPartsChange([...parts, newPart]);
+    };
+
+    useEffect(() => {
+        if (draggingId) {
+            window.addEventListener('mousemove', handleMouseMove);
+            window.addEventListener('mouseup', handleMouseUp);
+        }
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [draggingId, handleMouseMove, handleMouseUp]);
+
+    return (
+        <div className="relative rounded-xl overflow-hidden border border-black/5 dark:border-white/10 bg-slate-100 group select-none">
+            <img
+                ref={imageRef}
+                src={image}
+                className="w-full h-auto cursor-crosshair"
+                onClick={handleImageClick}
+                alt="diagram"
+            />
+            {localParts.map((p) => (
+                <div
+                    key={p.id}
+                    onMouseDown={(e) => handleMouseDown(e, p.id)}
+                    className={`absolute w-8 h-8 bg-[#007AFF] text-white rounded-full flex items-center justify-center text-sm font-bold border-2 border-white shadow-lg cursor-move hover:scale-110 transition-transform z-10 ${draggingId === p.id ? 'scale-110 z-20' : ''}`}
+                    style={{ left: `${p.x}%`, top: `${p.y}%`, transform: 'translate(-50%, -50%)' }}
+                >
+                    {p.number}
+                </div>
+            ))}
+            <div className="absolute top-3 right-3 bg-black/70 text-white text-[11px] px-3 py-1.5 rounded-full backdrop-blur-md font-bold pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2">
+                <CursorArrowRaysIcon className="w-3 h-3" /> Click to label • Drag to move
+            </div>
+        </div>
+    );
+});
 
 // --- MOBILE RESTRICTION OVERLAY ---
 const MobileRestricted = ({ onClose }) => (
@@ -263,6 +357,148 @@ const DiscardChangesModal = ({ isOpen, onClose, onConfirm }) => {
     );
 };
 
+// --- PREVIEW CARD COMPONENT (Memoized) ---
+const PreviewCard = memo(({ question, index }) => {
+    if (!question) return <div className="flex flex-col items-center justify-center h-full text-slate-400 p-10"><DocumentTextIcon className="w-10 h-10 mb-2 opacity-50" />Select a question to preview</div>;
+
+    const inputClass = "w-full bg-slate-50 dark:bg-[#2c2c2e] border border-black/5 dark:border-white/10 rounded-[12px] px-3 py-2.5 text-[14px] font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-[#007AFF]/20 focus:border-[#007AFF] outline-none transition-all shadow-sm";
+
+    return (
+        <div className="bg-white dark:bg-[#1c1c1e] border border-black/5 dark:border-white/5 rounded-[20px] shadow-sm p-6 space-y-6 h-full overflow-y-auto custom-scrollbar">
+            {/* Header */}
+            <div className="flex justify-between items-start border-b border-black/5 dark:border-white/5 pb-4">
+                <div className="flex-1 mr-4">
+                    <h4 className="text-[10px] font-bold uppercase text-slate-400 tracking-widest mb-2">Question {index + 1}</h4>
+                    <div className="prose prose-sm dark:prose-invert leading-snug text-slate-900 dark:text-white">
+                        <ContentRenderer text={question.text || 'Question Prompt...'} />
+                    </div>
+                </div>
+                <span className="bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 text-[11px] font-bold px-2 py-1 rounded-md whitespace-nowrap">
+                    {question.points} pts
+                </span>
+            </div>
+
+            {/* Content Body - COMPACT MODE */}
+            <div className="space-y-3">
+                {/* 1. MCQ */}
+                {question.type === 'multiple-choice' && (
+                    <div className="space-y-2">
+                        {question.options.map((opt, i) => (
+                            <div key={i} className={`flex items-start gap-3 py-2 px-3 rounded-lg border transition-all ${question.correctAnswerIndex === i ? 'border-green-500 bg-green-50 dark:bg-green-900/10' : 'border-black/5 dark:border-white/10 bg-slate-50 dark:bg-white/5'}`}>
+                                <div className={`w-4 h-4 mt-0.5 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${question.correctAnswerIndex === i ? 'border-green-500 bg-green-500' : 'border-slate-300 dark:border-slate-600'}`}>
+                                    {question.correctAnswerIndex === i && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+                                </div>
+                                <div className="text-sm text-slate-700 dark:text-slate-200 leading-tight"><ContentRenderer text={opt || `Option ${i + 1}`} /></div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* 2. T/F */}
+                {question.type === 'true-false' && (
+                    <div className="flex gap-2">
+                        {['True', 'False'].map(val => (
+                            <div key={val} className={`flex-1 py-2 text-center rounded-lg font-bold text-sm border ${question.correctAnswer === (val === 'True') ? 'bg-green-500 text-white border-green-500 shadow-sm' : 'bg-slate-50 dark:bg-white/5 border-black/5 dark:border-white/10 text-slate-500'}`}>
+                                {val}
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* 3. Identification */}
+                {question.type === 'identification' && (
+                    <div>
+                        <input disabled placeholder="Student types answer here..." className={`${inputClass} text-sm py-2`} />
+                        <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/10 rounded-lg border border-green-200 dark:border-green-900/30 flex items-center gap-2">
+                            <span className="text-[10px] text-green-700 dark:text-green-400 font-bold uppercase">Answer:</span>
+                            <span className="text-xs font-bold text-slate-900 dark:text-white">{question.correctAnswer || 'Not set'}</span>
+                        </div>
+                    </div>
+                )}
+
+                {/* 4. Matching */}
+                {question.type === 'matching-type' && (
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div className="space-y-1.5">
+                            <p className="text-[10px] font-bold uppercase text-slate-400">Column A</p>
+                            {question.prompts.map((p, i) => (
+                                <div key={i} className="p-2 bg-slate-50 dark:bg-white/5 rounded border border-black/5 dark:border-white/5 text-slate-700 dark:text-slate-200 text-xs">
+                                    <span className="font-bold mr-1.5">{i + 1}.</span><ContentRenderer text={p.text} />
+                                </div>
+                            ))}
+                        </div>
+                        <div className="space-y-1.5">
+                            <p className="text-[10px] font-bold uppercase text-slate-400">Column B</p>
+                            {question.options.map((o, i) => (
+                                <div key={i} className="p-2 bg-slate-50 dark:bg-white/5 rounded border border-black/5 dark:border-white/5 text-slate-700 dark:text-slate-200 text-xs">
+                                    <span className="font-bold mr-1.5">{String.fromCharCode(65 + i)}.</span><ContentRenderer text={o.text} />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* 5. Essay */}
+                {question.type === 'essay' && (
+                    <div className="space-y-2">
+                        <textarea disabled className={`${inputClass} min-h-[80px] resize-none bg-slate-50 text-sm`} placeholder="Student response area..." />
+                        <div className="bg-slate-50 dark:bg-white/5 rounded-lg p-2 border border-black/5 dark:border-white/5">
+                            <p className="text-[10px] font-bold uppercase text-slate-400 mb-1">Rubric</p>
+                            <div className="space-y-1">
+                                {question.rubric.map((r, idx) => (
+                                    <div key={idx} className="flex justify-between text-[11px] text-slate-600 dark:text-slate-300">
+                                        <span className="truncate pr-2">• <ContentRenderer text={r.criteria} /></span>
+                                        <span className="font-bold flex-shrink-0">{r.points} pts</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* 6. Image Labeling */}
+                {question.type === 'image-labeling' && (
+                    <div className="space-y-2">
+                        {question.image ? (
+                            <div className="relative rounded-lg overflow-hidden border border-black/5 dark:border-white/10 bg-slate-100 dark:bg-black/20">
+                                <img src={question.image} className="w-full h-auto" alt="Quiz" />
+                                {question.parts.map((part) => (
+                                    <div key={part.id} className="absolute w-5 h-5 bg-[#007AFF] text-white rounded-full flex items-center justify-center text-[10px] font-bold border border-white shadow-sm" style={{ left: `${part.x}%`, top: `${part.y}%`, transform: 'translate(-50%, -50%)' }}>
+                                        {part.number}
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="h-24 bg-slate-50 rounded-lg flex items-center justify-center text-xs text-slate-400">No Image</div>
+                        )}
+                        <div className="bg-slate-50 dark:bg-white/5 rounded-lg p-2 border border-black/5 dark:border-white/5">
+                            <p className="text-[10px] font-bold uppercase text-slate-400 mb-1">Keys</p>
+                            <div className="flex flex-wrap gap-2">
+                                {question.parts.map((p, idx) => (
+                                    <div key={idx} className="flex items-center gap-1.5 text-[11px] bg-white dark:bg-black/10 px-2 py-1 rounded border border-black/5">
+                                        <span className="w-4 h-4 rounded-full bg-[#007AFF] text-white flex items-center justify-center font-bold text-[9px]">{p.number}</span>
+                                        <span className="text-slate-700 dark:text-slate-300 max-w-[100px] truncate">{p.correctAnswer || '-'}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Rationale */}
+            {question.explanation && (
+                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-900/30">
+                    <p className="text-[9px] font-bold uppercase text-blue-500 mb-1">Rationale</p>
+                    <div className="text-[11px] text-slate-600 dark:text-slate-300 leading-snug">
+                        <ContentRenderer text={question.explanation} />
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+});
+
 // --- MAIN COMPONENT ---
 const EditQuizModal = ({ isOpen, onClose, quiz }) => {
     const { showToast } = useToast();
@@ -276,10 +512,6 @@ const EditQuizModal = ({ isOpen, onClose, quiz }) => {
     const [selectedQuestionIndex, setSelectedQuestionIndex] = useState(-1);
     const [showCancelModal, setShowCancelModal] = useState(false);
 
-    // Dragging State
-    const [draggedPin, setDraggedPin] = useState(null); // { pIndex: number }
-    const imageRef = useRef(null);
-
     // Styling Constants
     const inputClass = "w-full bg-slate-50 dark:bg-[#2c2c2e] border border-black/5 dark:border-white/10 rounded-[12px] px-3 py-2.5 text-[14px] font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-[#007AFF]/20 focus:border-[#007AFF] outline-none transition-all shadow-sm";
 
@@ -290,12 +522,9 @@ const EditQuizModal = ({ isOpen, onClose, quiz }) => {
             
             // Deep copy and normalize questions to ensure all fields exist
             const populatedQuestions = (quiz.questions || []).map(q => {
-                
-                // FIX FOR [object Object] IN MULTIPLE CHOICE OPTIONS
                 let cleanedOptions = q.options || ['', '', ''];
                 if (q.type === 'multiple-choice' && Array.isArray(cleanedOptions)) {
                     cleanedOptions = cleanedOptions.map(opt => {
-                        // If opt is an object (old format), extract text. Otherwise use as string.
                         if (typeof opt === 'object' && opt !== null) {
                             return opt.text || ''; 
                         }
@@ -326,7 +555,7 @@ const EditQuizModal = ({ isOpen, onClose, quiz }) => {
     }, [isOpen, quiz]);
 
     // --- QUESTION MANAGEMENT ---
-    const handleAddQuestion = () => {
+    const handleAddQuestion = useCallback(() => {
         const newQuestion = {
             id: uniqueId(),
             text: '',
@@ -336,69 +565,75 @@ const EditQuizModal = ({ isOpen, onClose, quiz }) => {
             correctAnswerIndex: 0,
             explanation: ''
         };
-        const newQuestions = [...questions, newQuestion];
-        setQuestions(newQuestions);
-        setSelectedQuestionIndex(newQuestions.length - 1);
-    };
+        setQuestions(prev => {
+            const newQs = [...prev, newQuestion];
+            setSelectedQuestionIndex(newQs.length - 1);
+            return newQs;
+        });
+    }, []);
 
-    const handleRemoveQuestion = (indexToRemove) => {
-        const newQuestions = questions.filter((_, i) => i !== indexToRemove);
-        setQuestions(newQuestions);
-        if (newQuestions.length === 0) {
-            setSelectedQuestionIndex(-1);
-        } else if (selectedQuestionIndex >= indexToRemove) {
-            setSelectedQuestionIndex(Math.max(0, selectedQuestionIndex - 1));
-        }
-    };
+    const handleRemoveQuestion = useCallback((indexToRemove) => {
+        setQuestions(prev => {
+            const newQuestions = prev.filter((_, i) => i !== indexToRemove);
+            if (newQuestions.length === 0) {
+                setSelectedQuestionIndex(-1);
+            } else if (selectedQuestionIndex >= indexToRemove) {
+                setSelectedQuestionIndex(Math.max(0, selectedQuestionIndex - 1));
+            }
+            return newQuestions;
+        });
+    }, [selectedQuestionIndex]);
 
-    const handleQuestionChange = (index, field, value) => {
-        const newQuestions = [...questions];
-        const oldQuestion = newQuestions[index];
-        let newQuestion = { ...oldQuestion, [field]: value };
+    const handleQuestionChange = useCallback((index, field, value) => {
+        setQuestions(prev => {
+            const newQuestions = [...prev];
+            const oldQuestion = newQuestions[index];
+            let newQuestion = { ...oldQuestion, [field]: value };
 
-        // Type Switching Logic (Reset defaults)
-        if (field === 'type') {
-            if (value !== oldQuestion.type) {
-                newQuestion = {
-                    id: oldQuestion.id,
-                    text: oldQuestion.text,
-                    type: value,
-                    explanation: oldQuestion.explanation
-                };
-                switch (value) {
-                    case 'multiple-choice': newQuestion.options = ['', '', '']; newQuestion.correctAnswerIndex = 0; newQuestion.points = 1; break;
-                    case 'true-false': newQuestion.correctAnswer = true; newQuestion.points = 1; break;
-                    case 'identification': newQuestion.correctAnswer = ''; newQuestion.points = 1; break;
-                    case 'matching-type':
-                        newQuestion.prompts = [{ id: uniqueId(), text: '' }];
-                        newQuestion.options = [{ id: uniqueId(), text: '' }];
-                        newQuestion.correctPairs = {};
-                        newQuestion.points = 1;
-                        break;
-                    case 'image-labeling': newQuestion.image = null; newQuestion.parts = []; newQuestion.points = 0; break;
-                    case 'essay':
-                        newQuestion.rubric = [{ id: uniqueId(), criteria: 'Content', points: 10 }];
-                        newQuestion.points = 10;
-                        break;
-                    default: newQuestion.points = 1; break;
+            // Type Switching Logic (Reset defaults)
+            if (field === 'type') {
+                if (value !== oldQuestion.type) {
+                    newQuestion = {
+                        id: oldQuestion.id,
+                        text: oldQuestion.text,
+                        type: value,
+                        explanation: oldQuestion.explanation
+                    };
+                    switch (value) {
+                        case 'multiple-choice': newQuestion.options = ['', '', '']; newQuestion.correctAnswerIndex = 0; newQuestion.points = 1; break;
+                        case 'true-false': newQuestion.correctAnswer = true; newQuestion.points = 1; break;
+                        case 'identification': newQuestion.correctAnswer = ''; newQuestion.points = 1; break;
+                        case 'matching-type':
+                            newQuestion.prompts = [{ id: uniqueId(), text: '' }];
+                            newQuestion.options = [{ id: uniqueId(), text: '' }];
+                            newQuestion.correctPairs = {};
+                            newQuestion.points = 1;
+                            break;
+                        case 'image-labeling': newQuestion.image = null; newQuestion.parts = []; newQuestion.points = 0; break;
+                        case 'essay':
+                            newQuestion.rubric = [{ id: uniqueId(), criteria: 'Content', points: 10 }];
+                            newQuestion.points = 10;
+                            break;
+                        default: newQuestion.points = 1; break;
+                    }
                 }
             }
-        }
 
-        // Auto-calc points based on sub-items
-        if (newQuestion.type === 'essay' && field !== 'points') {
-            newQuestion.points = (newQuestion.rubric || []).reduce((sum, r) => sum + (Number(r.points) || 0), 0);
-        }
-        if (newQuestion.type === 'image-labeling' && field !== 'points') {
-            newQuestion.points = (newQuestion.parts || []).length;
-        }
-        if (newQuestion.type === 'matching-type' && field !== 'points') {
-            newQuestion.points = (newQuestion.prompts || []).length;
-        }
+            // Auto-calc points based on sub-items
+            if (newQuestion.type === 'essay' && field !== 'points') {
+                newQuestion.points = (newQuestion.rubric || []).reduce((sum, r) => sum + (Number(r.points) || 0), 0);
+            }
+            if (newQuestion.type === 'image-labeling' && field !== 'points') {
+                newQuestion.points = (newQuestion.parts || []).length;
+            }
+            if (newQuestion.type === 'matching-type' && field !== 'points') {
+                newQuestion.points = (newQuestion.prompts || []).length;
+            }
 
-        newQuestions[index] = newQuestion;
-        setQuestions(newQuestions);
-    };
+            newQuestions[index] = newQuestion;
+            return newQuestions;
+        });
+    }, []);
 
     // --- HANDLERS ---
 
@@ -416,102 +651,71 @@ const EditQuizModal = ({ isOpen, onClose, quiz }) => {
         }
     };
 
-    const handleImageClick = (e, qIndex) => {
-        if (draggedPin !== null || !imageRef.current) return;
-
-        const rect = imageRef.current.getBoundingClientRect();
-        const x = ((e.clientX - rect.left) / rect.width) * 100;
-        const y = ((e.clientY - rect.top) / rect.height) * 100;
-
-        const newQuestions = [...questions];
-        const parts = newQuestions[qIndex].parts || [];
-        parts.push({
-            id: uniqueId(),
-            number: parts.length + 1,
-            correctAnswer: '',
-            x: Math.max(0, Math.min(100, x)),
-            y: Math.max(0, Math.min(100, y))
-        });
-        newQuestions[qIndex].parts = parts;
-        newQuestions[qIndex].points = parts.length;
-        setQuestions(newQuestions);
-    };
-
-    const handleMouseMove = (e) => {
-        if (draggedPin === null || !imageRef.current) return;
-        const rect = imageRef.current.getBoundingClientRect();
-        const x = ((e.clientX - rect.left) / rect.width) * 100;
-        const y = ((e.clientY - rect.top) / rect.height) * 100;
-
-        const newQuestions = [...questions];
-        const part = newQuestions[selectedQuestionIndex].parts[draggedPin.pIndex];
-        part.x = Math.max(0, Math.min(100, x));
-        part.y = Math.max(0, Math.min(100, y));
-        setQuestions(newQuestions);
-    };
-
-    useEffect(() => {
-        if (draggedPin !== null) {
-            window.addEventListener('mousemove', handleMouseMove);
-            window.addEventListener('mouseup', () => setDraggedPin(null));
-        }
-        return () => {
-            window.removeEventListener('mousemove', handleMouseMove);
-            window.removeEventListener('mouseup', () => setDraggedPin(null));
-        };
-    }, [draggedPin, questions]);
-
     // 2. Matching Type
-    const handleMatchingSubItemChange = (qIndex, type, idx, val) => {
-        const newQ = [...questions];
-        newQ[qIndex][type][idx].text = val;
-        setQuestions(newQ);
-    };
+    const handleMatchingSubItemChange = useCallback((qIndex, type, idx, val) => {
+        setQuestions(prev => {
+            const newQ = [...prev];
+            newQ[qIndex][type][idx].text = val;
+            return newQ;
+        });
+    }, []);
 
     const handleAddMatchingItem = (qIndex, type) => {
-        const newQ = [...questions];
-        newQ[qIndex][type].push({ id: uniqueId(), text: '' });
-        if (type === 'prompts') newQ[qIndex].points = newQ[qIndex][type].length;
-        setQuestions(newQ);
+        setQuestions(prev => {
+            const newQ = [...prev];
+            newQ[qIndex][type].push({ id: uniqueId(), text: '' });
+            if (type === 'prompts') newQ[qIndex].points = newQ[qIndex][type].length;
+            return newQ;
+        });
     };
 
     const handleRemoveMatchingItem = (qIndex, type, idx) => {
-        const newQ = [...questions];
-        if (type === 'prompts' && newQ[qIndex].correctPairs) {
-            const promptId = newQ[qIndex][type][idx].id;
-            delete newQ[qIndex].correctPairs[promptId];
-        }
-        newQ[qIndex][type].splice(idx, 1);
-        if (type === 'prompts') newQ[qIndex].points = newQ[qIndex][type].length;
-        setQuestions(newQ);
+        setQuestions(prev => {
+            const newQ = [...prev];
+            if (type === 'prompts' && newQ[qIndex].correctPairs) {
+                const promptId = newQ[qIndex][type][idx].id;
+                delete newQ[qIndex].correctPairs[promptId];
+            }
+            newQ[qIndex][type].splice(idx, 1);
+            if (type === 'prompts') newQ[qIndex].points = newQ[qIndex][type].length;
+            return newQ;
+        });
     };
 
     const handlePairChange = (qIndex, promptId, optId) => {
-        const newQ = [...questions];
-        if (!newQ[qIndex].correctPairs) newQ[qIndex].correctPairs = {};
-        newQ[qIndex].correctPairs[promptId] = optId;
-        setQuestions(newQ);
+        setQuestions(prev => {
+            const newQ = [...prev];
+            if (!newQ[qIndex].correctPairs) newQ[qIndex].correctPairs = {};
+            newQ[qIndex].correctPairs[promptId] = optId;
+            return newQ;
+        });
     };
 
     // 3. Rubric
     const handleRubricChange = (qIndex, rIndex, field, val) => {
-        const newQ = [...questions];
-        newQ[qIndex].rubric[rIndex][field] = val;
-        newQ[qIndex].points = newQ[qIndex].rubric.reduce((sum, r) => sum + (Number(r.points) || 0), 0);
-        setQuestions(newQ);
+        setQuestions(prev => {
+            const newQ = [...prev];
+            newQ[qIndex].rubric[rIndex][field] = val;
+            newQ[qIndex].points = newQ[qIndex].rubric.reduce((sum, r) => sum + (Number(r.points) || 0), 0);
+            return newQ;
+        });
     };
 
     const handleAddRubricItem = (qIndex) => {
-        const newQ = [...questions];
-        newQ[qIndex].rubric.push({ id: uniqueId(), criteria: '', points: 0 });
-        setQuestions(newQ);
+        setQuestions(prev => {
+            const newQ = [...prev];
+            newQ[qIndex].rubric.push({ id: uniqueId(), criteria: '', points: 0 });
+            return newQ;
+        });
     };
 
     const handleRemoveRubricItem = (qIndex, rIndex) => {
-        const newQ = [...questions];
-        newQ[qIndex].rubric.splice(rIndex, 1);
-        newQ[qIndex].points = newQ[qIndex].rubric.reduce((sum, r) => sum + (Number(r.points) || 0), 0);
-        setQuestions(newQ);
+        setQuestions(prev => {
+            const newQ = [...prev];
+            newQ[qIndex].rubric.splice(rIndex, 1);
+            newQ[qIndex].points = newQ[qIndex].rubric.reduce((sum, r) => sum + (Number(r.points) || 0), 0);
+            return newQ;
+        });
     };
 
     // --- SAVE LOGIC ---
@@ -570,146 +774,6 @@ const EditQuizModal = ({ isOpen, onClose, quiz }) => {
     // --- DERIVED STATE ---
     const currentQuestion = questions[selectedQuestionIndex];
     const totalPoints = useMemo(() => questions.reduce((sum, q) => sum + (Number(q.points) || 0), 0), [questions]);
-
-    // --- PREVIEW CARD COMPONENT ---
-    const PreviewCard = ({ question, index }) => {
-        if (!question) return <div className="flex flex-col items-center justify-center h-full text-slate-400 p-10"><DocumentTextIcon className="w-10 h-10 mb-2 opacity-50" />Select a question to preview</div>;
-
-        return (
-            <div className="bg-white dark:bg-[#1c1c1e] border border-black/5 dark:border-white/5 rounded-[20px] shadow-sm p-6 space-y-6 h-full overflow-y-auto custom-scrollbar">
-                {/* Header */}
-                <div className="flex justify-between items-start border-b border-black/5 dark:border-white/5 pb-4">
-                    <div className="flex-1 mr-4">
-                        <h4 className="text-[10px] font-bold uppercase text-slate-400 tracking-widest mb-2">Question {index + 1}</h4>
-                        <div className="prose prose-sm dark:prose-invert leading-snug text-slate-900 dark:text-white">
-                            <ContentRenderer text={question.text || 'Question Prompt...'} />
-                        </div>
-                    </div>
-                    <span className="bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 text-[11px] font-bold px-2 py-1 rounded-md whitespace-nowrap">
-                        {question.points} pts
-                    </span>
-                </div>
-
-                {/* Content Body - COMPACT MODE */}
-                <div className="space-y-3">
-                    {/* 1. MCQ */}
-                    {question.type === 'multiple-choice' && (
-                        <div className="space-y-2">
-                            {question.options.map((opt, i) => (
-                                <div key={i} className={`flex items-start gap-3 py-2 px-3 rounded-lg border transition-all ${question.correctAnswerIndex === i ? 'border-green-500 bg-green-50 dark:bg-green-900/10' : 'border-black/5 dark:border-white/10 bg-slate-50 dark:bg-white/5'}`}>
-                                    <div className={`w-4 h-4 mt-0.5 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${question.correctAnswerIndex === i ? 'border-green-500 bg-green-500' : 'border-slate-300 dark:border-slate-600'}`}>
-                                        {question.correctAnswerIndex === i && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
-                                    </div>
-                                    <div className="text-sm text-slate-700 dark:text-slate-200 leading-tight"><ContentRenderer text={opt || `Option ${i + 1}`} /></div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* 2. T/F */}
-                    {question.type === 'true-false' && (
-                        <div className="flex gap-2">
-                            {['True', 'False'].map(val => (
-                                <div key={val} className={`flex-1 py-2 text-center rounded-lg font-bold text-sm border ${question.correctAnswer === (val === 'True') ? 'bg-green-500 text-white border-green-500 shadow-sm' : 'bg-slate-50 dark:bg-white/5 border-black/5 dark:border-white/10 text-slate-500'}`}>
-                                    {val}
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* 3. Identification */}
-                    {question.type === 'identification' && (
-                        <div>
-                            <input disabled placeholder="Student types answer here..." className={`${inputClass} text-sm py-2`} />
-                            <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/10 rounded-lg border border-green-200 dark:border-green-900/30 flex items-center gap-2">
-                                <span className="text-[10px] text-green-700 dark:text-green-400 font-bold uppercase">Answer:</span>
-                                <span className="text-xs font-bold text-slate-900 dark:text-white">{question.correctAnswer || 'Not set'}</span>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* 4. Matching */}
-                    {question.type === 'matching-type' && (
-                        <div className="grid grid-cols-2 gap-3 text-sm">
-                            <div className="space-y-1.5">
-                                <p className="text-[10px] font-bold uppercase text-slate-400">Column A</p>
-                                {question.prompts.map((p, i) => (
-                                    <div key={i} className="p-2 bg-slate-50 dark:bg-white/5 rounded border border-black/5 dark:border-white/5 text-slate-700 dark:text-slate-200 text-xs">
-                                        <span className="font-bold mr-1.5">{i + 1}.</span><ContentRenderer text={p.text} />
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="space-y-1.5">
-                                <p className="text-[10px] font-bold uppercase text-slate-400">Column B</p>
-                                {question.options.map((o, i) => (
-                                    <div key={i} className="p-2 bg-slate-50 dark:bg-white/5 rounded border border-black/5 dark:border-white/5 text-slate-700 dark:text-slate-200 text-xs">
-                                        <span className="font-bold mr-1.5">{String.fromCharCode(65 + i)}.</span><ContentRenderer text={o.text} />
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* 5. Essay */}
-                    {question.type === 'essay' && (
-                        <div className="space-y-2">
-                            <textarea disabled className={`${inputClass} min-h-[80px] resize-none bg-slate-50 text-sm`} placeholder="Student response area..." />
-                            <div className="bg-slate-50 dark:bg-white/5 rounded-lg p-2 border border-black/5 dark:border-white/5">
-                                <p className="text-[10px] font-bold uppercase text-slate-400 mb-1">Rubric</p>
-                                <div className="space-y-1">
-                                    {question.rubric.map((r, idx) => (
-                                        <div key={idx} className="flex justify-between text-[11px] text-slate-600 dark:text-slate-300">
-                                            <span className="truncate pr-2">• <ContentRenderer text={r.criteria} /></span>
-                                            <span className="font-bold flex-shrink-0">{r.points} pts</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* 6. Image Labeling */}
-                    {question.type === 'image-labeling' && (
-                        <div className="space-y-2">
-                            {question.image ? (
-                                <div className="relative rounded-lg overflow-hidden border border-black/5 dark:border-white/10 bg-slate-100 dark:bg-black/20">
-                                    <img src={question.image} className="w-full h-auto" alt="Quiz" />
-                                    {question.parts.map((part) => (
-                                        <div key={part.id} className="absolute w-5 h-5 bg-[#007AFF] text-white rounded-full flex items-center justify-center text-[10px] font-bold border border-white shadow-sm" style={{ left: `${part.x}%`, top: `${part.y}%`, transform: 'translate(-50%, -50%)' }}>
-                                            {part.number}
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="h-24 bg-slate-50 rounded-lg flex items-center justify-center text-xs text-slate-400">No Image</div>
-                            )}
-                            <div className="bg-slate-50 dark:bg-white/5 rounded-lg p-2 border border-black/5 dark:border-white/5">
-                                <p className="text-[10px] font-bold uppercase text-slate-400 mb-1">Keys</p>
-                                <div className="flex flex-wrap gap-2">
-                                    {question.parts.map((p, idx) => (
-                                        <div key={idx} className="flex items-center gap-1.5 text-[11px] bg-white dark:bg-black/10 px-2 py-1 rounded border border-black/5">
-                                            <span className="w-4 h-4 rounded-full bg-[#007AFF] text-white flex items-center justify-center font-bold text-[9px]">{p.number}</span>
-                                            <span className="text-slate-700 dark:text-slate-300 max-w-[100px] truncate">{p.correctAnswer || '-'}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                {/* Rationale */}
-                {question.explanation && (
-                    <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-900/30">
-                        <p className="text-[9px] font-bold uppercase text-blue-500 mb-1">Rationale</p>
-                        <div className="text-[11px] text-slate-600 dark:text-slate-300 leading-snug">
-                            <ContentRenderer text={question.explanation} />
-                        </div>
-                    </div>
-                )}
-            </div>
-        );
-    };
 
     // Don't render if modal is closed
     if (!isOpen) return null;
@@ -856,7 +920,7 @@ const EditQuizModal = ({ isOpen, onClose, quiz }) => {
                                         </div>
                                     )}
 
-                                    {/* 2. Image Labeling (Complex Logic) */}
+                                    {/* 2. Image Labeling (OPTIMIZED) */}
                                     {currentQuestion.type === 'image-labeling' && (
                                         <div className="p-6 bg-white dark:bg-[#1c1c1e] rounded-[20px] border border-black/5 shadow-sm">
                                             <div className="flex justify-between items-center mb-6">
@@ -870,28 +934,11 @@ const EditQuizModal = ({ isOpen, onClose, quiz }) => {
 
                                             {/* Image Area */}
                                             {currentQuestion.image ? (
-                                                <div className="relative rounded-xl overflow-hidden border border-black/5 dark:border-white/10 bg-slate-100 group select-none">
-                                                    <img
-                                                        ref={imageRef}
-                                                        src={currentQuestion.image}
-                                                        className="w-full h-auto cursor-crosshair"
-                                                        onClick={(e) => handleImageClick(e, selectedQuestionIndex)}
-                                                        alt="diagram"
-                                                    />
-                                                    {currentQuestion.parts.map((p, pIndex) => (
-                                                        <div
-                                                            key={p.id}
-                                                            onMouseDown={(e) => { e.stopPropagation(); setDraggedPin({ pIndex }); }}
-                                                            className="absolute w-8 h-8 bg-[#007AFF] text-white rounded-full flex items-center justify-center text-sm font-bold border-2 border-white shadow-lg cursor-move hover:scale-110 transition-transform z-10"
-                                                            style={{ left: `${p.x}%`, top: `${p.y}%`, transform: 'translate(-50%, -50%)' }}
-                                                        >
-                                                            {p.number}
-                                                        </div>
-                                                    ))}
-                                                    <div className="absolute top-3 right-3 bg-black/70 text-white text-[11px] px-3 py-1.5 rounded-full backdrop-blur-md font-bold pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2">
-                                                        <CursorArrowRaysIcon className="w-3 h-3" /> Click to label • Drag to move
-                                                    </div>
-                                                </div>
+                                                <ImagePinCanvas 
+                                                    image={currentQuestion.image}
+                                                    parts={currentQuestion.parts}
+                                                    onPartsChange={(newParts) => handleQuestionChange(selectedQuestionIndex, 'parts', newParts)}
+                                                />
                                             ) : (
                                                 <div className="h-48 flex flex-col items-center justify-center bg-slate-50 dark:bg-white/5 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl text-slate-400 gap-2">
                                                     <PhotoIcon className="w-8 h-8 opacity-50" />

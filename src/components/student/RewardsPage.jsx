@@ -1,5 +1,4 @@
-// src/components/student/RewardsPage.jsx
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, memo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { db } from '../../services/firebase';
@@ -7,184 +6,190 @@ import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import Spinner from '../common/Spinner';
 import {
     AcademicCapIcon,
-    SparklesIcon,
     UserCircleIcon,
     LockClosedIcon,
     CheckCircleIcon,
     GiftIcon,
     TrophyIcon,
     StarIcon,
-    BoltIcon
+    BoltIcon,
+    ChevronRightIcon
 } from '@heroicons/react/24/solid';
-
+import { motion, AnimatePresence } from 'framer-motion';
 import { REWARDS_CONFIG } from '../../config/gameConfig';
 
-// --- HELPER: Status Styles (Enhanced) ---
-const getStatusStyles = (status) => {
-    switch (status) {
-        case 'claimable':
-            return {
-                container: 'bg-white/90 dark:bg-slate-800/90 ring-2 ring-orange-400/50 shadow-lg shadow-orange-500/20 scale-[1.02]',
-                iconContainer: 'bg-gradient-to-br from-orange-400 to-pink-500 text-white shadow-orange-500/30',
-                title: 'text-slate-900 dark:text-white',
-                desc: 'text-slate-600 dark:text-slate-300',
-                actionArea: 'border-orange-200 dark:border-orange-500/20',
-                button: 'bg-gradient-to-r from-orange-500 to-pink-600 text-white shadow-lg shadow-orange-500/30 hover:scale-[1.02] active:scale-95',
-                badge: null
-            };
-        case 'claimed':
-            return {
-                container: 'bg-emerald-50/50 dark:bg-emerald-900/10 ring-1 ring-emerald-500/20 shadow-sm',
-                iconContainer: 'bg-gradient-to-br from-emerald-400 to-teal-600 text-white shadow-emerald-500/20',
-                title: 'text-slate-800 dark:text-slate-200',
-                desc: 'text-slate-500 dark:text-slate-400',
-                actionArea: 'border-emerald-100 dark:border-emerald-500/10',
-                button: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 cursor-default',
-                badge: null
-            };
-        case 'locked':
-        default:
-            return {
-                container: 'bg-slate-50/50 dark:bg-slate-900/30 backdrop-blur-sm grayscale-[0.8] opacity-80 hover:grayscale-0 hover:opacity-100 ring-1 ring-slate-200 dark:ring-slate-700',
-                iconContainer: 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500',
-                title: 'text-slate-500 dark:text-slate-400',
-                desc: 'text-slate-400 dark:text-slate-500',
-                actionArea: 'border-slate-100 dark:border-slate-700/50',
-                button: 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed',
-                badge: 'bg-slate-200 dark:bg-slate-700 text-slate-500 text-[9px] px-2 py-0.5 rounded-full'
-            };
+// =====================================================================
+// 🎨 ONEUI 8.5 PHYSICS & ANIMATION
+// =====================================================================
+const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+        opacity: 1,
+        transition: { staggerChildren: 0.05 }
     }
 };
 
+const itemVariants = {
+    hidden: { opacity: 0, y: 20, scale: 0.95 },
+    show: { 
+        opacity: 1, 
+        y: 0, 
+        scale: 1, 
+        transition: { type: "spring", stiffness: 350, damping: 25 } 
+    }
+};
+
+// =====================================================================
+// 🧱 ONEUI CARD COMPONENT
+// =====================================================================
+const OneUICard = memo(({ children, className = "", onClick }) => (
+    <motion.div 
+        variants={itemVariants}
+        onClick={onClick}
+        whileTap={onClick ? { scale: 0.97 } : {}}
+        className={`
+            relative overflow-hidden
+            bg-white dark:bg-slate-900 
+            border border-slate-100 dark:border-slate-800
+            shadow-[0_4px_20px_-8px_rgba(0,0,0,0.05)] dark:shadow-none
+            transition-all duration-300
+            rounded-[2.2rem]
+            ${className}
+        `}
+    >
+        {children}
+    </motion.div>
+));
+OneUICard.displayName = 'OneUICard';
+
+// =====================================================================
+// 🎨 STATIC STYLE CONFIGURATION
+// =====================================================================
+const STATUS_THEMES = {
+    claimable: {
+        iconBg: 'bg-orange-500 text-white',
+        border: 'border-orange-200 dark:border-orange-500/30',
+        badge: 'bg-orange-500 text-white',
+        badgeText: 'Ready',
+        BadgeIcon: BoltIcon,
+        button: 'bg-gradient-to-r from-orange-500 to-pink-500 text-white shadow-lg shadow-orange-500/30',
+        buttonIcon: GiftIcon,
+        buttonText: 'Claim Reward',
+        opacity: 'opacity-100'
+    },
+    claimed: {
+        iconBg: 'bg-emerald-500 text-white',
+        border: 'border-slate-100 dark:border-slate-800',
+        badge: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400',
+        badgeText: 'Active',
+        BadgeIcon: CheckCircleIcon,
+        button: 'bg-slate-100 dark:bg-slate-800 text-emerald-600 dark:text-emerald-400',
+        buttonIcon: CheckCircleIcon,
+        buttonText: 'Unlocked',
+        opacity: 'opacity-100'
+    },
+    locked: {
+        iconBg: 'bg-slate-100 dark:bg-slate-800 text-slate-400',
+        border: 'border-slate-100 dark:border-slate-800',
+        badge: 'bg-slate-100 dark:bg-slate-800 text-slate-400',
+        badgeText: 'Locked',
+        BadgeIcon: LockClosedIcon,
+        button: 'bg-slate-50 dark:bg-slate-900 text-slate-300 dark:text-slate-600',
+        buttonIcon: LockClosedIcon,
+        buttonText: 'Locked',
+        opacity: 'opacity-70 grayscale-[0.5]'
+    }
+};
+
+// =====================================================================
+// 🎁 REWARD CARD COMPONENT (Memoized)
+// =====================================================================
+const RewardCard = memo(({ id, config, userLevel, isClaimed, onClaim, isUpdating }) => {
+    const { level, name, icon: Icon, description } = config;
+    
+    // Determine Status
+    let status = 'locked';
+    if (userLevel >= level) {
+        status = isClaimed ? 'claimed' : 'claimable';
+    }
+
+    const theme = STATUS_THEMES[status];
+    const { BadgeIcon, buttonIcon: ButtonIcon } = theme;
+
+    const handleClaim = (e) => {
+        e.stopPropagation();
+        if (status === 'claimable' && !isUpdating) {
+            if (navigator?.vibrate) navigator.vibrate([50, 30, 50]);
+            onClaim(id);
+        }
+    };
+
+    return (
+        <OneUICard className={`flex flex-col p-6 min-h-[14rem] ${theme.border} ${status === 'claimable' ? 'ring-4 ring-orange-500/10' : ''}`}>
+            
+            {/* Header */}
+            <div className={`flex justify-between items-start mb-4 ${theme.opacity}`}>
+                <div className={`h-14 w-14 rounded-[1.25rem] flex items-center justify-center shadow-sm ${theme.iconBg}`}>
+                    <Icon className="h-7 w-7" />
+                </div>
+                
+                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider ${theme.badge}`}>
+                    {status === 'locked' ? (
+                        <span>Lvl {level}</span>
+                    ) : (
+                        <>
+                            <BadgeIcon className="h-3 w-3" />
+                            <span>{theme.badgeText}</span>
+                        </>
+                    )}
+                </div>
+            </div>
+
+            {/* Content */}
+            <div className="mb-auto">
+                <h3 className="text-lg font-black text-slate-900 dark:text-white leading-tight mb-1">
+                    {name}
+                </h3>
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
+                    {description}
+                </p>
+            </div>
+
+            {/* Action Footer */}
+            <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800">
+                <button
+                    onClick={handleClaim}
+                    disabled={status !== 'claimable' || isUpdating}
+                    className={`
+                        w-full py-3.5 rounded-[1.2rem] flex items-center justify-center gap-2 
+                        text-xs font-bold uppercase tracking-wider transition-all duration-300
+                        ${theme.button}
+                        ${status === 'claimable' ? 'active:scale-95 hover:scale-[1.02]' : 'cursor-default'}
+                    `}
+                >
+                    <ButtonIcon className={`h-4 w-4 ${status === 'claimable' ? 'animate-bounce' : ''}`} />
+                    <span>{theme.buttonText}</span>
+                </button>
+            </div>
+        </OneUICard>
+    );
+});
+RewardCard.displayName = 'RewardCard';
+
+// =====================================================================
+// 🚀 MAIN COMPONENT
+// =====================================================================
 const RewardsPage = () => {
     const { user, userProfile, loading: authLoading, refreshUserProfile } = useAuth();
     const { showToast } = useToast();
     const [isUpdating, setIsUpdating] = useState(false);
 
+    // Derived State
     const userLevel = userProfile?.level || 1;
     const userXP = userProfile?.xp || 0;
     const claimedRewards = useMemo(() => new Set(userProfile?.claimedRewards || []), [userProfile]);
 
-    const handleUpdateProfile = async (updateData) => {
-        if (!user?.id || isUpdating) return false;
-        setIsUpdating(true);
-        try {
-            const userDocRef = doc(db, 'users', user.id);
-            await updateDoc(userDocRef, updateData);
-            await refreshUserProfile();
-            showToast('Reward claimed successfully!', 'success');
-            return true;
-        } catch (error) {
-            console.error("Error updating rewards:", error);
-            showToast(`Failed: ${error.message}`, 'error');
-            return false;
-        } finally {
-            setIsUpdating(false);
-        }
-    };
-
-    const handleClaimReward = async (rewardId) => {
-        const config = REWARDS_CONFIG[rewardId];
-        if (!config) return;
-
-        const updateData = { claimedRewards: arrayUnion(rewardId) };
-
-        if (config.type === 'feature') {
-            switch (rewardId) {
-                case 'feat_profile_picture': updateData.canUploadProfilePic = true; break;
-                case 'feat_cover_photo': updateData.canUploadCover = true; break;
-                case 'canSetBio': updateData.canSetBio = true; break;
-                case 'feat_update_info': updateData.canUpdateInfo = true; break;
-                case 'feat_create_post': updateData.canCreatePost = true; break;
-                case 'feat_reactions': updateData.canReact = true; break;
-                case 'feat_profile_privacy': updateData.canSetPrivacy = true; break;
-                case 'feat_visit_profiles': updateData.canVisitProfiles = true; break;
-                case 'feat_photo_1': updateData.featuredPhotosSlots = Math.max(userProfile.featuredPhotosSlots || 0, 1); break;
-                case 'feat_photo_2': updateData.featuredPhotosSlots = Math.max(userProfile.featuredPhotosSlots || 0, 2); break;
-                case 'feat_photo_3': updateData.featuredPhotosSlots = Math.max(userProfile.featuredPhotosSlots || 0, 3); break;
-                default: break;
-            }
-        }
-        
-        await handleUpdateProfile(updateData);
-    };
-
-
-    const renderRewardItem = (id, config) => {
-        const { level, name, icon: Icon, description } = config;
-        
-        const isEligible = userLevel >= level;
-        const isClaimed = claimedRewards.has(id);
-        
-        let status = 'locked';
-        if (isEligible) {
-            status = isClaimed ? 'claimed' : 'claimable';
-        }
-
-        const styles = getStatusStyles(status);
-
-        return (
-            <div
-                key={id}
-                className={`group relative overflow-hidden rounded-[2rem] backdrop-blur-2xl transition-all duration-500 ${styles.container}`}
-            >
-                {/* Shimmer Effect for Claimable */}
-                {status === 'claimable' && (
-                    <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 z-0 pointer-events-none"></div>
-                )}
-
-                <div className="relative z-10 p-5 flex flex-col h-full">
-                    {/* Header: Icon & Badge */}
-                    <div className="flex justify-between items-start mb-4">
-                        <div className={`h-14 w-14 rounded-[1.2rem] flex items-center justify-center shadow-inner transition-transform duration-300 group-hover:scale-105 ${styles.iconContainer}`}>
-                            <Icon className="h-7 w-7" />
-                        </div>
-                        {status === 'locked' && (
-                            <div className={styles.badge}>Lvl {level}</div>
-                        )}
-                        {status === 'claimable' && (
-                            <div className="px-2 py-1 bg-orange-100 text-orange-600 rounded-full text-[10px] font-bold uppercase tracking-wide flex items-center gap-1">
-                                <BoltIcon className="h-3 w-3" /> Ready
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Content */}
-                    <div className="mb-4 flex-1">
-                        <h4 className={`text-base font-bold mb-1 leading-tight ${styles.title}`}>
-                            {name}
-                        </h4>
-                        <p className={`text-xs font-medium leading-relaxed ${styles.desc}`}>
-                            {description}
-                        </p>
-                    </div>
-
-                    {/* Footer Action */}
-                    <div className={`pt-4 border-t ${styles.actionArea}`}>
-                        {status === 'claimable' ? (
-                            <button
-                                onClick={() => handleClaimReward(id)}
-                                disabled={isUpdating}
-                                className={`w-full py-3 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${styles.button}`}
-                            >
-                                <GiftIcon className="w-4 h-4 animate-bounce" />
-                                Claim Now
-                            </button>
-                        ) : (
-                            <button disabled className={`w-full py-3 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${styles.button}`}>
-                                {status === 'claimed' ? (
-                                    <><CheckCircleIcon className="w-4 h-4" /> Active</>
-                                ) : (
-                                    <><LockClosedIcon className="w-4 h-4" /> Locked</>
-                                )}
-                            </button>
-                        )}
-                    </div>
-                </div>
-            </div>
-        );
-    };
-
+    // Grouping Logic (Memoized)
     const groupedRewards = useMemo(() => {
         const groups = { feature: [], title: [], badge: [] };
         Object.entries(REWARDS_CONFIG).forEach(([id, config]) => {
@@ -192,114 +197,162 @@ const RewardsPage = () => {
                 groups[config.type].push({ id, ...config });
             }
         });
+        // Sort by level requirement
         for (const type in groups) {
             groups[type].sort((a, b) => a.level - b.level);
         }
         return groups;
     }, []);
 
+    // Handlers
+    const handleClaimReward = useCallback(async (rewardId) => {
+        if (!user?.id || isUpdating) return;
+        
+        setIsUpdating(true);
+        const config = REWARDS_CONFIG[rewardId];
+        
+        try {
+            const updateData = { claimedRewards: arrayUnion(rewardId) };
+
+            // Apply Reward Logic
+            if (config.type === 'feature') {
+                switch (rewardId) {
+                    case 'feat_profile_picture': updateData.canUploadProfilePic = true; break;
+                    case 'feat_cover_photo': updateData.canUploadCover = true; break;
+                    case 'canSetBio': updateData.canSetBio = true; break;
+                    case 'feat_update_info': updateData.canUpdateInfo = true; break;
+                    case 'feat_create_post': updateData.canCreatePost = true; break;
+                    case 'feat_reactions': updateData.canReact = true; break;
+                    case 'feat_profile_privacy': updateData.canSetPrivacy = true; break;
+                    case 'feat_visit_profiles': updateData.canVisitProfiles = true; break;
+                    case 'feat_photo_1': updateData.featuredPhotosSlots = 1; break;
+                    case 'feat_photo_2': updateData.featuredPhotosSlots = 2; break;
+                    case 'feat_photo_3': updateData.featuredPhotosSlots = 3; break;
+                    default: break;
+                }
+            }
+
+            const userDocRef = doc(db, 'users', user.id);
+            await updateDoc(userDocRef, updateData);
+            await refreshUserProfile();
+            showToast('Reward unlocked successfully!', 'success');
+        } catch (error) {
+            console.error("Error claiming reward:", error);
+            showToast('Failed to claim reward. Try again.', 'error');
+        } finally {
+            setIsUpdating(false);
+        }
+    }, [user, isUpdating, refreshUserProfile, showToast]);
+
     if (authLoading || !userProfile) {
         return (
-            <div className="flex justify-center items-center min-h-[400px]">
+            <div className="flex justify-center items-center min-h-[60vh]">
                 <Spinner />
-                <span className="ml-3 text-sm font-bold text-slate-400 animate-pulse uppercase tracking-wider">Loading...</span>
             </div>
         );
     }
 
     return (
-        <div className="space-y-10 pb-32 animate-fade-in-up max-w-7xl mx-auto px-4 sm:px-6">
+        <div className="min-h-screen font-sans pb-36 px-2 sm:px-4">
             
-            {/* --- HEADER: Aero Glass Card (Sleek & Compact) --- */}
-            <div className="relative rounded-[2.5rem] p-8 overflow-hidden shadow-2xl border border-white/40 dark:border-white/5 group">
-                
-                {/* Glass Background with Aurora Mesh */}
-                <div className="absolute inset-0 bg-white/80 dark:bg-slate-900/60 backdrop-blur-3xl z-0"></div>
-                <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-orange-500/10 blur-3xl animate-mesh-move pointer-events-none opacity-60"></div>
-
-                {/* Content */}
-                <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
-                    
-                    {/* Left: Title Block */}
-                    <div className="text-center md:text-left">
-                        
-                        <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight mb-2 drop-shadow-sm">
-                            Rewards Center
-                        </h1>
-                        <p className="text-sm font-medium text-slate-500 dark:text-slate-400 max-w-md mx-auto md:mx-0">
-                            Unlock exclusive features and customize your profile as you master your subjects.
-                        </p>
+            {/* 1. HEADER & LEVEL WIDGET */}
+            <div className="pt-6 pb-6 px-4">
+                <div className="flex flex-col gap-6">
+                    <div className="flex items-end justify-between">
+                        <div>
+                            <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">Rewards</h1>
+                            <p className="text-sm font-bold text-slate-400 mt-1">Level up to unlock features</p>
+                        </div>
                     </div>
 
-                    {/* Right: Level Widget (Floating Glass Pill) */}
-                    <div className="flex items-center gap-5 px-6 py-4 bg-white/40 dark:bg-black/20 backdrop-blur-xl border border-white/50 dark:border-white/10 rounded-[2rem] shadow-lg hover:scale-105 transition-transform duration-300">
-                        <div className="flex flex-col items-end">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Current Level</span>
-                            <span className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-br from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400">
-                                {userLevel}
-                            </span>
+                    {/* OneUI Level Widget */}
+                    <div className="relative overflow-hidden bg-slate-900 dark:bg-black rounded-[2.5rem] p-6 shadow-2xl">
+                        {/* Abstract Background Shapes */}
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/30 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+                        <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-600/30 rounded-full blur-[80px] translate-y-1/2 -translate-x-1/2 pointer-events-none"></div>
+
+                        <div className="relative z-10 flex items-center justify-between">
+                            <div>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className="px-2 py-0.5 bg-yellow-400 text-yellow-900 text-[10px] font-black uppercase tracking-wider rounded-md">
+                                        Current Rank
+                                    </span>
+                                </div>
+                                <div className="text-5xl font-black text-white tracking-tight flex items-baseline gap-2">
+                                    {userLevel}
+                                    <span className="text-lg font-bold text-slate-500">Lvl</span>
+                                </div>
+                            </div>
+
+                            <div className="text-right">
+                                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Total XP</div>
+                                <div className="text-2xl font-black text-white">{userXP.toLocaleString()}</div>
+                            </div>
                         </div>
-                        <div className="h-12 w-[1px] bg-slate-200 dark:bg-white/10"></div>
-                        <div className="flex flex-col">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Total XP</span>
-                            <span className="text-xl font-bold text-slate-700 dark:text-slate-200">{userXP.toLocaleString()}</span>
-                        </div>
-                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-white shadow-md ring-4 ring-white/30 dark:ring-black/10">
-                            <StarIcon className="h-6 w-6" />
+
+                        {/* Progress Bar Visual */}
+                        <div className="mt-6 h-2 w-full bg-white/10 rounded-full overflow-hidden">
+                            <div className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 w-3/4 rounded-full" />
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* --- Reward Sections --- */}
-            {Object.entries(groupedRewards).map(([type, rewards]) => {
-                if (rewards.length === 0) return null;
-                
-                let title = '';
-                let Icon = GiftIcon;
-                let accentColor = 'text-slate-500';
-                let bgAccent = 'bg-slate-100';
+            {/* 2. REWARD SECTIONS */}
+            <div className="space-y-10 px-2 sm:px-2">
+                {Object.entries(groupedRewards).map(([type, rewards]) => {
+                    if (rewards.length === 0) return null;
+                    
+                    let title = 'Rewards';
+                    let description = 'Extras';
 
-                switch (type) {
-                    case 'feature': 
-                        title = 'Unlock Features'; 
-                        Icon = UserCircleIcon; 
-                        accentColor = 'text-blue-600 dark:text-blue-400';
-                        bgAccent = 'bg-blue-100 dark:bg-blue-900/30';
-                        break;
-                    case 'title': 
-                        title = 'Titles & Honors'; 
-                        Icon = AcademicCapIcon; 
-                        accentColor = 'text-purple-600 dark:text-purple-400';
-                        bgAccent = 'bg-purple-100 dark:bg-purple-900/30';
-                        break;
-                    case 'badge': 
-                        title = 'Achievement Badges'; 
-                        Icon = TrophyIcon; 
-                        accentColor = 'text-amber-600 dark:text-amber-400';
-                        bgAccent = 'bg-amber-100 dark:bg-amber-900/30';
-                        break;
-                    default: 
-                        title = 'Other Rewards';
-                }
+                    switch (type) {
+                        case 'feature': 
+                            title = 'Features'; 
+                            description = 'Unlock new capabilities';
+                            break;
+                        case 'title': 
+                            title = 'Honor Titles'; 
+                            description = 'Display on your profile';
+                            break;
+                        case 'badge': 
+                            title = 'Badges'; 
+                            description = 'Show off your achievements';
+                            break;
+                        default: break;
+                    }
 
-                return (
-                    <div key={type} className="space-y-6">
-                        <div className="flex items-center gap-3 px-2">
-                            <div className={`p-2.5 rounded-2xl shadow-sm ${bgAccent} ${accentColor}`}>
-                                <Icon className="h-6 w-6" />
+                    return (
+                        <div key={type}>
+                            <div className="flex items-center justify-between mb-4 px-2">
+                                <div>
+                                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{title}</h2>
+                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">{description}</p>
+                                </div>
                             </div>
-                            <h2 className="text-xl font-bold text-slate-800 dark:text-white tracking-tight">
-                                {title}
-                            </h2>
+                            
+                            <motion.div 
+                                variants={containerVariants}
+                                initial="hidden"
+                                animate="show"
+                                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+                            >
+                                {rewards.map(reward => (
+                                    <RewardCard
+                                        key={reward.id}
+                                        id={reward.id}
+                                        config={reward}
+                                        userLevel={userLevel}
+                                        isClaimed={claimedRewards.has(reward.id)}
+                                        onClaim={handleClaimReward}
+                                        isUpdating={isUpdating}
+                                    />
+                                ))}
+                            </motion.div>
                         </div>
-                        
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-                            {rewards.map(reward => renderRewardItem(reward.id, reward))}
-                        </div>
-                    </div>
-                );
-            })}
+                    );
+                })}
+            </div>
         </div>
     );
 };

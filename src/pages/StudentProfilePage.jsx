@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+// src/pages/StudentProfilePage.jsx
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { useTheme } from '../contexts/ThemeContext'; // 1. Import Theme Context
+import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
 import {
   doc,
@@ -48,62 +49,7 @@ import StudentPostCard from '../components/student/StudentPostCard';
 import StudentPostCommentsModal from '../components/student/StudentPostCommentsModal';
 import ReactionsBreakdownModal from '../components/common/ReactionsBreakdownModal'; 
 
-// Helper for class names
-function classNames(...classes) {
-  return classes.filter(Boolean).join(' ');
-}
-
-// 2. HELPER: MONET EFFECT COLOR EXTRACTION (Copied from Dashboard for consistency)
-const getMonetStyle = (activeOverlay) => {
-    if (activeOverlay === 'christmas') return { background: 'rgba(15, 23, 66, 0.85)', borderColor: 'rgba(100, 116, 139, 0.2)' }; 
-    if (activeOverlay === 'valentines') return { background: 'rgba(60, 10, 20, 0.85)', borderColor: 'rgba(255, 100, 100, 0.15)' }; 
-    if (activeOverlay === 'graduation') return { background: 'rgba(30, 25, 10, 0.85)', borderColor: 'rgba(255, 215, 0, 0.15)' }; 
-    if (activeOverlay === 'rainy') return { background: 'rgba(20, 35, 20, 0.85)', borderColor: 'rgba(100, 150, 100, 0.2)' };
-    if (activeOverlay === 'cyberpunk') return { background: 'rgba(35, 5, 45, 0.85)', borderColor: 'rgba(180, 0, 255, 0.2)' };
-    if (activeOverlay === 'spring') return { background: 'rgba(50, 10, 20, 0.85)', borderColor: 'rgba(255, 150, 180, 0.2)' };
-    if (activeOverlay === 'space') return { background: 'rgba(5, 5, 10, 0.85)', borderColor: 'rgba(100, 100, 255, 0.15)' };
-    
-    // Default Glass Style (Standard Dark Theme)
-    return { 
-        background: 'rgba(15, 23, 42, 0.75)', // Dark Slate (matches dark mode text)
-        borderColor: 'rgba(255, 255, 255, 0.1)' 
-    };
-};
-
-// --- CUSTOM CSS: MAC OS 26 SCROLLBARS & UTILS ---
-const scrollbarStyles = `
-  /* Glass Morphism Utilities - Fallback */
-  .glass-panel {
-    backdrop-filter: blur(40px) saturate(180%);
-    -webkit-backdrop-filter: blur(40px) saturate(180%);
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.06);
-    transition: background-color 0.5s ease, border-color 0.5s ease;
-  }
-  .dark .glass-panel {
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
-  }
-  
-  /* Neon XP Bar */
-  .xp-bar-glow {
-    box-shadow: 0 0 15px rgba(59, 130, 246, 0.6);
-  }
-`;
-
-const createMarkup = (htmlContent) => {
-    DOMPurify.addHook('afterSanitizeAttributes', (node) => {
-        if ('target' in node) {
-            node.setAttribute('target', '_blank');
-            node.setAttribute('rel', 'noopener noreferrer');
-        }
-    });
-    const sanitized = DOMPurify.sanitize(htmlContent, {
-        USE_PROFILES: { html: true },
-        ADD_TAGS: ['iframe'], 
-        ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling'],
-    });
-    return { __html: sanitized };
-};
-
+// --- STATIC CONFIG & UTILS ---
 const TITLE_MAP = {
     'title_adept': 'Adept',
     'title_guru': 'Guru',
@@ -118,34 +64,69 @@ const BADGE_MAP = {
   'badge_legend': { icon: SparklesIcon, title: 'Legend' },
 };
 
-// --- ENHANCED XP BAR ---
-const XPProgressBar = ({ level, currentXP, xpInThisLevel, xpNeededForThisLevel, xpGain }) => {
-    const percentage = xpNeededForThisLevel > 0 ? (xpInThisLevel / xpNeededForThisLevel) * 100 : 0;
+// Helper for class names
+function classNames(...classes) {
+  return classes.filter(Boolean).join(' ');
+}
+
+// Monet Style Generator
+const getMonetStyle = (activeOverlay) => {
+    switch(activeOverlay) {
+        case 'christmas': return { background: 'rgba(15, 23, 66, 0.85)', borderColor: 'rgba(100, 116, 139, 0.2)' };
+        case 'valentines': return { background: 'rgba(60, 10, 20, 0.85)', borderColor: 'rgba(255, 100, 100, 0.15)' };
+        case 'graduation': return { background: 'rgba(30, 25, 10, 0.85)', borderColor: 'rgba(255, 215, 0, 0.15)' };
+        case 'rainy': return { background: 'rgba(20, 35, 20, 0.85)', borderColor: 'rgba(100, 150, 100, 0.2)' };
+        case 'cyberpunk': return { background: 'rgba(35, 5, 45, 0.85)', borderColor: 'rgba(180, 0, 255, 0.2)' };
+        case 'spring': return { background: 'rgba(50, 10, 20, 0.85)', borderColor: 'rgba(255, 150, 180, 0.2)' };
+        case 'space': return { background: 'rgba(5, 5, 10, 0.85)', borderColor: 'rgba(100, 100, 255, 0.15)' };
+        default: return { background: 'rgba(15, 23, 42, 0.75)', borderColor: 'rgba(255, 255, 255, 0.1)' };
+    }
+};
+
+const scrollbarStyles = `
+  .glass-panel {
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.06);
+    transition: background-color 0.5s ease, border-color 0.5s ease;
+  }
+  .dark .glass-panel { box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4); }
+  .xp-bar-glow { box-shadow: 0 0 15px rgba(59, 130, 246, 0.6); }
+  .bio-content-display p, .bio-content-display ol, .bio-content-display ul { margin-bottom: 0.5rem; }
+  .bio-content-display p:last-child { margin-bottom: 0; }
+  .bio-content-display a { color: #3B82F6; text-decoration: underline; }
+  .dark .bio-content-display a { color: #60A5FA; }
+`;
+
+// --- PURE SUB-COMPONENTS ---
+
+const XPProgressBar = React.memo(({ level, currentXP }) => {
+    // Memoize calc to avoid re-math on every render
+    const { percentage, xpGain } = useMemo(() => {
+        const xpForCurrentLevel = ((level - 1) * level / 2) * 500;
+        const xpForNextLevel = (level * (level + 1) / 2) * 500;
+        const xpInThisLevel = currentXP - xpForCurrentLevel;
+        const xpNeededForThisLevel = xpForNextLevel - xpForCurrentLevel;
+        const pct = xpNeededForThisLevel > 0 ? (xpInThisLevel / xpNeededForThisLevel) * 100 : 0;
+        return { percentage: Math.round(pct), xpGain: 0 }; // simplified gain logic for pure render
+    }, [level, currentXP]);
+
     return (
         <div className="relative group w-full mt-3">
             <div className="flex justify-between items-end mb-1.5">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                    Lvl {level}
-                </span>
-                <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300">
-                    {Math.round(percentage)}%
-                </span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Lvl {level}</span>
+                <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300">{percentage}%</span>
             </div>
-            
             <div className="relative w-full bg-slate-200/50 dark:bg-slate-700/50 rounded-full h-2.5 overflow-hidden shadow-inner border border-white/50 dark:border-white/5">
-                <div
-                    className={`h-full rounded-full transition-all duration-700 ease-out relative overflow-hidden ${xpGain > 0 ? 'animate-pulse' : ''}`}
-                    style={{ width: `${percentage}%` }}
-                >
+                <div className="h-full rounded-full transition-all duration-700 ease-out relative overflow-hidden" style={{ width: `${percentage}%` }}>
                     <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 xp-bar-glow"></div>
                 </div>
             </div>
         </div>
     );
-};
+});
 
-// --- COMPACT INFO ROW ---
-const InfoRowCompact = ({ icon: Icon, label, value }) => (
+const InfoRowCompact = React.memo(({ icon: Icon, label, value }) => (
     <div className="flex items-center gap-3 py-2.5 px-3 rounded-xl hover:bg-white/40 dark:hover:bg-white/5 transition-colors group border border-transparent hover:border-white/20 dark:hover:border-white/5">
         <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-500 dark:text-blue-400">
             <Icon className="w-4 h-4" />
@@ -155,43 +136,60 @@ const InfoRowCompact = ({ icon: Icon, label, value }) => (
              <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-bold">{label}</p> 
         </div>
     </div>
-);
+));
 
+// --- MAIN COMPONENT ---
 const StudentProfilePage = () => {
   const { user, userProfile, refreshUserProfile, loading: authLoading } = useAuth();
   const { showToast } = useToast();
-  const { activeOverlay } = useTheme(); // 3. Get Active Theme
-  const monetStyle = getMonetStyle(activeOverlay); // 4. Compute Dynamic Styles
+  const { activeOverlay } = useTheme(); 
+  
+  // Memoized styles
+  const monetStyle = useMemo(() => getMonetStyle(activeOverlay), [activeOverlay]);
 
-  const [profile, setProfile] = useState({
-    firstName: '', lastName: '', gender: '', photoURL: '', customBio: '',
-    xp: 0, level: 1,
-    coverPhotoURL: '', coverPhotoPosition: '50% 50%',
-    work: '', education: '', current_city: '', hometown: '',
-    mobile_phone: '', relationship_status: '', relationship_partner: '',
-    canUploadProfilePic: false, canUploadCover: false, canUpdateInfo: false,
-    canCreatePost: false, 
-    canReact: false,
-  });
-
-  const [xpGain, setXpGain] = useState(0);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-
+  // Modal States
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
-
   const [isCreatePostModalOpen, setIsCreatePostModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCreatingPost, setIsCreatingPost] = useState(false);
+  
+  // Post Data State
   const [myPosts, setMyPosts] = useState([]);
   const [isPostsLoading, setIsPostsLoading] = useState(true);
-  
-  const isInitialXpLoad = useRef(true);
 
-  const [isBiometricSupported, setIsBiometricSupported] = useState(false);
+  // Security States (Mocked for UI)
   const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
-  const [isLoadingBiometrics, setIsLoadingBiometrics] = useState(true);
+  // Assume supported for UI purposes, or check window.PublicKeyCredential
+  const isBiometricSupported = useMemo(() => !!(window.PublicKeyCredential), []);
+
+  // --- DERIVED DATA (Instead of State Duplication) ---
+  // We read directly from userProfile. No useEffect needed to copy data.
+  const profileId = userProfile?.id;
+  const canCreatePost = userProfile?.canCreatePost || false;
+  const canReact = userProfile?.canReact || false;
+  const canSetBio = userProfile?.canSetBio || false;
+  const canUpdateInfo = userProfile?.canUpdateInfo || false;
+  const displayTitleName = userProfile?.displayTitle ? TITLE_MAP[userProfile.displayTitle] : null;
+  const currentLevel = userProfile?.level || 1;
+  const currentXP = userProfile?.xp || 0;
+  
+  // Memoize Bio HTML to prevent expensive sanitization on every render
+  const bioMarkup = useMemo(() => {
+    if (!userProfile?.customBio) return null;
+    DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+        if ('target' in node) {
+            node.setAttribute('target', '_blank');
+            node.setAttribute('rel', 'noopener noreferrer');
+        }
+    });
+    const sanitized = DOMPurify.sanitize(userProfile.customBio, {
+        USE_PROFILES: { html: true },
+        ADD_TAGS: ['iframe'], 
+        ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling'],
+    });
+    return { __html: sanitized };
+  }, [userProfile?.customBio]);
 
   // Initialize posts hook
   const {
@@ -214,80 +212,46 @@ const StudentProfilePage = () => {
     handleCloseReactions,
     handleViewComments,
     handleCloseComments,
-  } = useStudentPosts(myPosts, userProfile?.id, showToast);
+  } = useStudentPosts(myPosts, profileId, showToast);
 
-  // Sync profile
+  // --- FETCH POSTS ---
   useEffect(() => {
-    if (!authLoading && userProfile) {
-      setProfile({
-        firstName: userProfile.firstName || '',
-        lastName: userProfile.lastName || '',
-        gender: userProfile.gender || 'Not specified',
-        photoURL: userProfile.photoURL || '',
-        customBio: userProfile.customBio || '',
-        work: userProfile.work || '',
-        education: userProfile.education || '',
-        current_city: userProfile.current_city || '',
-        hometown: userProfile.hometown || '',
-        mobile_phone: userProfile.mobile_phone || '',
-        relationship_status: userProfile.relationship_status || '',
-        relationship_partner: userProfile.relationship_partner || '',
-        coverPhotoURL: userProfile.coverPhotoURL || '',
-        coverPhotoPosition: userProfile.coverPhotoPosition || '50% 50%',
-        canUploadProfilePic: userProfile.canUploadProfilePic || false,
-        canUploadCover: userProfile.canUploadCover || false,
-        canUpdateInfo: userProfile.canUpdateInfo || false,
-        canSetBio: userProfile.canSetBio || false,
-        canCreatePost: userProfile.canCreatePost || false,
-        canReact: userProfile.canReact || false,
-        xp: userProfile.xp || 0,
-        level: userProfile.level || 1,
-        id: userProfile.id || null,
-      });
-    }
-  }, [authLoading, userProfile]);
-
-  // Fetch posts
-  useEffect(() => {
-    if (!profile.id) { 
+    if (!profileId || !canCreatePost) {
         setIsPostsLoading(false);
         setMyPosts([]);
         return;
     }
-    if (!profile.canCreatePost) {
-        setIsPostsLoading(false);
-        setMyPosts([]);
-        return;
-    }
+
     setIsPostsLoading(true);
+    // Note: This query requires a Firestore Composite Index: authorId (Asc/Desc) + createdAt (Desc)
     const postsQuery = query(
       collection(db, 'studentPosts'),
-      where('authorId', '==', profile.id),
+      where('authorId', '==', profileId),
       orderBy('createdAt', 'desc')
     );
+
     const unsubscribe = onSnapshot(postsQuery, (snapshot) => {
-      const posts = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+      const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setMyPosts(posts);
       setIsPostsLoading(false);
     }, (error) => {
       console.error("Error fetching student posts:", error);
-      showToast("Could not load your posts.", "error");
+      // Debounce or limit toast in production to avoid spam loop
       setIsPostsLoading(false);
     });
     return () => unsubscribe();
-  }, [profile.id, profile.canCreatePost, showToast]); 
-  
-  // Handle Updates
-  const handleModalProfileSubmit = async (updates) => {
-    setError('');
-    setSuccessMessage('');
+  }, [profileId, canCreatePost]); // removed showToast dependency to avoid re-subscription
+
+  // --- HANDLERS ---
+
+  const handleModalProfileSubmit = useCallback(async (updates) => {
     setIsSubmitting(true);
-    if (!user?.id) { /* ... */ return; }
+    if (!user?.id) return;
+
     try {
       const userDocRef = doc(db, 'users', user.id);
+      
+      // 1. Prepare Data
       const updatedData = {
           firstName: updates.firstName,
           lastName: updates.lastName,
@@ -305,46 +269,54 @@ const StudentProfilePage = () => {
           relationship_status: updates.relationship_status,
           relationship_partner: updates.relationship_partner,
       };
+
+      // 2. Update Primary User Doc
       await updateDoc(userDocRef, updatedData);
-      await updateStudentDetailsInClasses(user.id, {
-          firstName: updatedData.firstName,
-          lastName: updatedData.lastName,
-          displayName: updatedData.displayName,
-          photoURL: updatedData.photoURL,
-      });
+
+      // 3. Update Denormalized Data (Best effort on client, safer in Cloud Functions)
+      try {
+          await updateStudentDetailsInClasses(user.id, {
+              firstName: updatedData.firstName,
+              lastName: updatedData.lastName,
+              displayName: updatedData.displayName,
+              photoURL: updatedData.photoURL,
+          });
+      } catch (denormErr) {
+          console.error("Non-critical: Failed to update class rosters", denormErr);
+      }
       
+      // 4. Cleanup Storage (Fire & Forget)
       const storage = getStorage();
       if (userProfile.coverPhotoURL && userProfile.coverPhotoURL !== updates.coverPhotoURL && userProfile.coverPhotoURL.includes('firebasestorage')) {
-         try { deleteObject(ref(storage, userProfile.coverPhotoURL)); } catch(e){}
+         deleteObject(ref(storage, userProfile.coverPhotoURL)).catch(() => {});
       }
       if (userProfile.photoURL && userProfile.photoURL !== updates.photoURL && userProfile.photoURL.includes('firebasestorage')) {
-         try { deleteObject(ref(storage, userProfile.photoURL)); } catch(e){}
+         deleteObject(ref(storage, userProfile.photoURL)).catch(() => {});
       }
       
       await refreshUserProfile();
-      setSuccessMessage('Profile updated successfully!');
       showToast('Profile updated successfully!', 'success');
       setIsEditModalOpen(false); 
+
     } catch (err) {
       console.error("Error updating profile:", err);
-      const msg = `Failed to update profile: ${err.message}`;
-      setError(msg);
-      showToast(msg, 'error');
+      showToast(`Failed to update profile: ${err.message}`, 'error');
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [user?.id, userProfile, refreshUserProfile, showToast]);
 
-  const handleCreatePost = async (content, audience) => {
-    if (!content.trim()) return;
+  const handleCreatePost = useCallback(async (content, audience) => {
+    if (!content.trim() || !profileId) return;
     setIsCreatingPost(true);
     try {
         await addDoc(collection(db, 'studentPosts'), {
-            authorId: profile.id,
-            authorName: `${profile.firstName} ${profile.lastName}`.trim(),
-            authorPhotoURL: profile.photoURL || '',
+            authorId: profileId,
+            authorName: userProfile.displayName || 'Student',
+            authorPhotoURL: userProfile.photoURL || '',
             content: content,
             audience: audience, 
+            schoolId: userProfile.schoolId, // Important for feed isolation
             createdAt: serverTimestamp(),
             reactions: {},
             commentsCount: 0
@@ -357,70 +329,41 @@ const StudentProfilePage = () => {
     } finally {
         setIsCreatingPost(false);
     }
-  };
+  }, [profileId, userProfile, showToast]);
 
-  const handleBiometricToggle = async (enabled) => {
-        // ... (Logic remains same)
-  };
+  const handleBiometricToggle = useCallback((enabled) => {
+       setIsBiometricEnabled(enabled);
+       // Implement actual WebAuthn logic here
+  }, []);
 
-  if (authLoading || !userProfile) {
-    return (
-      <div className="flex justify-center items-center h-full min-h-[50vh]">
-        <Spinner size="lg" />
-      </div>
-    );
-  }
-
-  const {
-    canCreatePost,
-    canReact,
-    canSetBio,
-    canUpdateInfo,
-    selectedBorder,
-    cosmeticsEnabled,
-  } = userProfile;
-
-  const currentLevel = userProfile.level || 1;
-  const currentXP = userProfile.xp || 0;
-  const xpForCurrentLevel = ((currentLevel - 1) * currentLevel / 2) * 500;
-  const xpForNextLevel = (currentLevel * (currentLevel + 1) / 2) * 500;
-  const xpInThisLevel = currentXP - xpForCurrentLevel;
-  const xpNeededForThisLevel = xpForNextLevel - xpForCurrentLevel;
-  const badges = userProfile.genericBadges || [];
-  const displayTitleId = userProfile.displayTitle;
-  const displayTitleName = displayTitleId ? TITLE_MAP[displayTitleId] : null;
-  const customBio = userProfile.customBio || '';
+  // --- RENDER PREPARATION ---
   
-  const aboutInfoPreviewList = [
+  const aboutInfoPreviewList = useMemo(() => [
     { icon: BriefcaseIcon, label: "Work", value: userProfile?.work },
     { icon: AcademicCapIcon, label: "Education", value: userProfile?.education },
     { icon: MapPinIcon, label: "Lives in", value: userProfile?.current_city },
     { icon: MapPinIcon, label: "From", value: userProfile?.hometown },
     { icon: PhoneIcon, label: "Mobile", value: userProfile?.mobile_phone },
     { icon: HeartIcon, label: "Relationship", value: userProfile?.relationship_status },
-  ].filter(item => item.value && item.value.trim() !== '');
+  ].filter(item => item.value && item.value.trim() !== '').slice(0, 5), [userProfile]);
 
-  const aboutInfoPreview = aboutInfoPreviewList.slice(0, 5); 
+  const badges = useMemo(() => userProfile?.genericBadges || [], [userProfile?.genericBadges]);
+
+  if (authLoading || !userProfile) {
+    return <div className="flex justify-center items-center h-full min-h-[50vh]"><Spinner size="lg" /></div>;
+  }
 
   return (
     <>
       <style>{scrollbarStyles}</style>
-      <style>{`
-            .bio-content-display p, .bio-content-display ol, .bio-content-display ul { margin-bottom: 0.5rem; }
-            .bio-content-display p:last-child { margin-bottom: 0; }
-            .bio-content-display a { color: #3B82F6; text-decoration: underline; }
-            .dark .bio-content-display a { color: #60A5FA; }
-        `}</style>
 
       {/* --- LAYOUT CONTAINER --- */}
       <div className="relative w-full min-h-screen pb-32 font-sans">
          
-         {/* 5. REMOVED HARDCODED BACKGROUND MESH HERE to allow UniversalBackground to show through */}
-
          {/* --- CINEMATIC HEADER --- */}
          <div className="relative z-10 w-full max-w-[1920px] mx-auto">
              
-             {/* 1. Massive Cover Photo (Edge to Edge) */}
+             {/* 1. Cover Photo */}
              <div className="relative w-full h-64 md:h-96 overflow-hidden rounded-b-[3rem] shadow-2xl group">
                 <div className="absolute inset-0 bg-slate-300 dark:bg-slate-800 animate-pulse z-0"></div>
                 
@@ -441,26 +384,23 @@ const StudentProfilePage = () => {
                          )}
                     </div>
                 )}
-                
-                {/* Cinematic Overlay Gradient */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent z-10"></div>
              </div>
 
-             {/* 2. Floating "Glass Island" Profile Header - APPLIED MONET STYLE */}
+             {/* 2. Profile Header Island */}
              <div className="relative -mt-20 md:-mt-24 px-4 sm:px-8 z-20">
                  <div 
                     style={monetStyle}
                     className="glass-panel rounded-[2.5rem] p-6 md:p-8 flex flex-col md:flex-row items-center md:items-end gap-6 shadow-2xl border-t border-white/40 dark:border-white/10 backdrop-blur-3xl transition-colors duration-500"
                  >
-                     
-                     {/* Avatar (Overlapping) */}
+                     {/* Avatar */}
                      <div className="flex-shrink-0 -mt-16 md:-mt-20 relative">
                          <div className="h-32 w-32 md:h-44 md:w-44 rounded-full p-1.5 bg-white dark:bg-slate-800 shadow-2xl ring-4 ring-white/50 dark:ring-white/5">
                             <UserInitialsAvatar
                                 user={userProfile}
                                 size="full"
-                                borderType={selectedBorder}
-                                effectsEnabled={cosmeticsEnabled}
+                                borderType={userProfile.selectedBorder}
+                                effectsEnabled={userProfile.cosmeticsEnabled}
                                 className="w-full h-full rounded-full"
                             />
                             <button 
@@ -485,15 +425,8 @@ const StudentProfilePage = () => {
                              )}
                          </div>
                          
-                         {/* Level & XP Bar */}
                          <div className="max-w-md mx-auto md:mx-0 w-full">
-                             <XPProgressBar
-                                level={currentLevel}
-                                currentXP={currentXP}
-                                xpInThisLevel={xpInThisLevel}
-                                xpNeededForThisLevel={xpNeededForThisLevel}
-                                xpGain={xpGain}
-                            />
+                             <XPProgressBar level={currentLevel} currentXP={currentXP} />
                          </div>
                      </div>
 
@@ -516,20 +449,19 @@ const StudentProfilePage = () => {
          <div className="relative z-10 w-full max-w-[1920px] mx-auto py-10 px-4 sm:px-8">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 
-                {/* --- LEFT COLUMN: Identity & Metadata (Sticky) --- */}
+                {/* --- LEFT COLUMN --- */}
                 <aside className="lg:col-span-4 xl:col-span-3 space-y-6 lg:sticky lg:top-28 self-start">
                     
-                    {/* Intro Card - APPLIED MONET STYLE */}
+                    {/* Intro Card */}
                     <div style={monetStyle} className="glass-panel rounded-[2rem] p-6 transition-colors duration-500">
                         <h2 className="text-xl font-black text-slate-900 dark:text-white mb-5">Intro</h2>
                         
-                        {/* Bio Capsule */}
                         <div className="mb-6">
-                             {canSetBio && customBio ? (
+                             {canSetBio && bioMarkup ? (
                                 <div className="bg-slate-100/50 dark:bg-black/20 p-4 rounded-2xl text-center border border-slate-200 dark:border-white/5">
                                     <div
                                         className="text-sm text-slate-700 dark:text-slate-300 bio-content-display break-words"
-                                        dangerouslySetInnerHTML={createMarkup(customBio)}
+                                        dangerouslySetInnerHTML={bioMarkup}
                                     />
                                 </div>
                             ) : (
@@ -541,13 +473,12 @@ const StudentProfilePage = () => {
                             )}
                         </div>
 
-                        {/* Info List */}
                         <div className="space-y-1 mb-4">
                             <div className="flex items-center gap-3 py-2.5 px-3">
                                 <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400"><EnvelopeIcon className="w-4 h-4"/></div>
                                 <div className="min-w-0"><p className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">{userProfile?.email}</p><p className="text-[10px] uppercase text-slate-400 font-bold">Email</p></div>
                             </div>
-                            {aboutInfoPreview.map(item => (
+                            {aboutInfoPreviewList.map(item => (
                                 <InfoRowCompact key={item.label} icon={item.icon} label={item.label} value={item.value} />
                             ))}
                         </div>
@@ -557,7 +488,7 @@ const StudentProfilePage = () => {
                         </button>
                     </div>
 
-                    {/* Badges - APPLIED MONET STYLE */}
+                    {/* Badges */}
                     {badges.length > 0 && (
                         <div style={monetStyle} className="glass-panel rounded-[2rem] p-6 transition-colors duration-500">
                             <div className="flex justify-between items-center mb-4">
@@ -579,8 +510,8 @@ const StudentProfilePage = () => {
                         </div>
                     )}
                     
-                    {/* Security - APPLIED MONET STYLE */}
-                    {isBiometricSupported && !isLoadingBiometrics && (
+                    {/* Security Toggle */}
+                    {isBiometricSupported && (
                         <div style={monetStyle} className="glass-panel rounded-[2rem] p-4 flex items-center justify-between transition-colors duration-500">
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-slate-500"><FingerPrintIcon className="w-5 h-5" /></div>
@@ -595,13 +526,11 @@ const StudentProfilePage = () => {
                             </Switch>
                         </div>
                     )}
-
                 </aside>
 
-                {/* --- RIGHT COLUMN: Activity Feed (Spacious) --- */}
+                {/* --- RIGHT COLUMN: Activity Feed --- */}
                 <main className="lg:col-span-8 xl:col-span-9 space-y-6">
-                    
-                    {/* Create Post Input - APPLIED MONET STYLE */}
+                    {/* Create Post Input */}
                     <div style={monetStyle} className="glass-panel rounded-[2rem] p-6 shadow-sm transition-colors duration-500">
                         <div className="flex items-center gap-4">
                             <UserInitialsAvatar user={userProfile} size="md" className="rounded-full shadow-sm flex-shrink-0" />
@@ -610,7 +539,7 @@ const StudentProfilePage = () => {
                                     onClick={() => setIsCreatePostModalOpen(true)}
                                     className="flex-1 text-left py-3.5 px-6 rounded-full bg-slate-100 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700/80 transition-all shadow-inner text-sm font-medium"
                                 >
-                                    What's on your mind, {profile.firstName}?
+                                    What's on your mind, {userProfile.firstName}?
                                 </button>
                             ) : (
                                 <div className="flex-1 text-left py-3 px-5 rounded-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 flex items-center justify-between opacity-70 cursor-not-allowed">
@@ -621,7 +550,6 @@ const StudentProfilePage = () => {
                         </div>
                     </div>
 
-                    {/* Feed Title */}
                     <div className="flex items-center justify-between px-2">
                         <h3 className="text-xl font-black text-slate-800 dark:text-white">Activity Feed</h3>
                     </div>
@@ -630,9 +558,7 @@ const StudentProfilePage = () => {
                     {canCreatePost ? (
                         <div className="space-y-6">
                             {isPostsLoading ? (
-                                <div className="flex justify-center py-20">
-                                    <Spinner />
-                                </div>
+                                <div className="flex justify-center py-20"><Spinner /></div>
                             ) : myPosts.length === 0 ? (
                                 <div style={monetStyle} className="glass-panel rounded-[2.5rem] p-16 text-center border-2 border-dashed border-slate-200 dark:border-slate-700 transition-colors duration-500">
                                     <div className="w-20 h-20 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -655,7 +581,7 @@ const StudentProfilePage = () => {
                                         onViewReactions={handleViewReactions}
                                         onToggleExpansion={togglePostExpansion}
                                         isEditing={editingPostId === post.id}
-                                        editingText={editingPostId === post.id ? editingText : ''}
+                                        editingText={editingPostId === post.id ? editingPostText : ''}
                                         onTextChange={setEditingPostText}
                                         onSave={handleUpdatePost}
                                         onCancelEdit={handleCancelEdit}
@@ -665,7 +591,6 @@ const StudentProfilePage = () => {
                             )}
                         </div>
                     ) : (
-                        // LOCKED FEED STATE - APPLIED MONET STYLE
                         <div style={monetStyle} className="glass-panel rounded-[2rem] p-16 text-center relative overflow-hidden border border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center space-y-4 bg-slate-50/50 dark:bg-slate-900/50 transition-colors duration-500">
                             <div className="p-5 rounded-full bg-slate-200/50 dark:bg-slate-800/50 mb-2">
                                 <LockClosedIcon className="w-12 h-12 text-slate-400 dark:text-slate-500" />
@@ -673,77 +598,43 @@ const StudentProfilePage = () => {
                             <div className="max-w-md mx-auto px-4">
                                 <h3 className="text-2xl font-bold text-slate-700 dark:text-slate-200 mb-2">Feed Locked</h3>
                                 <p className="text-base text-slate-500 dark:text-slate-400 leading-relaxed">
-                                    Reach <span className="text-blue-600 dark:text-blue-400 font-bold bg-blue-100 dark:bg-blue-900/30 px-2 py-0.5 rounded">Level 30</span> to unlock the ability to create and view posts from your classmates.
+                                    Reach <span className="text-blue-600 dark:text-blue-400 font-bold bg-blue-100 dark:bg-blue-900/30 px-2 py-0.5 rounded">Level 30</span> to unlock the ability to create and view posts.
                                 </p>
                             </div>
                         </div>
                     )}
-
                 </main>
-
             </div>
          </div>
       </div>
 
       {/* --- Modals --- */}
       <AnimatePresence>
-        {isAboutModalOpen && (
-          <AboutInfoModal
-            isOpen={isAboutModalOpen}
-            onClose={() => setIsAboutModalOpen(false)}
-            userProfile={userProfile}
-          />
-        )}
+        {isAboutModalOpen && <AboutInfoModal isOpen={isAboutModalOpen} onClose={() => setIsAboutModalOpen(false)} userProfile={userProfile} />}
       </AnimatePresence>
       
       <AnimatePresence>
         {isCreatePostModalOpen && (
-            <CreateStudentPostModal
-                isOpen={isCreatePostModalOpen}
-                onClose={() => setIsCreatePostModalOpen(false)}
-                onSubmit={handleCreatePost}
-                userProfile={userProfile}
-                isPosting={isCreatingPost}
-            />
+            <CreateStudentPostModal isOpen={isCreatePostModalOpen} onClose={() => setIsCreatePostModalOpen(false)} onSubmit={handleCreatePost} userProfile={userProfile} isPosting={isCreatingPost} />
         )}
       </AnimatePresence>
 
       {isEditModalOpen && ( 
         <EditStudentProfileModal
-          user={profile} 
+          user={userProfile} 
           canSetBio={canSetBio} 
           onSubmit={handleModalProfileSubmit}
-          onClose={() => {
-            setIsEditModalOpen(false); 
-            setError(''); 
-            setSuccessMessage(''); 
-          }}
+          onClose={() => setIsEditModalOpen(false)}
           isLoading={isSubmitting}
-          error={error}
-          successMessage={successMessage}
         />
       )}
 
       <AnimatePresence>
-        {isCommentModalOpen && (
-            <StudentPostCommentsModal
-                isOpen={isCommentModalOpen}
-                onClose={handleCloseComments}
-                post={commentModalPost}
-                userProfile={userProfile}
-                onToggleReaction={handleToggleReaction} 
-            />
-        )}
+        {isCommentModalOpen && <StudentPostCommentsModal isOpen={isCommentModalOpen} onClose={handleCloseComments} post={commentModalPost} userProfile={userProfile} onToggleReaction={handleToggleReaction} />}
       </AnimatePresence>
 
       <AnimatePresence>
-        {isReactionsModalOpen && (
-            <ReactionsBreakdownModal
-                isOpen={isReactionsModalOpen}
-                onClose={handleCloseReactions}
-                reactionsData={reactionsModalPost?.reactions}
-            />
-        )}
+        {isReactionsModalOpen && <ReactionsBreakdownModal isOpen={isReactionsModalOpen} onClose={handleCloseReactions} reactionsData={reactionsModalPost?.reactions} />}
       </AnimatePresence>
     </>
   );

@@ -12,41 +12,37 @@ import {
     ShieldExclamationIcon,
     Cog6ToothIcon,
     UsersIcon,
-    ShieldCheckIcon
+    ShieldCheckIcon,
+    XMarkIcon
 } from '@heroicons/react/24/solid';
 
-// --- DESIGN SYSTEM CONSTANTS (Optimized & Enhanced) ---
+// --- DESIGN SYSTEM CONSTANTS ---
 const solidPanel = "bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-slate-800 shadow-sm rounded-xl sm:rounded-2xl transition-all";
-
-// Inputs: Clean, solid, accessible
 const solidInput = "w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all shadow-sm";
 
-// Buttons: Enhanced Gradients & Tactile Feel
 const primaryBtn = "px-5 py-2.5 sm:px-6 sm:py-3 rounded-xl font-bold text-xs sm:text-sm text-white shadow-lg shadow-indigo-500/20 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 border-t border-white/20 active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap flex items-center gap-2";
 const secondaryBtn = "px-5 py-2.5 sm:px-6 sm:py-3 rounded-xl font-bold text-xs sm:text-sm text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 shadow-sm active:scale-[0.98] transition-all duration-200 disabled:opacity-50 whitespace-nowrap";
 const deleteBtn = "px-5 py-2.5 sm:px-6 sm:py-3 rounded-xl font-bold text-xs sm:text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/10 hover:bg-red-100 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-900/30 active:scale-[0.98] transition-all duration-200 disabled:opacity-50 whitespace-nowrap";
 
-// --- ENHANCED TOGGLE SWITCH ---
-const ToggleSwitch = ({ label, enabled, onChange, disabled = false }) => (
+// --- MEMOIZED SUB-COMPONENTS ---
+
+const ToggleSwitch = React.memo(({ label, enabled, onChange, disabled = false }) => (
     <label className={`flex items-center justify-between group ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
         <span className="font-semibold text-xs sm:text-sm text-slate-700 dark:text-slate-300 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors mr-3 select-none">{label}</span>
         <div className="relative inline-flex items-center cursor-pointer">
             <input type="checkbox" className="sr-only" checked={enabled} onChange={onChange} disabled={disabled} />
-            {/* Track */}
             <div className={`w-11 h-6 rounded-full transition-colors duration-300 ease-in-out border ${
                 enabled 
                 ? 'bg-indigo-600 border-indigo-600' 
                 : 'bg-slate-200 dark:bg-slate-700 border-slate-200 dark:border-slate-700'
             }`}></div>
-            {/* Thumb */}
             <div className={`absolute left-[2px] top-[2px] bg-white w-5 h-5 rounded-full shadow-md ring-0 transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
                 enabled ? 'translate-x-5' : 'translate-x-0'
             }`}></div>
         </div>
     </label>
-);
+));
 
-// --- REFINED CHECKBOX ---
 const NeumorphicCheckbox = React.memo(({ checked, indeterminate, ...props }) => {
     const ref = React.useRef(null);
     useEffect(() => {
@@ -67,6 +63,16 @@ const NeumorphicCheckbox = React.memo(({ checked, indeterminate, ...props }) => 
     );
 });
 
+const EmptyState = React.memo(({ icon: Icon, text, subtext }) => (
+    <div className="text-center p-8 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl h-full flex flex-col justify-center items-center bg-slate-50/50 dark:bg-[#15171a]">
+        <div className="w-14 h-14 rounded-full bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center mb-3 border border-slate-100 dark:border-slate-700">
+            <Icon className="h-7 w-7 text-slate-400 dark:text-slate-500" />
+        </div>
+        <p className="text-sm font-bold text-slate-900 dark:text-white">{text}</p>
+        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{subtext}</p>
+    </div>
+));
+
 const defaultQuizSettings = {
     enabled: false,
     shuffleQuestions: false,
@@ -78,35 +84,30 @@ const defaultQuizSettings = {
     maxAttempts: 3, 
 };
 
-// --- EMPTY STATE ---
-const EmptyState = ({ icon: Icon, text, subtext }) => (
-    <div className="text-center p-8 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl h-full flex flex-col justify-center items-center bg-slate-50/50 dark:bg-[#15171a]">
-        <div className="w-14 h-14 rounded-full bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center mb-3 border border-slate-100 dark:border-slate-700">
-            <Icon className="h-7 w-7 text-slate-400 dark:text-slate-500" />
-        </div>
-        <p className="text-sm font-bold text-slate-900 dark:text-white">{text}</p>
-        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{subtext}</p>
-    </div>
-);
-
+// --- MAIN COMPONENT ---
 
 const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, classData }) => {
     const { showToast } = useToast();
+    
+    // Form State
     const [availableFrom, setAvailableFrom] = useState(new Date());
     const [availableUntil, setAvailableUntil] = useState(new Date());
     const [isSubmitting, setIsSubmitting] = useState(false);
-    
     const [postTitle, setPostTitle] = useState('');
     const [postContent, setPostContent] = useState('');
-
-    const [searchTerm, setSearchTerm] = useState('');
-    const [tempRecipientIds, setTempRecipientIds] = useState(new Set()); 
-    const [originalRecipientIds, setOriginalRecipientIds] = useState(new Set());
-    
     const [quizSettings, setQuizSettings] = useState(defaultQuizSettings);
+
+    // UI State
+    const [searchTerm, setSearchTerm] = useState('');
     const [mobileTab, setMobileTab] = useState('general'); 
 
-    // Optimized Memo: Process students only when classData changes
+    // Selection State
+    const [tempRecipientIds, setTempRecipientIds] = useState(new Set()); 
+    const [originalRecipientIds, setOriginalRecipientIds] = useState(new Set());
+
+    // --- COMPUTED DATA ---
+
+    // Optimized: Sort and process students only when student list changes
     const allStudents = useMemo(() => {
         const students = classData?.students || []; 
         return students.map(s => {
@@ -114,11 +115,28 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
             const searchName = `${s.firstName || ''} ${s.lastName || ''} ${s.displayName || ''}`.toLowerCase();
             return { ...s, displayName, searchName };
         }).sort((a, b) => a.displayName.localeCompare(b.displayName));
-    }, [classData?.students]); // Depend specifically on students array
+    }, [classData?.students]);
 
     const hasQuizzes = useMemo(() => (post?.quizzes || []).length > 0, [post?.quizzes]);
 
-    // Optimized Effect: Initialize state only when post ID changes or modal opens
+    const filteredStudents = useMemo(() => {
+        if (!searchTerm) return allStudents;
+        const lowerSearch = searchTerm.toLowerCase();
+        return allStudents.filter(s => s.searchName.includes(lowerSearch));
+    }, [allStudents, searchTerm]);
+
+    const isAllSelectedInClass = allStudents.length > 0 && tempRecipientIds.size === allStudents.length;
+    const isPartiallySelected = tempRecipientIds.size > 0 && !isAllSelectedInClass;
+
+    const mobileTabs = useMemo(() => [
+        { id: 'general', name: 'General', icon: Cog6ToothIcon },
+        { id: 'recipients', name: `Recipients (${tempRecipientIds.size})`, icon: UsersIcon },
+        { id: 'security', name: 'Security', icon: ShieldCheckIcon },
+    ], [tempRecipientIds.size]);
+
+    // --- EFFECTS ---
+
+    // Initialization Effect
     useEffect(() => {
         if (isOpen && post) {
             setPostTitle(post.title || '');
@@ -126,7 +144,10 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
             setAvailableFrom(post.availableFrom?.toDate() || new Date());
             setAvailableUntil(post.availableUntil?.toDate() || new Date());
             
-            // PERFORMANCE: Calculate these sets inside the effect to avoid heavy render on mount
+            const loadedSettings = post.quizSettings || {};
+            setQuizSettings({ ...defaultQuizSettings, ...loadedSettings });
+
+            // Initialize Recipients
             const initialIds = new Set();
             const originalIds = new Set();
             const allCurrentStudentIds = new Set(allStudents.map(s => s.id));
@@ -138,36 +159,37 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
                     if (allCurrentStudentIds.has(id)) { initialIds.add(id); originalIds.add(id); }
                 });
             } else {
+                 // Default to all if not specified
                  allCurrentStudentIds.forEach(id => { initialIds.add(id); originalIds.add(id); });
             }
             
             setTempRecipientIds(initialIds);
             setOriginalRecipientIds(originalIds);
-            
-            const loadedSettings = post.quizSettings || {};
-            setQuizSettings({ ...defaultQuizSettings, ...loadedSettings });
         }
-    }, [isOpen, post?.id]); // Reduced dependencies to avoid re-runs
+    }, [isOpen, post?.id, allStudents]); // Rely on stable post.id/isOpen/allStudents
 
-    const handleDateChange = (date, field) => {
+    // --- HANDLERS ---
+
+    const handleDateChange = useCallback((date, field) => {
         const setter = field === 'from' ? setAvailableFrom : setAvailableUntil;
-        const currentDate = field === 'from' ? availableFrom : availableUntil;
         setter(prevDate => {
-            const newDate = new Date(currentDate || new Date());
+            const newDate = new Date(prevDate || new Date());
             newDate.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
             return newDate;
         });
-    };
-    const handleTimeChange = (e, field) => {
-        const setter = field === 'from' ? setAvailableFrom : setAvailableUntil;
+    }, []);
+
+    const handleTimeChange = useCallback((e, field) => {
         const [hours, minutes] = e.target.value.split(':');
+        const setter = field === 'from' ? setAvailableFrom : setAvailableUntil;
         setter(prevDate => {
             const newDate = new Date(prevDate || new Date());
             newDate.setHours(parseInt(hours, 10));
             newDate.setMinutes(parseInt(minutes, 10));
             return newDate;
         });
-    };
+    }, []);
+
     const handleToggleStudent = useCallback((studentId) => {
         if (originalRecipientIds.has(studentId)) {
             showToast("A student who already received the post cannot be unselected.", "info");
@@ -183,19 +205,22 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
     
     const handleToggleAllStudents = useCallback(() => {
         const allStudentIds = allStudents.map(s => s.id);
-        const allSelected = tempRecipientIds.size === allStudentIds.length;
         setTempRecipientIds(prevSet => {
+            const allSelected = prevSet.size === allStudentIds.length;
             const newSet = new Set(prevSet);
+            
             if (allSelected) {
+                // Deselect only those who aren't locked
                 allStudentIds.forEach(id => {
                     if (!originalRecipientIds.has(id)) newSet.delete(id);
                 });
             } else {
+                // Select All
                 allStudentIds.forEach(id => newSet.add(id));
             }
             return newSet;
         });
-    }, [allStudents, tempRecipientIds.size, originalRecipientIds]);
+    }, [allStudents, originalRecipientIds]);
     
     const handleQuizSettingsChange = useCallback((field, value) => {
         setQuizSettings(prev => ({ ...prev, [field]: value }));
@@ -250,6 +275,7 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
     const handleDelete = async () => {
         if (!window.confirm("Are you sure? This will permanently delete the post and all associated student submissions.")) return;
         if (!post?.id || !classId) { showToast("Cannot delete. Missing required information.", "error"); return; }
+        
         setIsSubmitting(true);
         try {
             const batch = writeBatch(db);
@@ -258,35 +284,48 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
             const quizIds = post.quizzes?.map(q => q.id) || [];
             const lessonIds = post.lessons?.map(l => l.id) || [];
 
-            // ... (Deletion Logic Retained) ...
-            // Note: Logic kept exactly as requested, just shortened visual space here for brevity in response
+            // 1. Delete Locks
             if (quizIds.length > 0) {
                 const locksQuery = query(collection(db, 'quizLocks'), where('quizId', 'in', quizIds), where('classId', '==', classId));
                 const locksSnapshot = await getDocs(locksQuery);
-                locksSnapshot.forEach(lockDoc => { batch.delete(lockDoc.ref); });
+                locksSnapshot.forEach(lockDoc => batch.delete(lockDoc.ref));
             }
+
+            // 2. Delete Submissions (OPTIMIZED: Parallel Fetching)
             if (quizIds.length > 0) {
                 const chunks = [];
                 for (let i = 0; i < quizIds.length; i += 30) chunks.push(quizIds.slice(i, i + 30));
-                for (const chunk of chunks) {
-                    const submissionsQuery = query(collection(db, 'quizSubmissions'), where('quizId', 'in', chunk), where('classId', '==', classId));
-                    const submissionsSnapshot = await getDocs(submissionsQuery);
-                    submissionsSnapshot.forEach(submissionDoc => { batch.delete(submissionDoc.ref); });
-                }
+                
+                // Fetch all chunks in parallel
+                const snapshotPromises = chunks.map(chunk => 
+                    getDocs(query(collection(db, 'quizSubmissions'), where('quizId', 'in', chunk), where('classId', '==', classId)))
+                );
+                
+                const snapshots = await Promise.all(snapshotPromises);
+                snapshots.forEach(snap => {
+                    snap.forEach(doc => batch.delete(doc.ref));
+                });
             }
+
+            // 3. Delete Post & Update Class
             batch.delete(postRef);
             batch.update(classRef, { contentLastUpdatedAt: serverTimestamp() });
             await batch.commit();
 
+            // 4. Cleanup Student Progress (Separate Batch)
             if (lessonIds.length > 0 && classData?.students && classData.students.length > 0) {
-                const studentIds = classData.students.map(s => s.id);
                 const cleanupBatch = writeBatch(db);
                 let cleanupNeeded = false;
+                
+                // Note: Reading user docs one by one is unavoidable in Firestore without a subcollection for progress.
+                // We keep this loop but acknowledge it's linear.
+                const studentIds = classData.students.map(s => s.id);
                 try {
                     for (const studentId of studentIds) {
                         const userRef = doc(db, 'users', studentId);
                         const userSnap = await getDoc(userRef);
                         if (!userSnap.exists()) continue;
+                        
                         const userData = userSnap.data();
                         const completed = userData.completedLessons || [];
                         if (completed.some(id => lessonIds.includes(id))) {
@@ -295,7 +334,7 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
                         }
                     }
                     if (cleanupNeeded) await cleanupBatch.commit();
-                } catch (err) { console.error(err); }
+                } catch (err) { console.error("Error cleaning student progress:", err); }
             }
 
             showToast("Post deleted successfully!", "success");
@@ -310,21 +349,6 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
     };
 
     const formatTime = (date) => date ? `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}` : '';
-    
-    const filteredStudents = useMemo(() => {
-        if (!searchTerm) return allStudents;
-        const lowerSearch = searchTerm.toLowerCase();
-        return allStudents.filter(s => s.searchName.includes(lowerSearch));
-    }, [allStudents, searchTerm]);
-    
-    const isAllSelectedInClass = allStudents.length > 0 && tempRecipientIds.size === allStudents.length;
-    const isPartiallySelected = tempRecipientIds.size > 0 && !isAllSelectedInClass;
-
-    const mobileTabs = [
-        { id: 'general', name: 'General', icon: Cog6ToothIcon },
-        { id: 'recipients', name: `Recipients (${tempRecipientIds.size})`, icon: UsersIcon },
-        { id: 'security', name: 'Security', icon: ShieldCheckIcon },
-    ];
 
     return (
         <Modal
@@ -441,13 +465,12 @@ const EditAvailabilityModal = ({ isOpen, onClose, post, classId, onUpdate, class
 
                             <ul className="flex-1 overflow-y-auto custom-scrollbar p-1.5 sm:p-2">
                                 {filteredStudents.length > 0 ? filteredStudents.map(student => {
-                                    const studentName = student.displayName; 
                                     const isSelected = tempRecipientIds.has(student.id);
                                     const isDisabled = originalRecipientIds.has(student.id);
                                     return (
                                         <li key={student.id} onClick={() => handleToggleStudent(student.id)} className={`flex items-center gap-3 p-2.5 sm:p-3 rounded-lg sm:rounded-xl transition-all mb-1 ${isDisabled ? 'bg-slate-50 dark:bg-slate-800/50 cursor-not-allowed opacity-60 grayscale' : isSelected ? 'bg-indigo-50 dark:bg-indigo-900/20 cursor-pointer border border-indigo-100 dark:border-indigo-900/30' : 'hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer border border-transparent'}`}>
                                             <NeumorphicCheckbox checked={isSelected} readOnly disabled={isDisabled} />
-                                            <span className={`text-xs sm:text-sm font-medium flex-grow select-none ${isSelected ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-700 dark:text-slate-300'}`}>{studentName}</span>
+                                            <span className={`text-xs sm:text-sm font-medium flex-grow select-none ${isSelected ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-700 dark:text-slate-300'}`}>{student.displayName}</span>
                                         </li>
                                     );
                                 }) : (

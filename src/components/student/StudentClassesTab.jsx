@@ -1,5 +1,4 @@
-import React from 'react';
-import { Text } from '@tremor/react';
+import React, { memo } from 'react';
 import { 
     AcademicCapIcon, 
     UserGroupIcon, 
@@ -9,16 +8,20 @@ import {
     ArrowRightIcon,
 } from '@heroicons/react/24/solid';
 
-// Icon cycle for visuals
-const classVisuals = [
+// Static visuals defined outside component to prevent recreation
+const CLASS_VISUALS = [
     { icon: AcademicCapIcon, color: 'text-orange-500' },
     { icon: UserGroupIcon, color: 'text-blue-500' },
     { icon: ClipboardDocumentListIcon, color: 'text-yellow-500' },
     { icon: ShieldCheckIcon, color: 'text-green-500' },
 ];
 
-const StudentClassCard = ({ classData, onSelect, visual }) => {
+// 1. Memoized Card Component to prevent re-renders when other list items change
+const StudentClassCard = memo(({ classData, onSelect, visual }) => {
     const { icon: Icon, color } = visual;
+
+    // Stable handler
+    const handleClick = () => onSelect(classData);
 
     return (
         <div
@@ -26,29 +29,32 @@ const StudentClassCard = ({ classData, onSelect, visual }) => {
                        hover:-translate-y-0.5 transition-all duration-300 flex flex-col justify-between"
         >
             <div className="flex items-center gap-3">
-                {/* Small icon */}
                 <div className="w-10 h-10 flex items-center justify-center rounded-md bg-neumorphic-base shadow-neumorphic-inset">
-                    <Icon className={`w-5 h-5 ${color}`} />
+                    <Icon className={`w-5 h-5 ${color}`} aria-hidden="true" />
                 </div>
-                {/* Class name */}
-                <h3 className="text-sm font-bold text-slate-800 truncate flex-1">
+                <h3 
+                    className="text-sm font-bold text-slate-800 truncate flex-1"
+                    title={classData.name} // Tooltip for truncated text
+                >
                     {classData.name}
                 </h3>
             </div>
 
-            {/* Details */}
-            <Text className="mt-2 text-xs text-slate-500 truncate">
-                {classData.gradeLevel} - {classData.section}
-            </Text>
-            <Text className="text-[11px] text-slate-400 truncate">
-                Teacher: {classData.teacherName}
-            </Text>
+            {/* Replaced heavy @tremor/react <Text> with native elements */}
+            <div className="mt-2">
+                <p className="text-xs text-slate-500 truncate">
+                    {classData.gradeLevel} - {classData.section}
+                </p>
+                <p className="text-[11px] text-slate-400 truncate mt-0.5">
+                    Teacher: {classData.teacherName}
+                </p>
+            </div>
 
-            {/* Footer (no lesson count) */}
             <div className="mt-3 pt-2 border-t border-slate-200/40 flex items-center justify-end">
                 <button
-                    onClick={() => onSelect(classData)}
-                    className="flex items-center gap-1 text-xs font-semibold text-red-600 hover:text-red-700 transition-colors"
+                    onClick={handleClick}
+                    className="flex items-center gap-1 text-xs font-semibold text-red-600 hover:text-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded px-1"
+                    aria-label={`View class ${classData.name}`}
                 >
                     <span>View</span>
                     <ArrowRightIcon className="h-4 w-4 transition-transform group-hover:translate-x-1 duration-200" />
@@ -56,7 +62,9 @@ const StudentClassCard = ({ classData, onSelect, visual }) => {
             </div>
         </div>
     );
-};
+});
+
+StudentClassCard.displayName = 'StudentClassCard';
 
 const StudentClassesTab = ({ classes = [], onClassSelect }) => {
     if (!classes || classes.length === 0) {
@@ -76,11 +84,12 @@ const StudentClassesTab = ({ classes = [], onClassSelect }) => {
                     key={classData.id}
                     classData={classData}
                     onSelect={onClassSelect}
-                    visual={classVisuals[index % classVisuals.length]}
+                    visual={CLASS_VISUALS[index % CLASS_VISUALS.length]}
                 />
             ))}
         </div>
     );
 };
 
-export default StudentClassesTab;
+// Memoize the entire tab to prevent re-renders if parent props irrelevant to classes change
+export default memo(StudentClassesTab);

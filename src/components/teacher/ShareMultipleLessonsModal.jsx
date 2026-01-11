@@ -85,8 +85,8 @@ const CustomSingleSelect = React.memo(({ options, selectedValue, onSelectionChan
     );
 });
 
-// Optimized Toggle Switch (iOS Style)
-const ToggleSwitch = ({ label, enabled, onChange, disabled = false }) => (
+// Optimized Toggle Switch (iOS Style) - MEMOIZED
+const ToggleSwitch = React.memo(({ label, enabled, onChange, disabled = false }) => (
     <label className={`flex items-center justify-between group py-1 ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
         <span className="font-semibold text-sm text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">{label}</span>
         <div className="relative inline-flex items-center cursor-pointer">
@@ -97,7 +97,7 @@ const ToggleSwitch = ({ label, enabled, onChange, disabled = false }) => (
                 ${enabled ? 'translate-x-5' : 'translate-x-0'}`}></div>
         </div>
     </label>
-);
+));
 
 
 const getInitialDateWithZeroSeconds = () => {
@@ -108,7 +108,7 @@ const getInitialDateWithZeroSeconds = () => {
 
 export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) {
     const { user } = useAuth();
-    const [classes, setClasses] =useState([]);
+    const [classes, setClasses] = useState([]);
     const [rawLessons, setRawLessons] = useState([]);
     const [rawQuizzes, setRawQuizzes] = useState([]);
     const [units, setUnits] = useState([]);
@@ -217,20 +217,21 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
         return grouped;
     }, [rawQuizzes, units]);
 
-
-    const quarterOptions = [
+    // MEMOIZED OPTIONS
+    const quarterOptions = useMemo(() => [
         { value: 1, label: 'Quarter 1' },
         { value: 2, label: 'Quarter 2' },
         { value: 3, label: 'Quarter 3' },
         { value: 4, label: 'Quarter 4' },
-    ];
+    ], []);
 
     const formatTime = (date) => {
         if (!date) return '';
         return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
     };
 
-    const handleDateChange = (date, field) => {
+    // OPTIMIZED HANDLER
+    const handleDateChange = useCallback((date, field) => {
         if (field === 'from') {
             setAvailableFrom(prevDate => {
                 const newDate = new Date(prevDate || new Date());
@@ -248,9 +249,10 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                 return newDate;
             });
         }
-    };
+    }, []);
 
-    const handleTimeChange = (e, field) => {
+    // OPTIMIZED HANDLER
+    const handleTimeChange = useCallback((e, field) => {
         const [hours, minutes] = e.target.value.split(':');
         if (!hours || !minutes) return;
 
@@ -269,20 +271,21 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                 return newDate;
             });
         }
-    };
+    }, []);
 
     const handleToggleDropdown = useCallback((dropdownName) => {
         setActiveDropdown(prev => prev === dropdownName ? null : dropdownName);
     }, []);
 
-    const handleClassSelectionConfirm = (newSelectionMap) => {
+    const handleClassSelectionConfirm = useCallback((newSelectionMap) => {
         setSelectionMap(newSelectionMap);
         setIsClassModalOpen(false);
-    };
+    }, []);
     
-    const handleQuizSettingsChange = (field, value) => {
+    // OPTIMIZED HANDLER
+    const handleQuizSettingsChange = useCallback((field, value) => {
         setQuizSettings(prev => ({ ...prev, [field]: value }));
-    };
+    }, []);
 
     const handleClose = useCallback(() => {
         setPostTitle('');
@@ -425,7 +428,8 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
 
     const thingsToShareCount = selectedLessons.length + selectedQuizzes.length;
     
-    const classButtonText = () => {
+    // MEMOIZED LABEL CALCULATION
+    const classButtonText = useMemo(() => {
         if (selectionMap.size === 0) return "Select Classes & Students";
         
         let totalStudents = 0;
@@ -436,7 +440,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
         if (totalStudents === 0) return "Select Classes & Students";
         
         return `${totalStudents} Student(s) in ${selectionMap.size} Class(es) Selected`;
-    };
+    }, [selectionMap]);
     
     // Adjusted styles for date inputs to match new solid inputs
     const datePickerClasses = solidInput;
@@ -496,7 +500,7 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                                         className={selectButtonStyle}
                                     >
                                         <span className="block truncate text-sm font-semibold">
-                                            {classButtonText()}
+                                            {classButtonText}
                                         </span>
                                         <ChevronUpDownIcon className="h-5 w-5 text-slate-400" />
                                     </button>
@@ -519,7 +523,6 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                                                         className={datePickerClasses}
                                                         popperPlacement="bottom-start"
                                                         wrapperClassName="w-full"
-                                                        // REMOVED broken modifiers and fixed strategy that caused issues
                                                     />
                                                 </div>
                                                 <input
@@ -543,7 +546,6 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                                                         placeholderText="No end date"
                                                         popperPlacement="bottom-start"
                                                         wrapperClassName="w-full"
-                                                        // REMOVED broken modifiers and fixed strategy that caused issues
                                                     />
                                                 </div>
                                                 <input

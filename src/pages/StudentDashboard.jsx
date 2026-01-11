@@ -14,7 +14,6 @@ import {
   updateDoc,
   arrayUnion,
   orderBy,
-  limit,
   getDoc,
   deleteField 
 } from 'firebase/firestore';
@@ -31,20 +30,31 @@ import Spinner from '../components/common/Spinner';
 import PublicProfilePage from './PublicProfilePage'; 
 import { useStudentPosts } from '../hooks/useStudentPosts';
 
+// Utility for debouncing real-time updates to prevent render trashing
+const debounce = (func, wait) => {
+  let timeout;
+  return (...args) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+};
+
 const StudentDashboard = () => {
+  // --- AUTH & CONTEXT ---
   const { userProfile, logout, loading: authLoading, setUserProfile, refreshUserProfile } = useAuth();
-  
   const { showToast } = useToast();
+  
+  // Stable ref for toast to use in async functions without adding dependencies
   const showToastRef = useRef(showToast);
   useEffect(() => {
     showToastRef.current = showToast;
   }, [showToast]);
 
   const { handleGamificationUpdate } = useQuizGamification();
-
   const location = useLocation();
   const navigate = useNavigate();
 
+  // --- ROUTING LOGIC ---
   const getActiveViewFromPath = (pathname) => {
     const pathSegment = pathname.substring('/student'.length).split('/')[1]; 
 
@@ -53,40 +63,46 @@ const StudentDashboard = () => {
     }
 
     switch (pathSegment) {
-      case 'lounge':
-        return 'lounge';
-      case 'lessons':
-        return 'lessons';
-      case 'quizzes':
-        return 'quizzes';
-      case 'rewards':
-        return 'rewards';
-      case 'profile':
-        return 'profile';
-      default:
-        return 'classes';
+      case 'lounge': return 'lounge';
+      case 'lessons': return 'lessons';
+      case 'quizzes': return 'quizzes';
+      case 'rewards': return 'rewards';
+      case 'profile': return 'profile';
+      default: return 'classes';
     }
   };
 
   const view = getActiveViewFromPath(location.pathname); 
+
+  // --- STATE MANAGEMENT ---
   const [hasNewLessons, setHasNewLessons] = useState(false);
   const [hasNewQuizzes, setHasNewQuizzes] = useState(false);
+  
+  // UI State
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isJoinClassModalOpen, setJoinClassModalOpen] = useState(false);
+  
+  // Data State
   const [myClasses, setMyClasses] = useState([]);
-  const [isFetchingClasses, setIsFetchingClasses] = useState(true);
   const [selectedClass, setSelectedClass] = useState(null);
+  
+  // Content State
   const [allQuizzes, setAllQuizzes] = useState([]);
   const [quizzes, setQuizzes] = useState({ active: [], completed: [], overdue: [] });
   const [lessons, setLessons] = useState([]);
   const [units, setUnits] = useState([]);
+  
+  // Loading States (Consolidated mentally, kept separate for UI prop compatibility)
+  const [isFetchingClasses, setIsFetchingClasses] = useState(true);
   const [isFetchingUnits, setIsFetchingUnits] = useState(true);
   const [isFetchingContent, setIsFetchingContent] = useState(true);
+  
+  // Active Interaction State
   const [quizToTake, setQuizToTake] = useState(null);
   const [lessonToView, setLessonToView] = useState(null);
   const isFirstContentLoad = useRef(true);
 
-  // --- LOUNGE STATE & LOGIC ---
+  // --- LOUNGE STATE ---
   const [loungePosts, setLoungePosts] = useState([]);
   const [isLoungeLoading, setIsLoungeLoading] = useState(true);
   const [loungeUsersMap, setLoungeUsersMap] = useState({});
@@ -94,9 +110,12 @@ const StudentDashboard = () => {
 
   const loungePostUtils = useStudentPosts(loungePosts, setLoungePosts, userProfile?.id, showToast);
   
+  // --- VIEW CHANGE HANDLER ---
   const handleViewChange = async (newView) => {
     const newTimestamp = new Date();
     let updateData = {};
+    
+    // Optimistic UI updates
     if (newView === 'lessons' && hasNewLessons) {
       setHasNewLessons(false); 
       updateData.lessonsLastSeen = newTimestamp; 
@@ -107,14 +126,18 @@ const StudentDashboard = () => {
       updateData.quizzesLastSeen = newTimestamp; 
       setUserProfile(prev => ({ ...prev, quizzesLastSeen: newTimestamp })); 
     }
+
+    // Background DB update
     if (Object.keys(updateData).length > 0 && userProfile?.id) {
       try {
         const userRef = doc(db, 'users', userProfile.id);
-        await updateDoc(userRef, updateData);
+        // Fire and forget - don't await blocking navigation
+        updateDoc(userRef, updateData).catch(err => console.error("Failed to update lastSeen:", err));
       } catch (err) {
         console.error("Failed to update lastSeen timestamp:", err);
       }
     }
+
     if (newView === 'classes' || newView === 'default') {
       navigate('/student');
     } else {
@@ -123,122 +146,144 @@ const StudentDashboard = () => {
     setIsSidebarOpen(false); 
   };
 
+  // --- PERMISSIONS / GAMIFICATION CHECK ---
+  // Kept client-side as requested. Wrapped in useCallback to stabilize the dependency.
+  const checkAndApplyPermissions = useCallback(() => {
+    if (!userProfile) return;
+
+    const userRef = doc(db, 'users', userProfile.id);
+    const updateData = {};
+    let needsUpdate = false;
+
+    // Cleanup old fields
+    if (userProfile.hasOwnProperty('selectedBorder')) {
+      updateData.selectedBorder = deleteField();
+      needsUpdate = true;
+    }
+    if (userProfile.hasOwnProperty('selectedBackground')) {
+      updateData.selectedBackground = deleteField();
+      needsUpdate = true;
+    }
+
+    const currentLevel = userProfile.level || 1;
+
+    // Iterate config to grant permissions
+    for (const [rewardId, config] of Object.entries(REWARDS_CONFIG)) {
+      if (config.type === 'feature' && currentLevel >= config.level) {
+        switch (rewardId) {
+          case 'feat_profile_picture':
+            if (!userProfile.canUploadProfilePic) updateData.canUploadProfilePic = true;
+            break;
+          case 'feat_cover_photo':
+            if (!userProfile.canUploadCover) updateData.canUploadCover = true;
+            break;
+          case 'canSetBio':
+            if (!userProfile.canSetBio) updateData.canSetBio = true;
+            break;
+          case 'feat_update_info':
+            if (!userProfile.canUpdateInfo) updateData.canUpdateInfo = true;
+            break;
+          case 'feat_create_post':
+            if (!userProfile.canCreatePost) updateData.canCreatePost = true;
+            break;
+          case 'feat_reactions':
+            if (!userProfile.canReact) updateData.canReact = true;
+            break;
+          case 'feat_profile_privacy':
+            if (!userProfile.canSetPrivacy) updateData.canSetPrivacy = true;
+            break;
+          case 'feat_visit_profiles':
+            if (!userProfile.canVisitProfiles) updateData.canVisitProfiles = true;
+            break;
+          case 'feat_photo_1':
+            if (!userProfile.featuredPhotosSlots || userProfile.featuredPhotosSlots < 1) updateData.featuredPhotosSlots = 1;
+            break;
+          case 'feat_photo_2':
+            if (!userProfile.featuredPhotosSlots || userProfile.featuredPhotosSlots < 2) updateData.featuredPhotosSlots = 2;
+            break;
+          case 'feat_photo_3':
+            if (!userProfile.featuredPhotosSlots || userProfile.featuredPhotosSlots < 3) updateData.featuredPhotosSlots = 3;
+            break;
+          default:
+            break;
+        }
+      }
+    }
+    
+    if (Object.keys(updateData).length > 0) {
+      needsUpdate = true;
+    }
+
+    if (needsUpdate) {
+      updateDoc(userRef, updateData)
+      .then(() => {
+        refreshUserProfile();
+      })
+      .catch((err) => {
+        console.error('Failed to update profile permissions:', err);
+      });
+    }
+  }, [userProfile, refreshUserProfile]);
+
   const taskPerformed = useRef(false);
   useEffect(() => {
     if (userProfile && !taskPerformed.current) {
       taskPerformed.current = true;
-      const userRef = doc(db, 'users', userProfile.id);
-      const updateData = {};
-      let needsUpdate = false;
-      if (userProfile.hasOwnProperty('selectedBorder')) {
-        updateData.selectedBorder = deleteField();
-        needsUpdate = true;
-      }
-      if (userProfile.hasOwnProperty('selectedBackground')) {
-        updateData.selectedBackground = deleteField();
-        needsUpdate = true;
-      }
-      const currentLevel = userProfile.level || 1;
-      for (const [rewardId, config] of Object.entries(REWARDS_CONFIG)) {
-        if (config.type === 'feature' && currentLevel >= config.level) {
-          switch (rewardId) {
-            case 'feat_profile_picture':
-              if (!userProfile.canUploadProfilePic) updateData.canUploadProfilePic = true;
-              break;
-            case 'feat_cover_photo':
-              if (!userProfile.canUploadCover) updateData.canUploadCover = true;
-              break;
-            case 'canSetBio':
-              if (!userProfile.canSetBio) updateData.canSetBio = true;
-              break;
-            case 'feat_update_info':
-              if (!userProfile.canUpdateInfo) updateData.canUpdateInfo = true;
-              break;
-            case 'feat_create_post':
-              if (!userProfile.canCreatePost) updateData.canCreatePost = true;
-              break;
-            case 'feat_reactions':
-              if (!userProfile.canReact) updateData.canReact = true;
-              break;
-            case 'feat_profile_privacy':
-              if (!userProfile.canSetPrivacy) updateData.canSetPrivacy = true;
-              break;
-            case 'feat_visit_profiles':
-              if (!userProfile.canVisitProfiles) updateData.canVisitProfiles = true;
-              break;
-            case 'feat_photo_1':
-              if (!userProfile.featuredPhotosSlots || userProfile.featuredPhotosSlots < 1) updateData.featuredPhotosSlots = 1;
-              break;
-            case 'feat_photo_2':
-              if (!userProfile.featuredPhotosSlots || userProfile.featuredPhotosSlots < 2) updateData.featuredPhotosSlots = 2;
-              break;
-            case 'feat_photo_3':
-              if (!userProfile.featuredPhotosSlots || userProfile.featuredPhotosSlots < 3) updateData.featuredPhotosSlots = 3;
-              break;
-            default:
-              break;
-          }
-        }
-      }
-      
-      if (Object.keys(updateData).length > 0) {
-        needsUpdate = true;
-      }
-
-      if (needsUpdate) {
-        updateDoc(userRef, updateData)
-        .then(() => {
-          refreshUserProfile();
-        })
-        .catch((err) => {
-          console.error('Failed to update profile:', err);
-          taskPerformed.current = false; 
-        });
-      }
+      checkAndApplyPermissions();
     }
-  }, [userProfile, refreshUserProfile]);
+  }, [userProfile, checkAndApplyPermissions]);
 
-  // Add current user to Lounge user map
+  // --- LOUNGE USER MAPPING ---
   useEffect(() => {
     if (userProfile?.id) {
-        setLoungeUsersMap(prev => ({
-            ...prev,
-            [userProfile.id]: userProfile
-        }));
+        setLoungeUsersMap(prev => {
+            // Only update if not already present to avoid re-renders
+            if (prev[userProfile.id]) return prev;
+            return { ...prev, [userProfile.id]: userProfile };
+        });
     }
   }, [userProfile]);
 
-  // Fetch student's classes
+  // --- FETCH CLASSES ---
   useEffect(() => {
     if (authLoading || !userProfile?.id) {
       setIsFetchingClasses(false);
       return;
     }
     setIsFetchingClasses(true);
+    
     const classesQuery = query(
       collection(db, 'classes'),
       where('studentIds', 'array-contains', userProfile.id)
     );
+
     const unsubscribe = onSnapshot(
       classesQuery,
       async (snapshot) => {
         try {
           const classesData = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+          
           if (classesData.length === 0) {
             setMyClasses([]);
             setIsFetchingClasses(false);
             return;
           }
+
           const teacherIds = [...new Set(classesData.map(c => c.teacherId).filter(Boolean))];
+          
+          // Batch fetch teacher details if needed
           if (teacherIds.length > 0) {
-            const batch = teacherIds.slice(0, 30);
+            // Handling potential >10/30 limits by slicing if necessary, though user usually has few teachers
+            const batch = teacherIds.slice(0, 30); 
             const teachersQuery = query(collection(db, 'users'), where(documentId(), 'in', batch));
             const teachersSnapshot = await getDocs(teachersQuery);
+            
             const teacherNamesMap = {};
             teachersSnapshot.forEach(td => {
               const tdata = td.data();
               teacherNamesMap[td.id] = `${tdata.firstName || ''} ${tdata.lastName || ''}`.trim();
             });
+            
             const augmented = classesData.map(c => ({
               ...c,
               teacherName: teacherNamesMap[c.teacherId] || 'N/A'
@@ -262,7 +307,7 @@ const StudentDashboard = () => {
     return () => unsubscribe();
   }, [authLoading, userProfile?.id]);
 
-  // Fetch all units
+  // --- FETCH UNITS ---
   useEffect(() => {
     const fetchUnits = async () => {
       setIsFetchingUnits(true);
@@ -281,7 +326,7 @@ const StudentDashboard = () => {
     fetchUnits();
   }, []);
 
-  // Fetch posts (lessons/quizzes) from classes
+  // --- FETCH POSTS (OPTIMIZED) ---
   const fetchPosts = useCallback(async () => {
     if (authLoading || !userProfile?.id || myClasses.length === 0) {
       return []; 
@@ -289,45 +334,65 @@ const StudentDashboard = () => {
     
     let allPosts = [];
     try {
+      // Map fetches to handle failures individually (Promise.allSettled pattern manual implementation)
       const postPromises = myClasses.map(c =>
-        getDocs(query(collection(db, `classes/${c.id}/posts`))).then(snapshot => ({
-          classId: c.id,
-          className: c.name,
-          snapshot
-        }))
+        getDocs(query(collection(db, `classes/${c.id}/posts`)))
+          .then(snapshot => ({
+            status: 'fulfilled',
+            classId: c.id,
+            className: c.name,
+            snapshot
+          }))
+          .catch(error => ({
+            status: 'rejected',
+            classId: c.id,
+            error
+          }))
       );
+
       const results = await Promise.all(postPromises);
       const studentId = userProfile.id;
       
       results.forEach(res => {
+        if (res.status === 'rejected') {
+          console.warn(`Failed to fetch posts for class ${res.classId}`, res.error);
+          return;
+        }
+
         res.snapshot.forEach(docSnap => {
           const post = { id: docSnap.id, ...docSnap.data(), className: res.className, classId: res.classId };
+          
+          // Client-side filtering
           const targetAudience = post.targetAudience;
           const targetStudentIds = post.targetStudentIds || [];
           let isRecipient = false;
+          
           if (targetAudience === 'specific') {
             isRecipient = targetStudentIds.includes(studentId);
           } else {
             isRecipient = targetAudience !== 'specific';
           }
+          
           if (isRecipient) allPosts.push(post);
         });
       });
     } catch (err) {
-      console.error("Error fetching posts:", err);
+      console.error("Critical error fetching posts:", err);
     }
     return allPosts;
   }, [authLoading, userProfile?.id, myClasses]);
 
-  // --- LOUNGE: Function to fetch user profiles ---
+  // --- LOUNGE: FETCH USERS (OPTIMIZED) ---
   const fetchMissingLoungeUsers = useCallback(async (userIds) => {
     const uniqueIds = [...new Set(userIds.filter(id => !!id))];
     if (uniqueIds.length === 0) return;
 
+    // Filter out users we already know
     const usersToFetch = uniqueIds.filter(id => !loungeUsersMap[id]);
     if (usersToFetch.length === 0) return;
     
     try {
+        // Chunk requests to respect Firestore 'in' query limit (30)
         for (let i = 0; i < usersToFetch.length; i += 30) {
             const chunk = usersToFetch.slice(i, i + 30);
             const usersQuery = query(collection(db, 'users'), where(documentId(), 'in', chunk));
@@ -339,11 +404,11 @@ const StudentDashboard = () => {
             setLoungeUsersMap(prev => ({ ...prev, ...newUsers }));
         }
     } catch (err) {
-        console.error("Error fetching users:", err);
+        console.error("Error fetching lounge users:", err);
     }
   }, [loungeUsersMap]); 
 
-  // ✅ LOUNGE FETCH UPDATED: Added schoolId filter
+  // --- LOUNGE: FETCH POSTS ---
   const fetchLoungePosts = useCallback(async () => {
     if (!userProfile?.id || !userProfile?.schoolId) return;
     
@@ -353,13 +418,14 @@ const StudentDashboard = () => {
       const postsQuery = query(
         collection(db, 'studentPosts'),
         where('audience', '==', 'Public'),
-        where('schoolId', '==', userProfile.schoolId), // <-- School Isolation
+        where('schoolId', '==', userProfile.schoolId),
         orderBy('createdAt', 'desc')
       );
       const snapshot = await getDocs(postsQuery);
       const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setLoungePosts(posts);
 
+      // Collect IDs to fetch profiles
       const userIdsToFetch = new Set();
       posts.forEach(post => {
         userIdsToFetch.add(post.authorId);
@@ -378,10 +444,9 @@ const StudentDashboard = () => {
     }
   }, [userProfile?.id, userProfile?.schoolId, showToast, fetchMissingLoungeUsers]);
 
-  
   const fetchContentRef = useRef();
 
-  // Fetch lessons/quizzes content
+  // --- MAIN CONTENT SYNC (LESSONS/QUIZZES) ---
   const fetchContent = useCallback(async (isBackgroundSync = false) => {
     if (authLoading || !userProfile?.id) {
       if (!isBackgroundSync) setIsFetchingContent(false);
@@ -395,31 +460,52 @@ const StudentDashboard = () => {
     try {
       const allPosts = await fetchPosts(); 
 
-      const allLessonsFromPosts = allPosts.flatMap(post =>
-        (post.lessons || []).map(lesson => ({ ...lesson, className: post.className, classId: post.classId, postId: post.id, createdAt: post.createdAt }))
-      );
-      const allQuizzesFromPosts = allPosts.flatMap(post =>
-        (post.quizzes || []).map(quiz => ({ 
-          ...quiz, 
-          className: post.className, 
-          classId: post.classId, 
-          postId: post.id, 
-          postTitle: post.title, 
-          postCreatedAt: post.createdAt,
-          availableFrom: post.availableFrom, 
-          availableUntil: post.availableUntil, 
-          settings: post.quizSettings 
-        }))
-      );
+      const allLessonsFromPosts = [];
+      const allQuizzesFromPosts = [];
+
+      // Single pass processing
+      for (const post of allPosts) {
+        if (post.lessons && Array.isArray(post.lessons)) {
+          post.lessons.forEach(lesson => {
+            allLessonsFromPosts.push({ 
+              ...lesson, 
+              className: post.className, 
+              classId: post.classId, 
+              postId: post.id, 
+              createdAt: post.createdAt 
+            });
+          });
+        }
+        if (post.quizzes && Array.isArray(post.quizzes)) {
+          post.quizzes.forEach(quiz => {
+            allQuizzesFromPosts.push({
+              ...quiz, 
+              className: post.className, 
+              classId: post.classId, 
+              postId: post.id, 
+              postTitle: post.title, 
+              postCreatedAt: post.createdAt,
+              availableFrom: post.availableFrom, 
+              availableUntil: post.availableUntil, 
+              settings: post.quizSettings 
+            });
+          });
+        }
+      }
+
+      // Fetch Submissions for Quizzes
       const quizIds = allQuizzesFromPosts.map(q => q.id).filter(Boolean);
       const submissionsByQuizId = new Map();
+      
       if (quizIds.length > 0) {
         const chunks = [];
+        // Batch query limits
         for (let i = 0; i < quizIds.length; i += 30) chunks.push(quizIds.slice(i, i + 30));
         
         const submissionPromises = chunks.map(chunk =>
           getDocs(query(collection(db, 'quizSubmissions'), where('studentId', '==', userProfile.id), where('quizId', 'in', chunk)))
         );
+        
         const submissionSnapshots = await Promise.all(submissionPromises);
         submissionSnapshots.forEach(snap => {
           snap.forEach(d => {
@@ -430,8 +516,10 @@ const StudentDashboard = () => {
           });
         });
       }
+
       const quizzesWithDetails = allQuizzesFromPosts.map(q => {
         const subs = submissionsByQuizId.get(q.id) || [];
+        // Filter submissions strictly for this post instance (in case reused)
         const relevantSubs = subs.filter(s => s.postId === q.postId);
         return { ...q, attemptsTaken: relevantSubs.length };
       });
@@ -456,11 +544,12 @@ const StudentDashboard = () => {
     }
   }, [authLoading, userProfile?.id, fetchPosts]); 
 
+  // Keep ref up to date
   useEffect(() => {
     fetchContentRef.current = fetchContent;
   }, [fetchContent]);
 
-  // Initial content load
+  // --- INITIAL CONTENT LOAD ---
   useEffect(() => {
     if (!authLoading && !isFetchingClasses) {
       if (isFirstContentLoad.current) {
@@ -470,41 +559,53 @@ const StudentDashboard = () => {
     }
   }, [authLoading, isFetchingClasses, myClasses, fetchContent]);
 
-  // --- LOUNGE: Initial fetch trigger ---
+  // --- INITIAL LOUNGE LOAD ---
   useEffect(() => {
     if (view === 'lounge' && !hasLoungeFetched && userProfile?.id) {
         fetchLoungePosts();
     }
   }, [view, hasLoungeFetched, userProfile?.id, fetchLoungePosts]);
 
-  // Real-time listener for class content
+  // --- DEBOUNCED REAL-TIME LISTENERS ---
   useEffect(() => {
     if (authLoading || !userProfile?.id || myClasses.length === 0 || isFirstContentLoad.current) {
       return;
     }
-    const shouldAutoSync = view === 'lessons' || view === 'quizzes' || view === 'classes' || view === 'lounge';
-    if (!shouldAutoSync) {
-        return;
-    }
+    
+    const shouldAutoSync = ['lessons', 'quizzes', 'classes', 'lounge'].includes(view);
+    if (!shouldAutoSync) return;
+
+    // Debounced refresh to prevent "stutter" if 5 classes update at once
+    const debouncedRefresh = debounce(() => {
+      if (fetchContentRef.current) fetchContentRef.current(true);
+    }, 1000); 
+
     const listeners = myClasses.map(c => {
       const postsQuery = query(collection(db, `classes/${c.id}/posts`));
+      
       const unsubscribe = onSnapshot(postsQuery, (snapshot) => {
-        fetchContentRef.current(true); 
+        // Only trigger if changes actually happened (avoid metadata changes)
+        if (!snapshot.metadata.hasPendingWrites) {
+            debouncedRefresh();
+        }
       }, (error) => {
         console.error(`Listener error for class ${c.id}:`, error);
       });
       return unsubscribe;
     });
+
     return () => {
       listeners.forEach(unsubscribe => unsubscribe());
     };
-  }, [authLoading, userProfile?.id, myClasses, isFirstContentLoad, view]); 
+  }, [authLoading, userProfile?.id, myClasses, view]); 
   
-  // Check for new content
+  // --- NOTIFICATION DOTS CALCULATOR ---
   useEffect(() => {
     if (!userProfile || (lessons.length === 0 && allQuizzes.length === 0)) {
       return;
     }
+
+    // Process Lessons
     if (lessons.length > 0) {
       let userLessonSeen = null;
       if (userProfile.lessonsLastSeen) {
@@ -513,15 +614,16 @@ const StudentDashboard = () => {
             : userProfile.lessonsLastSeen;
       }
       const maxLessonDate = lessons.reduce((maxDate, lesson) => {
-        const lessonDate = lesson.createdAt?.toDate();
+        const lessonDate = lesson.createdAt?.toDate ? lesson.createdAt.toDate() : new Date(0);
         return lessonDate > maxDate ? lessonDate : maxDate;
       }, new Date(0));
+
       if (!userLessonSeen || maxLessonDate > userLessonSeen) {
-        if (view !== 'lessons') {
-          setHasNewLessons(true);
-        }
+        if (view !== 'lessons') setHasNewLessons(true);
       }
     }
+
+    // Process Quizzes
     if (allQuizzes.length > 0) {
       let userQuizSeen = null;
       if (userProfile.quizzesLastSeen) {
@@ -530,22 +632,22 @@ const StudentDashboard = () => {
             : userProfile.quizzesLastSeen;
       }
       const maxQuizDate = allQuizzes.reduce((maxDate, quiz) => {
-        const quizDate = quiz.postCreatedAt?.toDate();
+        const quizDate = quiz.postCreatedAt?.toDate ? quiz.postCreatedAt.toDate() : new Date(0);
         return quizDate > maxDate ? quizDate : maxDate;
       }, new Date(0));
+
       if (!userQuizSeen || maxQuizDate > userQuizSeen) {
-        if (view !== 'quizzes') {
-          setHasNewQuizzes(true);
-        }
+        if (view !== 'quizzes') setHasNewQuizzes(true);
       }
     }
   }, [lessons, allQuizzes, userProfile, view]); 
 
-  // Categorize quizzes
+  // --- QUIZ CATEGORIZATION ---
   useEffect(() => {
     const categorizeQuizzes = () => {
       const now = new Date();
       const categorized = { active: [], completed: [], overdue: [] };
+      
       allQuizzes.forEach(quizItem => {
         const maxAttempts = quizItem.settings?.maxAttempts ?? 3;
         const isExam = maxAttempts === 1;
@@ -560,10 +662,7 @@ const StudentDashboard = () => {
 
         if (isCompleted) {
           categorized.completed.push({ ...quizItem, status: 'completed', isExam });
-          return;
-        }
-        
-        if (isOverdue) {
+        } else if (isOverdue) {
           categorized.overdue.push({ ...quizItem, status: 'overdue', isExam });
         } else if (isScheduled) {
           categorized.active.push({ ...quizItem, status: 'scheduled', isExam });
@@ -573,13 +672,13 @@ const StudentDashboard = () => {
       });
       setQuizzes(categorized);
     };
+
     categorizeQuizzes();
-    const intervalId = setInterval(categorizeQuizzes, 30000);
+    const intervalId = setInterval(categorizeQuizzes, 30000); // Check every 30s
     return () => clearInterval(intervalId);
   }, [allQuizzes]);
 
-  // --- CALCULATE UP NEXT TASK ---
-  // Calculates the single most important item for the student to see in the Hero section
+  // --- UP NEXT TASK (MEMOIZED) ---
   const upNextTask = useMemo(() => {
       // 1. Priority: Overdue Quizzes
       if (quizzes.overdue && quizzes.overdue.length > 0) {
@@ -613,12 +712,12 @@ const StudentDashboard = () => {
              };
          }
          
-         // 3. Fallback: Any Active Quiz (No deadline)
+         // 3. Fallback: Any Active Quiz
          const anyNext = quizzes.active[0];
          return {
              type: 'quiz',
              title: anyNext.title || anyNext.postTitle,
-             dueDate: new Date(), // Now
+             dueDate: new Date(), 
              id: anyNext.id
          };
       }
@@ -649,20 +748,23 @@ const StudentDashboard = () => {
       return null;
   }, [quizzes, lessons, userProfile]);
 
-  // Quiz click handler
+  // --- INTERACTION HANDLERS ---
   const handleTakeQuizClick = useCallback(async (quiz) => {
     if (!quiz.postId || !quiz.classId) {
       showToastRef.current("Error: Missing quiz information.", "error"); 
       return;
     }
     try {
+      // Fetch fresh settings to prevent cheating or stale configs
       const postRef = doc(db, `classes/${quiz.classId}/posts`, quiz.postId);
       const postSnap = await getDoc(postRef);
+      
       if (!postSnap.exists()) {
         showToastRef.current("Error: This quiz is no longer available.", "error"); 
         fetchContent(false);
         return;
       }
+      
       const postData = postSnap.data();
       const quizWithFreshSettings = {
         ...quiz, 
@@ -673,11 +775,10 @@ const StudentDashboard = () => {
       setQuizToTake(quizWithFreshSettings);
     } catch (err) {
       console.error("Error fetching fresh quiz settings:", err);
-      showToastRef.current("Could not load quiz. Please check your connection and try again.", "error"); 
+      showToastRef.current("Could not load quiz. Please check your connection.", "error"); 
     }
   }, [fetchContent]);
 
-  // Modal handlers
   const handleQuizClose = useCallback(() => {
     setQuizToTake(null);
   }, []); 
@@ -687,14 +788,15 @@ const StudentDashboard = () => {
     setQuizToTake(null);
   }, [fetchContent]);
 
-  // Lesson completion handler
   const handleLessonComplete = useCallback(async (progress) => {
     if (!progress?.isFinished || !userProfile?.id || !progress?.lessonId) return;
+    
     const completedLessons = userProfile.completedLessons || [];
     if (completedLessons.includes(progress.lessonId)) {
       showToastRef.current('Lesson already completed.', 'info'); 
       return;
     }
+    
     try {
       await handleGamificationUpdate({
           xpGained: XP_FOR_LESSON,
@@ -705,22 +807,26 @@ const StudentDashboard = () => {
           totalPoints: 0,
           attemptsTaken: 0 
       });
+
       const userRef = doc(db, 'users', userProfile.id);
       await updateDoc(userRef, {
           completedLessons: arrayUnion(progress.lessonId)
       });
+      
       setUserProfile(prev => prev ? ({
           ...prev,
           completedLessons: [...(prev.completedLessons || []), progress.lessonId]
       }) : prev);
+      
       showToastRef.current(`Lesson finished! You earned ${XP_FOR_LESSON} XP!`, 'success'); 
     } catch (err) {
       console.error('Error awarding lesson XP:', err);
       showToastRef.current('An error occurred while saving your progress.', 'error'); 
     }
-  }, [userProfile, refreshUserProfile, handleGamificationUpdate]);
+  }, [userProfile, refreshUserProfile, handleGamificationUpdate, setUserProfile]);
 
 
+  // --- MAIN RENDER ---
   if (authLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-neumorphic-base dark:bg-neumorphic-base-dark">
@@ -733,7 +839,6 @@ const StudentDashboard = () => {
     return <PublicProfilePage />;
   }
 
-  // --- RENDER ---
   return (
     <>
       <StudentDashboardUI
@@ -756,11 +861,8 @@ const StudentDashboard = () => {
 		    fetchContent={() => fetchContent(false)} 
         hasNewLessons={hasNewLessons}
         hasNewQuizzes={hasNewQuizzes}
-        
-        // --- UP NEXT LOGIC PASSED HERE ---
         upNextTask={upNextTask}
-
-        // --- LOUNGE PROPS ---
+        // Lounge props
         isLoungeLoading={isLoungeLoading}
         loungePosts={loungePosts}
         loungeUsersMap={loungeUsersMap}

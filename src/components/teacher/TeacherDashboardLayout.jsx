@@ -1,9 +1,10 @@
 // src/components/teacher/TeacherDashboardLayout.jsx
-import React, { useState, Suspense, lazy, Fragment, useEffect, useRef, useLayoutEffect, useMemo, useCallback, memo } from 'react';
+import React, { useState, Suspense, lazy, Fragment, useEffect, useRef, useMemo, useCallback, memo } from 'react';
 import { CSSTransition } from 'react-transition-group'; 
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { Menu, Transition } from '@headlessui/react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { NavLink } from 'react-router-dom';
 
 // --- ICONS (Lucide React) ---
 import { 
@@ -11,8 +12,6 @@ import {
     BarChart2, Rocket, Menu as MenuIcon, X, LayoutGrid, Palette, 
     LogOut, Power, ChevronDown, Sparkles
 } from 'lucide-react';
-
-import { NavLink } from 'react-router-dom';
 
 // FIREBASE & SERVICES
 import { getDocs, writeBatch, doc, where, query, collection, updateDoc } from 'firebase/firestore';
@@ -54,13 +53,13 @@ const AddLessonModal = lazy(() => import('./AddLessonModal'));
 const AddQuizModal = lazy(() => import('./AddQuizModal'));
 const DeleteUnitModal = lazy(() => import('./DeleteUnitModal'));
 const EditLessonModal = lazy(() => import('./EditLessonModal'));
-const ViewLessonModal = lazy(() => import('./ViewLessonModal'));
 const ShareMultipleLessonsModal = lazy(() => import('./ShareMultipleLessonsModal'));
 const DeleteConfirmationModal = lazy(() => import('./DeleteConfirmationModal'));
 const EditSubjectModal = lazy(() => import('./EditSubjectModal'));
 const DeleteSubjectModal = lazy(() => import('./DeleteSubjectModal'));
+// Added missing lazy load for AddQuizModal/EditLessonModal if needed or ensure they are imported correctly above
 
-// 将 SCHOOL BRANDING CONFIGURATION (Static)
+// SCHOOL BRANDING CONFIGURATION (Static)
 const SCHOOL_BRANDING = {
     'srcs_main': { name: 'SRCS LMS', logo: '/logo.png' },
     'hras_sipalay': { name: 'HRA LMS', logo: '/logos/hra.png' },
@@ -72,7 +71,7 @@ const SCHOOL_BRANDING = {
 
 const getSchoolBranding = (schoolId) => SCHOOL_BRANDING[schoolId] || SCHOOL_BRANDING['srcs_main'];
 
-// --- CUSTOM CSS (Static) ---
+// --- CUSTOM CSS (Static String) ---
 const macOsStyles = `
   ::-webkit-scrollbar { width: 0px; height: 0px; }
   .mac-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
@@ -107,7 +106,7 @@ const macOsStyles = `
   }
 `;
 
-// --- SKELETAL LOADING STATE (Memoized) ---
+// --- SKELETAL LOADING STATE ---
 const DashboardSkeleton = memo(() => (
     <div className="w-full h-full p-6 space-y-8 animate-pulse">
         <div className="w-full h-48 bg-slate-200 dark:bg-slate-800 rounded-[2.5rem]"></div>
@@ -125,7 +124,7 @@ const DashboardSkeleton = memo(() => (
     </div>
 ));
 
-// --- ONE UI 8.5 COMPONENTS (Memoized) ---
+// --- THEME DROPDOWN ---
 const ThemeDropdown = memo(({ size = 'desktop', showTutorial = false, onTutorialComplete }) => {
   const buttonSize = size === 'desktop' ? 'w-12 h-12' : 'w-10 h-10';
   const iconSize = size === 'desktop' ? 22 : 20;
@@ -162,7 +161,7 @@ const ThemeDropdown = memo(({ size = 'desktop', showTutorial = false, onTutorial
 
         <Transition
           as={Fragment}
-          enter="transition ease-out duration-300 cubic-bezier(0.2, 0.8, 0.2, 1)"
+          enter="transition ease-out duration-300"
           enterFrom="transform opacity-0 scale-90 translate-y-2"
           enterTo="transform opacity-100 scale-100 translate-y-0"
           leave="transition ease-in duration-200"
@@ -183,6 +182,7 @@ const ThemeDropdown = memo(({ size = 'desktop', showTutorial = false, onTutorial
   );
 });
 
+// --- PROFILE DROPDOWN ---
 const ProfileDropdown = memo(({ userProfile, onLogout, size = 'desktop' }) => {
   const buttonSize = size === 'desktop' ? 'w-12 h-12' : 'w-10 h-10';
   const avatarSize = size === 'desktop' ? 'full' : 'sm';
@@ -201,7 +201,7 @@ const ProfileDropdown = memo(({ userProfile, onLogout, size = 'desktop' }) => {
 
       <Transition
         as={Fragment}
-        enter="transition ease-out duration-300 cubic-bezier(0.2, 0.8, 0.2, 1)"
+        enter="transition ease-out duration-300"
         enterFrom="transform opacity-0 scale-90 translate-y-2"
         enterTo="transform opacity-100 scale-100 translate-y-0"
         leave="transition ease-in duration-200"
@@ -268,7 +268,7 @@ const ProfileDropdown = memo(({ userProfile, onLogout, size = 'desktop' }) => {
   );
 });
 
-// --- ONE UI 8.5 DESKTOP HEADER (Optimized) ---
+// --- DESKTOP HEADER (Optimized) ---
 const DesktopHeader = memo(({ userProfile, onLogout, showTutorial, onTutorialComplete }) => {
     const { monetTheme } = useTheme();
     const branding = useMemo(() => getSchoolBranding(userProfile?.schoolId), [userProfile?.schoolId]);
@@ -295,7 +295,7 @@ const DesktopHeader = memo(({ userProfile, onLogout, showTutorial, onTutorialCom
             style={monetTheme.glassStyle}
             className="mx-auto max-w-[1920px] rounded-[32px] px-6 py-4 flex items-center justify-between relative w-full z-50 transition-all duration-500 bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-3xl shadow-[0_8px_32px_0_rgba(0,0,0,0.05)] border border-white/40 dark:border-white/5"
         >
-            <div className="flex items-center gap-5 flex-shrink-0 z-20">
+            <div className="flex items-center gap-4 flex-shrink-0 z-20">
                 <div className="w-12 h-12 rounded-[18px] bg-gradient-to-br from-white to-slate-50 dark:from-[#2C2C2E] dark:to-[#1C1C1E] shadow-sm flex items-center justify-center border border-white/50 dark:border-white/10 ring-1 ring-black/5 dark:ring-white/5">
                     <img src={branding.logo} alt="Logo" className="w-7 h-7 object-contain drop-shadow-sm" />
                 </div>
@@ -310,7 +310,7 @@ const DesktopHeader = memo(({ userProfile, onLogout, showTutorial, onTutorialCom
             </div>
 
             <nav className="hidden lg:flex items-center justify-center absolute left-1/2 -translate-x-1/2 z-10">
-                <div className="flex items-center gap-1.5 p-1.5 bg-slate-100/50 dark:bg-black/20 rounded-[24px] border border-white/20 dark:border-white/5 backdrop-blur-md shadow-inner">
+                <div className="flex items-center gap-1.3 p-1.5 bg-slate-100/50 dark:bg-black/20 rounded-[24px] border border-white/20 dark:border-white/5 backdrop-blur-md shadow-inner">
                     {navItems.map((item) => {
                         return (
                             <NavLink
@@ -357,12 +357,12 @@ const DesktopHeader = memo(({ userProfile, onLogout, showTutorial, onTutorialCom
     );
 });
 
-// Main Layout Component
+// --- MAIN LAYOUT COMPONENT ---
 const TeacherDashboardLayout = (props) => {
     const {
         user, userProfile, loading, authLoading, error, activeView, handleViewChange, logout,
         isAiGenerating, setIsAiGenerating, isChatOpen, setIsChatOpen, messages, isAiThinking, handleAskAiWrapper, isAiHubOpen, setIsAiHubOpen,
-        activeSubject, activeUnit, onSetActiveUnit, setViewLessonModalOpen, reloadKey, isDeleteModalOpen, setIsDeleteModalOpen, handleConfirmDelete, deleteTarget, handleInitiateDelete, handleCreateUnit, courses, activeClasses, handleUpdateClass, isLoungeLoading, loungePosts, loungeUsersMap, fetchLoungePosts, loungePostUtils,
+        activeSubject, activeUnit, onSetActiveUnit, reloadKey, isDeleteModalOpen, setIsDeleteModalOpen, handleConfirmDelete, deleteTarget, handleInitiateDelete, handleCreateUnit, courses, activeClasses, handleUpdateClass, isLoungeLoading, loungePosts, loungeUsersMap, fetchLoungePosts, loungePostUtils,
         ...rest
     } = props;
 
@@ -376,17 +376,11 @@ const TeacherDashboardLayout = (props) => {
     const [showAmbienceTutorial, setShowAmbienceTutorial] = useState(false);
     const robotRef = useRef(null);
     
-    // Inject Custom CSS Safely
-    useLayoutEffect(() => {
-        const styleId = 'teacher-dashboard-styles';
-        if (!document.getElementById(styleId)) {
-            const style = document.createElement('style');
-            style.id = styleId;
-            style.innerHTML = macOsStyles;
-            document.head.appendChild(style);
-        }
-    }, []);
+    // THEME & BRANDING
+    const { monetTheme } = useTheme(); 
+    const branding = useMemo(() => getSchoolBranding(userProfile?.schoolId), [userProfile?.schoolId]);
 
+    // CHECK TUTORIAL STATUS
     useEffect(() => {
         if (activeView === 'home' && !loading) {
             const hasSeenTutorial = localStorage.getItem('hasSeenAmbienceTutorial');
@@ -397,7 +391,7 @@ const TeacherDashboardLayout = (props) => {
         } else { setShowAmbienceTutorial(false); }
     }, [activeView, loading]);
 
-    // HANDLERS (Memoized)
+    // MEMOIZED HANDLERS
     const handleTutorialComplete = useCallback(() => {
         setShowAmbienceTutorial(false);
         localStorage.setItem('hasSeenAmbienceTutorial', 'true');
@@ -411,10 +405,6 @@ const TeacherDashboardLayout = (props) => {
     const handleCloseAiHub = useCallback(() => setIsAiHubOpen(false), [setIsAiHubOpen]);
     const handleClosePasswordModal = useCallback(() => setChangePasswordModalOpen(false), []);
     
-    // --- MONET ENGINE INTEGRATION ---
-    const { monetTheme } = useTheme(); 
-    const branding = useMemo(() => getSchoolBranding(userProfile?.schoolId), [userProfile?.schoolId]);
-
     const handleRenameCategory = useCallback(async (newName) => {
         const oldName = categoryToEdit?.name;
         if (!oldName || !newName || oldName === newName) { setIsEditCategoryModalOpen(false); return; }
@@ -443,7 +433,6 @@ const TeacherDashboardLayout = (props) => {
         rest.setCreateCourseModalOpen(true); 
     }, [rest.setCreateCourseModalOpen]);
 
-    // MEMOIZED NAV CONFIGS (Prevents re-renders)
     const bottomNavItems = useMemo(() => [
         { view: 'home', text: 'Home', icon: Home },
         { view: 'classes', text: 'Classes', icon: GraduationCap },
@@ -502,6 +491,9 @@ const TeacherDashboardLayout = (props) => {
             className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 font-sans antialiased text-slate-900 dark:text-slate-100 pb-24 lg:pb-0 relative overflow-hidden"
             style={monetTheme.variables}
         >
+            {/* OPTIMIZATION: Inject styles via standard style tag instead of useLayoutEffect */}
+            <style>{macOsStyles}</style>
+
             <UniversalBackground />
             
             {/* MOBILE HEADER (Monet) */}
@@ -531,7 +523,7 @@ const TeacherDashboardLayout = (props) => {
             </div>
 
             {/* DESKTOP HEADER */}
-            <div className="hidden lg:block fixed top-0 left-0 right-0 z-[50] px-4 md:px-6 lg:px-8 pt-1 pb-2 w-full max-w-[1920px] mx-auto transition-all duration-300">
+            <div className="hidden lg:block fixed top-0 left-0 right-0 z-[50] px-4 md:px-6 lg:px-7 pt-1 pb-2 w-full max-w-[1920px] mx-auto transition-all duration-300">
                 <DesktopHeader 
                     userProfile={userProfile} 
                     onLogout={handleLogoutClick} 
@@ -612,6 +604,7 @@ const TeacherDashboardLayout = (props) => {
                 )}
             </AnimatePresence>
 
+            {/* OPTIMIZATION: Consolidated Suspense Block for ALL Modals */}
             <Suspense fallback={null}>
                 <CSSTransition 
                     in={!isChatOpen && activeView === 'home'} 

@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback, memo } from 'react';
 import { db } from '../../services/firebase'; 
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'; 
 import {
   PlusCircleIcon, TrashIcon, ArrowUturnLeftIcon, DocumentTextIcon, PhotoIcon, CalculatorIcon, CheckIcon,
   ComputerDesktopIcon, EyeIcon, ListBulletIcon, QueueListIcon, ChatBubbleLeftRightIcon, PaintBrushIcon,
-  CodeBracketIcon, LinkIcon, CursorArrowRaysIcon, ArrowPathIcon, XMarkIcon, ExclamationTriangleIcon
+  CursorArrowRaysIcon, ArrowPathIcon, XMarkIcon, ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 
 import ContentRenderer from './ContentRenderer'; 
@@ -27,12 +27,10 @@ const MATH_SYMBOLS = [
 const uniqueId = () => `id_${Math.random().toString(36).substr(2, 9)}`;
 
 // --- VISUAL NUMBERING HELPER ---
-// Ensures that questions with multiple points (Essay/Matching) consume multiple question numbers visually.
 const getQuestionDisplayLabel = (index, allQuestions) => {
     let count = 0;
     for (let i = 0; i < index; i++) {
         const q = allQuestions[i];
-        // If Matching or Essay, consume N numbers based on Points. Else 1.
         if (q.type === 'matching-type' || q.type === 'essay') {
             count += (q.points || 1); 
         } else {
@@ -41,7 +39,6 @@ const getQuestionDisplayLabel = (index, allQuestions) => {
     }
     
     const currentQ = allQuestions[index];
-    // Calculate span for current item
     const currentLength = (currentQ.type === 'matching-type' || currentQ.type === 'essay') 
         ? (currentQ.points || 1) 
         : 1;
@@ -49,8 +46,7 @@ const getQuestionDisplayLabel = (index, allQuestions) => {
     const start = count + 1;
     const end = count + currentLength;
     
-    // If it spans multiple numbers, show range
-    if (currentLength > 1) return `Qs ${start}-${end}`;
+    if (currentLength > 1) return `Qs ${start}-${end - 1}`;
     return `Question ${start}`;
 };
 
@@ -101,7 +97,6 @@ const compressImage = (file) => {
 };
 
 const uploadImageToCloudinary = async (file) => {
-    // NOTE: In production, do not hardcode these. Use Environment Variables.
     const CLOUDINARY_CLOUD_NAME = "de2uhc6gl"; 
     const CLOUDINARY_UPLOAD_PRESET = "teacher_posts"; 
 
@@ -121,8 +116,8 @@ const uploadImageToCloudinary = async (file) => {
     return data.secure_url;
 };
 
-// --- MARKDOWN EDITOR COMPONENT (OneUI Style) ---
-const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here...", minHeight = "120px" }) => {
+// --- MARKDOWN EDITOR COMPONENT (Memoized) ---
+const MarkdownEditor = memo(({ value, onValueChange, placeholder = "Type content here...", minHeight = "120px" }) => {
     const textareaRef = useRef(null);
     const [showColorPicker, setShowColorPicker] = useState(false);
     const [showSymbolPicker, setShowSymbolPicker] = useState(false);
@@ -133,16 +128,16 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
         { name: 'Purple', hex: '#AF52DE' }, { name: 'Black', hex: '#1d1d1f' },
     ];
 
-    const adjustHeight = () => {
+    const adjustHeight = useCallback(() => {
         const ta = textareaRef.current;
         if (!ta) return;
         ta.style.height = 'auto';
         ta.style.height = `${ta.scrollHeight}px`;
-    };
+    }, []);
 
-    useEffect(() => { adjustHeight(); }, [value]);
+    useEffect(() => { adjustHeight(); }, [value, adjustHeight]);
 
-    const insertText = (textToInsert, cursorOffset = 0) => {
+    const insertText = useCallback((textToInsert, cursorOffset = 0) => {
         const ta = textareaRef.current;
         if (!ta) return;
         const start = ta.selectionStart;
@@ -158,9 +153,9 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
             ta.selectionStart = ta.selectionEnd = start + textToInsert.length + cursorOffset;
         }, 0);
         setShowSymbolPicker(false);
-    };
+    }, [onValueChange, adjustHeight]);
 
-    const applyStyle = (startTag, endTag = '') => {
+    const applyStyle = useCallback((startTag, endTag = '') => {
         const ta = textareaRef.current;
         if (!ta) return;
         const start = ta.selectionStart;
@@ -169,12 +164,12 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
         const selectedText = text.substring(start, end);
         const newText = `${text.substring(0, start)}${startTag}${selectedText}${endTag}${text.substring(end)}`;
         onValueChange && onValueChange(newText);
-    };
+    }, [onValueChange]);
 
-    const applyColor = (hex) => {
+    const applyColor = useCallback((hex) => {
         applyStyle(`<span style="color: ${hex};">`, `</span>`);
         setShowColorPicker(false);
-    };
+    }, [applyStyle]);
 
     const ToolbarButton = ({ icon: Icon, text, tooltip, onClick }) => (
         <button
@@ -189,14 +184,11 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
 
     return (
         <div className="flex flex-col w-full border border-black/5 dark:border-white/10 rounded-[18px] bg-white dark:bg-[#252525] overflow-visible focus-within:ring-2 focus-within:ring-[#007AFF]/50 transition-all shadow-sm">
-            {/* Mini Toolbar */}
             <div className="flex items-center flex-wrap gap-1 p-2 border-b border-black/5 dark:border-white/5 bg-slate-50/50 dark:bg-white/5 rounded-t-[18px]">
                 <ToolbarButton icon={BoldIcon} tooltip="Bold" onClick={() => applyStyle('**', '**')} />
                 <ToolbarButton icon={ItalicIcon} tooltip="Italic" onClick={() => applyStyle('*', '*')} />
                 <ToolbarButton icon={UnderlineIcon} tooltip="Underline" onClick={() => applyStyle('<u>', '</u>')} />
-                
                 <div className="w-px h-4 bg-black/10 dark:bg-white/10 mx-2"></div>
-                
                 <ToolbarButton text="½" tooltip="Fraction" onClick={() => insertText('$\\frac{a}{b}$', -1)} />
                 <ToolbarButton text="x²" tooltip="Exponent" onClick={() => insertText('$x^{2}$', -1)} />
                 
@@ -234,7 +226,237 @@ const MarkdownEditor = ({ value, onValueChange, placeholder = "Type content here
             />
         </div>
     );
-};
+});
+
+// --- IMAGE PIN CANVAS (OPTIMIZED DRAG STATE) ---
+const ImagePinCanvas = memo(({ image, parts, onPartsChange }) => {
+    const imageRef = useRef(null);
+    const [draggingId, setDraggingId] = useState(null);
+    // Local state to prevent global re-renders
+    const [localParts, setLocalParts] = useState(parts);
+
+    // Sync local state when prop changes, but NOT while dragging
+    useEffect(() => {
+        if (!draggingId) {
+            setLocalParts(parts);
+        }
+    }, [parts, draggingId]);
+
+    const handleMouseDown = (e, partId) => {
+        e.stopPropagation();
+        setDraggingId(partId);
+    };
+
+    const handleMouseMove = useCallback((e) => {
+        if (!draggingId || !imageRef.current) return;
+        
+        const rect = imageRef.current.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width) * 100;
+        const y = ((e.clientY - rect.top) / rect.height) * 100;
+
+        setLocalParts(prev => prev.map(p => 
+            p.id === draggingId 
+                ? { ...p, x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) } 
+                : p
+        ));
+    }, [draggingId]);
+
+    const handleMouseUp = useCallback(() => {
+        if (draggingId) {
+            // Commit changes to parent
+            onPartsChange(localParts);
+            setDraggingId(null);
+        }
+    }, [draggingId, localParts, onPartsChange]);
+
+    const handleImageClick = (e) => {
+        if (draggingId || !imageRef.current) return;
+
+        const rect = imageRef.current.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width) * 100;
+        const y = ((e.clientY - rect.top) / rect.height) * 100;
+        
+        const newPart = {
+            id: uniqueId(),
+            number: parts.length + 1,
+            correctAnswer: '',
+            x: Math.max(0, Math.min(100, x)),
+            y: Math.max(0, Math.min(100, y))
+        };
+        onPartsChange([...parts, newPart]);
+    };
+
+    useEffect(() => {
+        if (draggingId) {
+            window.addEventListener('mousemove', handleMouseMove);
+            window.addEventListener('mouseup', handleMouseUp);
+        }
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [draggingId, handleMouseMove, handleMouseUp]);
+
+    return (
+        <div className="relative rounded-[20px] overflow-hidden border border-black/5 dark:border-white/10 bg-slate-100 group select-none shadow-inner">
+            <img 
+                ref={imageRef} 
+                src={image} 
+                className="w-full h-auto cursor-crosshair" 
+                onClick={handleImageClick} 
+                alt="diagram" 
+            />
+            {localParts.map((p) => (
+                <div 
+                    key={p.id} 
+                    onMouseDown={(e) => handleMouseDown(e, p.id)} 
+                    className={`absolute w-9 h-9 bg-[#007AFF] text-white rounded-full flex items-center justify-center text-sm font-bold border-[3px] border-white shadow-xl cursor-move hover:scale-110 transition-transform z-10 ${draggingId === p.id ? 'scale-110 z-20' : ''}`} 
+                    style={{ left: `${p.x}%`, top: `${p.y}%`, transform: 'translate(-50%, -50%)' }}
+                >
+                    {p.number}
+                </div>
+            ))}
+            <div className="absolute top-4 right-4 bg-black/60 text-white text-[11px] px-3 py-2 rounded-[12px] backdrop-blur-xl font-bold pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 shadow-lg">
+                <CursorArrowRaysIcon className="w-3 h-3"/> Click to label • Drag to move
+            </div>
+        </div>
+    );
+});
+
+// --- PREVIEW COMPONENT (Memoized) ---
+const PreviewCard = memo(({ question, index, displayLabel }) => {
+    if (!question) return <div className="flex flex-col items-center justify-center h-full text-slate-400 p-10"><DocumentTextIcon className="w-12 h-12 mb-3 opacity-30"/><span className="font-bold text-sm">Select a question to preview</span></div>;
+
+    const inputClass = "w-full bg-slate-50 dark:bg-[#2c2c2e] border border-black/5 dark:border-white/10 rounded-[16px] px-4 py-3 text-[15px] font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-[#007AFF]/20 focus:border-[#007AFF] outline-none transition-all shadow-sm";
+
+    return (
+        <div className="bg-white dark:bg-[#1c1c1e] border border-black/5 dark:border-white/5 rounded-[28px] shadow-lg p-8 space-y-6 h-full overflow-y-auto custom-scrollbar">
+            {/* Header */}
+            <div className="flex justify-between items-start border-b border-black/5 dark:border-white/5 pb-5">
+                <div className="flex-1 mr-6">
+                    <h4 className="text-[11px] font-bold uppercase text-slate-400 tracking-widest mb-2.5">{displayLabel}</h4>
+                    <div className="prose prose-sm dark:prose-invert leading-relaxed text-slate-900 dark:text-white font-medium text-[15px]">
+                        <ContentRenderer text={question.text || 'Question Prompt...'} />
+                    </div>
+                </div>
+                <span className="bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 text-[11px] font-bold px-3 py-1.5 rounded-[10px] whitespace-nowrap shadow-sm">
+                    {question.points} pts
+                </span>
+            </div>
+
+            {/* Content Body - COMPACT MODE */}
+            <div className="space-y-4">
+                {question.type === 'multiple-choice' && (
+                    <div className="space-y-2.5">
+                        {question.options.map((opt, i) => (
+                            <div key={i} className={`flex items-start gap-3 py-3 px-4 rounded-[14px] border transition-all ${question.correctAnswerIndex === i ? 'border-green-500 bg-green-50 dark:bg-green-900/10 shadow-sm' : 'border-black/5 dark:border-white/10 bg-slate-50 dark:bg-white/5'}`}>
+                                <div className={`w-5 h-5 mt-0.5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${question.correctAnswerIndex === i ? 'border-green-500 bg-green-500' : 'border-slate-300 dark:border-slate-600'}`}>
+                                    {question.correctAnswerIndex === i && <div className="w-2 h-2 bg-white rounded-full" />}
+                                </div>
+                                <div className="text-[14px] text-slate-700 dark:text-slate-200 leading-snug font-medium"><ContentRenderer text={opt || `Option ${i+1}`} /></div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                
+                {question.type === 'true-false' && (
+                    <div className="flex gap-3">
+                        {['True', 'False'].map(val => (
+                            <div key={val} className={`flex-1 py-3 text-center rounded-[14px] font-bold text-[14px] border transition-all ${question.correctAnswer === (val === 'True') ? 'bg-green-500 text-white border-green-500 shadow-md shadow-green-500/20' : 'bg-slate-50 dark:bg-white/5 border-black/5 dark:border-white/10 text-slate-500'}`}>
+                                {val}
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {question.type === 'identification' && (
+                    <div>
+                        <input disabled placeholder="Student types answer here..." className={`${inputClass} text-sm py-3`} />
+                        <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/10 rounded-[14px] border border-green-200 dark:border-green-900/30 flex items-center gap-2">
+                            <span className="text-[10px] text-green-700 dark:text-green-400 font-bold uppercase tracking-wide">Answer:</span>
+                            <span className="text-sm font-bold text-slate-900 dark:text-white">{question.correctAnswer || 'Not set'}</span>
+                        </div>
+                    </div>
+                )}
+
+                {question.type === 'matching-type' && (
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="space-y-2">
+                             <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wide">Column A</p>
+                             {question.prompts.map((p,i) => (
+                                 <div key={i} className="p-3 bg-slate-50 dark:bg-white/5 rounded-[12px] border border-black/5 dark:border-white/5 text-slate-700 dark:text-slate-200 text-xs shadow-sm flex gap-2">
+                                     <span className="font-bold opacity-50">{i+1}.</span> <ContentRenderer text={p.text} />
+                                 </div>
+                             ))}
+                        </div>
+                        <div className="space-y-2">
+                             <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wide">Column B</p>
+                             {question.options.map((o,i) => (
+                                 <div key={i} className="p-3 bg-slate-50 dark:bg-white/5 rounded-[12px] border border-black/5 dark:border-white/5 text-slate-700 dark:text-slate-200 text-xs shadow-sm flex gap-2">
+                                     <span className="font-bold opacity-50">{String.fromCharCode(65+i)}.</span> <ContentRenderer text={o.text} />
+                                 </div>
+                             ))}
+                        </div>
+                    </div>
+                )}
+
+                {question.type === 'essay' && (
+                    <div className="space-y-3">
+                        <textarea disabled className={`${inputClass} min-h-[100px] resize-none bg-slate-50 text-sm`} placeholder="Student response area..." />
+                        <div className="bg-slate-50 dark:bg-white/5 rounded-[14px] p-3 border border-black/5 dark:border-white/5">
+                            <p className="text-[10px] font-bold uppercase text-slate-400 mb-2 tracking-wide">Grading Rubric</p>
+                            <div className="space-y-1.5">
+                                {question.rubric.map((r, idx) => (
+                                    <div key={idx} className="flex justify-between text-[12px] text-slate-600 dark:text-slate-300 font-medium">
+                                        <span className="truncate pr-2">• <ContentRenderer text={r.criteria} /></span>
+                                        <span className="font-bold flex-shrink-0 bg-white dark:bg-black/20 px-1.5 py-0.5 rounded">{r.points} pts</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {question.type === 'image-labeling' && (
+                    <div className="space-y-3">
+                        {question.image ? (
+                            <div className="relative rounded-[16px] overflow-hidden border border-black/5 dark:border-white/10 bg-slate-100 dark:bg-black/20 shadow-sm">
+                                <img src={question.image} className="w-full h-auto" alt="Quiz" />
+                                {question.parts.map((part) => (
+                                    <div key={part.id} className="absolute w-6 h-6 bg-[#007AFF] text-white rounded-full flex items-center justify-center text-[10px] font-bold border-2 border-white shadow-md" style={{ left: `${part.x}%`, top: `${part.y}%`, transform: 'translate(-50%, -50%)' }}>
+                                        {part.number}
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="h-28 bg-slate-50 rounded-[16px] flex items-center justify-center text-xs text-slate-400 font-bold border-2 border-dashed border-slate-200">No Image Preview</div>
+                        )}
+                        <div className="bg-slate-50 dark:bg-white/5 rounded-[14px] p-3 border border-black/5 dark:border-white/5">
+                            <p className="text-[10px] font-bold uppercase text-slate-400 mb-2 tracking-wide">Answer Key</p>
+                            <div className="flex flex-wrap gap-2">
+                                {question.parts.map((p, idx) => (
+                                    <div key={idx} className="flex items-center gap-2 text-[11px] bg-white dark:bg-black/10 px-2.5 py-1.5 rounded-[10px] border border-black/5 shadow-sm">
+                                        <span className="w-4 h-4 rounded-full bg-[#007AFF] text-white flex items-center justify-center font-bold text-[9px]">{p.number}</span>
+                                        <span className="text-slate-700 dark:text-slate-300 max-w-[120px] truncate font-bold">{p.correctAnswer || '-'}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+            
+            {question.explanation && (
+                <div className="mt-6 p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-[16px] border border-blue-100 dark:border-blue-900/30 backdrop-blur-sm">
+                    <p className="text-[10px] font-bold uppercase text-blue-500 mb-1.5 tracking-wide">Rationale</p>
+                    <div className="text-[12px] text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
+                        <ContentRenderer text={question.explanation} />
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+});
 
 // --- MOBILE RESTRICTION OVERLAY ---
 const MobileRestricted = ({ onClose }) => (
@@ -285,10 +507,6 @@ export default function ManualQuizCreator({ onClose, onBack, unitId, subjectId, 
   const hasInitialData = !!initialData;
   const [selectedQuestionIndex, setSelectedQuestionIndex] = useState(-1);
   const [showCancelModal, setShowCancelModal] = useState(false);
-  
-  // Dragging State
-  const [draggedPin, setDraggedPin] = useState(null); // { pIndex: number }
-  const imageRef = useRef(null);
 
   // Styling Constants (OneUI)
   const inputClass = "w-full bg-slate-50 dark:bg-[#2c2c2e] border border-black/5 dark:border-white/10 rounded-[16px] px-4 py-3 text-[15px] font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-[#007AFF]/20 focus:border-[#007AFF] outline-none transition-all shadow-sm";
@@ -306,12 +524,22 @@ export default function ManualQuizCreator({ onClose, onBack, unitId, subjectId, 
         setSelectedQuestionIndex(populatedQuestions.length > 0 ? 0 : -1);
     } else {
         // Start with one question
-        handleAddQuestion();
+        const initQ = {
+            id: uniqueId(),
+            text: '',
+            type: 'multiple-choice',
+            points: 1,
+            options: ['', '', ''],
+            correctAnswerIndex: 0,
+            explanation: ''
+        };
+        setQuestions([initQ]);
+        setSelectedQuestionIndex(0);
     }
   }, [initialData]);
 
   // --- QUESTION MANAGEMENT ---
-  const handleAddQuestion = () => {
+  const handleAddQuestion = useCallback(() => {
     const newQuestion = {
         id: uniqueId(),
         text: '',
@@ -321,29 +549,33 @@ export default function ManualQuizCreator({ onClose, onBack, unitId, subjectId, 
         correctAnswerIndex: 0,
         explanation: ''
     };
-    const newQuestions = [...questions, newQuestion];
-    setQuestions(newQuestions);
-    setSelectedQuestionIndex(newQuestions.length - 1);
-  };
+    setQuestions(prev => {
+        const newQs = [...prev, newQuestion];
+        setSelectedQuestionIndex(newQs.length - 1);
+        return newQs;
+    });
+  }, []);
 
-  const handleRemoveQuestion = (indexToRemove) => {
-    const newQuestions = questions.filter((_, i) => i !== indexToRemove);
-    setQuestions(newQuestions);
-    if (newQuestions.length === 0) {
-        setSelectedQuestionIndex(-1);
-    } else if (selectedQuestionIndex >= indexToRemove) {
-        setSelectedQuestionIndex(Math.max(0, selectedQuestionIndex - 1));
-    }
-  };
+  const handleRemoveQuestion = useCallback((indexToRemove) => {
+    setQuestions(prev => {
+        const newQuestions = prev.filter((_, i) => i !== indexToRemove);
+        if (newQuestions.length === 0) {
+            setSelectedQuestionIndex(-1);
+        } else if (selectedQuestionIndex >= indexToRemove) {
+            setSelectedQuestionIndex(Math.max(0, selectedQuestionIndex - 1));
+        }
+        return newQuestions;
+    });
+  }, [selectedQuestionIndex]);
 
-  const handleQuestionChange = (index, field, value) => {
-    const newQuestions = [...questions];
-    const oldQuestion = newQuestions[index];
-    let newQuestion = { ...oldQuestion, [field]: value };
-    
-    // Type Switching Logic (Reset defaults)
-    if (field === 'type') {
-        if (value !== oldQuestion.type) {
+  const handleQuestionChange = useCallback((index, field, value) => {
+    setQuestions(prev => {
+        const newQuestions = [...prev];
+        const oldQuestion = newQuestions[index];
+        let newQuestion = { ...oldQuestion, [field]: value };
+        
+        // Type Switching Logic (Reset defaults)
+        if (field === 'type' && value !== oldQuestion.type) {
             newQuestion = { 
                 id: oldQuestion.id, 
                 text: oldQuestion.text, 
@@ -368,22 +600,22 @@ export default function ManualQuizCreator({ onClose, onBack, unitId, subjectId, 
                 default: newQuestion.points = 1; break;
             }
         }
-    }
 
-    // Auto-calc points based on sub-items
-    if (newQuestion.type === 'essay' && field !== 'points') {
-        newQuestion.points = (newQuestion.rubric || []).reduce((sum, r) => sum + (Number(r.points) || 0), 0);
-    }
-    if (newQuestion.type === 'image-labeling' && field !== 'points') {
-        newQuestion.points = (newQuestion.parts || []).length;
-    }
-    if (newQuestion.type === 'matching-type' && field !== 'points') {
-        newQuestion.points = (newQuestion.prompts || []).length;
-    }
+        // Auto-calc points based on sub-items
+        if (newQuestion.type === 'essay' && field !== 'points') {
+            newQuestion.points = (newQuestion.rubric || []).reduce((sum, r) => sum + (Number(r.points) || 0), 0);
+        }
+        if (newQuestion.type === 'image-labeling' && field !== 'points') {
+            newQuestion.points = (newQuestion.parts || []).length;
+        }
+        if (newQuestion.type === 'matching-type' && field !== 'points') {
+            newQuestion.points = (newQuestion.prompts || []).length;
+        }
 
-    newQuestions[index] = newQuestion;
-    setQuestions(newQuestions);
-  };
+        newQuestions[index] = newQuestion;
+        return newQuestions;
+    });
+  }, []);
 
   // --- HANDLERS (Full Logic) ---
 
@@ -400,105 +632,71 @@ export default function ManualQuizCreator({ onClose, onBack, unitId, subjectId, 
       }
   };
 
-  const handleImageClick = (e, qIndex) => {
-      // Don't add pin if we are dragging existing one
-      if (draggedPin !== null || !imageRef.current) return;
-
-      const rect = imageRef.current.getBoundingClientRect();
-      const x = ((e.clientX - rect.left) / rect.width) * 100;
-      const y = ((e.clientY - rect.top) / rect.height) * 100;
-
-      const newQuestions = [...questions];
-      const parts = newQuestions[qIndex].parts || [];
-      parts.push({ 
-          id: uniqueId(), 
-          number: parts.length + 1, 
-          correctAnswer: '',
-          x: Math.max(0, Math.min(100, x)), 
-          y: Math.max(0, Math.min(100, y))
-      });
-      newQuestions[qIndex].parts = parts;
-      newQuestions[qIndex].points = parts.length;
-      setQuestions(newQuestions);
-  };
-
-  const handleMouseMove = (e) => {
-      if (draggedPin === null || !imageRef.current) return;
-      
-      const rect = imageRef.current.getBoundingClientRect();
-      const x = ((e.clientX - rect.left) / rect.width) * 100;
-      const y = ((e.clientY - rect.top) / rect.height) * 100;
-
-      const newQuestions = [...questions];
-      const part = newQuestions[selectedQuestionIndex].parts[draggedPin.pIndex];
-      part.x = Math.max(0, Math.min(100, x));
-      part.y = Math.max(0, Math.min(100, y));
-      setQuestions(newQuestions);
-  };
-
-  useEffect(() => {
-      if (draggedPin !== null) {
-          window.addEventListener('mousemove', handleMouseMove);
-          window.addEventListener('mouseup', () => setDraggedPin(null));
-      }
-      return () => {
-          window.removeEventListener('mousemove', handleMouseMove);
-          window.removeEventListener('mouseup', () => setDraggedPin(null));
-      };
-  }, [draggedPin, questions]);
-
   // 2. Matching Type Handlers
-  const handleMatchingSubItemChange = (qIndex, type, idx, val) => {
-      const newQ = [...questions]; 
-      newQ[qIndex][type][idx].text = val; 
-      setQuestions(newQ);
-  };
+  const handleMatchingSubItemChange = useCallback((qIndex, type, idx, val) => {
+      setQuestions(prev => {
+          const newQ = [...prev]; 
+          newQ[qIndex][type][idx].text = val; 
+          return newQ;
+      });
+  }, []);
   
   const handleAddMatchingItem = (qIndex, type) => {
-      const newQ = [...questions]; 
-      newQ[qIndex][type].push({ id: uniqueId(), text: '' });
-      if(type === 'prompts') newQ[qIndex].points = newQ[qIndex][type].length; 
-      setQuestions(newQ);
+      setQuestions(prev => {
+        const newQ = [...prev]; 
+        newQ[qIndex][type].push({ id: uniqueId(), text: '' });
+        if(type === 'prompts') newQ[qIndex].points = newQ[qIndex][type].length; 
+        return newQ;
+      });
   };
 
   const handleRemoveMatchingItem = (qIndex, type, idx) => {
-      const newQ = [...questions];
-      // If removing a prompt, clean up pairs
-      if(type === 'prompts' && newQ[qIndex].correctPairs) {
-           const promptId = newQ[qIndex][type][idx].id;
-           delete newQ[qIndex].correctPairs[promptId];
-      }
-      newQ[qIndex][type].splice(idx, 1);
-      if(type === 'prompts') newQ[qIndex].points = newQ[qIndex][type].length;
-      setQuestions(newQ);
+      setQuestions(prev => {
+        const newQ = [...prev];
+        if(type === 'prompts' && newQ[qIndex].correctPairs) {
+             const promptId = newQ[qIndex][type][idx].id;
+             delete newQ[qIndex].correctPairs[promptId];
+        }
+        newQ[qIndex][type].splice(idx, 1);
+        if(type === 'prompts') newQ[qIndex].points = newQ[qIndex][type].length;
+        return newQ;
+      });
   };
 
   const handlePairChange = (qIndex, promptId, optId) => {
-      const newQ = [...questions];
-      if(!newQ[qIndex].correctPairs) newQ[qIndex].correctPairs = {};
-      newQ[qIndex].correctPairs[promptId] = optId;
-      setQuestions(newQ);
+      setQuestions(prev => {
+        const newQ = [...prev];
+        if(!newQ[qIndex].correctPairs) newQ[qIndex].correctPairs = {};
+        newQ[qIndex].correctPairs[promptId] = optId;
+        return newQ;
+      });
   };
 
   // 3. Essay Rubric Handlers
   const handleRubricChange = (qIndex, rIndex, field, val) => {
-      const newQ = [...questions];
-      newQ[qIndex].rubric[rIndex][field] = val;
-      newQ[qIndex].points = newQ[qIndex].rubric.reduce((sum, r) => sum + (Number(r.points) || 0), 0);
-      setQuestions(newQ);
+      setQuestions(prev => {
+        const newQ = [...prev];
+        newQ[qIndex].rubric[rIndex][field] = val;
+        newQ[qIndex].points = newQ[qIndex].rubric.reduce((sum, r) => sum + (Number(r.points) || 0), 0);
+        return newQ;
+      });
   };
 
   const handleAddRubricItem = (qIndex) => {
-      const newQ = [...questions];
-      newQ[qIndex].rubric.push({ id: uniqueId(), criteria: '', points: 0 });
-      setQuestions(newQ);
+      setQuestions(prev => {
+        const newQ = [...prev];
+        newQ[qIndex].rubric.push({ id: uniqueId(), criteria: '', points: 0 });
+        return newQ;
+      });
   };
 
   const handleRemoveRubricItem = (qIndex, rIndex) => {
-      const newQ = [...questions];
-      newQ[qIndex].rubric.splice(rIndex, 1);
-      newQ[qIndex].points = newQ[qIndex].rubric.reduce((sum, r) => sum + (Number(r.points) || 0), 0);
-      setQuestions(newQ);
+      setQuestions(prev => {
+        const newQ = [...prev];
+        newQ[qIndex].rubric.splice(rIndex, 1);
+        newQ[qIndex].points = newQ[qIndex].rubric.reduce((sum, r) => sum + (Number(r.points) || 0), 0);
+        return newQ;
+      });
   };
 
   // 4. Submission
@@ -544,148 +742,7 @@ export default function ManualQuizCreator({ onClose, onBack, unitId, subjectId, 
   // --- DERIVED STATE ---
   const currentQuestion = questions[selectedQuestionIndex];
   const totalPoints = useMemo(() => questions.reduce((sum, q) => sum + (Number(q.points) || 0), 0), [questions]);
-
-  // --- PREVIEW COMPONENT ---
-  const PreviewCard = ({ question, index }) => {
-      if (!question) return <div className="flex flex-col items-center justify-center h-full text-slate-400 p-10"><DocumentTextIcon className="w-12 h-12 mb-3 opacity-30"/><span className="font-bold text-sm">Select a question to preview</span></div>;
-      
-      const displayLabel = getQuestionDisplayLabel(index, questions);
-
-      return (
-        <div className="bg-white dark:bg-[#1c1c1e] border border-black/5 dark:border-white/5 rounded-[28px] shadow-lg p-8 space-y-6 h-full overflow-y-auto custom-scrollbar">
-            {/* Header */}
-            <div className="flex justify-between items-start border-b border-black/5 dark:border-white/5 pb-5">
-                <div className="flex-1 mr-6">
-                    <h4 className="text-[11px] font-bold uppercase text-slate-400 tracking-widest mb-2.5">{displayLabel}</h4>
-                    <div className="prose prose-sm dark:prose-invert leading-relaxed text-slate-900 dark:text-white font-medium text-[15px]">
-                        <ContentRenderer text={question.text || 'Question Prompt...'} />
-                    </div>
-                </div>
-                <span className="bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 text-[11px] font-bold px-3 py-1.5 rounded-[10px] whitespace-nowrap shadow-sm">
-			{question.points} pts
-                </span>
-            </div>
-
-            {/* Content Body - COMPACT MODE */}
-            <div className="space-y-4">
-                {/* 1. MCQ */}
-                {question.type === 'multiple-choice' && (
-                    <div className="space-y-2.5">
-                        {question.options.map((opt, i) => (
-                            <div key={i} className={`flex items-start gap-3 py-3 px-4 rounded-[14px] border transition-all ${question.correctAnswerIndex === i ? 'border-green-500 bg-green-50 dark:bg-green-900/10 shadow-sm' : 'border-black/5 dark:border-white/10 bg-slate-50 dark:bg-white/5'}`}>
-                                <div className={`w-5 h-5 mt-0.5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${question.correctAnswerIndex === i ? 'border-green-500 bg-green-500' : 'border-slate-300 dark:border-slate-600'}`}>
-                                    {question.correctAnswerIndex === i && <div className="w-2 h-2 bg-white rounded-full" />}
-                                </div>
-                                <div className="text-[14px] text-slate-700 dark:text-slate-200 leading-snug font-medium"><ContentRenderer text={opt || `Option ${i+1}`} /></div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-
-                {/* 2. T/F */}
-                {question.type === 'true-false' && (
-                    <div className="flex gap-3">
-                        {['True', 'False'].map(val => (
-                            <div key={val} className={`flex-1 py-3 text-center rounded-[14px] font-bold text-[14px] border transition-all ${question.correctAnswer === (val === 'True') ? 'bg-green-500 text-white border-green-500 shadow-md shadow-green-500/20' : 'bg-slate-50 dark:bg-white/5 border-black/5 dark:border-white/10 text-slate-500'}`}>
-                                {val}
-                            </div>
-                        ))}
-                    </div>
-                )}
-
-                {/* 3. Identification */}
-                {question.type === 'identification' && (
-                    <div>
-                        <input disabled placeholder="Student types answer here..." className={`${inputClass} text-sm py-3`} />
-                        <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/10 rounded-[14px] border border-green-200 dark:border-green-900/30 flex items-center gap-2">
-                            <span className="text-[10px] text-green-700 dark:text-green-400 font-bold uppercase tracking-wide">Answer:</span>
-                            <span className="text-sm font-bold text-slate-900 dark:text-white">{question.correctAnswer || 'Not set'}</span>
-                        </div>
-                    </div>
-                )}
-
-                {/* 4. Matching */}
-                {question.type === 'matching-type' && (
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div className="space-y-2">
-                             <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wide">Column A</p>
-                             {question.prompts.map((p,i) => (
-                                 <div key={i} className="p-3 bg-slate-50 dark:bg-white/5 rounded-[12px] border border-black/5 dark:border-white/5 text-slate-700 dark:text-slate-200 text-xs shadow-sm flex gap-2">
-                                     <span className="font-bold opacity-50">{i+1}.</span> <ContentRenderer text={p.text} />
-                                 </div>
-                             ))}
-                        </div>
-                        <div className="space-y-2">
-                             <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wide">Column B</p>
-                             {question.options.map((o,i) => (
-                                 <div key={i} className="p-3 bg-slate-50 dark:bg-white/5 rounded-[12px] border border-black/5 dark:border-white/5 text-slate-700 dark:text-slate-200 text-xs shadow-sm flex gap-2">
-                                     <span className="font-bold opacity-50">{String.fromCharCode(65+i)}.</span> <ContentRenderer text={o.text} />
-                                 </div>
-                             ))}
-                        </div>
-                    </div>
-                )}
-
-                {/* 5. Essay */}
-                {question.type === 'essay' && (
-                    <div className="space-y-3">
-                        <textarea disabled className={`${inputClass} min-h-[100px] resize-none bg-slate-50 text-sm`} placeholder="Student response area..." />
-                        <div className="bg-slate-50 dark:bg-white/5 rounded-[14px] p-3 border border-black/5 dark:border-white/5">
-                            <p className="text-[10px] font-bold uppercase text-slate-400 mb-2 tracking-wide">Grading Rubric</p>
-                            <div className="space-y-1.5">
-                                {question.rubric.map((r, idx) => (
-                                    <div key={idx} className="flex justify-between text-[12px] text-slate-600 dark:text-slate-300 font-medium">
-                                        <span className="truncate pr-2">• <ContentRenderer text={r.criteria} /></span>
-                                        <span className="font-bold flex-shrink-0 bg-white dark:bg-black/20 px-1.5 py-0.5 rounded">{r.points} pts</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* 6. Image Labeling */}
-                {question.type === 'image-labeling' && (
-                    <div className="space-y-3">
-                        {question.image ? (
-                            <div className="relative rounded-[16px] overflow-hidden border border-black/5 dark:border-white/10 bg-slate-100 dark:bg-black/20 shadow-sm">
-                                <img src={question.image} className="w-full h-auto" alt="Quiz" />
-                                {question.parts.map((part) => (
-                                    <div key={part.id} className="absolute w-6 h-6 bg-[#007AFF] text-white rounded-full flex items-center justify-center text-[10px] font-bold border-2 border-white shadow-md" style={{ left: `${part.x}%`, top: `${part.y}%`, transform: 'translate(-50%, -50%)' }}>
-                                        {part.number}
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="h-28 bg-slate-50 rounded-[16px] flex items-center justify-center text-xs text-slate-400 font-bold border-2 border-dashed border-slate-200">No Image Preview</div>
-                        )}
-                        <div className="bg-slate-50 dark:bg-white/5 rounded-[14px] p-3 border border-black/5 dark:border-white/5">
-                            <p className="text-[10px] font-bold uppercase text-slate-400 mb-2 tracking-wide">Answer Key</p>
-                            <div className="flex flex-wrap gap-2">
-                                {question.parts.map((p, idx) => (
-                                    <div key={idx} className="flex items-center gap-2 text-[11px] bg-white dark:bg-black/10 px-2.5 py-1.5 rounded-[10px] border border-black/5 shadow-sm">
-                                        <span className="w-4 h-4 rounded-full bg-[#007AFF] text-white flex items-center justify-center font-bold text-[9px]">{p.number}</span>
-                                        <span className="text-slate-700 dark:text-slate-300 max-w-[120px] truncate font-bold">{p.correctAnswer || '-'}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </div>
-            
-            {/* Rationale */}
-            {question.explanation && (
-                <div className="mt-6 p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-[16px] border border-blue-100 dark:border-blue-900/30 backdrop-blur-sm">
-                    <p className="text-[10px] font-bold uppercase text-blue-500 mb-1.5 tracking-wide">Rationale</p>
-                    <div className="text-[12px] text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
-                        <ContentRenderer text={question.explanation} />
-                    </div>
-                </div>
-            )}
-        </div>
-      );
-  };
+  const displayLabel = useMemo(() => selectedQuestionIndex > -1 ? getQuestionDisplayLabel(selectedQuestionIndex, questions) : '', [selectedQuestionIndex, questions]);
 
   // --- RENDER ---
   return (
@@ -835,7 +892,7 @@ export default function ManualQuizCreator({ onClose, onBack, unitId, subjectId, 
                                 </div>
                             )}
 
-                            {/* 2. Image Labeling (Complex Logic) */}
+                            {/* 2. Image Labeling (OPTIMIZED with ImagePinCanvas) */}
                             {currentQuestion.type === 'image-labeling' && (
                                 <div className="p-8 bg-white dark:bg-[#1c1c1e] rounded-[24px] border border-black/5 shadow-sm">
                                     <div className="flex justify-between items-center mb-6">
@@ -849,28 +906,11 @@ export default function ManualQuizCreator({ onClose, onBack, unitId, subjectId, 
                                     
                                     {/* Image Area */}
                                     {currentQuestion.image ? (
-                                        <div className="relative rounded-[20px] overflow-hidden border border-black/5 dark:border-white/10 bg-slate-100 group select-none shadow-inner">
-                                            <img 
-                                                ref={imageRef} 
-                                                src={currentQuestion.image} 
-                                                className="w-full h-auto cursor-crosshair" 
-                                                onClick={(e) => handleImageClick(e, selectedQuestionIndex)} 
-                                                alt="diagram" 
-                                            />
-                                            {currentQuestion.parts.map((p, pIndex) => (
-                                                <div 
-                                                    key={p.id} 
-                                                    onMouseDown={(e) => { e.stopPropagation(); setDraggedPin({ pIndex }); }} 
-                                                    className="absolute w-9 h-9 bg-[#007AFF] text-white rounded-full flex items-center justify-center text-sm font-bold border-[3px] border-white shadow-xl cursor-move hover:scale-110 transition-transform z-10" 
-                                                    style={{ left: `${p.x}%`, top: `${p.y}%`, transform: 'translate(-50%, -50%)' }}
-                                                >
-                                                    {p.number}
-                                                </div>
-                                            ))}
-                                            <div className="absolute top-4 right-4 bg-black/60 text-white text-[11px] px-3 py-2 rounded-[12px] backdrop-blur-xl font-bold pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 shadow-lg">
-                                                <CursorArrowRaysIcon className="w-3 h-3"/> Click to label • Drag to move
-                                            </div>
-                                        </div>
+                                        <ImagePinCanvas 
+                                            image={currentQuestion.image}
+                                            parts={currentQuestion.parts}
+                                            onPartsChange={(newParts) => handleQuestionChange(selectedQuestionIndex, 'parts', newParts)}
+                                        />
                                     ) : (
                                         <div className="h-56 flex flex-col items-center justify-center bg-slate-50 dark:bg-white/5 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-[20px] text-slate-400 gap-3">
                                             <PhotoIcon className="w-10 h-10 opacity-50"/>
@@ -1018,7 +1058,7 @@ export default function ManualQuizCreator({ onClose, onBack, unitId, subjectId, 
                     <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Student Preview</h3>
                 </div>
                 <div className="flex-grow overflow-hidden p-6">
-                    <PreviewCard question={currentQuestion} index={selectedQuestionIndex} />
+                    <PreviewCard question={currentQuestion} index={selectedQuestionIndex} displayLabel={displayLabel} />
                 </div>
           </div>
       </div>

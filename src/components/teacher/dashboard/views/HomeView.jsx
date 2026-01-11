@@ -12,7 +12,7 @@ import SchoolBrandingHandler from '../../../common/SchoolBrandingHandler';
 
 const ScheduleModal = lazy(() => import('../widgets/ScheduleModal'));
 
-// --- STATIC HELPERS (Excellent - Keep outside component) ---
+// --- STATIC HELPERS (Kept outside to prevent recreation) ---
 const getSchoolName = (schoolId) => {
     const schools = {
         'srcs_main': 'San Ramon Catholic School',
@@ -43,7 +43,7 @@ const HomeView = ({
     teacherAnnouncements,
     handleCreateAnnouncement,
     activeClasses,
-    handleViewChange
+    handleViewChange // Unused but kept for prop stability
 }) => {
     const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
     
@@ -51,8 +51,9 @@ const HomeView = ({
     const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(false);
     const [dontShowAgain, setDontShowAgain] = useState(false);
 
-    // --- RACE CONDITION FIX ---
-    const [readyForBranding, setReadyForBranding] = useState(false);
+    // --- BRANDING STATE ---
+    // Start true to prevent flash, only set false if modal needs to show
+    const [readyForBranding, setReadyForBranding] = useState(true);
 
     const effectiveSchoolId = userProfile?.schoolId || 'srcs_main';
 
@@ -63,26 +64,26 @@ const HomeView = ({
         onDeleteActivity,
     } = useSchedule(showToast, effectiveSchoolId);
 
-    // 1. OPTIMIZED: Handlers wrapped in useCallback to prevent child re-renders
+    // 1. OPTIMIZATION: Memoized Handlers
     const openScheduleModal = useCallback(() => setIsScheduleModalOpen(true), []);
     const closeScheduleModal = useCallback(() => setIsScheduleModalOpen(false), []);
 
-    // 2. CHECK IF WELCOME MODAL IS NEEDED
+    // 2. LOGIC: Check Welcome Modal
     useEffect(() => {
         if (!userProfile?.id) return;
 
         const hasOptedOut = localStorage.getItem(`welcome_opt_out_${userProfile.id}`);
         const hasSeenSession = sessionStorage.getItem(`welcome_seen_session_${userProfile.id}`);
         
+        // If they need to see the modal, block branding temporarily
         if (!hasOptedOut && !hasSeenSession) {
             setIsWelcomeModalOpen(true);
             setReadyForBranding(false); 
-        } else {
-            setReadyForBranding(true);  
-        }
+        } 
+        // Otherwise, readyForBranding is already true by default
     }, [userProfile?.id]);
 
-    // 3. OPTIMIZED: Handler dependent on state
+    // 3. OPTIMIZATION: Handler dependent on state
     const handleCloseWelcome = useCallback(() => {
         if (userProfile?.id) {
             sessionStorage.setItem(`welcome_seen_session_${userProfile.id}`, 'true');
@@ -101,25 +102,30 @@ const HomeView = ({
     return (
         <div 
             className="w-full space-y-6 md:space-y-8 font-sans pb-32 lg:pb-8 relative z-10"
-            // content-visibility is a great modern optimization you already had!
-            style={{ contentVisibility: 'auto' }} 
+            // OPTIMIZATION: prevent layout shifts during scroll
+            style={{ 
+                contentVisibility: 'auto',
+                containIntrinsicSize: '1000px' 
+            }} 
         >
             <SchoolBrandingHandler shouldCheck={readyForBranding} />
 
             <div className="flex flex-col gap-4 sm:gap-8">
-                {/* Now these children won't re-render when 'readyForBranding' changes */}
+                {/* Header is memoized, so it won't re-render unless userProfile/toast changes */}
                 <DashboardHeader
                     userProfile={userProfile}
                     showToast={showToast}
                     onOpenScheduleModal={openScheduleModal}
                 />
                 
+                {/* Widgets are memoized */}
                 <DashboardWidgets
                     activeClasses={activeClasses}
                     handleCreateAnnouncement={handleCreateAnnouncement}
                     onOpenScheduleModal={openScheduleModal}
                 />
                 
+                {/* Feed is memoized, now receives stable props */}
                 <ActivityFeed
                     userProfile={userProfile}
                     teacherAnnouncements={teacherAnnouncements}
