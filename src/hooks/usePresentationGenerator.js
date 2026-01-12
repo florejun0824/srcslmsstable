@@ -4,14 +4,23 @@ import { callGeminiWithLimitCheck } from '../services/aiService';
 import { createPresentationFromData } from '../services/googleSlidesService';
 
 // Helper to format notes for the final slide creation
-const formatNotesToString = (notesObject) => {
-    if (!notesObject || typeof notesObject !== 'object') {
+// UPDATED: Handles both object (AI generated) and string (User edited) formats
+const formatNotesToString = (notesInput) => {
+    // If the user has edited the notes in the WYSIWYG editor, they come back as a string.
+    if (typeof notesInput === 'string') {
+        return notesInput;
+    }
+
+    if (!notesInput || typeof notesInput !== 'object') {
         return "No speaker notes available.";
     }
-    const { talkingPoints, interactiveElement, slideTiming } = notesObject;
+
+    const { talkingPoints, interactiveElement, slideTiming } = notesInput;
+
     let formattedString = `[TALKING POINTS]\n${talkingPoints || 'N/A'}\n\n`;
     formattedString += `[INTERACTIVE ELEMENT]\n${interactiveElement || 'N/A'}\n\n`;
     formattedString += `[SUGGESTED TIMING: ${slideTiming || 'N/A'}]`;
+
     return formattedString;
 };
 
@@ -130,17 +139,24 @@ export const usePresentationGenerator = (showToast) => {
                 - Follow the "Slide Body" rules above. **Prioritize Natural Flow.**
 
            
-            * **TYPE C: ASSESSMENT / QUIZ (STRICT TRIGGER):**
+* **TYPE C: ASSESSMENT / QUIZ (STRICT TRIGGER):**
                 - **TRIGGER:** Only generate if you see explicit headers: "End-of-Lesson Assessment", "Summative Test", or "Quiz".
                 - **NEGATIVE CONSTRAINT:** IGNORE "Reflection Questions", "Guide Questions", "Points to Ponder". These are NOT quizzes.
                 - **Constraint:** Max 2 questions per slide.
                 - **Title:** "End of Lesson Assessment" (Number the parts if needed, e.g., Part 1).
+                - **FORMAT:** Questions MUST be in Multiple Choice format.
+                - **STRICT OUTPUT FORMAT:**
+                  1. [Question Text Here?]
+                  a. [Option A]
+                  b. [Option B]
+                  c. [Option C]
+                  d. [Option D]
 
             * **TYPE D: ANSWER KEY:**
                 - **CONDITION:** MUST generate immediately after Type C slides.
 
             * **TYPE E: REFERENCES:**
-                - **CONDITION:** ONLY if "IS FINAL BATCH" is "true".
+                - **CONDITION:** ONLY if "IS FINAL BATCH" is "true". Only generate if you see explicit headers: "References", or "Reference".
 				- **Rule:** Copy in Verbatim the list of the References that was used.
 
             **REQUIRED JSON SCHEMA:**
@@ -200,7 +216,7 @@ export const usePresentationGenerator = (showToast) => {
 
     // Artificial delay for UX smoothing
     setTimeout(() => {
-        showToast("Presentation generation complete!", "success");
+        showToast("Generation complete! Review your slides.", "success");
 
         setPreviewData({ 
             slides: accumulatedSlides, 
@@ -217,7 +233,8 @@ export const usePresentationGenerator = (showToast) => {
   }, [showToast]);
 
   // --- Logic: Send JSON to Google Slides API ---
-  const savePresentation = useCallback(async (activeSubject) => {
+  // UPDATED: Now accepts 'editedSlides' to support WYSIWYG editing
+  const savePresentation = useCallback(async (activeSubject, editedSlides = null) => {
     if (!previewData) { 
         showToast("No preview data available.", "error"); 
         return; 
@@ -226,7 +243,10 @@ export const usePresentationGenerator = (showToast) => {
     setIsSavingPPT(true);
 
     try {
-        const { slides, lessonIds, lessonsData, unitsData } = previewData;
+        const { lessonIds, lessonsData, unitsData } = previewData;
+        
+        // Use edited slides if available, otherwise fallback to original AI generation
+        const finalSlides = editedSlides || previewData.slides;
 
         // Determine Titles
         const firstLesson = lessonsData.find(l => l.id === lessonIds[0]); 
@@ -239,11 +259,17 @@ export const usePresentationGenerator = (showToast) => {
         const presentationTitle = `Presentation: ${sourceTitle}`;
 
         // Clean Data for Service
-        const cleanedSlides = slides.map((slide, index) => {
+        const cleanedSlides = finalSlides.map((slide, index) => {
             let bodyText = "";
-            if (typeof slide.body === 'string') bodyText = slide.body;
-            else if (Array.isArray(slide.body)) bodyText = slide.body.join('\n');
-            else if (slide.body) bodyText = String(slide.body);
+            
+            // Handle body text normalizations
+            if (typeof slide.body === 'string') {
+                bodyText = slide.body;
+            } else if (Array.isArray(slide.body)) {
+                bodyText = slide.body.join('\n');
+            } else if (slide.body) {
+                bodyText = String(slide.body);
+            }
 
             let titleText = slide.title ? String(slide.title) : `Slide ${index + 1}`;
 
@@ -251,7 +277,8 @@ export const usePresentationGenerator = (showToast) => {
                 ...slide, 
                 title: titleText,
                 body: bodyText.split('\n').map(line => line.trim()).join('\n'), 
-                notes: formatNotesToString(slide.notes || {}) 
+                // Format notes (handles both strings from editor and objects from AI)
+                notes: formatNotesToString(slide.notes) 
             };
         });
 
