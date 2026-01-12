@@ -24,7 +24,6 @@ export const usePresentationGenerator = (showToast) => {
   const [isSavingPPT, setIsSavingPPT] = useState(false);
 
   // --- Logic: Generate JSON Preview from Lesson Content ---
-  // FIXED: Default lessonsData to [] to prevent 'filter of undefined' errors
   const generatePreview = useCallback(async (lessonIds, lessonsData = [], activeSubject, unitsData) => {
     // 1. Validation
     if (!activeSubject) { 
@@ -43,7 +42,7 @@ export const usePresentationGenerator = (showToast) => {
         return false;
     }
 
-    // Target the first selected lesson (currently UI restricts to 1 usually, but logic supports arrays)
+    // Target the first selected lesson
     const targetLesson = selectedLessons[0];
     const validPages = (targetLesson.pages || []).filter(p => p.content && p.content.trim().length > 0);
 
@@ -72,74 +71,99 @@ export const usePresentationGenerator = (showToast) => {
         const currentStep = i + 1;
         const totalSteps = validPages.length;
         
+        // LOGIC: Determine if this is the final text chunk
+        const isLastBatch = (i === validPages.length - 1);
+
+        // --- CONTEXT MEMORY ---
+        // Pass ALL previous titles to ensure the AI knows what has been covered.
+        const existingTitles = accumulatedSlides
+            .map(s => s.title)
+            .filter(t => t) 
+            .join(" | "); 
+        
         setPptStatus(`Analyzing section ${currentStep} of ${totalSteps}...`);
         setPptProgress(Math.round((currentStep / totalSteps) * 90));
 
-        // The "Expert Educational Synthesizer" Prompt
         const prompt = `
-		    SYSTEM: You are a JSON-only API. You are NOT a chatbot.
-		    INSTRUCTION: Convert the educational content below into a Google Slides JSON structure.
+            SYSTEM: You are a JSON-only API. You are NOT a chatbot.
+            INSTRUCTION: Convert the educational content below into a Google Slides JSON structure.
 
-		    STRICT BEHAVIORAL CONSTRAINTS:
-		    1. Output ONLY valid JSON.
-		    2. Start immediately with '{' and end with '}'.
-		    3. NO MARKDOWN formatting outside the JSON string.
+            **GLOBAL CONTEXT (DO NOT IGNORE):**
+            You are processing Part ${currentStep} of ${totalSteps} of a single lesson.
+            
+            **MEMORY (ALREADY CREATED SLIDES):**
+            [ ${existingTitles} ]
 
-		    ROLE & MINDSET:
-		    You are an **Expert Educational Synthesizer**.
-		    **GOAL:** Create slides that are academically accurate but easy to digest.
-		    **PRIORITY:** Mix **Exact Terminology** with **Simple Explanations**.
+            **STRICT DUPLICATE & CONTINUATION LOGIC:** Check the "MEMORY" list above.
+            1. **If the topic is NEW:** Create a standard slide.
+            2. **If the topic EXISTS but the text has NEW DETAILS:** You MUST create a continuation slide. 
+               - **Title Format:** Use "${"{Topic} (Continued)"}" or "${"{Topic}: Key Details"}" to distinguish it.
+               - **Content:** Do NOT repeat the definition. Focus purely on the new deep details.
+            3. **If the text is merely a summary/repetition:** SKIP IT completely.
 
-		    **CRITICAL: CONTENT PROCESSING LOGIC (STRICT)**
-    
-		    1. **DEFINITIONS (KEEP EXACT):**
-		       - When introducing a key term (e.g., "The Object", "Intention", "Circumstances"), you must use the **exact definition** provided in the source text. 
-		       - Do not paraphrase the formal definition.
+            STRICT BEHAVIORAL CONSTRAINTS:
+            1. Output ONLY valid JSON starting with '{' and ending with '}'.
+            2. NO MARKDOWN formatting.
+            3. **NO META-REFERENCES** (e.g., "According to the text").
 
-		    2. **EXPLANATIONS (SIMPLIFY):**
-		       - After the definition, you must **paraphrase the explanation** into simple, conversational English.
-		       - Use the "Feynman Technique": Explain it as if teaching a 10-year old student who is hearing it for the first time.
-		       - Address the student directly ("This means that when you...").
+            ROLE:
+            You are an **Expert devoted Catholic Elementary School Teacher**. You value **Clarity and Precision**.
 
-		    3. **SCENARIO HANDLING:**
-		       - **IF** the source text contains a story/scenario: Use it to open the slide.
-		       - **IF NO** scenario exists: Go straight to the Term/Concept. **DO NOT invent scenarios.**
+            **1. SLIDE BODY (The "What" - Natural & Engaging):**
+            - **FORMAT:** Use a **Natural Paragraph** structure. 
+            - **Rule:** Only use bullet points if you are listing 3 or more distinct steps or items. Otherwise, use flowing sentences.
+            - **Content:** Start with the core concept/definition (keep technical terms), then immediately explain the "How" or "Why" in the next sentence.
+            - **Constraint:** **MAXIMUM 60 WORDS** per slide body. Keep it punchy but deep.
+            - **Tone:** Educational but accessible. Avoid dry, robotic definitions.
+            - **Example:**
+              "Deliberation is the systematic exploration of all possible options before we act. By researching facts and weighing the pros and cons, we ensure our choices are not impulsive. This process allows our intellect to map out the best path forward."
 
-		    4. **FORMATTING:**
-		       - **No Labels:** Do NOT use bold headers like "**Definition**:" or "**Analysis**:" in the body.
-		       - **Flow:** Write the exact definition first. Add a paragraph break (\\n\\n). Write the simplified explanation next.
+            **2. TALKING POINTS (The "Script" - Relatable & Filipino):**
+            - **Target Audience:** A 10-year-old student.
+            - **Style:** "Let's break this down..." (Conversational but educational).
+            - **Local Context:** INTEGRATE A PHILIPPINE SCENARIO (e.g., Family dynamics, School life, Filipino values like 'utang na loob', 'respeto').
+            - **Goal:** Use the talking point to explain the "Slide Body" in a story format.
 
-		    **CRITICAL: SPEAKER NOTES (THE TEACHER'S CHEAT SHEET)**
-		    - The speaker notes must provide the "Deep Dive" for the teacher.
-		    - - **Audience:** A 10-year-old student.
-            - **Style:** **Storyteller.** Do NOT just read the slide. ELABORATE on it.
-            - **Context:** **MANDATORY PHILIPPINE SCENARIO.**
-              - *Good:* "Think about the traffic in EDSA."
-              - *Good:* "Remember when you ask for 'aginaldo' at Christmas."
-              - *Good:* "Like waiting for a jeepney to fill up."
+            **3. CONTENT TYPE DETECTION & FORMATTING RULES:**
 
-		    **REQUIRED JSON SCHEMA:**
-		    {
-		      "slides": [
-		        {
-		          "title": "Slide Title (e.g., 'The Object of the Act')",
-		          "body": "The Object of the Act is the primary indicator of whether an action is good or evil, determined by the inherent nature of the action itself. [Exact definition from text] \\n\\nIn simpler terms, look at the action itself before judging the motive. For example, stealing is 'objectively' wrong, even if you did it to help a friend. The 'what' matters before the 'why'. [Simplified explanation]", 
-		          "tableData": {
-		              "headers": [],
-		              "rows": []
-		          },
-		          "notes": { 
-		            "talkingPoints": "TEACHER CONTEXT: Emphasize that 'The Object' is independent of the person. In Aquinas's view, some acts (malum in se) are evil regardless of intention.", 
-		            "interactiveElement": "Ask: Can a good intention ever make a bad action right?", 
-		            "slideTiming": "3 mins" 
-		          }
-		        }
-		      ]
-		    }
+            * **TYPE A: GENERAL LESSON:**
+                - Follow the "Slide Body" rules above. **Prioritize Natural Flow.**
 
-		    **CONTENT TO PROCESS:**
-		    ${page.content}
-		`;
+           
+            * **TYPE C: ASSESSMENT / QUIZ (STRICT TRIGGER):**
+                - **TRIGGER:** Only generate if you see explicit headers: "End-of-Lesson Assessment", "Summative Test", or "Quiz".
+                - **NEGATIVE CONSTRAINT:** IGNORE "Reflection Questions", "Guide Questions", "Points to Ponder". These are NOT quizzes.
+                - **Constraint:** Max 2 questions per slide.
+                - **Title:** "End of Lesson Assessment" (Number the parts if needed, e.g., Part 1).
+
+            * **TYPE D: ANSWER KEY:**
+                - **CONDITION:** MUST generate immediately after Type C slides.
+
+            * **TYPE E: REFERENCES:**
+                - **CONDITION:** ONLY if "IS FINAL BATCH" is "true".
+				- **Rule:** Copy in Verbatim the list of the References that was used.
+
+            **REQUIRED JSON SCHEMA:**
+            {
+              "slides": [
+                {
+                  "title": "Deliberation: The Process",
+                  "body": "Deliberation is the systematic exploration of all possible choices. We identify every option available to us and carefully weigh the advantages and disadvantages. This critical step ensures we verify our facts before making a firm commitment.",
+                  "notes": { 
+                    "talkingPoints": "Let's imagine you are planning a surprise party for your Lola. You don't just buy the first cake you see! You check the price, you ask if she likes chocolate or ube, and you check if the shop delivers. That detailed checking? That is Deliberation.", 
+                    "slideTiming": "3 mins" 
+                  }
+                }
+              ]
+            }
+
+            **INPUT DATA CONTEXT:**
+            - CURRENT BATCH: ${currentStep} of ${totalSteps}
+            - IS FINAL BATCH: ${isLastBatch}
+            
+            **CONTENT TO PROCESS:**
+            ${page.content}
+        `;
 
         try {
             const aiResponseText = await callGeminiWithLimitCheck(prompt);
@@ -160,7 +184,6 @@ export const usePresentationGenerator = (showToast) => {
             }
         } catch (err) {
             console.error(`Error processing slide chunk ${i + 1}:`, err);
-            // We continue loop even if one chunk fails, to salvage the rest of the presentation
         }
     }
 
@@ -190,7 +213,7 @@ export const usePresentationGenerator = (showToast) => {
         setPptProgress(0);
     }, 800);
 
-    return true; // Signal success
+    return true; 
   }, [showToast]);
 
   // --- Logic: Send JSON to Google Slides API ---

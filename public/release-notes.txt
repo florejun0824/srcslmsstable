@@ -1,46 +1,38 @@
-📣 SRCS LMS – Release v.9.3 (Hotfix)
+SRCS LMS – Release v.10.1 RC (Performance & AI Overhaul)
+"Building the future of education through superior engineering."
 
-"The Smartest Classroom Assistant Just Got Smarter."
-
-We are excited to roll out our biggest update yet! This release focuses on stability, speed, and seamless integration with the tools you use every day. Whether you are at SRCS, HRA, KCC, or our partner schools, the app now feels like it was built just for you.
+We heard your feedback on dashboard fluidity. In this release, we stripped down the heavy animation engines and rebuilt the core scrolling mechanics to deliver a 60fps, zero-lag experience. We also aligned our AI tools with DepEd standards for a fairer, smarter classroom assistant.
 
 ✨ Headlining Features
-1. 🎨 Dynamic School Branding (It knows where you belong!) No more generic interfaces. Once you log in, the app automatically transforms to match your school's identity.
+1. 🚀 "Butter Smooth" Performance (Major Overhaul)
+We optimized the app's rendering engine to respect your device's battery and processing power.
 
-SRCS, HRA, KCC, ICA, MCHS, & ICHS: The app icon, name, and color themes now update instantly to reflect your specific campus.
+Zero-Lag Scrolling: We removed heavy Framer Motion calculations from the Activity Feed. Scrolling through hundreds of announcements is now instantaneous and lightweight.
 
-Smart Updates: The app handles these changes quietly in the background—no interruptions to your workflow.
+Smart Rendering: The dashboard now uses content-visibility technology. The app intelligently "pauses" rendering for off-screen widgets, drastically reducing memory usage and device heating.
 
-2. 📊 Instant Google Slides Generator (Fixed & Faster) We’ve completely overhauled the "Text-to-Presentation" engine.
+Instant Startup: We fixed a layout blocking issue (removed useLayoutEffect) that caused a split-second "stutter" during login. The dashboard now paints immediately.
 
-Seamless Login: Connect your school Google account with a single tap. No more "Sign-in Cancelled" errors!
+2. 🧠 AI Intelligence Upgrade
+DepEd-Aligned Quiz Generation: We fixed the AI logic to ensure all generated quizzes strictly align with DepEd standards. This guarantees content fairness, appropriate difficulty levels, and cultural relevance for your students.
 
-Native Performance: We now use the phone's native security to authenticate you, making slide generation faster and more reliable than ever.
+Smarter Google Slides: The "Text-to-Presentation" engine has an updated prompt structure. Expect clearer slide layouts, better topic structuring, and enhanced visuals for both Teacher lessons and Student reports.
 
-Speaker Notes & Tables: Your AI-generated slides now come with formatted tables and speaker notes automatically included.
+3. 🎨 Visuals & Stability
+Refined UI: We tweaked the "Glassmorphism" effects to be easier on the eyes and the GPU. The interface retains its modern look but with better text readability and stability.
 
-3. 🛡️ Iron-Clad Security & Stability
+Crash Prevention: We consolidated how modals (pop-ups) are handled to prevent overlaps and potential crashes during rapid navigation.
 
-Google Play Protect Certified: We’ve signed the app with robust encryption to meet modern Android security standards.
+🚀 How to Access
+📱 For Mobile Users:
 
-Crash Fixes: Resolved the "White Screen" freeze during startup and fixed the overlap issues with the "Welcome Back" dialog.
+Install: Download the new 10.1 RC build.
 
-🧪 For Our Testers: What to Try?
-We need your help validating these key flows:
+Authorize: Sign in using your standard faculty credentials (if asked).
 
-The "Magic" Login: Sign in with your specific school account and watch the app icon and colors change on your home screen. (Note: You may need to close and reopen the app once).
+Note: If a 'Play Protect' prompt appears, select 'More Details' → 'Install Anyway'.
 
-The Creator Test: Go to the Teacher Dashboard and generate a new Lesson Presentation. Confirm that it opens directly in the Google Slides app without asking you to log in repeatedly.
-
-Offline Resilience: Try opening the app with spotty internet—verify that your dashboard still loads your cached schedule.
-
-🚀 How to Install
-Update: If you have the old version, please Uninstall it first to ensure a clean slate for the new security keys.
-
-Download the App.
-
-Login: Use your standard faculty credentials.
+💻 For Desktop Users:
+Access the LMS directly from your browser for a full-screen management experience: 👉 https://srcsdigital.web.app/
 
 Thank you for helping us build the future of Learning Management Systems!
-
-Note: If you see a 'Play Protect' warning, click 'More Details' -> 'Install Anyway
