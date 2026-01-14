@@ -55,7 +55,7 @@ export default async function handler(req) {
         "X-Title": "LMS Teacher Assistant",
       },
       body: JSON.stringify({
-        model: "xiaomi/mimo-v2-flash:free", // TARGET MODEL
+        model: "google/gemini-2.0-flash-exp:free", // TARGET MODEL
         messages: [{ role: "user", content: prompt }],
         stream: true, 
       }),
