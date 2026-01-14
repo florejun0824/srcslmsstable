@@ -55,7 +55,7 @@ export default async function handler(req) {
         "X-Title": "LMS Teacher Assistant",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.0-flash-exp:free", // TARGET MODEL
+        model: "google/gemma-3-27b-it:free", // TARGET MODEL
         messages: [{ role: "user", content: prompt }],
         stream: true, 
       }),
