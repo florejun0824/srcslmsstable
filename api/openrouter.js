@@ -60,7 +60,7 @@ export default async function handler(req) {
     }
 
     // 4. Construct Messages & Select Model (Hybrid Logic)
-    let selectedModel = "deepseek/deepseek-r1-0528:free"; // Default: Best Logic
+    let selectedModel = "xiaomi/mimo-v2-flash:free"; // Default: Best Logic
     let messagesContent;
 
     if (imageUrl) {

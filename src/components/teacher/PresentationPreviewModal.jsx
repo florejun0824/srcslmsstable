@@ -12,7 +12,8 @@ import {
     BoldIcon,
     ItalicIcon,
     ListBulletIcon,
-    NumberedListIcon
+    NumberedListIcon,
+    SparklesIcon
 } from '@heroicons/react/24/outline';
 import { PresentationChartLineIcon } from '@heroicons/react/20/solid';
 
@@ -51,11 +52,10 @@ export default function PresentationPreviewModal({ isOpen, onClose, previewData,
         }
     }, [isOpen, previewData]);
 
-    // Handle saving completion - UPDATED: Removed auto-close timeout
+    // Handle saving completion
     useEffect(() => {
         if (prevIsSaving.current && !isSaving && isOpen) {
             setIsCreationComplete(true);
-            // Auto-close removed to keep modal open until user clicks "Close"
         }
         prevIsSaving.current = isSaving;
     }, [isSaving, isOpen]);
@@ -87,7 +87,7 @@ export default function PresentationPreviewModal({ isOpen, onClose, previewData,
         // Update State
         handleSlideChange(selectedSlideIndex, 'body', newText);
 
-        // Restore Focus & Cursor (setTimeout needed to allow React render cycle)
+        // Restore Focus & Cursor
         setTimeout(() => {
             input.focus();
             input.setSelectionRange(newCursorPos, newCursorPos);
@@ -100,6 +100,7 @@ export default function PresentationPreviewModal({ isOpen, onClose, previewData,
         const updatedSlides = [...localSlides];
         updatedSlides[index] = { ...updatedSlides[index], [field]: value };
         setLocalSlides(updatedSlides);
+        if (isCreationComplete) setIsCreationComplete(false);
     };
 
     const handleTableChange = (slideIndex, rowIndex, colIndex, value) => {
@@ -108,12 +109,11 @@ export default function PresentationPreviewModal({ isOpen, onClose, previewData,
         newRows[rowIndex][colIndex] = value;
         updatedSlides[slideIndex].tableData.rows = newRows;
         setLocalSlides(updatedSlides);
+        if (isCreationComplete) setIsCreationComplete(false);
     };
 
     const handleDeleteSlide = (e, index) => {
         if(e) e.stopPropagation();
-        
-        // Use index if provided, otherwise delete current selection
         const targetIndex = index !== undefined ? index : selectedSlideIndex;
 
         if (localSlides.length <= 1) return;
@@ -126,6 +126,7 @@ export default function PresentationPreviewModal({ isOpen, onClose, previewData,
         } else if (selectedSlideIndex >= updatedSlides.length) {
             setSelectedSlideIndex(updatedSlides.length - 1);
         }
+        if (isCreationComplete) setIsCreationComplete(false);
     };
 
     const handleAddSlide = () => {
@@ -136,14 +137,15 @@ export default function PresentationPreviewModal({ isOpen, onClose, previewData,
             tableData: null
         };
         const nextSlides = [...localSlides];
-        // Insert after current selection
         nextSlides.splice(selectedSlideIndex + 1, 0, newSlide);
         
         setLocalSlides(nextSlides);
         setSelectedSlideIndex(selectedSlideIndex + 1);
+        if (isCreationComplete) setIsCreationComplete(false);
     };
 
     const handleConfirm = () => {
+        setIsCreationComplete(false);
         onConfirm(localSlides);
     };
 
@@ -192,6 +194,9 @@ export default function PresentationPreviewModal({ isOpen, onClose, previewData,
                          Array.isArray(selectedSlide.tableData.headers) && 
                          selectedSlide.tableData.headers.length > 0;
 
+    // Define common button class for formatting tools
+    const formatBtnClass = "p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:text-slate-200 dark:hover:text-white dark:hover:bg-white/10 rounded transition-colors";
+
     return (
         <Transition show={isOpen} as={React.Fragment}>
             <Dialog as="div" className="relative z-[120]" onClose={isSaving ? () => {} : onClose}>
@@ -205,7 +210,7 @@ export default function PresentationPreviewModal({ isOpen, onClose, previewData,
                     leaveFrom="opacity-100"
                     leaveTo="opacity-0"
                 >
-                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" />
+                    <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm transition-opacity" />
                 </Transition.Child>
 
                 <div className="fixed inset-0 z-10 overflow-hidden">
@@ -219,131 +224,107 @@ export default function PresentationPreviewModal({ isOpen, onClose, previewData,
                             leaveFrom="opacity-100 scale-100 translate-y-0"
                             leaveTo="opacity-0 scale-95 translate-y-4"
                         >
-                            <Dialog.Panel className="w-full max-w-[95vw] h-[90vh] transform overflow-hidden rounded-xl bg-slate-100 dark:bg-[#1a1a1a] shadow-2xl ring-1 ring-black/5 flex flex-col">
+                            <Dialog.Panel className="w-full max-w-[95vw] h-[92vh] transform overflow-hidden rounded-2xl bg-white dark:bg-[#0f0f0f] shadow-2xl ring-1 ring-white/10 flex flex-col isolation-auto">
                                 
                                 {/* --- 1. Top Bar: App Header --- */}
-                                <div className="h-14 bg-[#202020] border-b border-white/10 flex items-center justify-between px-4 flex-shrink-0 text-white">
-                                    <div className="flex items-center gap-3">
-                                        <div className="bg-orange-600 p-1.5 rounded text-white">
+                                <div className="relative z-30 flex-shrink-0 h-16 bg-white dark:bg-[#1a1a1a] border-b border-slate-200 dark:border-white/5 flex items-center justify-between px-6 shadow-sm">
+                                    <div className="flex items-center gap-4">
+                                        <div className="bg-gradient-to-br from-orange-500 to-red-600 p-2 rounded-lg text-white shadow-lg shadow-orange-500/20">
                                             <PresentationChartLineIcon className="h-5 w-5" />
                                         </div>
                                         <div>
-                                            <h3 className="text-sm font-bold">Presentation Editor</h3>
-                                            <p className="text-[10px] text-slate-400">{localSlides.length} Slides • Ready to Export</p>
+                                            <h3 className="text-base font-bold text-slate-800 dark:text-white leading-tight">Presentation Editor</h3>
+                                            <div className="flex items-center gap-2 mt-0.5">
+                                                <span className="text-[11px] font-medium text-slate-500 dark:text-slate-300 bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-full">
+                                                    {localSlides.length} Slides
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center gap-3">
-                                        <button 
-                                            onClick={onClose} 
-                                            className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-full transition-colors"
-                                        >
-                                            <XMarkIcon className="h-5 w-5" />
-                                        </button>
-                                    </div>
+                                    <button 
+                                        onClick={onClose} 
+                                        className="p-2 text-slate-400 hover:text-slate-600 dark:text-slate-200 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 rounded-full transition-all"
+                                    >
+                                        <XMarkIcon className="h-6 w-6" />
+                                    </button>
                                 </div>
 
-                                {/* --- 2. Sticky Toolbar (Office Ribbon Style) --- */}
-                                <div className="h-12 bg-white dark:bg-[#252525] border-b border-slate-200 dark:border-white/5 flex items-center px-4 gap-2 flex-shrink-0 overflow-x-auto">
-                                    
-                                    {/* Group 1: Slide Ops */}
-                                    <div className="flex items-center gap-1 pr-3 border-r border-slate-300 dark:border-white/10">
+                                {/* --- 2. Toolbar --- */}
+                                <div className="relative z-20 flex-shrink-0 h-12 bg-white dark:bg-[#1a1a1a] border-b border-slate-200 dark:border-white/5 flex items-center px-4 gap-2 overflow-x-auto">
+                                    <div className="flex items-center gap-1 pr-3 border-r border-slate-200 dark:border-white/10">
                                         <button 
                                             onClick={handleAddSlide}
-                                            disabled={isSaving || isCreationComplete}
-                                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 rounded transition-colors disabled:opacity-50"
-                                            title="Add New Slide"
+                                            disabled={isSaving}
+                                            className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 rounded-md transition-colors disabled:opacity-50"
                                         >
                                             <PlusIcon className="h-4 w-4" />
-                                            <span>New Slide</span>
+                                            <span>Add Slide</span>
                                         </button>
                                         <button 
                                             onClick={(e) => handleDeleteSlide(e)}
-                                            disabled={isSaving || isCreationComplete}
-                                            className="p-1.5 text-slate-700 dark:text-slate-200 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 rounded transition-colors disabled:opacity-50"
+                                            disabled={isSaving}
+                                            className="p-1.5 text-slate-400 dark:text-slate-200 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors disabled:opacity-50"
                                             title="Delete Current Slide"
                                         >
                                             <TrashIcon className="h-4 w-4" />
                                         </button>
                                     </div>
-
-                                    {/* Group 2: Text Formatting (Only enabled for text slides) */}
-                                    <div className={`flex items-center gap-1 px-3 ${hasTableData || isSaving || isCreationComplete ? 'opacity-30 pointer-events-none' : ''}`}>
-                                        <button 
-                                            onClick={() => insertAtCursor('', '**')}
-                                            className="p-1.5 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 rounded"
-                                            title="Bold (Wraps in **)"
-                                        >
+                                    <div className={`flex items-center gap-1 px-3 ${hasTableData || isSaving ? 'opacity-30 pointer-events-none' : ''}`}>
+                                        <button onClick={() => insertAtCursor('', '**')} className={formatBtnClass} title="Bold">
                                             <BoldIcon className="h-4 w-4" />
                                         </button>
-                                        <button 
-                                            onClick={() => insertAtCursor('', '_')}
-                                            className="p-1.5 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 rounded"
-                                            title="Italic (Wraps in _)"
-                                        >
+                                        <button onClick={() => insertAtCursor('', '_')} className={formatBtnClass} title="Italic">
                                             <ItalicIcon className="h-4 w-4" />
                                         </button>
-                                        <div className="w-px h-4 bg-slate-300 dark:bg-white/10 mx-1"></div>
-                                        <button 
-                                            onClick={() => insertAtCursor('• ')}
-                                            className="p-1.5 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 rounded"
-                                            title="Insert Bullet Point"
-                                        >
+                                        <div className="w-px h-4 bg-slate-200 dark:bg-white/10 mx-2"></div>
+                                        <button onClick={() => insertAtCursor('• ')} className={formatBtnClass} title="Bullet List">
                                             <ListBulletIcon className="h-4 w-4" />
                                         </button>
-                                        <button 
-                                            onClick={() => insertAtCursor('1. ')}
-                                            className="p-1.5 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 rounded"
-                                            title="Insert Number"
-                                        >
+                                        <button onClick={() => insertAtCursor('1. ')} className={formatBtnClass} title="Numbered List">
                                             <NumberedListIcon className="h-4 w-4" />
                                         </button>
                                     </div>
-
-                                    <div className="flex-1"></div>
-                                    
-                                    {/* Group 3: Status */}
-                                    <span className="text-[10px] text-slate-400 font-mono hidden sm:block">
-                                        Slide {selectedSlideIndex + 1} of {localSlides.length}
-                                    </span>
                                 </div>
 
                                 {/* --- 3. Main Workspace --- */}
-                                <div className="flex flex-1 overflow-hidden">
+                                <div className="flex flex-1 overflow-hidden relative z-0">
                                     
                                     {/* Sidebar: Filmstrip */}
-                                    <div className="w-[220px] bg-slate-200 dark:bg-[#1e1e1e] border-r border-slate-300 dark:border-white/10 overflow-y-auto custom-scrollbar flex flex-col p-4 gap-4 flex-shrink-0">
+                                    <div className="w-[240px] bg-slate-50 dark:bg-[#151515] border-r border-slate-200 dark:border-white/5 overflow-y-auto custom-scrollbar flex flex-col p-4 gap-4 flex-shrink-0">
                                         {localSlides.map((slide, idx) => (
                                             <div 
                                                 key={idx}
-                                                draggable={!isSaving && !isCreationComplete}
+                                                draggable={!isSaving}
                                                 onDragStart={(e) => handleDragStart(e, idx)}
                                                 onDragOver={(e) => handleDragOver(e, idx)}
                                                 onDrop={(e) => handleDrop(e, idx)}
                                                 onClick={() => setSelectedSlideIndex(idx)}
                                                 className={`
-                                                    relative group cursor-pointer transition-all duration-200 flex gap-2 select-none
-                                                    ${selectedSlideIndex === idx ? 'opacity-100' : 'opacity-70 hover:opacity-100'}
-                                                    ${draggingIndex === idx ? 'opacity-50 scale-95 border-dashed border-2 border-orange-400' : ''}
+                                                    relative group cursor-pointer transition-all duration-200 flex gap-3 select-none
+                                                    ${selectedSlideIndex === idx ? 'opacity-100' : 'opacity-60 hover:opacity-100'}
+                                                    ${draggingIndex === idx ? 'opacity-40 scale-95 border-dashed border-2 border-orange-400' : ''}
                                                 `}
                                             >
-                                                <div className="flex flex-col items-center justify-between py-1 w-4">
-                                                    <span className="text-[10px] font-bold text-slate-500">{idx + 1}</span>
-                                                    <Bars2Icon className="h-4 w-4 text-slate-400 cursor-move opacity-0 group-hover:opacity-100" />
+                                                <div className="flex flex-col items-center pt-1 w-5">
+                                                    <span className={`text-[11px] font-bold ${selectedSlideIndex === idx ? 'text-orange-600 dark:text-orange-400' : 'text-slate-400'}`}>
+                                                        {idx + 1}
+                                                    </span>
+                                                    <Bars2Icon className="h-4 w-4 text-slate-300 mt-2 cursor-move opacity-0 group-hover:opacity-100 transition-opacity" />
                                                 </div>
 
-                                                <div className={`flex-1 aspect-[16/9] bg-white dark:bg-[#333] rounded border-2 shadow-sm overflow-hidden p-1 relative
-                                                    ${selectedSlideIndex === idx ? 'border-orange-500 ring-2 ring-orange-500/20' : 'border-transparent group-hover:border-slate-400'}`}>
-                                                    
-                                                    <div className="scale-[0.25] origin-top-left w-[400%] pointer-events-none">
-                                                        <h1 className="font-bold text-slate-800 dark:text-slate-200 mb-2 truncate">{slide.title}</h1>
-                                                        {slide.tableData ? (
-                                                             <div className="text-slate-500 text-sm">Table Content...</div>
-                                                        ) : (
-                                                            <div className="text-slate-600 dark:text-slate-400 h-20 overflow-hidden text-sm">
-                                                                {slide.body}
-                                                            </div>
-                                                        )}
+                                                <div className={`flex-1 aspect-[16/9] bg-white dark:bg-[#2c2c2c] rounded-lg overflow-hidden relative shadow-sm transition-all
+                                                    ${selectedSlideIndex === idx 
+                                                        ? 'ring-2 ring-orange-500 ring-offset-2 ring-offset-slate-50 dark:ring-offset-[#151515] shadow-md' 
+                                                        : 'ring-1 ring-slate-200 dark:ring-white/10 group-hover:ring-slate-400'
+                                                    }`}>
+                                                    <div className="absolute inset-0 p-2 overflow-hidden pointer-events-none">
+                                                        <h1 className="text-[5px] font-bold text-slate-800 dark:text-slate-200 mb-1 truncate leading-tight">
+                                                            {slide.title || "Untitled"}
+                                                        </h1>
+                                                        <div className="text-[4px] text-slate-500 dark:text-slate-400 leading-tight opacity-80">
+                                                            {hasTableData && idx === selectedSlideIndex ? "Table Content" : slide.body}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -351,58 +332,63 @@ export default function PresentationPreviewModal({ isOpen, onClose, previewData,
                                         
                                         <button 
                                             onClick={handleAddSlide}
-                                            disabled={isSaving || isCreationComplete}
-                                            className="flex flex-col items-center justify-center gap-2 w-full aspect-[16/9] border-2 border-dashed border-slate-300 dark:border-white/10 rounded-lg text-slate-400 hover:border-orange-500 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-all group ml-6 max-w-[calc(100%-1.5rem)] disabled:opacity-50 disabled:cursor-not-allowed"
+                                            disabled={isSaving}
+                                            className="flex flex-col items-center justify-center gap-2 w-full aspect-[16/9] border-2 border-dashed border-slate-200 dark:border-white/10 rounded-lg text-slate-400 hover:border-orange-400 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-all group ml-8 max-w-[calc(100%-2rem)] disabled:opacity-50"
                                         >
-                                            <PlusIcon className="h-6 w-6" />
+                                            <PlusIcon className="h-5 w-5" />
                                             <span className="text-[10px] font-bold uppercase tracking-wide">Add Slide</span>
                                         </button>
                                         <div className="h-8"></div>
                                     </div>
 
-                                    {/* Canvas & Editor */}
-                                    <div className="flex-1 bg-slate-100 dark:bg-[#1a1a1a] flex flex-col relative">
+                                    {/* Canvas Area */}
+                                    <div className="flex-1 bg-slate-100 dark:bg-black flex flex-col relative">
                                         
-                                        {/* Slide Canvas */}
-                                        <div className="flex-1 overflow-y-auto p-8 flex items-center justify-center">
+                                        {/* Dot Pattern Background */}
+                                        <div className="absolute inset-0 pointer-events-none opacity-[0.03] dark:opacity-[0.08]"
+                                             style={{ backgroundImage: 'radial-gradient(currentColor 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
+                                        </div>
+
+                                        {/* Scrollable Container with forced Top Padding */}
+                                        <div className="flex-1 overflow-y-auto px-8 lg:px-12 py-12 flex flex-col items-center justify-start relative z-0">
                                             {selectedSlide ? (
-                                                <div className="w-full max-w-4xl aspect-[16/9] bg-white dark:bg-[#2c2c2e] shadow-[0_0_20px_rgba(0,0,0,0.1)] rounded-sm flex flex-col p-8 md:p-12 relative group">
+                                                <div className="w-full max-w-5xl aspect-[16/9] bg-white dark:bg-[#1e1e1e] border border-slate-200 dark:border-white/10 shadow-2xl shadow-black/40 rounded-sm flex flex-col p-10 md:p-16 transition-all duration-300 shrink-0">
                                                     
-                                                    {/* Title */}
+                                                    {/* Title Input */}
                                                     <input
                                                         type="text"
                                                         value={selectedSlide.title}
                                                         onChange={(e) => handleSlideChange(selectedSlideIndex, 'title', e.target.value)}
-                                                        className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-6 bg-transparent border-none outline-none focus:ring-2 focus:ring-blue-500/50 rounded px-2 -mx-2 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors placeholder-slate-300 w-full"
-                                                        placeholder="Click to add title"
-                                                        disabled={isSaving || isCreationComplete}
+                                                        className="text-4xl font-extrabold text-slate-900 dark:text-white mb-8 bg-transparent border-b-2 border-transparent focus:border-orange-500/50 outline-none pb-2 transition-colors placeholder-slate-300 dark:placeholder-slate-600 w-full"
+                                                        placeholder="Add Title"
+                                                        disabled={isSaving}
                                                     />
 
                                                     {/* Content Body */}
-                                                    <div className="flex-1 overflow-hidden relative">
+                                                    <div className="flex-1 overflow-hidden relative group">
                                                         {hasTableData ? (
-                                                            <div className="w-full h-full overflow-auto custom-scrollbar">
+                                                            <div className="w-full h-full overflow-auto custom-scrollbar border border-slate-100 dark:border-white/5 rounded-lg">
                                                                 <table className="min-w-full border-collapse text-left text-sm">
                                                                     <thead>
-                                                                        <tr className="bg-slate-100 dark:bg-white/5 border-b-2 border-slate-300 dark:border-white/10">
+                                                                        <tr className="bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10">
                                                                             {selectedSlide.tableData.headers.map((header, i) => (
-                                                                                <th key={i} className="px-4 py-3 font-bold text-slate-700 dark:text-slate-200">
+                                                                                <th key={i} className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200 text-xs uppercase tracking-wider">
                                                                                     {header}
                                                                                 </th>
                                                                             ))}
                                                                         </tr>
                                                                     </thead>
-                                                                    <tbody className="divide-y divide-slate-200 dark:divide-white/5">
+                                                                    <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                                                                         {selectedSlide.tableData.rows.map((row, rIndex) => (
-                                                                            <tr key={rIndex}>
+                                                                            <tr key={rIndex} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
                                                                                 {row.map((cell, cIndex) => (
-                                                                                    <td key={cIndex} className="p-0 border border-slate-100 dark:border-white/5">
+                                                                                    <td key={cIndex} className="p-0 border-r border-slate-100 dark:border-white/5 last:border-0">
                                                                                         <input
                                                                                             type="text"
                                                                                             value={cell}
                                                                                             onChange={(e) => handleTableChange(selectedSlideIndex, rIndex, cIndex, e.target.value)}
-                                                                                            className="w-full px-4 py-2 bg-transparent border-none outline-none focus:bg-blue-50 dark:focus:bg-blue-900/20 text-slate-600 dark:text-slate-400"
-                                                                                            disabled={isSaving || isCreationComplete}
+                                                                                            className="w-full px-4 py-3 bg-transparent border-none outline-none focus:bg-blue-50/50 dark:focus:bg-blue-900/20 text-slate-600 dark:text-slate-300"
+                                                                                            disabled={isSaving}
                                                                                         />
                                                                                     </td>
                                                                                 ))}
@@ -416,86 +402,90 @@ export default function PresentationPreviewModal({ isOpen, onClose, previewData,
                                                                 ref={bodyInputRef}
                                                                 value={selectedSlide.body}
                                                                 onChange={(e) => handleSlideChange(selectedSlideIndex, 'body', e.target.value)}
-                                                                className="w-full h-full resize-none bg-transparent border-none outline-none focus:ring-2 focus:ring-blue-500/50 rounded px-2 -mx-2 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-lg text-slate-600 dark:text-slate-300 leading-relaxed custom-scrollbar font-sans"
-                                                                placeholder="Click to add text"
-                                                                disabled={isSaving || isCreationComplete}
+                                                                className="w-full h-full resize-none bg-transparent border-none outline-none focus:ring-0 text-lg md:text-xl text-slate-600 dark:text-slate-300 leading-relaxed custom-scrollbar font-sans placeholder-slate-300"
+                                                                placeholder="Type your content here..."
+                                                                disabled={isSaving}
                                                             />
                                                         )}
                                                     </div>
                                                 </div>
                                             ) : (
-                                                <div className="text-center text-slate-400">
-                                                    <Square2StackIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                                                    <p>Select a slide to edit</p>
+                                                <div className="text-center text-slate-400 mt-20">
+                                                    <Square2StackIcon className="h-16 w-16 mx-auto mb-4 opacity-20" />
+                                                    <p className="font-medium">No slide selected</p>
                                                 </div>
                                             )}
+                                            {/* Spacer at bottom for scrolling */}
+                                            <div className="h-12 w-full shrink-0"></div>
                                         </div>
 
                                         {/* Speaker Notes */}
-                                        <div className="h-[140px] bg-white dark:bg-[#202020] border-t border-slate-300 dark:border-white/10 flex flex-col flex-shrink-0 z-10">
-                                            <div className="px-4 py-1 bg-slate-50 dark:bg-[#252525] border-b border-slate-200 dark:border-white/5">
-                                                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Click to add speaker notes</span>
+                                        <div className="h-[160px] bg-white dark:bg-[#1a1a1a] border-t border-slate-200 dark:border-white/5 flex flex-col flex-shrink-0 z-10 shadow-[0_-4px_20px_rgba(0,0,0,0.03)]">
+                                            <div className="px-6 py-2 bg-slate-50/50 dark:bg-[#202020] border-b border-slate-100 dark:border-white/5 flex items-center justify-between">
+                                                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Speaker Notes</span>
+                                                <span className="text-[10px] text-slate-400">Private to presenter</span>
                                             </div>
                                             <textarea
                                                 value={selectedSlide ? selectedSlide.notes : ''}
                                                 onChange={(e) => selectedSlide && handleSlideChange(selectedSlideIndex, 'notes', e.target.value)}
-                                                className="flex-1 w-full p-4 resize-none bg-transparent border-none outline-none focus:bg-yellow-50 dark:focus:bg-yellow-900/10 text-sm font-mono text-slate-600 dark:text-slate-400 custom-scrollbar"
-                                                placeholder="Add speaker notes here..."
-                                                disabled={!selectedSlide || isSaving || isCreationComplete}
+                                                className="flex-1 w-full px-6 py-4 resize-none bg-transparent border-none outline-none focus:bg-yellow-50/30 dark:focus:bg-yellow-900/5 text-sm font-mono text-slate-600 dark:text-slate-400 custom-scrollbar leading-relaxed"
+                                                placeholder="Add your talking points here..."
+                                                disabled={!selectedSlide || isSaving}
                                             />
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* --- 4. Footer Actions --- */}
-                                <div className="px-6 py-4 bg-white dark:bg-[#1e1e1e] border-t border-slate-200 dark:border-white/5 flex justify-end items-center gap-3 z-20">
-                                    {isCreationComplete ? (
-                                        // SUCCESS STATE
-                                        <div className="flex items-center justify-between w-full">
-                                            <div className="flex items-center text-green-600 dark:text-green-400 font-bold px-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                                                <CheckCircleIcon className="h-5 w-5 mr-2" />
-                                                Presentation Created Successfully!
+                                <div className="px-6 py-4 bg-white dark:bg-[#1a1a1a] border-t border-slate-200 dark:border-white/5 flex justify-between items-center z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                                    <div className="flex items-center gap-4">
+                                        {isCreationComplete && (
+                                            <div className="flex items-center text-green-600 dark:text-green-400 text-sm font-semibold animate-in fade-in slide-in-from-left-2 duration-300 bg-green-50 dark:bg-green-900/20 px-3 py-1.5 rounded-full border border-green-200 dark:border-green-800/30">
+                                                <CheckCircleIcon className="h-4 w-4 mr-2" />
+                                                Presentation Created!
                                             </div>
-                                            <button
-                                                onClick={onClose}
-                                                className="px-6 py-2.5 rounded-[14px] text-[13px] font-bold text-white bg-slate-700 hover:bg-slate-800 dark:bg-slate-600 dark:hover:bg-slate-500 transition-all shadow-md"
-                                            >
-                                                Close Editor
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        // NORMAL STATE
-                                        <>
-                                            <button
-                                                type="button"
-                                                onClick={onClose}
-                                                disabled={isSaving}
-                                                className="px-5 py-2.5 rounded-[12px] text-[13px] font-semibold text-slate-700 dark:text-slate-300 
-                                                         hover:bg-slate-100 dark:hover:bg-white/10 border border-transparent disabled:opacity-50 transition-all"
-                                            >
-                                                Cancel
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={handleConfirm}
-                                                disabled={isSaving}
-                                                className={`px-6 py-2.5 rounded-[14px] text-[13px] font-bold text-white shadow-lg shadow-blue-500/25 flex items-center gap-2 transition-all active:scale-[0.98]
-                                                    ${isSaving 
-                                                        ? 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed shadow-none' 
-                                                        : 'bg-[#007AFF] hover:bg-[#0062CC]'
-                                                    }`}
-                                            >
-                                                {isSaving ? (
-                                                    <>
-                                                        <ArrowPathIcon className="h-4 w-4 animate-spin" />
-                                                        Creating...
-                                                    </>
-                                                ) : (
-                                                    "Export to Google Slides"
-                                                )}
-                                            </button>
-                                        </>
-                                    )}
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={onClose}
+                                            disabled={isSaving}
+                                            className="px-5 py-2.5 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 transition-all disabled:opacity-50"
+                                        >
+                                            {isCreationComplete ? "Close" : "Cancel"}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleConfirm}
+                                            disabled={isSaving}
+                                            className={`
+                                                relative px-6 py-2.5 rounded-xl text-sm font-bold text-white shadow-lg shadow-blue-500/20 
+                                                flex items-center gap-2 transition-all active:scale-[0.98] overflow-hidden
+                                                ${isSaving 
+                                                    ? 'bg-slate-400 dark:bg-slate-700 cursor-wait pl-10' 
+                                                    : isCreationComplete
+                                                        ? 'bg-slate-700 hover:bg-slate-800 dark:bg-slate-600 dark:hover:bg-slate-500'
+                                                        : 'bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400'
+                                                }
+                                            `}
+                                        >
+                                            {isSaving && (
+                                                <ArrowPathIcon className="absolute left-3 h-4 w-4 animate-spin text-white/80" />
+                                            )}
+                                            {isSaving 
+                                                ? "Generating..." 
+                                                : isCreationComplete 
+                                                    ? "Generate Again" 
+                                                    : (
+                                                        <>
+                                                            <span>Export to Google Slides</span>
+                                                            <SparklesIcon className="h-4 w-4 opacity-80" />
+                                                        </>
+                                                    )
+                                            }
+                                        </button>
+                                    </div>
                                 </div>
 
                             </Dialog.Panel>
