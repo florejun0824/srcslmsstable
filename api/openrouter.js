@@ -3,14 +3,13 @@ export const config = {
 };
 
 // 1. POOL OF OPENROUTER KEYS
-// Make sure to add these to your Vercel/Netlify Environment Variables
+// Good practice for redundancy. Ensure these are set in Vercel/Netlify env vars.
 const getApiKeyPool = () => {
   const keys = new Set();
   if (process.env.OPENROUTER_API_KEY) keys.add(process.env.OPENROUTER_API_KEY);
   if (process.env.OPENROUTER_API_KEY_2) keys.add(process.env.OPENROUTER_API_KEY_2);
   if (process.env.OPENROUTER_API_KEY_3) keys.add(process.env.OPENROUTER_API_KEY_3);
-  if (process.env.OPENROUTER_API_KEY_4) keys.add(process.env.OPENROUTER_API_KEY_4);
-  if (process.env.OPENROUTER_API_KEY_5) keys.add(process.env.OPENROUTER_API_KEY_5);
+  // Add more as needed
   return Array.from(keys).filter(k => k && k.length > 10);
 };
 
@@ -24,13 +23,22 @@ const getRandomKey = () => {
 export default async function handler(req) {
   const corsHeaders = {
     'Access-Control-Allow-Credentials': 'true',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET,OPTIONS,PATCH,DELETE,POST,PUT',
+    'Access-Control-Allow-Origin': '*', // Security Note: Replace '*' with your actual domain in production
+    'Access-Control-Allow-Methods': 'POST, OPTIONS', // Only allow POST and OPTIONS
     'Access-Control-Allow-Headers': 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
   };
 
+  // 1. Handle Preflight / OPTIONS
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: corsHeaders });
+  }
+
+  // 2. Validate Method (Reject GET or others)
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: "Method not allowed. Use POST." }), { 
+      status: 405, 
+      headers: corsHeaders 
+    });
   }
 
   try {
@@ -38,40 +46,56 @@ export default async function handler(req) {
     if (!bodyText) return new Response(JSON.stringify({ error: "Empty body" }), { status: 400, headers: corsHeaders });
     
     const body = JSON.parse(bodyText);
-    const { prompt } = body;
+    const { prompt, imageUrl } = body; // Supports optional imageUrl
+
+    // 3. Validate Inputs
+    if (!prompt || typeof prompt !== 'string') {
+      return new Response(JSON.stringify({ error: "Missing or invalid 'prompt'" }), { status: 400, headers: corsHeaders });
+    }
 
     const apiKey = getRandomKey();
     if (!apiKey) {
       return new Response(JSON.stringify({ error: "Server Error: No OpenRouter API Keys configured." }), { status: 500, headers: corsHeaders });
     }
 
-    // 2. CALL OPENROUTER (OpenAI Compatible)
+    // 4. Construct Messages (Handle Text vs. Multimodal)
+    let messagesContent;
+    if (imageUrl) {
+      // Multimodal format
+      messagesContent = [
+        { type: "text", text: prompt },
+        { type: "image_url", image_url: { url: imageUrl } }
+      ];
+    } else {
+      // Standard Text-only
+      messagesContent = prompt;
+    }
+
+    // 5. CALL OPENROUTER
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://your-lms-app.com", // Optional: Change to your actual site
+        "HTTP-Referer": "https://srcsdigital.web.app/", // RECOMMENDATION: Change to your real URL
         "X-Title": "LMS Teacher Assistant",
       },
       body: JSON.stringify({
-        model: "google/gemma-3-27b-it:free", // TARGET MODEL
-        messages: [{ role: "user", content: prompt }],
+        model: "openai/gpt-oss-120b:free", // Verified ID
+        messages: [{ role: "user", content: messagesContent }],
         stream: true, 
       }),
     });
 
     if (!response.ok) {
         const errText = await response.text();
-        // Return 429/500 so the frontend knows to failover to Gemini
         return new Response(JSON.stringify({ error: `OpenRouter Failed: ${errText}` }), { 
             status: response.status, 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
     }
 
-    // 3. TRANSFORM STREAM (OpenAI SSE -> Raw Text)
-    // We parse the "data: {...}" chunks and return just the text to match gemini.js output
+    // 6. TRANSFORM STREAM (OpenAI SSE -> Raw Text)
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
     

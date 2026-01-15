@@ -79,16 +79,20 @@ export const usePresentationGenerator = (showToast) => {
         const page = validPages[i];
         const currentStep = i + 1;
         const totalSteps = validPages.length;
-        
-        // LOGIC: Determine if this is the final text chunk
         const isLastBatch = (i === validPages.length - 1);
 
-        // --- CONTEXT MEMORY ---
-        // Pass ALL previous titles to ensure the AI knows what has been covered.
-        const existingTitles = accumulatedSlides
-            .map(s => s.title)
-            .filter(t => t) 
-            .join(" | "); 
+        // --- CONTEXT MEMORY ENHANCEMENT ---
+        // Instead of just titles, we pass Title + Gist (first 100 chars of body)
+        // We only look at the last 5 slides to save token space but keep relevant context.
+        const existingContext = accumulatedSlides
+            .slice(-5) 
+            .map(s => {
+                const snippet = typeof s.body === 'string' 
+                    ? s.body.substring(0, 100).replace(/\n/g, " ") 
+                    : "Content content";
+                return `- Title: "${s.title}" | Gist: "${snippet}..."`;
+            })
+            .join("\n");
         
         setPptStatus(`Analyzing section ${currentStep} of ${totalSteps}...`);
         setPptProgress(Math.round((currentStep / totalSteps) * 90));
@@ -100,15 +104,14 @@ export const usePresentationGenerator = (showToast) => {
             **GLOBAL CONTEXT (DO NOT IGNORE):**
             You are processing Part ${currentStep} of ${totalSteps} of a single lesson.
             
-            **MEMORY (ALREADY CREATED SLIDES):**
-            [ ${existingTitles} ]
+            **MEMORY (DO NOT REPEAT CONTENT FOUND HERE):**
+            ${existingContext}
 
-            **STRICT DUPLICATE & CONTINUATION LOGIC:** Check the "MEMORY" list above.
-            1. **If the topic is NEW:** Create a standard slide.
-            2. **If the topic EXISTS but the text has NEW DETAILS:** You MUST create a continuation slide. 
-               - **Title Format:** Use "${"{Topic} (Continued)"}" or "${"{Topic}: Key Details"}" to distinguish it.
-               - **Content:** Do NOT repeat the definition. Focus purely on the new deep details.
-            3. **If the text is merely a summary/repetition:** SKIP IT completely.
+            **STRICT DEDUPLICATION RULES:**
+            1. **CHECK MEMORY:** Read the "Gist" in the memory above.
+            2. **NO RE-DEFINING:** If the input text defines a term (e.g., "What is Matter?") and the Memory shows you already defined it, **SKIP IT**.
+            3. **ONLY NEW INFO:** Only generate a slide if the input text contains **new details, examples, or steps** not found in the Memory.
+            4. **EMPTY IS OKAY:** If the entire text is just a summary/recap of the Memory, return an empty array: { "slides": [] }.
 
             STRICT BEHAVIORAL CONSTRAINTS:
             1. Output ONLY valid JSON starting with '{' and ending with '}'.
@@ -137,9 +140,9 @@ export const usePresentationGenerator = (showToast) => {
 
             * **TYPE A: GENERAL LESSON:**
                 - Follow the "Slide Body" rules above. **Prioritize Natural Flow.**
+                - **Continuation:** If the topic exists in Memory but this text has NEW info, use Title: "{Topic}: {Specific Sub-Point}" (e.g., "Matter: Properties" instead of just "Matter").
 
-           
-* **TYPE C: ASSESSMENT / QUIZ (STRICT TRIGGER):**
+            * **TYPE C: ASSESSMENT / QUIZ (STRICT TRIGGER):**
                 - **TRIGGER:** Only generate if you see explicit headers: "End-of-Lesson Assessment", "Summative Test", or "Quiz".
                 - **NEGATIVE CONSTRAINT:** IGNORE "Reflection Questions", "Guide Questions", "Points to Ponder". These are NOT quizzes.
                 - **Constraint:** Max 2 questions per slide.
@@ -156,7 +159,7 @@ export const usePresentationGenerator = (showToast) => {
                 - **CONDITION:** MUST generate immediately after Type C slides.
 
             * **TYPE E: REFERENCES:**
-                - **CONDITION:** ONLY if "IS FINAL BATCH" is "true". Only generate if you see explicit headers: "References", or "Reference".
+                - **CONDITION:** ONLY if "IS FINAL BATCH" is "true" (${isLastBatch}). Only generate if you see explicit headers: "References", or "Reference".
 				- **Rule:** Copy in Verbatim the list of the References that was used.
 
             **REQUIRED JSON SCHEMA:**
@@ -175,7 +178,6 @@ export const usePresentationGenerator = (showToast) => {
 
             **INPUT DATA CONTEXT:**
             - CURRENT BATCH: ${currentStep} of ${totalSteps}
-            - IS FINAL BATCH: ${isLastBatch}
             
             **CONTENT TO PROCESS:**
             ${page.content}
@@ -196,7 +198,19 @@ export const usePresentationGenerator = (showToast) => {
             const parsed = JSON.parse(jsonText);
 
             if (parsed.slides && Array.isArray(parsed.slides)) {
-                accumulatedSlides = [...accumulatedSlides, ...parsed.slides];
+                // --- FIX: CLIENT-SIDE DEDUPLICATION ---
+                // Even if AI fails the memory check, we do a hard filter here.
+                const uniqueNewSlides = parsed.slides.filter(newSlide => {
+                    // Check if a slide with the exact same Title AND Body already exists
+                    // We check the first 20 characters of the body to catch exact duplicates
+                    const isDuplicate = accumulatedSlides.some(existing => 
+                        existing.title.trim().toLowerCase() === newSlide.title.trim().toLowerCase() &&
+                        (existing.body || "").slice(0, 20) === (newSlide.body || "").slice(0, 20)
+                    );
+                    return !isDuplicate;
+                });
+
+                accumulatedSlides = [...accumulatedSlides, ...uniqueNewSlides];
             }
         } catch (err) {
             console.error(`Error processing slide chunk ${i + 1}:`, err);
