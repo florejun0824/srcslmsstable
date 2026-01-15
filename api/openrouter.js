@@ -23,7 +23,7 @@ const getRandomKey = () => {
 export default async function handler(req) {
   const corsHeaders = {
     'Access-Control-Allow-Credentials': 'true',
-    'Access-Control-Allow-Origin': '*', // Security Note: Replace '*' with your actual domain in production
+    'Access-Control-Allow-Origin': 'srcsdigital.web.app', // Security Note: Replace '*' with your actual domain in production
     'Access-Control-Allow-Methods': 'POST, OPTIONS', // Only allow POST and OPTIONS
     'Access-Control-Allow-Headers': 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
   };
@@ -81,7 +81,7 @@ export default async function handler(req) {
         "X-Title": "LMS Teacher Assistant",
       },
       body: JSON.stringify({
-        model: "openai/gpt-oss-120b:free", // Verified ID
+        model: "deepseek/deepseek-r1-0528:free", // Verified ID
         messages: [{ role: "user", content: messagesContent }],
         stream: true, 
       }),
