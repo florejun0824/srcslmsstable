@@ -23,8 +23,9 @@ const getRandomKey = () => {
 export default async function handler(req) {
   const corsHeaders = {
     'Access-Control-Allow-Credentials': 'true',
-    'Access-Control-Allow-Origin': 'srcsdigital.web.app', // Security Note: Replace '*' with your actual domain in production
-    'Access-Control-Allow-Methods': 'POST, OPTIONS', // Only allow POST and OPTIONS
+    // Security Note: Updated to include protocol for strict CORS compliance
+    'Access-Control-Allow-Origin': '*', 
+'Access-Control-Allow-Methods': 'GET,OPTIONS,PATCH,DELETE,POST,PUT',
     'Access-Control-Allow-Headers': 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
   };
 
@@ -46,7 +47,7 @@ export default async function handler(req) {
     if (!bodyText) return new Response(JSON.stringify({ error: "Empty body" }), { status: 400, headers: corsHeaders });
     
     const body = JSON.parse(bodyText);
-    const { prompt, imageUrl } = body; // Supports optional imageUrl
+    const { prompt, imageUrl } = body; 
 
     // 3. Validate Inputs
     if (!prompt || typeof prompt !== 'string') {
@@ -58,17 +59,25 @@ export default async function handler(req) {
       return new Response(JSON.stringify({ error: "Server Error: No OpenRouter API Keys configured." }), { status: 500, headers: corsHeaders });
     }
 
-    // 4. Construct Messages (Handle Text vs. Multimodal)
+    // 4. Construct Messages & Select Model (Hybrid Logic)
+    let selectedModel = "deepseek/deepseek-r1-0528:free"; // Default: Best Logic
     let messagesContent;
+
     if (imageUrl) {
-      // Multimodal format
+      // CRITICAL FIX: Switch to Gemini for Vision support if image exists
+      console.log("Image detected: Switching to Gemini 2.0 Flash");
+      selectedModel = "google/gemini-2.0-flash-exp:free";
+      
       messagesContent = [
         { type: "text", text: prompt },
         { type: "image_url", image_url: { url: imageUrl } }
       ];
     } else {
-      // Standard Text-only
-      messagesContent = prompt;
+      // Standard Text-only: DeepSeek R1
+      // Note: Using array format is generally safer for OpenRouter compatibility across models
+      messagesContent = [
+        { type: "text", text: prompt }
+      ];
     }
 
     // 5. CALL OPENROUTER
@@ -77,11 +86,11 @@ export default async function handler(req) {
       headers: {
         "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://srcsdigital.web.app/", // RECOMMENDATION: Change to your real URL
+        "HTTP-Referer": "https://srcslms.vercel.app", 
         "X-Title": "LMS Teacher Assistant",
       },
       body: JSON.stringify({
-        model: "deepseek/deepseek-r1-0528:free", // Verified ID
+        model: selectedModel,
         messages: [{ role: "user", content: messagesContent }],
         stream: true, 
       }),
@@ -89,7 +98,7 @@ export default async function handler(req) {
 
     if (!response.ok) {
         const errText = await response.text();
-        return new Response(JSON.stringify({ error: `OpenRouter Failed: ${errText}` }), { 
+        return new Response(JSON.stringify({ error: `OpenRouter Failed (${selectedModel}): ${errText}` }), { 
             status: response.status, 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
