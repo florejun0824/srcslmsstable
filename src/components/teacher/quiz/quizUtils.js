@@ -25,23 +25,47 @@ const stripHtml = (html) => {
     return tmp.textContent || tmp.innerText || "";
 };
 
-const getBase64ImageFromUrl = async (imageUrl) => {
+const fetchResourceAsBase64 = async (url) => {
     try {
-        const res = await fetch(imageUrl);
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`Failed to fetch ${url}`);
         const blob = await res.blob();
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
             const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.onloadend = () => {
+                const res = reader.result;
+                const base64 = res.replace(/^data:.+;base64,/, '');
+                resolve(base64);
+            };
             reader.readAsDataURL(blob);
         });
     } catch (e) {
-        console.warn("Failed to load image for PDF", e);
+        console.warn("Resource load failed:", e);
         return null;
     }
 };
 
+// --- FONT HANDLING ---
+const registerCustomFonts = async (doc) => {
+    const fontUrl = "/fonts/DejaVuSans.ttf"; 
+    const fontName = "DejaVuSans";
+
+    const fontBase64 = await fetchResourceAsBase64(fontUrl);
+
+    if (fontBase64) {
+        doc.addFileToVFS(`${fontName}.ttf`, fontBase64);
+        doc.addFont(`${fontName}.ttf`, fontName, "normal");
+        doc.addFont(`${fontName}.ttf`, fontName, "bold");
+        return fontName;
+    }
+    
+    console.warn("Custom font not found, falling back to Helvetica.");
+    return "helvetica"; 
+};
+
 /**
- * MAIN EXPORT FUNCTION - FIXED FOR MULTIPLE CHOICE ANSWER KEY
+ * MAIN EXPORT FUNCTION
  */
 export const handleExportPdf = async (quiz, showToast) => {
     if (!quiz?.questions || quiz.questions.length === 0) {
@@ -50,25 +74,48 @@ export const handleExportPdf = async (quiz, showToast) => {
     }
 
     try {
-        showToast("Generating PDF...", "info");
+        showToast("Loading fonts & generating PDF...", "info");
         const doc = new jsPDF();
         
+        // 1. Load Fonts
+        const usedFont = await registerCustomFonts(doc);
+
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
         const margin = 20;
         const maxLineWidth = pageWidth - (margin * 2);
         let yPos = 20;
         let qCounter = 1; 
-        
+
+        // Helper: Print Text with strict overflow protection
+        const printWrappedText = (text, x, fontSize, isBold = false, indent = 0) => {
+            doc.setFont(usedFont, isBold ? "bold" : "normal");
+            doc.setFontSize(fontSize);
+            
+            const availableWidth = maxLineWidth - indent;
+            const lines = doc.splitTextToSize(text, availableWidth);
+            const lineHeight = fontSize * 0.45; 
+
+            lines.forEach(line => {
+                if (yPos + lineHeight > pageHeight - margin) {
+                    doc.addPage();
+                    yPos = margin;
+                }
+                doc.text(line, x + indent, yPos);
+                yPos += lineHeight + 1.5; 
+            });
+            yPos += 2; 
+        };
+
         const drawHeader = (isFirstPage = false) => {
             if (isFirstPage) {
-                doc.setFont("helvetica", "bold");
+                doc.setFont(usedFont, "bold");
                 doc.setFontSize(22);
                 doc.text(quiz.title || "Quiz", pageWidth / 2, yPos, { align: 'center' });
-                yPos += 10;
+                yPos += 12;
 
                 doc.setFontSize(12);
-                doc.setFont("helvetica", "normal");
+                doc.setFont(usedFont, "normal");
                 const subText = quiz.subjectId ? `Subject Code: ${quiz.subjectId}` : "Assessment";
                 doc.text(subText, pageWidth / 2, yPos, { align: 'center' });
                 yPos += 20;
@@ -78,7 +125,9 @@ export const handleExportPdf = async (quiz, showToast) => {
                 doc.text("Date: ___________________", pageWidth - margin - 50, yPos);
                 yPos += 12;
                 doc.text("Grade/Section: _________________________", margin, yPos);
-                doc.text("Score: ________ / " + quiz.questions.reduce((a, b) => a + (b.points || 1), 0), pageWidth - margin - 50, yPos);
+                
+                const totalPoints = quiz.questions.reduce((a, b) => a + (Number(b.points) || 1), 0);
+                doc.text(`Score: ________ / ${totalPoints}`, pageWidth - margin - 50, yPos);
                 yPos += 20;
 
                 doc.setLineWidth(0.5);
@@ -87,7 +136,7 @@ export const handleExportPdf = async (quiz, showToast) => {
             }
         };
 
-        const checkPageBreak = (heightNeeded = 15) => {
+        const checkSpace = (heightNeeded = 15) => {
             if (yPos + heightNeeded > pageHeight - margin) {
                 doc.addPage();
                 yPos = margin; 
@@ -96,12 +145,14 @@ export const handleExportPdf = async (quiz, showToast) => {
 
         drawHeader(true);
         const answerKeyData = [];
+        const explanationData = []; // Store explanations for later
 
         // --- QUESTIONS LOOP ---
         for (let i = 0; i < quiz.questions.length; i++) {
             const q = quiz.questions[i];
             const qText = stripHtml(q.text || q.question || "Question Text Missing");
             const points = Number(q.points) || 1;
+            const explanation = stripHtml(q.explanation || q.solution || '');
             
             const isMatching = q.type === 'matching-type';
             const isEssay = q.type === 'essay';
@@ -114,146 +165,108 @@ export const handleExportPdf = async (quiz, showToast) => {
             const end = qCounter + itemsConsumed - 1;
             const label = itemsConsumed > 1 ? `${start}-${end}.` : `${start}.`;
 
-            checkPageBreak(20);
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(11);
+            checkSpace(15); 
 
+            // Render Question
             if (isMatching) {
                 const rangeLabel = itemsConsumed > 1 ? `For items ${start}-${end}:` : `Item ${start}:`;
-                const splitTitle = doc.splitTextToSize(`${rangeLabel} ${qText}`, maxLineWidth);
-                doc.text(splitTitle, margin, yPos);
-                yPos += (splitTitle.length * 6) + 4;
+                printWrappedText(`${rangeLabel} ${qText}`, margin, 11, true);
             } else {
                 const fullQuestionText = `${label} ${qText} (${points} pts)`;
-                const splitTitle = doc.splitTextToSize(fullQuestionText, maxLineWidth);
-                doc.text(splitTitle, margin, yPos);
-                yPos += (splitTitle.length * 6) + 4;
+                printWrappedText(fullQuestionText, margin, 11, true);
             }
             
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(11);
-
-            // --- 2. RENDER CONTENT & CORRECTED ANSWER KEY LOGIC ---
+            // Render Options & Collect Answer Key
             if (q.type === 'multiple-choice') {
                 (q.options || []).forEach((opt, idx) => {
-                    checkPageBreak(8);
-                    // Handle both string and object options
                     const optText = typeof opt === 'object' ? stripHtml(opt.text || '') : stripHtml(opt);
                     const letter = String.fromCharCode(65 + idx);
-                    const splitOpt = doc.splitTextToSize(`${letter}. ${optText}`, maxLineWidth - 10);
-                    
-                    doc.text(splitOpt, margin + 8, yPos); 
-                    yPos += (splitOpt.length * 6) + 2;
+                    printWrappedText(`${letter}. ${optText}`, margin + 5, 11, false, 5);
                 });
+                yPos += 3; 
 
-                // --- ROBUST SEARCH FOR CORRECT ANSWER ---
+                // Answer Key Logic
                 let correctOptIndex = -1;
-
-                // Priority 1: Check correctAnswerIndex (Manual Creator / AiQuizGenerator)
                 if (typeof q.correctAnswerIndex === 'number' && q.correctAnswerIndex > -1) {
                     correctOptIndex = q.correctAnswerIndex;
-                } 
-                // Priority 2: Check for isCorrect property inside options (AiQuizGenerator)
-                else if (Array.isArray(q.options)) {
+                } else if (Array.isArray(q.options)) {
                     correctOptIndex = q.options.findIndex(o => o.isCorrect === true || o.correct === true);
                 }
-                // Priority 3: Check for "A", "B", "C" label in correctAnswer (AiQuizModal)
-                if (correctOptIndex === -1 && typeof q.correctAnswer === 'string') {
-                    const labelMatch = q.correctAnswer.trim().toUpperCase();
-                    if (labelMatch.length === 1) {
-                        correctOptIndex = labelMatch.charCodeAt(0) - 65;
-                    }
-                }
-
-                const correctLetter = (correctOptIndex >= 0 && correctOptIndex < (q.options?.length || 4)) 
-                    ? String.fromCharCode(65 + correctOptIndex) 
-                    : 'N/A';
-                
+                const correctLetter = (correctOptIndex >= 0) ? String.fromCharCode(65 + correctOptIndex) : 'N/A';
                 answerKeyData.push([label, correctLetter]);
+                
+                // Store Explanation
+                if (explanation) explanationData.push({ label, text: explanation });
 
             } else if (q.type === 'true-false') {
-                checkPageBreak(15);
-                doc.text("A. True", margin + 8, yPos);
-                yPos += 6;
-                doc.text("B. False", margin + 8, yPos);
-                yPos += 8;
-
+                printWrappedText("A. True", margin + 8, 11);
+                printWrappedText("B. False", margin + 8, 11);
+                yPos += 3;
                 const ans = (q.correctAnswer === true || String(q.correctAnswer).toLowerCase() === 'true') ? 'True' : 'False';
                 answerKeyData.push([label, ans]);
+                if (explanation) explanationData.push({ label, text: explanation });
 
             } else if (q.type === 'matching-type') {
-                checkPageBreak(40);
+                checkSpace(20);
+                // Simple matching rendering
                 const colA_X = margin + 5;
                 const colB_X = (pageWidth / 2) + 10;
                 const colWidth = (pageWidth / 2) - margin - 10;
 
-                doc.setFont("helvetica", "bold");
+                doc.setFont(usedFont, "bold");
                 doc.text("Column A", colA_X, yPos);
                 doc.text("Column B", colB_X, yPos);
                 yPos += 8;
-                doc.setFont("helvetica", "normal");
+                doc.setFont(usedFont, "normal");
 
                 const maxCount = Math.max((q.prompts || []).length, (q.options || []).length);
-                
                 for (let j = 0; j < maxCount; j++) {
-                    if (yPos + 15 > pageHeight - margin) {
+                     if (yPos + 20 > pageHeight - margin) {
                         doc.addPage();
                         yPos = margin;
-                        doc.setFont("helvetica", "bold");
                         doc.text("Column A (Cont.)", colA_X, yPos);
                         doc.text("Column B (Cont.)", colB_X, yPos);
                         yPos += 8;
-                        doc.setFont("helvetica", "normal");
-                    }
-
-                    let heightA = 0;
-                    let heightB = 0;
-
-                    if (q.prompts?.[j]) {
-                        const pText = stripHtml(q.prompts[j].text);
-                        const currentNum = qCounter + j;
-                        const lines = doc.splitTextToSize(`${currentNum}. ${pText}`, colWidth);
-                        doc.text(lines, colA_X, yPos);
-                        heightA = lines.length * 5;
-                        
-                        const correctId = q.correctPairs?.[q.prompts[j].id];
-                        const optIdx = (q.options || []).findIndex(o => o.id === correctId);
-                        const letter = optIdx > -1 ? String.fromCharCode(65 + optIdx) : '?';
-                        answerKeyData.push([`${currentNum}.`, letter]);
-                    }
-
-                    if (q.options?.[j]) {
-                        const oText = stripHtml(q.options[j].text);
-                        const letter = String.fromCharCode(65 + j);
-                        const lines = doc.splitTextToSize(`${letter}. ${oText}`, colWidth);
-                        doc.text(lines, colB_X, yPos);
-                        heightB = lines.length * 5;
-                    }
-                    yPos += Math.max(heightA, heightB) + 4;
+                     }
+                     // Render Columns...
+                     let hA=0, hB=0;
+                     if(q.prompts?.[j]) {
+                         const lines = doc.splitTextToSize(`${qCounter + j}. ${stripHtml(q.prompts[j].text)}`, colWidth);
+                         doc.text(lines, colA_X, yPos);
+                         hA = lines.length * 5;
+                         
+                         // Matching Answer Key
+                         const correctId = q.correctPairs?.[q.prompts[j].id];
+                         const optIdx = (q.options || []).findIndex(o => o.id === correctId);
+                         const letter = optIdx > -1 ? String.fromCharCode(65 + optIdx) : '?';
+                         answerKeyData.push([`${qCounter+j}.`, letter]);
+                     }
+                     if(q.options?.[j]) {
+                         const lines = doc.splitTextToSize(`${String.fromCharCode(65+j)}. ${stripHtml(q.options[j].text)}`, colWidth);
+                         doc.text(lines, colB_X, yPos);
+                         hB = lines.length * 5;
+                     }
+                     yPos += Math.max(hA, hB) + 4;
                 }
-
-            } else if (q.type === 'essay') {
-                checkPageBreak(40);
-                for (let k = 0; k < 6; k++) {
-                    doc.line(margin + 5, yPos + (k * 8), pageWidth - margin, yPos + (k * 8));
-                }
-                yPos += 50;
-                answerKeyData.push([label, "Essay (See Rubric)"]);
+                if (explanation) explanationData.push({ label: `Items ${start}-${end}`, text: explanation });
 
             } else {
-                checkPageBreak(15);
+                // Essay / Identification
+                checkSpace(20);
                 doc.text("Answer: _________________________________________", margin + 8, yPos);
-                yPos += 12;
-                answerKeyData.push([label, stripHtml(q.correctAnswer || '')]);
+                yPos += 15;
+                const ans = isEssay ? "See Rubric" : stripHtml(q.correctAnswer || '');
+                answerKeyData.push([label, ans]);
+                if (explanation) explanationData.push({ label, text: explanation });
             }
 
-            yPos += 8; 
+            yPos += 5; 
             qCounter += itemsConsumed;
         }
 
-        // --- ANSWER KEY PAGE ---
+        // --- PAGE: ANSWER KEY ---
         doc.addPage();
-        doc.setFont("helvetica", "bold");
+        doc.setFont(usedFont, "bold");
         doc.setFontSize(16);
         doc.text("Answer Key", pageWidth / 2, 20, { align: 'center' });
         
@@ -262,9 +275,35 @@ export const handleExportPdf = async (quiz, showToast) => {
             body: answerKeyData,
             startY: 40,
             theme: 'grid',
+            styles: { font: usedFont },
             headStyles: { fillColor: [30, 30, 30], textColor: 255, halign: 'center' },
-            columnStyles: { 0: { cellWidth: 30, halign: 'center' } }
+            columnStyles: { 0: { cellWidth: 40, halign: 'center' } }
         });
+
+        // --- PAGE: EXPLANATIONS (NEW) ---
+        if (explanationData.length > 0) {
+            doc.addPage();
+            yPos = 20;
+            doc.setFont(usedFont, "bold");
+            doc.setFontSize(16);
+            doc.text("Explanations / Rationalization", pageWidth / 2, yPos, { align: 'center' });
+            yPos += 20;
+
+            explanationData.forEach(item => {
+                checkSpace(20);
+                // Bold Question Number
+                doc.setFont(usedFont, "bold");
+                doc.setFontSize(11);
+                doc.text(`Question ${item.label}`, margin, yPos);
+                
+                // Normal Text Explanation
+                doc.setFont(usedFont, "normal");
+                const splitExp = doc.splitTextToSize(item.text, maxLineWidth - 5);
+                doc.text(splitExp, margin + 5, yPos + 6);
+                
+                yPos += (splitExp.length * 5) + 15; // Spacing between items
+            });
+        }
 
         // --- SAVE FILE ---
         const filename = `${(quiz.title || 'quiz').replace(/[\\/:"*?<>|]+/g, '_')}_Exam.pdf`;
