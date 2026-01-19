@@ -19,13 +19,9 @@ const isNative = Capacitor.isNativePlatform();
 const API_BASE = PROD_API_URL;
 
 // --- CONFIGURATION ---
-// TIER 1: OpenRouter (Xiaomi MiMo V2) - FREE & FAST
+// TIER 1: OpenRouter (Primary Account) - Configured for single paid key
 const PRIMARY_CONFIGS = [
-    { service: 'openrouter', url: `${API_BASE}/api/openrouter`, name: 'MiMo Flash 1 (Primary)' },
-    { service: 'openrouter', url: `${API_BASE}/api/openrouter`, name: 'MiMo Flash 2 (Primary)' },
-    { service: 'openrouter', url: `${API_BASE}/api/openrouter`, name: 'MiMo Flash 3 (Primary)' },
-    { service: 'openrouter', url: `${API_BASE}/api/openrouter`, name: 'MiMo Flash 4 (Primary)' },
-    { service: 'openrouter', url: `${API_BASE}/api/openrouter`, name: 'MiMo Flash 5 (Primary)' },
+    { service: 'openrouter', url: `${API_BASE}/api/openrouter`, name: 'Deep Seek (Primary)' },
 ];
 
 // TIER 2: Google Gemini - RELIABLE BACKUP
@@ -144,12 +140,13 @@ const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTo
     const maxPrimaryAttempts = 3; 
 
     for (let i = 0; i < maxPrimaryAttempts; i++) {
+        // We use modulus even with 1 item so the logic remains valid if you add more keys later
         const config = PRIMARY_CONFIGS[primaryIndex];
-        primaryIndex = (primaryIndex + 1) % PRIMARY_CONFIGS.length; // Rotate
+        primaryIndex = (primaryIndex + 1) % PRIMARY_CONFIGS.length;
 
         try {
-            // --- NEW: LOG WHICH AI IS BEING USED ---
-            console.log(`Using ${config.name}...`); 
+            // --- LOG WHICH AI IS BEING USED ---
+            console.log(`Using ${config.name} (Attempt ${i+1})...`); 
             
             const response = await callProxyApiInternal(prompt, jsonMode, config, maxOutputTokens);
             
@@ -158,8 +155,8 @@ const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTo
             return cleanResponse;
 
         } catch (error) {
-            console.warn(`${config.name} failed:`, error.message); // Added warn log for visibility
-            errors[config.name] = error.message;
+            console.warn(`${config.name} failed (Attempt ${i+1}):`, error.message); 
+            errors[`${config.name}-${i}`] = error.message;
             // If it's a Rate Limit (429) or Server Error (5xx), wait briefly then retry
             if ([429, 503, 500, 504].includes(error.status)) {
                 await delay(1000); 
@@ -176,7 +173,7 @@ const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTo
         fallbackIndex = (fallbackIndex + 1) % FALLBACK_CONFIGS.length;
 
         try {
-            // --- NEW: LOG WHICH BACKUP IS BEING USED ---
+            // --- LOG WHICH BACKUP IS BEING USED ---
             console.log(`Using ${config.name}...`);
             
             const response = await callProxyApiInternal(prompt, jsonMode, config, maxOutputTokens);

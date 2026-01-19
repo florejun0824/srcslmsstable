@@ -7,8 +7,12 @@ export const config = {
 const getApiKeyPool = () => {
   const keys = new Set();
   if (process.env.OPENROUTER_API_KEY) keys.add(process.env.OPENROUTER_API_KEY);
-  if (process.env.OPENROUTER_API_KEY_2) keys.add(process.env.OPENROUTER_API_KEY_2);
-  if (process.env.OPENROUTER_API_KEY_3) keys.add(process.env.OPENROUTER_API_KEY_3);
+  
+  // --- TEMPORARILY DISABLED (Uncomment when topped up) ---
+  // if (process.env.OPENROUTER_API_KEY_2) keys.add(process.env.OPENROUTER_API_KEY_2);
+  // if (process.env.OPENROUTER_API_KEY_3) keys.add(process.env.OPENROUTER_API_KEY_3);
+  // -------------------------------------------------------
+
   // Add more as needed
   return Array.from(keys).filter(k => k && k.length > 10);
 };
@@ -25,7 +29,7 @@ export default async function handler(req) {
     'Access-Control-Allow-Credentials': 'true',
     // Security Note: Updated to include protocol for strict CORS compliance
     'Access-Control-Allow-Origin': '*', 
-'Access-Control-Allow-Methods': 'GET,OPTIONS,PATCH,DELETE,POST,PUT',
+    'Access-Control-Allow-Methods': 'GET,OPTIONS,PATCH,DELETE,POST,PUT',
     'Access-Control-Allow-Headers': 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
   };
 
