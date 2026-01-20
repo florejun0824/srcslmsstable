@@ -30,7 +30,10 @@ export default defineConfig({
         enabled: true
       },
       injectManifest: {
-        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+        // INCREASED LIMIT: 15MB to handle 3D models, PDFs, and audio files
+        maximumFileSizeToCacheInBytes: 15 * 1024 * 1024,
+        // EXPLICIT PATTERNS: Ensure these file types are definitely cached
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,json,woff2,ttf,glb,mp3}'],
       }
     }),
 

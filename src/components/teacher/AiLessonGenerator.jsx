@@ -415,8 +415,12 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
 	    **TARGET AUDIENCE (NON-NEGOTIABLE):**
 	    - **Context:** Philippines K-12 Curriculum (DepEd MATATAG Standards).
 	    - **Grade Level:** Grade ${gradeLevel}. Ensure content aligns with the specific learning competencies for this grade level in the Philippines.
-	    - **Localization:** Use Filipino names (e.g., Juan, Maria), local currency (PHP/Pesos), and local examples (e.g., jeepneys, barangays) in all examples and word problems.
+	    - **Localization:** Use Filipino names (e.g., Juan, Maria), local currency (PHP/Pesos), and local examples (e.g., jeepneys, barangays) in examples.
 	    - **Language:** The entire output MUST be written in **${language}**.
+    
+	    ${language === 'English' ? `
+	    - **CRITICAL LANGUAGE RULE:** Use standard English grammar and sentence structure at all times. Do NOT use Taglish. Only use Filipino words (like 'barangay' or 'kamusta') if they are proper nouns or specific cultural terms that have no direct English equivalent.` : ''}
+
 	    ${language === 'Filipino' ? `
 	    - **CRITICAL FILIPINO LANGUAGE RULE:** Use formal, academic Filipino (Wikang Pambansa). Avoid colloquial "Taglish" unless explicitly framing it as informal dialogue.` : ''}
 	`;

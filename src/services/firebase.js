@@ -1,7 +1,7 @@
 // src/services/firebase.js
+
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-// Updated imports for new persistence method
 import { 
     initializeFirestore, 
     persistentLocalCache, 
@@ -13,7 +13,7 @@ import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
 import { getStorage } from "firebase/storage";
 
 // ----------------------
-// 白 ENV CHECK
+// 🚨 ENV CHECK
 // ----------------------
 if (!import.meta.env.VITE_FIREBASE_API_KEY) {
   throw new Error(
@@ -22,7 +22,7 @@ if (!import.meta.env.VITE_FIREBASE_API_KEY) {
 }
 
 // ----------------------
-// 肌 FIREBASE CONFIG
+// 🔥 FIREBASE CONFIG
 // ----------------------
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -35,17 +35,19 @@ const firebaseConfig = {
 };
 
 // ----------------------
-// 伯 INITIALIZE FIREBASE
+// 🚀 INITIALIZE FIREBASE
 // ----------------------
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
-// FIX: Replaced deprecated getFirestore(app) + enableIndexedDbPersistence()
-// with initializeFirestore() + the new localCache settings.
+// ----------------------
+// 💾 DATABASE (WITH OFFLINE PERSISTENCE)
+// ----------------------
+// Replaces getFirestore(app) to enable robust offline support
 const db = initializeFirestore(app, {
     localCache: persistentLocalCache({
-        // This manages persistence across multiple tabs, replacing the need 
-        // for manual error handling on "failed-precondition"
+        // This tabManager allows multiple tabs to share the same offline database
+        // without crashing or blocking each other.
         tabManager: persistentMultipleTabManager()
     })
 });
@@ -53,19 +55,17 @@ const db = initializeFirestore(app, {
 const storage = getStorage(app);
 const functions = getFunctions(app);
 
-// The old enableIndexedDbPersistence() block has been removed as persistence
-// is now configured during initialization above.
-
 // ----------------------
-// 笞｡ CONNECT FUNCTIONS EMULATOR (LOCAL)
+// 🛠️ CONNECT FUNCTIONS EMULATOR (LOCAL)
 // ----------------------
 if (window.location.hostname === "localhost") {
   console.log("Hybrid Mode: LIVE Auth/Firestore, LOCAL Functions emulator.");
-  connectFunctionsEmulator(functions, "localhost", 5001);
+  // Uncomment the line below if you are running the emulator locally
+  // connectFunctionsEmulator(functions, "localhost", 5001);
 }
 
 // ----------------------
-// 東 HELPERS
+// ⚡ HELPERS
 // ----------------------
 export const updateLesson = async (lesson) => {
   if (!lesson?.id) throw new Error("Lesson ID is required to update");
@@ -80,6 +80,6 @@ export const addLesson = async (lesson) => {
 };
 
 // ----------------------
-// 売 EXPORT SERVICES
+// 📦 EXPORT SERVICES
 // ----------------------
 export { db, auth, storage, functions, app };

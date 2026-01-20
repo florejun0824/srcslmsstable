@@ -4,10 +4,36 @@ import ContentRenderer from './ContentRenderer';
 import { useTheme } from '../../contexts/ThemeContext'; 
 import './ChatDialog.css'; 
 
+// --- HELPER COMPONENT FOR MESSAGES ---
+// This ensures every message has its own valid nodeRef, fixing the strict mode warning in the list.
+const MessageItem = ({ msg, chatbotProfilePic, ...props }) => {
+    const nodeRef = useRef(null);
+
+    return (
+        <CSSTransition nodeRef={nodeRef} {...props}>
+            <div ref={nodeRef} className={`message-bubble ${msg.sender === 'user' ? 'user-message' : 'ai-message'}`}>
+                {msg.sender === 'ai' && <img src={chatbotProfilePic} alt="AI" className="message-avatar" />}
+                <div className="message-content">
+                    {msg.sender === 'ai' ? (
+                        <div className="markdown-content">
+                            <ContentRenderer text={msg.text} />
+                        </div>
+                    ) : (
+                        <div className="text-content">{msg.text}</div>
+                    )}
+                </div>
+            </div>
+        </CSSTransition>
+    );
+};
+
 const ChatDialog = ({ isOpen, onClose, messages, onSendMessage, isAiThinking }) => {
     const messagesEndRef = useRef(null);
     const [inputValue, setInputValue] = useState('');
     const textareaRef = useRef(null);
+    
+    // [FIX] Create a ref for the main dialog element
+    const dialogRef = useRef(null);
     
     // 1. Hook into the Monet Engine & Active Overlay
     const { monetTheme, activeOverlay } = useTheme();
@@ -56,8 +82,6 @@ const ChatDialog = ({ isOpen, onClose, messages, onSendMessage, isAiThinking }) 
             case 'space': return 'rgba(11, 15, 25, 0.95)'; // Deep Void
             default: 
                 // --- FIX: GENERIC IS NOW DARK MODE ---
-                // If Monet string exists, use it at high opacity.
-                // If not, fallback to Slate 950 (Dark Mode) instead of White.
                 return monetTheme.rgbString 
                     ? `rgba(${monetTheme.rgbString}, 0.95)` 
                     : 'rgba(15, 23, 42, 0.95)'; 
@@ -77,28 +101,16 @@ const ChatDialog = ({ isOpen, onClose, messages, onSendMessage, isAiThinking }) 
     const dialogStyle = {
         ...monetTheme.variables,   
         ...monetTheme.glassStyle,  
-        
-        // OVERRIDE glass background with Opaque Dark Color
         background: getThemeBackground(activeOverlay),
-        
-        // Keep blur high for aesthetics
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
-        
-        // Chat-Specific Variables
         '--chat-bg': 'transparent', 
         '--chat-border': 'transparent', 
         '--header-bg': 'rgba(255, 255, 255, 0.05)', 
         '--input-bg': 'rgba(0, 0, 0, 0.3)', 
-        
-        // --- FIX: TEXT COLOR ---
-        // Since background is always dark (Generic Dark or Theme Dark), 
-        // we force text to be light (#f1f5f9) for readability.
         '--text-color': '#f1f5f9',
-        
         '--user-bubble-bg': 'var(--monet-primary)', 
         '--ai-bubble-bg': 'rgba(255, 255, 255, 0.1)', 
-        
         '--glow-1': getThemeGlow(activeOverlay),
         '--glow-2': 'var(--monet-secondary)',
     };
@@ -109,8 +121,10 @@ const ChatDialog = ({ isOpen, onClose, messages, onSendMessage, isAiThinking }) 
             timeout={300}
             classNames="chat-dialog-transition"
             unmountOnExit
+            nodeRef={dialogRef} // [FIX] Pass nodeRef here
         >
             <div 
+                ref={dialogRef} // [FIX] Attach ref here
                 className="chat-dialog" 
                 role="dialog" 
                 aria-label="AI Chat"
@@ -147,20 +161,14 @@ const ChatDialog = ({ isOpen, onClose, messages, onSendMessage, isAiThinking }) 
                 <div className="chat-messages" aria-live="polite">
                     <TransitionGroup component={null}>
                         {messages.map((msg, index) => (
-                            <CSSTransition key={index} timeout={300} classNames="message">
-                                <div className={`message-bubble ${msg.sender === 'user' ? 'user-message' : 'ai-message'}`}>
-                                    {msg.sender === 'ai' && <img src={chatbotProfilePic} alt="AI" className="message-avatar" />}
-                                    <div className="message-content">
-                                        {msg.sender === 'ai' ? (
-                                            <div className="markdown-content">
-                                                <ContentRenderer text={msg.text} />
-                                            </div>
-                                        ) : (
-                                            <div className="text-content">{msg.text}</div>
-                                        )}
-                                    </div>
-                                </div>
-                            </CSSTransition>
+                            // [FIX] Use the helper component to handle refs automatically
+                            <MessageItem 
+                                key={index} 
+                                msg={msg} 
+                                chatbotProfilePic={chatbotProfilePic}
+                                timeout={300} 
+                                classNames="message" 
+                            />
                         ))}
                     </TransitionGroup>
 

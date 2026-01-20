@@ -18,10 +18,31 @@ let gapiInited = false;
 let gisInited = false;
 let tokenClient;
 
-// --- 1. INITIALIZE GAPI (Required for BOTH Web and Android) ---
-const initializeGapiClient = () => {
+// --- HELPER: WAIT FOR SCRIPTS TO LOAD ---
+// This fixes the "gapi not loaded" race condition by polling for the object
+const waitForGlobal = (key, timeout = 5000) => {
     return new Promise((resolve, reject) => {
-        if (!window.gapi) return reject(new Error("Google API script (gapi) not loaded."));
+        if (window[key]) return resolve(window[key]);
+
+        const startTime = Date.now();
+        const interval = setInterval(() => {
+            if (window[key]) {
+                clearInterval(interval);
+                resolve(window[key]);
+            } else if (Date.now() - startTime > timeout) {
+                clearInterval(interval);
+                reject(new Error(`${key} script failed to load within ${timeout}ms.`));
+            }
+        }, 100);
+    });
+};
+
+// --- 1. INITIALIZE GAPI (Required for BOTH Web and Android) ---
+const initializeGapiClient = async () => {
+    // FIX: Wait for 'gapi' to exist before trying to use it
+    await waitForGlobal('gapi');
+
+    return new Promise((resolve, reject) => {
         window.gapi.load('client', () => {
             window.gapi.client.init({ apiKey: API_KEY, discoveryDocs: DISCOVERY_DOCS })
                 .then(() => { 
@@ -53,6 +74,9 @@ const initializeAuth = async () => {
     }
 
     // B. WEB BROWSER: Initialize Standard GIS
+    // FIX: Wait for 'google' global to exist
+    await waitForGlobal('google');
+
     return new Promise((resolve, reject) => {
         if (!window.google?.accounts?.oauth2) return reject(new Error("GIS script not loaded."));
         if (gisInited) return resolve();
@@ -116,11 +140,15 @@ export const redirectToGoogleAuth = (slideData, presentationTitle, subjectName, 
 
 export const handleAuthRedirect = async () => {
     if (Capacitor.isNativePlatform()) return true; // Native doesn't use redirects
-    if (!gapiInited) {
-        try { await initializeGapiClient(); } 
-        catch (error) { console.error("GAPI Init Error:", error); return false; }
+    
+    // FIX: Don't check gapiInited immediately, allow the init function to handle the wait
+    try { 
+        await initializeGapiClient(); 
+        return true;
+    } catch (error) { 
+        console.error("GAPI Init Error:", error); 
+        return false; 
     }
-    return false;
 };
 
 const findOrCreateFolder = async (folderName, parentFolderId = 'root') => {
@@ -159,7 +187,8 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
         if (!TEMPLATE_ID) throw new Error("Google Slides Template ID is not defined.");
         
         // Initialize everything
-        if (!gapiInited) await initializeGapiClient();
+        // Note: These functions now have internal waiting logic, so they won't fail if called early
+        await initializeGapiClient();
         await initializeAuth(); 
         
         // GET TOKEN (Native or Web)

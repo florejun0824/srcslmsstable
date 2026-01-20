@@ -30,8 +30,7 @@ registerRoute(
   createHandlerBoundToURL('/index.html')
 );
 
-// --- FIX APPLIED HERE ---
-// Added 'request' to arguments and a check for 'GET' method
+// Content Cache (Lessons/Quizzes pages - Fallback)
 registerRoute(
   ({ request, url }) => {
     // 1. Ignore non-GET requests (POST, PUT, DELETE, etc.) to prevent Cache API errors
@@ -59,15 +58,33 @@ registerRoute(
   })
 );
 
-// Caching for images and other static assets
+// 1. Caching for Local Images (Your assets folder)
 registerRoute(
-  ({ url }) => url.origin === self.location.origin && /\.(?:png|gif|jpg|jpeg|svg)$/.test(url.pathname),
+  ({ url }) => url.origin === self.location.origin && /\.(?:png|gif|jpg|jpeg|svg|webp)$/.test(url.pathname),
   new StaleWhileRevalidate({
-    cacheName: 'images',
+    cacheName: 'local-images',
     plugins: [
       new ExpirationPlugin({
         maxEntries: 60,
         maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
+      }),
+    ],
+  })
+);
+
+// 2. Caching for Firebase Storage Images (User uploads/Diagrams)
+// CRITICAL: This enables images hosted on Firebase to be visible offline
+registerRoute(
+  ({ url }) => url.origin.includes('firebasestorage.googleapis.com'),
+  new StaleWhileRevalidate({
+    cacheName: 'firebase-storage-images',
+    plugins: [
+      new CacheableResponsePlugin({
+        statuses: [0, 200], // 0 is important for CORS/Opaque responses
+      }),
+      new ExpirationPlugin({
+        maxEntries: 200,
+        maxAgeSeconds: 60 * 24 * 60 * 60, // 60 Days
       }),
     ],
   })
@@ -83,7 +100,8 @@ self.addEventListener('message', (event) => {
 
 // Clean up old caches
 self.addEventListener('activate', (event) => {
-  const currentCaches = ['precache-v2', 'runtime', 'content-cache', 'images']; // Updated cache names
+  // Added 'local-images' and 'firebase-storage-images' to the allowlist
+  const currentCaches = ['precache-v2', 'runtime', 'content-cache', 'local-images', 'firebase-storage-images']; 
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
