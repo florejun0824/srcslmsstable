@@ -646,21 +646,27 @@ const masterInstructions = `
 							- **Page Title:** It MUST be exactly: "${currentTitle}"
 							${contentContextInstruction}
 
-							**CRITICAL PEDAGOGY (PHILIPPINES 4A's):**
-							- **Analysis & Abstraction:** After presenting facts, explicitly explain *why* this concept matters to a Filipino student.
-							- **Application:** Connect the concept to a local real-life scenario (e.g., "In your barangay...", "When you buy from the sari-sari store...").
-                
-			                **CONTENT GENERATION STRATEGY:**
-			                1. **Goal:** Create a **deep-dive explanation**. Assume the student is intelligent but needs the concept "unpacked" fully.
-			                2. **Internalize, Don't Quote:** Read the source text, understand it, and then teach it **in your own voice**. Do not quote the text unless it is a specific definition that requires exact wording.
-			                3. **Elaboration (Anti-Brevity):** - **Turn 1 sentence from the source into 3 sentences of clear explanation.**
-			                   - If the source text provides a dense fact, explain the *significance* of that fact using reliable scientific consensus.
-			                4. **Engaging Narrative Flow:** - Write with a **conversational academic flow**.
-			                   - Use transitional phrases (e.g., "To understand this better, let's look at...", "Why does this matter? Because...").
-			                5. **Reliable Support:** - If the text is abstract, illustrate it with a **concrete real-world analogy** derived from your training data.
-                
-			                - **CRITICAL LENGTH CONSTRAINT:** maximizing depth is priority. Aim for 800-1500 words of rich content if the topic allows.`;
-                
+							**CRITICAL RULE: COMPREHENSIVE COVERAGE (DO NOT SKIP DETAILS)**
+							- **Scope:** You must cover **ALL** the details, sub-points, and examples found in the source text for this specific section.
+							- **No Over-Simplification:** Do not "dumb down" the content to the point where details are lost. If the source lists 5 types, you must teach all 5 types.
+							- **Depth:** It is better to have a long, detailed page than a short, incomplete one.
+
+							**CRITICAL RULE: INVISIBLE AUDIENCE (NO META-TALK)**
+							- **Strict Prohibition:** You are **FORBIDDEN** from using phrases like "For Grade 7 learners," "At your grade level," "As a high school student," or "Young readers."
+							- **Direct Address:** Just speak to "you" (the student). Trust that the simplicity of your language is enough to match the grade level. Do not announce it.
+
+							**CRITICAL RULE: INVISIBLE SOURCE (NO LABELS)**
+							- **No Labels:** Do NOT use "Source Definition:", "Simplified:", or "Key Term:". Write in standard, flowing paragraphs.
+							- **Direct Authority:** Define terms as absolute facts. Never say "The source says..."
+
+							**CONTENT FLOW:**
+							1.  **Define:** Start with the exact concept/definition from the source (integrated into a sentence, no quotes unless necessary).
+							2.  **Unpack:** Immediately explain the details, mechanisms, or reasons behind that concept.
+							3.  **Context:** Use a Philippine example *only* if the concept is abstract. If the source text already has good examples, use those instead.
+
+							**TONE:**
+							- **Expert & Engaging:** Speak with the confidence of a professor, but the clarity of a storyteller.`;
+							
 			                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${currentTitle}",\n    "content": "Detailed markdown content..."\n  }\n}`;
 			                break;
             
