@@ -1,74 +1,67 @@
 // src/components/teacher/StudentManagementView/ImportToClassModal.jsx
 import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, X, AlertCircle, GraduationCap, CheckCircle } from 'lucide-react';
+import { Search, X, AlertTriangle, GraduationCap, Check, Users, ArrowRight, BookOpen } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useTheme } from '../../../../contexts/ThemeContext'; // Ensure this path is correct for your project structure
+import { useTheme } from '../../../../contexts/ThemeContext';
 
-// Spinner Component
-const Spinner = ({ size = "sm", colorClass = "border-white" }) => {
-    const dims = size === "sm" ? "w-4 h-4" : "w-6 h-6";
-    return <div className={`${dims} border-2 ${colorClass} border-t-transparent rounded-full animate-spin`}></div>
+// --- SPINNER COMPONENT ---
+const Spinner = ({ size = "sm" }) => {
+    const dims = size === "sm" ? "w-4 h-4" : "w-5 h-5";
+    return (
+        <svg className={`${dims} animate-spin text-white`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+    );
 };
 
-// --- ONE UI + MONET THEME HELPER ---
+// --- THEME UTILITIES ---
 const getThemeStyles = (overlay) => {
     switch (overlay) {
         case 'christmas':
             return {
                 accentBg: 'bg-red-600',
-                accentGradient: 'from-red-600 to-green-700',
+                accentGradient: 'from-red-600 to-rose-700',
                 accentText: 'text-red-600',
-                lightBg: 'bg-red-50 dark:bg-red-900/20',
-                border: 'border-red-200 dark:border-red-800',
+                lightBg: 'bg-red-50 dark:bg-red-900/10',
+                border: 'border-red-200 dark:border-red-900',
                 ring: 'focus:ring-red-500',
-                iconBg: 'bg-red-100 dark:bg-red-900/40',
-                selectionBorder: 'border-red-500'
+                activeBorder: 'border-red-500',
+                badge: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-200'
             };
         case 'valentines':
             return {
                 accentBg: 'bg-pink-600',
                 accentGradient: 'from-pink-500 to-rose-600',
                 accentText: 'text-pink-600',
-                lightBg: 'bg-pink-50 dark:bg-pink-900/20',
-                border: 'border-pink-200 dark:border-pink-800',
+                lightBg: 'bg-pink-50 dark:bg-pink-900/10',
+                border: 'border-pink-200 dark:border-pink-900',
                 ring: 'focus:ring-pink-500',
-                iconBg: 'bg-pink-100 dark:bg-pink-900/40',
-                selectionBorder: 'border-pink-500'
+                activeBorder: 'border-pink-500',
+                badge: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-200'
             };
         case 'cyberpunk':
             return {
                 accentBg: 'bg-fuchsia-600',
-                accentGradient: 'from-purple-600 to-pink-600',
-                accentText: 'text-fuchsia-400',
-                lightBg: 'bg-fuchsia-900/20',
-                border: 'border-fuchsia-500/50',
+                accentGradient: 'from-fuchsia-600 to-purple-700',
+                accentText: 'text-fuchsia-500',
+                lightBg: 'bg-fuchsia-50 dark:bg-fuchsia-900/10',
+                border: 'border-fuchsia-200 dark:border-fuchsia-900',
                 ring: 'focus:ring-fuchsia-500',
-                iconBg: 'bg-fuchsia-900/40',
-                selectionBorder: 'border-fuchsia-400'
+                activeBorder: 'border-fuchsia-500',
+                badge: 'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-200'
             };
-        case 'ocean':
-        case 'rainy':
-            return {
-                accentBg: 'bg-cyan-600',
-                accentGradient: 'from-cyan-600 to-blue-700',
-                accentText: 'text-cyan-600',
-                lightBg: 'bg-cyan-50 dark:bg-cyan-900/20',
-                border: 'border-cyan-200 dark:border-cyan-800',
-                ring: 'focus:ring-cyan-500',
-                iconBg: 'bg-cyan-100 dark:bg-cyan-900/40',
-                selectionBorder: 'border-cyan-500'
-            };
-        default: // Default Blue/Indigo
+        default: // Indigo
             return {
                 accentBg: 'bg-indigo-600',
-                accentGradient: 'from-indigo-600 to-blue-600',
+                accentGradient: 'from-indigo-600 to-blue-700',
                 accentText: 'text-indigo-600',
-                lightBg: 'bg-indigo-50 dark:bg-indigo-900/20',
-                border: 'border-indigo-200 dark:border-indigo-800',
+                lightBg: 'bg-indigo-50 dark:bg-indigo-900/10',
+                border: 'border-indigo-200 dark:border-indigo-900',
                 ring: 'focus:ring-indigo-500',
-                iconBg: 'bg-indigo-100 dark:bg-indigo-900/40',
-                selectionBorder: 'border-indigo-500'
+                activeBorder: 'border-indigo-500',
+                badge: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-200'
             };
     }
 };
@@ -89,7 +82,7 @@ const ImportToClassModal = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const { activeOverlay } = useTheme();
-  const theme = getThemeStyles(activeOverlay);
+  const theme = useMemo(() => getThemeStyles(activeOverlay), [activeOverlay]);
 
   // Close on Escape
   useEffect(() => {
@@ -100,7 +93,7 @@ const ImportToClassModal = ({
     return () => window.removeEventListener('keydown', handleEsc);
   }, [isOpen, onClose]);
 
-  // 1. Determine the grade level of the selected students
+  // 1. Validation Logic
   const validation = useMemo(() => {
     if (selectedStudentIds.length === 0) {
       return { valid: false, grade: null, error: 'No students selected.' };
@@ -108,6 +101,7 @@ const ImportToClassModal = ({
 
     const firstStudentId = selectedStudentIds[0];
     const firstStudent = allStudents.find(s => s.id === firstStudentId);
+    
     if (!firstStudent) {
       return { valid: false, grade: null, error: 'Could not find student data.' };
     }
@@ -121,7 +115,7 @@ const ImportToClassModal = ({
         return { 
           valid: false, 
           grade: null, 
-          error: `Students must all be from the same grade level to import.` 
+          error: `Mixed grade levels detected. All selected students must belong to the same grade level to be imported together.` 
         };
       }
     }
@@ -129,28 +123,21 @@ const ImportToClassModal = ({
     return { valid: true, grade: targetGrade, error: null };
   }, [selectedStudentIds, allStudents]);
 
-  // 2. Filter the list of classes
+  // 2. Filter Classes
   const availableClasses = useMemo(() => {
     const lowerSearch = classSearchTerm.toLowerCase();
-    
-    // Define the effective school ID for the user (default to srcs_main)
     const effectiveUserSchoolId = userProfile?.schoolId || 'srcs_main';
 
-    // Filter classes
     let classesToShow = allClasses.filter(cls => {
-        // A. Must be taught by this teacher
         if (cls.teacherId !== userProfile?.id) return false;
-
-        // B. School ID Check with Fallback
-        // If class has no schoolId, assume 'srcs_main'.
         const classSchoolId = cls.schoolId || 'srcs_main';
-        
         return classSchoolId === effectiveUserSchoolId;
     });
 
     return classesToShow.filter(cls => {
       const matchesSearch = cls.name.toLowerCase().includes(lowerSearch);
       if (validation.valid) {
+        // Strict grade matching
         const classGrade = cls.gradeLevel || 'Unassigned';
         return matchesSearch && classGrade === validation.grade;
       }
@@ -158,11 +145,9 @@ const ImportToClassModal = ({
     });
   }, [allClasses, classSearchTerm, validation, userProfile]);
 
-  // 3. Handle the final import
+  // 3. Import Action
   const handleImport = async () => {
-    if (!selectedClass || !validation.valid || isSubmitting) {
-      return;
-    }
+    if (!selectedClass || !validation.valid || isSubmitting) return;
 
     setIsSubmitting(true);
     
@@ -177,7 +162,7 @@ const ImportToClassModal = ({
         studentObjectsToImport
       );
       
-      showToast(`Successfully added ${studentObjectsToImport.length} student(s) to ${selectedClass.name}.`, "success");
+      showToast(`Successfully enrolled ${studentObjectsToImport.length} students in ${selectedClass.name}.`, "success");
       onImportSuccess();
     } catch (error) {
       console.error("Error importing students:", error);
@@ -192,136 +177,157 @@ const ImportToClassModal = ({
   return createPortal(
     <AnimatePresence>
         {isOpen && (
-            <div className="fixed inset-0 bg-slate-900/30 backdrop-blur-sm flex justify-center items-center z-[99999] p-4 font-sans" onClick={(e) => e.target === e.currentTarget && onClose()}>
+            <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex justify-center items-end sm:items-center z-[99999] p-0 sm:p-4 font-sans" onClick={(e) => e.target === e.currentTarget && onClose()}>
                 <motion.div 
-                    initial={{ opacity: 0, scale: 0.9, y: 30 }}
+                    initial={{ opacity: 0, scale: 0.95, y: 50 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.9, y: 30 }}
-                    transition={{ type: "spring", damping: 25, stiffness: 350 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 50 }}
+                    transition={{ type: "spring", damping: 25, stiffness: 300 }}
                     className={`
-                        relative w-full max-w-lg max-h-[85vh] flex flex-col
-                        bg-white/80 dark:bg-[#121212]/80 
-                        backdrop-blur-3xl backdrop-saturate-150
-                        rounded-[2.5rem] 
-                        border border-white/40 dark:border-white/10
-                        shadow-[0_40px_80px_-20px_rgba(0,0,0,0.2),inset_0_0_0_1px_rgba(255,255,255,0.4)] dark:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.6),inset_0_0_0_1px_rgba(255,255,255,0.05)]
+                        relative w-full max-w-xl max-h-[90vh] flex flex-col
+                        bg-white dark:bg-[#121212]
+                        rounded-t-[2rem] sm:rounded-[2rem]
+                        shadow-2xl overflow-hidden
                     `}
                 >
                     {/* --- HEADER --- */}
-                    <div className="flex-none p-8 pb-4">
-                        <div className="flex justify-between items-start mb-6">
-                            <div className="flex items-center gap-4">
-                                <div className={`p-3.5 rounded-[1.2rem] shadow-sm ${theme.iconBg}`}>
-                                    <GraduationCap className={`w-7 h-7 ${theme.accentText}`} strokeWidth={2} />
-                                </div>
-                                <div>
-                                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight leading-none mb-1">
-                                        Import Students
-                                    </h2>
-                                    <p className="text-sm font-bold text-slate-500 dark:text-slate-400 opacity-80">
-                                        Select a destination class
-                                    </p>
-                                </div>
+                    <div className="flex-none p-6 pb-2 border-b border-slate-100 dark:border-white/5 bg-white/50 dark:bg-white/5 backdrop-blur-md z-10">
+                        <div className="flex justify-between items-start gap-4 mb-4">
+                            <div>
+                                <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">
+                                    Select Destination Class
+                                </h2>
+                                <p className="text-sm text-slate-500 dark:text-slate-400">
+                                    Where should these students be enrolled?
+                                </p>
                             </div>
                             <button
                                 onClick={onClose}
-                                className="p-2.5 rounded-full bg-slate-100/50 dark:bg-white/5 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-all active:scale-90 text-slate-500 dark:text-slate-400"
+                                className="p-2 rounded-full bg-slate-100 dark:bg-white/5 text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
                             >
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
 
-                        {/* Search Input (OneUI Fluid Style) */}
-                        <div className="relative group">
-                            <div className={`absolute inset-0 rounded-[1.5rem] opacity-0 group-focus-within:opacity-100 transition-opacity duration-300 pointer-events-none ring-2 ${theme.ring} ring-opacity-50`} />
-                            <input
-                                type="text"
-                                placeholder="Search classes..."
-                                value={classSearchTerm}
-                                onChange={(e) => setClassSearchTerm(e.target.value)}
-                                className="w-full pl-12 pr-4 py-4 rounded-[1.5rem] bg-slate-100/70 dark:bg-black/20 border-none text-[15px] font-semibold text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:bg-white dark:focus:bg-black/40 transition-all shadow-inner"
-                                autoFocus
-                            />
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+                        {/* CONTEXT PILL (Summary of Selection) */}
+                        <div className={`flex items-center gap-3 p-3 rounded-2xl ${validation.valid ? theme.lightBg : 'bg-red-50 dark:bg-red-900/10'} transition-colors`}>
+                            {validation.valid ? (
+                                <>
+                                    <div className={`p-2 rounded-xl bg-white dark:bg-white/10 shadow-sm ${theme.accentText}`}>
+                                        <Users size={16} />
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Moving</span>
+                                        <span className={`text-sm font-bold ${theme.accentText}`}>
+                                            {selectedStudentIds.length} Students • {validation.grade}
+                                        </span>
+                                    </div>
+                                    <div className="ml-auto">
+                                        <ArrowRight size={16} className={theme.accentText} />
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="flex items-center gap-3 text-red-600 dark:text-red-400 w-full">
+                                    <AlertTriangle size={18} />
+                                    <span className="text-xs font-bold">{validation.error}</span>
+                                </div>
+                            )}
                         </div>
                     </div>
 
-                    {/* --- SCROLLABLE CONTENT --- */}
-                    <div className="flex-1 overflow-y-auto custom-scrollbar px-6 min-h-[240px]">
+                    {/* --- SEARCH --- */}
+                    {validation.valid && (
+                        <div className="flex-none px-6 py-4">
+                            <div className="relative group">
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-slate-600 dark:group-focus-within:text-slate-200 transition-colors" />
+                                <input
+                                    type="text"
+                                    placeholder="Search your classes..."
+                                    value={classSearchTerm}
+                                    onChange={(e) => setClassSearchTerm(e.target.value)}
+                                    className={`
+                                        w-full pl-10 pr-4 py-3 rounded-xl 
+                                        bg-slate-50 dark:bg-black/20 
+                                        border border-slate-200 dark:border-white/10
+                                        text-sm font-semibold text-slate-800 dark:text-slate-100 
+                                        placeholder:text-slate-400 
+                                        focus:outline-none focus:bg-white dark:focus:bg-black/30 focus:ring-2 ${theme.ring} focus:border-transparent
+                                        transition-all
+                                    `}
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* --- CLASS LIST (Scrollable) --- */}
+                    <div className="flex-1 overflow-y-auto custom-scrollbar px-6 min-h-[200px] pb-4">
                         {!validation.valid ? (
-                            <div className="flex flex-col items-center justify-center h-full text-center p-6 opacity-70">
-                                <div className="w-20 h-20 bg-red-50 dark:bg-red-900/20 rounded-full flex items-center justify-center mb-4">
-                                    <AlertCircle className="w-10 h-10 text-red-500" />
-                                </div>
-                                <h3 className="font-bold text-slate-800 dark:text-slate-200 text-lg">Import Unavailable</h3>
-                                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-xs mx-auto leading-relaxed">{validation.error}</p>
+                            <div className="flex flex-col items-center justify-center h-full text-center py-10 opacity-60">
+                                <GraduationCap className="w-12 h-12 text-slate-300 dark:text-slate-600 mb-3" />
+                                <p className="text-sm font-medium text-slate-400">Selection Error</p>
                             </div>
                         ) : availableClasses.length > 0 ? (
-                            <div className="space-y-3 pb-4">
-                                <div className="flex items-center justify-between px-2 mb-2">
-                                    <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                                        Available Classes
-                                    </p>
-                                    <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase ${theme.lightBg} ${theme.accentText}`}>
-                                        {validation.grade}
-                                    </span>
-                                </div>
-                                
-                                {availableClasses.map(cls => (
-                                    <div 
-                                        key={cls.id}
-                                        onClick={() => setSelectedClass(cls)}
-                                        className={`
-                                            group flex items-center justify-between p-4 rounded-[1.5rem] cursor-pointer transition-all duration-300
-                                            border active:scale-[0.98]
-                                            ${selectedClass?.id === cls.id 
-                                                ? `${theme.lightBg} ${theme.selectionBorder} shadow-lg ring-1 ${theme.ring.replace('focus:', '')}` 
-                                                : 'bg-white/40 dark:bg-white/5 border-transparent hover:bg-white dark:hover:bg-white/10 hover:border-slate-200 dark:hover:border-white/5'
-                                            }
-                                        `}
-                                    >
-                                        <div className="flex flex-col">
-                                            <span className={`text-[15px] font-bold transition-colors ${selectedClass?.id === cls.id ? theme.accentText : 'text-slate-700 dark:text-slate-200'}`}>
-                                                {cls.name}
-                                            </span>
-                                            {cls.section && (
-                                                <span className="text-xs font-medium text-slate-400 dark:text-slate-500">
-                                                    {cls.section}
-                                                </span>
-                                            )}
+                            <div className="grid grid-cols-1 gap-2.5">
+                                {availableClasses.map(cls => {
+                                    const isSelected = selectedClass?.id === cls.id;
+                                    return (
+                                        <div 
+                                            key={cls.id}
+                                            onClick={() => setSelectedClass(cls)}
+                                            className={`
+                                                relative flex items-center justify-between p-4 rounded-2xl cursor-pointer transition-all duration-200
+                                                border-2
+                                                ${isSelected 
+                                                    ? `${theme.lightBg} ${theme.activeBorder} shadow-sm` 
+                                                    : 'bg-white dark:bg-white/5 border-transparent hover:border-slate-200 dark:hover:border-white/10'
+                                                }
+                                            `}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className={`
+                                                    w-10 h-10 rounded-full flex items-center justify-center 
+                                                    ${isSelected ? 'bg-white dark:bg-white/10' : 'bg-slate-100 dark:bg-white/5'}
+                                                    transition-colors
+                                                `}>
+                                                    <BookOpen size={18} className={isSelected ? theme.accentText : 'text-slate-400'} />
+                                                </div>
+                                                <div>
+                                                    <h4 className={`text-sm font-bold ${isSelected ? 'text-slate-900 dark:text-white' : 'text-slate-700 dark:text-slate-300'}`}>
+                                                        {cls.name}
+                                                    </h4>
+                                                    <p className="text-xs font-medium text-slate-400 dark:text-slate-500">
+                                                        {cls.section || 'No Section'}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            {/* Radio Indicator */}
+                                            <div className={`
+                                                w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all
+                                                ${isSelected ? `${theme.accentBg} border-transparent` : 'border-slate-300 dark:border-slate-600'}
+                                            `}>
+                                                {isSelected && <Check size={12} className="text-white" strokeWidth={3} />}
+                                            </div>
                                         </div>
-                                        
-                                        <div className={`
-                                            w-6 h-6 rounded-full border-[2.5px] flex items-center justify-center transition-all duration-300
-                                            ${selectedClass?.id === cls.id
-                                                ? `${theme.accentBg} border-transparent text-white scale-110 shadow-md`
-                                                : 'border-slate-300 dark:border-slate-600 group-hover:border-slate-400'
-                                            }
-                                        `}>
-                                            {selectedClass?.id === cls.id && <CheckCircle size={14} fill="currentColor" className="text-white" />}
-                                        </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         ) : (
-                            <div className="flex flex-col items-center justify-center h-full text-center p-6">
-                                <div className={`w-16 h-16 rounded-[1.5rem] ${theme.lightBg} flex items-center justify-center mb-4`}>
-                                    <Search className={`w-8 h-8 ${theme.accentText} opacity-50`} />
-                                </div>
-                                <p className="text-slate-500 dark:text-slate-400 text-sm font-medium max-w-[200px]">
-                                    No classes found for grade <span className={`font-bold ${theme.accentText}`}>{validation.grade}</span>.
+                            <div className="flex flex-col items-center justify-center h-full text-center py-8">
+                                <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">
+                                    No classes found for <span className={`font-bold ${theme.accentText}`}>{validation.grade}</span>.
                                 </p>
                             </div>
                         )}
                     </div>
 
-                    {/* --- FOOTER --- */}
-                    <div className="flex-none p-8 pt-4">
+                    {/* --- FOOTER ACTION --- */}
+                    <div className="flex-none p-6 border-t border-slate-100 dark:border-white/5 bg-white dark:bg-[#121212] z-20">
                         <div className="flex gap-3">
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="flex-1 py-4 rounded-[1.5rem] font-bold text-[15px] text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 transition-all active:scale-[0.98]"
+                                className="flex-1 py-3.5 rounded-xl font-bold text-sm text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
                             >
                                 Cancel
                             </button>
@@ -330,16 +336,26 @@ const ImportToClassModal = ({
                                 onClick={handleImport}
                                 disabled={!selectedClass || isSubmitting}
                                 className={`
-                                    flex-[2] py-4 rounded-[1.5rem] font-bold text-[15px] text-white 
+                                    flex-[2] py-3.5 rounded-xl font-bold text-sm text-white 
                                     bg-gradient-to-r ${theme.accentGradient}
-                                    shadow-xl shadow-black/5
-                                    hover:shadow-2xl hover:scale-[1.02] active:scale-[0.97] 
-                                    transition-all duration-300 
-                                    disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed disabled:bg-slate-400 disabled:scale-100
+                                    shadow-lg shadow-black/5
+                                    hover:shadow-xl hover:brightness-105 active:scale-[0.98] 
+                                    transition-all duration-200 
+                                    disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none
                                     flex items-center justify-center gap-2
                                 `}
                             >
-                                {isSubmitting ? <Spinner /> : 'Confirm Import'}
+                                {isSubmitting ? (
+                                    <>
+                                        <Spinner size="sm" />
+                                        <span>Importing...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <span>Confirm Import</span>
+                                        {selectedClass && <span className="bg-white/20 px-1.5 py-0.5 rounded text-[10px]">{selectedStudentIds.length}</span>}
+                                    </>
+                                )}
                             </button>
                         </div>
                     </div>

@@ -57,17 +57,17 @@ const AURORA_THEMES = [
     },
 ];
 
-// --- 1. SKELETON ---
+// --- 1. SKELETON (Updated sizes) ---
 const SkeletonClassCard = memo(() => (
-    <div className="relative bg-white dark:bg-[#18181b] rounded-[32px] border border-slate-100 dark:border-white/5 p-5 h-[220px] flex flex-col justify-between overflow-hidden shadow-sm">
+    <div className="relative bg-white dark:bg-[#18181b] rounded-[32px] border border-slate-100 dark:border-white/5 p-4 sm:p-5 h-[190px] sm:h-[220px] flex flex-col justify-between overflow-hidden shadow-sm">
         <div className="flex gap-4 items-start animate-pulse">
-            <div className="w-14 h-14 rounded-[20px] bg-slate-100 dark:bg-white/5" />
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-[20px] bg-slate-100 dark:bg-white/5" />
             <div className="flex-1 space-y-2.5 pt-1">
-                <div className="h-6 w-3/4 bg-slate-100 dark:bg-white/5 rounded-full" />
-                <div className="h-6 w-1/2 bg-slate-100 dark:bg-white/5 rounded-full" />
+                <div className="h-5 sm:h-6 w-3/4 bg-slate-100 dark:bg-white/5 rounded-full" />
+                <div className="h-5 sm:h-6 w-1/2 bg-slate-100 dark:bg-white/5 rounded-full" />
             </div>
         </div>
-        <div className="flex gap-3 mt-4 h-14 animate-pulse">
+        <div className="flex gap-3 mt-4 h-12 sm:h-14 animate-pulse">
              <div className="w-[40%] bg-slate-100 dark:bg-white/5 rounded-[20px]" />
              <div className="flex-1 bg-slate-100 dark:bg-white/5 rounded-[20px]" />
         </div>
@@ -126,9 +126,10 @@ const ClassCard = memo(({
                 overflow-visible flex flex-col justify-between
                 transition-all duration-500 ease-out
                 hover:-translate-y-1.5
-                /* Increased min-height to accommodate wider stance */
-                h-auto min-h-[230px] cursor-pointer
+                cursor-pointer
                 bg-clip-padding
+                /* MOBILE: Slimmer height, DESKTOP: Standard height */
+                h-auto min-h-[190px] sm:min-h-[230px]
             `}
         >
             {/* Subtle Gradient & Noise Texture */}
@@ -136,11 +137,13 @@ const ClassCard = memo(({
             <div className="absolute inset-0 opacity-[0.02] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] rounded-[32px] pointer-events-none mix-blend-overlay" />
 
             {/* --- TOP SECTION: Visuals & Info --- */}
-            <div className="relative z-20 p-5 pb-0 flex justify-between items-start">
-                <div className="flex gap-5 items-start overflow-hidden w-full">
+            <div className="relative z-20 p-4 sm:p-5 pb-0 flex justify-between items-start">
+                <div className="flex gap-4 sm:gap-5 items-start overflow-hidden w-full">
                     {/* Modern "Squircle" Icon with Glow */}
                     <div className={`
-                        relative w-14 h-14 flex-shrink-0
+                        relative flex-shrink-0
+                        /* MOBILE: Smaller Icon, DESKTOP: Standard Icon */
+                        w-12 h-12 sm:w-14 sm:h-14
                         rounded-[20px] 
                         flex items-center justify-center 
                         ${theme.iconBg} 
@@ -148,21 +151,21 @@ const ClassCard = memo(({
                         group-hover:scale-110 transition-transform duration-500
                     `}>
                         <div className="absolute inset-0 bg-white/20 rounded-[20px] opacity-0 group-hover:opacity-100 transition-opacity" />
-                        <theme.icon className="w-7 h-7 text-white relative z-10" strokeWidth={2} />
+                        <theme.icon className="w-6 h-6 sm:w-7 sm:h-7 text-white relative z-10" strokeWidth={2} />
                     </div>
 
                     {/* Text Info (Rows) */}
-                    <div className="min-w-0 flex-1 pt-1 flex flex-col">
-                        {/* Title - ADJUSTED: Removed md:text-2xl to prevent overflow, kept at text-xl */}
+                    <div className="min-w-0 flex-1 pt-0.5 sm:pt-1 flex flex-col">
+                        {/* Title - Mobile text-lg, Desktop text-xl */}
                         <h2 
-                            className="text-xl font-[800] text-slate-800 dark:text-white leading-tight tracking-tight mb-2.5 line-clamp-2"
+                            className="text-lg sm:text-xl font-[800] text-slate-800 dark:text-white leading-tight tracking-tight mb-2 sm:mb-2.5 line-clamp-2"
                             title={c.name}
                         >
                             {c.name}
                         </h2>
                         
                         {/* Stacked Metadata */}
-                        <div className="flex flex-col items-start gap-1.5 mt-auto">
+                        <div className="flex flex-col items-start gap-1 sm:gap-1.5 mt-auto">
                             {/* Row 1: Grade Level (Badge) */}
                             <span className={`
                                 inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider border
@@ -205,14 +208,15 @@ const ClassCard = memo(({
             </div>
 
             {/* --- BOTTOM SECTION: Actions --- */}
-            <div className="relative z-10 p-5 pt-6 flex items-center gap-3 mt-auto">
+            {/* MOBILE: Reduced Padding and Gap */}
+            <div className="relative z-10 p-4 sm:p-5 pt-4 sm:pt-6 flex items-center gap-2 sm:gap-3 mt-auto">
                 
-                {/* 1. Code "Ticket" */}
+                {/* 1. Code "Ticket" - Slimmer height on mobile */}
                 <button
                     onClick={handleCopyCode}
                     className="
                         group/code flex-shrink-0 w-[40%] sm:flex-1
-                        h-[3.5rem]
+                        h-12 sm:h-[3.5rem]
                         flex flex-col items-center justify-center
                         bg-slate-50 dark:bg-black/20 
                         border-2 border-dashed border-slate-200 dark:border-white/10
@@ -223,16 +227,16 @@ const ClassCard = memo(({
                 >
                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Class Code</span>
                     <div className="flex items-center gap-2">
-                        <span className="text-sm font-mono font-bold text-slate-700 dark:text-slate-200 group-hover/code:text-slate-900 dark:group-hover/code:text-white transition-colors">
+                        <span className="text-xs sm:text-sm font-mono font-bold text-slate-700 dark:text-slate-200 group-hover/code:text-slate-900 dark:group-hover/code:text-white transition-colors">
                             {c.classCode}
                         </span>
                         <ClipboardIcon className="w-3.5 h-3.5 text-slate-400 group-hover/code:text-blue-500 transition-colors" />
                     </div>
                 </button>
 
-                {/* 2. Primary Action Button */}
+                {/* 2. Primary Action Button - Slimmer height on mobile */}
                 {isLive ? (
-                    <div className="flex-1 flex gap-2 h-[3.5rem]">
+                    <div className="flex-1 flex gap-2 h-12 sm:h-[3.5rem]">
                         <button
                             onClick={handleAction}
                             className="flex-1 bg-red-600 text-white rounded-[20px] font-bold text-sm shadow-lg shadow-red-500/30 hover:shadow-red-600/40 hover:scale-[1.02] active:scale-95 transition-all duration-300 flex items-center justify-center gap-2 relative overflow-hidden"
@@ -246,7 +250,7 @@ const ClassCard = memo(({
                         </button>
                          <button
                             onClick={(e) => { e.stopPropagation(); onEndOnline(c.id); }}
-                            className="w-[3.5rem] bg-white dark:bg-[#202022] border-2 border-red-100 dark:border-red-900/30 text-red-500 rounded-[20px] flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors active:scale-90"
+                            className="w-12 sm:w-[3.5rem] bg-white dark:bg-[#202022] border-2 border-red-100 dark:border-red-900/30 text-red-500 rounded-[20px] flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors active:scale-90"
                         >
                             <IconPower className="w-5 h-5" stroke={2.5} />
                         </button>
@@ -255,7 +259,7 @@ const ClassCard = memo(({
                     <button
                         onClick={handleAction}
                         className={`
-                            flex-1 h-[3.5rem]
+                            flex-1 h-12 sm:h-[3.5rem]
                             rounded-[20px] 
                             font-bold text-sm text-white shadow-xl
                             flex items-center justify-center gap-2.5
@@ -331,6 +335,7 @@ const ClassesView = ({
         <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
+            // MAINTAINED: pb-40 to clear mobile dock, lg:pb-12 for desktop
             className="w-full h-full flex flex-col font-sans pb-40 lg:pb-12 relative z-10"
         >
             {/* --- HEADER --- */}

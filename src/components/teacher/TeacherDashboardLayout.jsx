@@ -122,61 +122,67 @@ const DashboardSkeleton = memo(() => (
     </div>
 ));
 
-// --- NEW HELPER: Stunning Icon Wrapper ---
-const StunningIcon = memo(({ Icon, isActive }) => {
+// --- NEW: Aesthetic Icon with Micro-Interactions ---
+const AestheticIcon = memo(({ Icon, isActive }) => {
     return (
-        <div 
-            className={`
-                relative flex items-center justify-center w-[42px] h-[42px] rounded-[14px] 
-                transition-all duration-300
-                ${isActive ? 'shadow-lg scale-110' : 'hover:scale-105'}
-            `}
-            style={{
-                // Active: Gradient from Primary to Secondary
-                // Inactive: Subtle surface variant background
-                background: isActive 
-                    ? `linear-gradient(135deg, var(--monet-primary), var(--monet-secondary))`
-                    : 'var(--monet-surface-variant)',
-                boxShadow: isActive 
-                    ? '0 8px 20px -6px var(--monet-primary-container)' 
-                    : 'none'
-            }}
-        >
-            <Icon 
-                size={20}
-                strokeWidth={isActive ? 2.5 : 2}
-                style={{
-                    // Active: White icon for contrast
-                    // Inactive: On-Surface color
-                    color: isActive ? '#ffffff' : 'var(--monet-on-surface-variant)',
-                    filter: isActive ? 'drop-shadow(0 2px 3px rgba(0,0,0,0.2))' : 'none'
-                }}
-                fill={isActive ? "currentColor" : "none"}
-            />
+        <div className="relative flex items-center justify-center">
+            {/* Active Glow Backdrop */}
+            <AnimatePresence>
+                {isActive && (
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.5 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.5 }}
+                        className="absolute inset-0 rounded-2xl bg-gradient-to-tr from-indigo-500 to-violet-500 blur-md opacity-40"
+                    />
+                )}
+            </AnimatePresence>
+
+            {/* Icon Container */}
+            <motion.div
+                className={`
+                    relative flex items-center justify-center w-11 h-11 rounded-xl
+                    transition-all duration-300 z-10
+                    ${isActive 
+                        ? 'bg-gradient-to-br from-indigo-600 to-violet-600 shadow-lg shadow-indigo-500/30' 
+                        : 'bg-slate-100 dark:bg-white/5 group-hover/item:bg-white dark:group-hover/item:bg-white/10'
+                    }
+                `}
+                whileHover={{ rotate: isActive ? 0 : [0, -10, 10, 0], scale: 1.05 }}
+                transition={{ duration: 0.3 }}
+            >
+                <Icon
+                    size={20}
+                    strokeWidth={isActive ? 2.5 : 2}
+                    className={`transition-colors duration-300 ${isActive ? 'text-white' : 'text-slate-500 dark:text-slate-400 group-hover/item:text-indigo-500 dark:group-hover/item:text-indigo-300'}`}
+                    fill={isActive ? "currentColor" : "transparent"}
+                />
+            </motion.div>
         </div>
     );
 });
 
-// --- UPDATED SIDEBAR ---
-const PrismSidebar = memo(({ navItems, activeView, handleViewChange, branding, showTutorial, onTutorialComplete }) => {
+// --- NEW: Aesthetic Sidebar with Fluid Hover Effects ---
+const AestheticSidebar = memo(({ navItems, activeView, handleViewChange, branding, showTutorial, onTutorialComplete }) => {
     return (
-        <motion.div 
-            initial={{ x: -100 }} animate={{ x: 0 }} transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="hidden lg:flex flex-col h-full w-24 hover:w-72 transition-[width] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] group relative z-50 bg-white/95 dark:bg-[#0F0F11]/95 backdrop-blur-2xl border-r border-white/20 dark:border-white/5 shadow-[4px_0_24px_rgba(0,0,0,0.02)]"
+        <motion.div
+            initial={{ x: -100 }} animate={{ x: 0 }} 
+            className="hidden lg:flex flex-col h-full w-[88px] hover:w-[280px] transition-[width] duration-500 cubic-bezier(0.25, 1, 0.5, 1) group relative z-50 bg-white/80 dark:bg-[#0F0F11]/90 backdrop-blur-3xl border-r border-slate-200/50 dark:border-white/5"
         >
-            {/* Branding */}
-            <div className="h-28 flex items-center justify-center group-hover:justify-start group-hover:px-7 transition-all duration-300">
-                <div className="w-12 h-12 rounded-2xl bg-white/50 dark:bg-white/10 flex items-center justify-center shadow-sm flex-shrink-0 border border-slate-200 dark:border-white/10 overflow-hidden">
-                    <img src={branding.logo} alt="Logo" className="w-9 h-9 object-contain" />
+            {/* Branding Section */}
+            <div className="h-24 flex items-center px-5 overflow-hidden whitespace-nowrap">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-white to-slate-100 dark:from-white/10 dark:to-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center shadow-sm flex-shrink-0 z-20">
+                    <img src={branding.logo} alt="Logo" className="w-8 h-8 object-contain" />
                 </div>
-                <div className="ml-4 overflow-hidden opacity-0 group-hover:opacity-100 transition-all duration-500 delay-75 whitespace-nowrap">
-                    <h1 className="font-bold text-xl text-slate-900 dark:text-white leading-none tracking-tight">{branding.name}</h1>
-                    <span className="text-[11px] text-slate-500 font-bold uppercase tracking-wider mt-1 block">Teacher Workspace</span>
+                
+                <div className="ml-4 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-100 flex flex-col">
+                    <h1 className="font-bold text-lg text-slate-900 dark:text-white leading-none tracking-tight">{branding.name}</h1>
+                    <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest mt-1.5">Teacher Workspace</span>
                 </div>
             </div>
 
-            {/* Navigation */}
-            <nav className="flex-1 flex flex-col gap-3 px-4 pt-2 overflow-y-auto mac-scrollbar">
+            {/* Navigation Items */}
+            <nav className="flex-1 flex flex-col gap-2 px-3 py-4 overflow-y-auto mac-scrollbar overflow-x-hidden">
                 {navItems.map((item) => {
                     const isActive = activeView === item.view;
                     return (
@@ -185,43 +191,62 @@ const PrismSidebar = memo(({ navItems, activeView, handleViewChange, branding, s
                             to={item.view === 'home' ? '/dashboard' : `/dashboard/${item.view}`}
                             end={item.view === 'home'}
                             onClick={() => handleViewChange(item.view)}
-                            className="relative flex items-center h-14 rounded-[20px] group/item outline-none overflow-hidden"
+                            className={`
+                                relative flex items-center h-16 rounded-[18px] group/item cursor-pointer
+                                transition-all duration-300 outline-none
+                                ${isActive ? 'bg-slate-50 dark:bg-white/5' : 'hover:bg-slate-50 dark:hover:bg-white/5'}
+                            `}
                         >
-                            {/* Icon Container */}
+                            {/* Active Indicator Strip (Left) */}
+                            {isActive && (
+                                <motion.div 
+                                    layoutId="activeStrip"
+                                    className="absolute left-0 w-1 h-8 bg-indigo-500 rounded-r-full"
+                                />
+                            )}
+
+                            {/* Icon Wrapper */}
                             <div className="min-w-[4rem] h-full flex justify-center items-center z-10">
-                                <StunningIcon Icon={item.icon} isActive={isActive} />
+                                <AestheticIcon Icon={item.icon} isActive={isActive} />
                             </div>
                             
-                            {/* Label */}
-                            <span 
-                                className={`text-[14px] font-semibold whitespace-nowrap transition-all duration-300 opacity-0 group-hover:opacity-100 delay-[50ms] z-10`}
-                                style={{ 
-                                    color: isActive ? 'var(--monet-primary)' : 'var(--monet-on-surface-variant)',
-                                }}
-                            >
-                                {item.text}
-                            </span>
+                            {/* Text Label */}
+                            <div className="flex-1 flex items-center justify-between pr-4 overflow-hidden opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-75">
+                                <span className={`text-[14px] font-semibold tracking-wide ${isActive ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400 group-hover/item:text-slate-700 dark:group-hover/item:text-slate-200'}`}>
+                                    {item.text}
+                                </span>
+                                {isActive && <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.6)]" />}
+                            </div>
                         </NavLink>
                     );
                 })}
             </nav>
 
-            {/* Bottom Actions */}
-            <div className="p-5 border-t border-black/5 dark:border-white/5 relative">
+            {/* Bottom Actions (Theme Toggle) */}
+            <div className="p-4 border-t border-slate-200/50 dark:border-white/5">
                 <Menu as="div" className="relative">
                     <Menu.Button 
                         onClick={onTutorialComplete}
-                        className={`flex items-center w-full h-14 rounded-[20px] hover:bg-slate-100 dark:hover:bg-white/5 transition-colors group/btn outline-none ${showTutorial ? 'animate-pulse ring-2' : ''}`}
-                        style={showTutorial ? { ringColor: 'var(--monet-primary)' } : {}}
+                        className={`
+                            flex items-center w-full h-14 rounded-[18px] 
+                            hover:bg-indigo-50 dark:hover:bg-indigo-500/10 
+                            transition-colors group/btn outline-none
+                            ${showTutorial ? 'ring-2 ring-indigo-500 ring-offset-2 dark:ring-offset-slate-900' : ''}
+                        `}
                     >
                          <div className="min-w-[4rem] flex justify-center items-center">
-                            <div className="w-[42px] h-[42px] rounded-[14px] bg-slate-200 dark:bg-white/10 flex items-center justify-center text-slate-500 dark:text-slate-300 group-hover/btn:text-indigo-500 transition-colors">
-                                <Palette size={20} />
+                            <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-500 dark:text-slate-400 group-hover/btn:text-indigo-600 dark:group-hover/btn:text-indigo-300 transition-colors">
+                                <Palette size={18} />
                             </div>
                          </div>
-                         <span className="ml-1 text-[13px] font-medium text-slate-600 dark:text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap overflow-hidden">
-                             Change Theme
-                         </span>
+                         <div className="ml-1 flex flex-col items-start overflow-hidden opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                             <span className="text-[13px] font-bold text-slate-700 dark:text-slate-200">
+                                 Appearance
+                             </span>
+                             <span className="text-[10px] font-medium text-slate-400">
+                                 Change Theme
+                             </span>
+                         </div>
                     </Menu.Button>
                     
                     <Transition
@@ -233,9 +258,9 @@ const PrismSidebar = memo(({ navItems, activeView, handleViewChange, branding, s
                         leaveFrom="opacity-100 translate-y-0 scale-100"
                         leaveTo="opacity-0 translate-y-2 scale-95"
                     >
-                        <Menu.Items className="absolute bottom-20 left-4 w-64 p-2 origin-bottom-left rounded-2xl bg-white dark:bg-[#1C1C1E] shadow-xl ring-1 ring-black/5 dark:ring-white/10 focus:outline-none z-[60]">
-                           <div className="px-3 py-2 border-b border-slate-100 dark:border-white/5 mb-2">
-                               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Theme Options</span>
+                        <Menu.Items className="absolute bottom-full left-4 mb-2 w-64 p-3 origin-bottom-left rounded-3xl bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-2xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.2)] ring-1 ring-slate-200 dark:ring-white/10 focus:outline-none z-[60]">
+                           <div className="px-3 py-2 border-b border-slate-100 dark:border-white/5 mb-3">
+                               <span className="text-xs font-bold text-indigo-500 uppercase tracking-widest">Display Settings</span>
                            </div>
                            <ThemeToggle />
                         </Menu.Items>
@@ -284,7 +309,7 @@ const TopContextBar = memo(({ userProfile, activeView, onLogout, handleOpenChat,
 
     const titles = {
         home: 'Dashboard Overview',
-        lounge: 'Student Lounge',
+       
         studentManagement: 'Student Directory',
         classes: 'My Classes',
         courses: 'Course Library',
@@ -308,7 +333,7 @@ const TopContextBar = memo(({ userProfile, activeView, onLogout, handleOpenChat,
                     <span>{activeView}</span>
                 </div>
                 <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight drop-shadow-sm">
-                    {titles[activeView] || 'Dashboard'}
+                    {titles[activeView] || 'Teacher Workspace'}
                 </h2>
             </motion.div>
 
@@ -719,10 +744,10 @@ const TeacherDashboardLayout = (props) => {
             <div className="noise-bg opacity-30 dark:opacity-10 pointer-events-none"></div>
             <UniversalBackground />
 
-            {/* --- LAYOUT STRUCTURE (Prism Vision 1) --- */}
+            {/* --- LAYOUT STRUCTURE (Aesthetic Vision 2.0) --- */}
             
             {/* 1. Left Vertical Rail */}
-            <PrismSidebar 
+            <AestheticSidebar 
                 navItems={navItems} 
                 activeView={activeView} 
                 handleViewChange={handleViewChange} 
@@ -799,7 +824,7 @@ const TeacherDashboardLayout = (props) => {
                         onClick={() => handleViewChange('home')} 
                         className="transition-transform active:scale-95"
                     >
-                        <StunningIcon Icon={Home} isActive={activeView === 'home'} />
+                        <AestheticIcon Icon={Home} isActive={activeView === 'home'} />
                      </NavLink>
                      
                      {/* Courses/Subjects */}
@@ -808,7 +833,7 @@ const TeacherDashboardLayout = (props) => {
                         onClick={() => handleViewChange('courses')} 
                         className="transition-transform active:scale-95"
                     >
-                        <StunningIcon Icon={BookOpen} isActive={activeView === 'courses'} />
+                        <AestheticIcon Icon={BookOpen} isActive={activeView === 'courses'} />
                      </NavLink>
 
                      {/* Classes */}
@@ -817,7 +842,7 @@ const TeacherDashboardLayout = (props) => {
                         onClick={() => handleViewChange('classes')} 
                         className="transition-transform active:scale-95"
                     >
-                        <StunningIcon Icon={GraduationCap} isActive={activeView === 'classes'} />
+                        <AestheticIcon Icon={GraduationCap} isActive={activeView === 'classes'} />
                      </NavLink>
 
                      {/* Lounge */}
@@ -826,7 +851,7 @@ const TeacherDashboardLayout = (props) => {
                         onClick={() => handleViewChange('lounge')} 
                         className="transition-transform active:scale-95"
                     >
-                        <StunningIcon Icon={Rocket} isActive={activeView === 'lounge'} />
+                        <AestheticIcon Icon={Rocket} isActive={activeView === 'lounge'} />
                      </NavLink>
 
                      {/* Menu Toggle */}
@@ -855,7 +880,7 @@ const TeacherDashboardLayout = (props) => {
                         <div className="grid grid-cols-4 gap-4">
                             {navItems.filter(i => !['home','classes', 'courses', 'lounge'].includes(i.view)).map(item => (
                                 <button key={item.view} onClick={() => { handleViewChange(item.view); setIsMobileMenuOpen(false); }} className="flex flex-col items-center gap-2">
-                                    <StunningIcon Icon={item.icon} isActive={activeView === item.view} />
+                                    <AestheticIcon Icon={item.icon} isActive={activeView === item.view} />
                                     <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400">{item.text}</span>
                                 </button>
                             ))}

@@ -1,18 +1,23 @@
+// src/components/teacher/ChatDialog.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { TransitionGroup, CSSTransition } from 'react-transition-group';
 import ContentRenderer from './ContentRenderer';
 import { useTheme } from '../../contexts/ThemeContext'; 
+import { X, Send, ChevronDown } from 'lucide-react'; 
 import './ChatDialog.css'; 
 
 // --- HELPER COMPONENT FOR MESSAGES ---
-// This ensures every message has its own valid nodeRef, fixing the strict mode warning in the list.
 const MessageItem = ({ msg, chatbotProfilePic, ...props }) => {
     const nodeRef = useRef(null);
 
     return (
         <CSSTransition nodeRef={nodeRef} {...props}>
             <div ref={nodeRef} className={`message-bubble ${msg.sender === 'user' ? 'user-message' : 'ai-message'}`}>
-                {msg.sender === 'ai' && <img src={chatbotProfilePic} alt="AI" className="message-avatar" />}
+                {msg.sender === 'ai' && (
+                    <div className="avatar-container">
+                        <img src={chatbotProfilePic} alt="AI" className="message-avatar" />
+                    </div>
+                )}
                 <div className="message-content">
                     {msg.sender === 'ai' ? (
                         <div className="markdown-content">
@@ -31,11 +36,9 @@ const ChatDialog = ({ isOpen, onClose, messages, onSendMessage, isAiThinking }) 
     const messagesEndRef = useRef(null);
     const [inputValue, setInputValue] = useState('');
     const textareaRef = useRef(null);
-    
-    // [FIX] Create a ref for the main dialog element
     const dialogRef = useRef(null);
     
-    // 1. Hook into the Monet Engine & Active Overlay
+    // Theme Hooks
     const { monetTheme, activeOverlay } = useTheme();
 
     const scrollToBottom = () => {
@@ -45,6 +48,30 @@ const ChatDialog = ({ isOpen, onClose, messages, onSendMessage, isAiThinking }) 
     useEffect(() => {
         if (isOpen) scrollToBottom();
     }, [messages, isAiThinking, isOpen]);
+
+    // KEYBOARD FIX: Scroll to bottom when window resizes (keyboard open/close)
+    useEffect(() => {
+        if (!isOpen) return;
+        
+        const handleResize = () => {
+            scrollToBottom();
+        };
+
+        // Listen for visual viewport resize (better for mobile keyboards)
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', handleResize);
+        } else {
+            window.addEventListener('resize', handleResize);
+        }
+
+        return () => {
+            if (window.visualViewport) {
+                window.visualViewport.removeEventListener('resize', handleResize);
+            } else {
+                window.removeEventListener('resize', handleResize);
+            }
+        };
+    }, [isOpen]);
 
     const handleSend = () => {
         if (inputValue.trim()) {
@@ -68,51 +95,37 @@ const ChatDialog = ({ isOpen, onClose, messages, onSendMessage, isAiThinking }) 
         }
     };
 
+    // KEYBOARD FIX: Ensure visibility when focusing input
+    const handleFocus = () => {
+        setTimeout(() => {
+            scrollToBottom();
+        }, 300); // Small delay to allow keyboard animation
+    };
+
     const chatbotProfilePic = '/chatbot.png';
 
-    // 2. DEFINE THEME SPECIFIC COLORS
+    // --- SOLID THEME COLORS ---
     const getThemeBackground = (overlay) => {
         switch (overlay) {
-            case 'christmas': return 'rgba(15, 41, 30, 0.95)'; // Deep Evergreen
-            case 'valentines': return 'rgba(42, 10, 18, 0.95)'; // Deep Burgundy
-            case 'graduation': return 'rgba(26, 22, 0, 0.95)'; // Deep Gold/Black
-            case 'rainy': return 'rgba(15, 23, 42, 0.95)'; // Slate 900
-            case 'cyberpunk': return 'rgba(24, 10, 46, 0.95)'; // Deep Purple
-            case 'spring': return 'rgba(42, 26, 31, 0.95)'; // Warm Dark
-            case 'space': return 'rgba(11, 15, 25, 0.95)'; // Deep Void
+            case 'christmas': return '#0f291e'; 
+            case 'valentines': return '#2a0a12'; 
+            case 'cyberpunk': return '#0a0a14'; 
             default: 
-                // --- FIX: GENERIC IS NOW DARK MODE ---
                 return monetTheme.rgbString 
-                    ? `rgba(${monetTheme.rgbString}, 0.95)` 
-                    : 'rgba(15, 23, 42, 0.95)'; 
+                    ? `rgb(${monetTheme.rgbString})` 
+                    : '#18181b'; 
         }
     };
 
-    const getThemeGlow = (overlay) => {
-        switch(overlay) {
-             case 'christmas': return 'rgba(34, 197, 94, 0.2)';
-             case 'valentines': return 'rgba(244, 63, 94, 0.2)';
-             case 'cyberpunk': return 'rgba(217, 70, 239, 0.25)';
-             default: return 'var(--monet-primary)';
-        }
-    }
-
-    // 3. Construct Final Style
     const dialogStyle = {
-        ...monetTheme.variables,   
-        ...monetTheme.glassStyle,  
-        background: getThemeBackground(activeOverlay),
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
-        '--chat-bg': 'transparent', 
-        '--chat-border': 'transparent', 
-        '--header-bg': 'rgba(255, 255, 255, 0.05)', 
-        '--input-bg': 'rgba(0, 0, 0, 0.3)', 
-        '--text-color': '#f1f5f9',
+        ...monetTheme.variables,
+        '--dialog-bg': getThemeBackground(activeOverlay),
         '--user-bubble-bg': 'var(--monet-primary)', 
-        '--ai-bubble-bg': 'rgba(255, 255, 255, 0.1)', 
-        '--glow-1': getThemeGlow(activeOverlay),
-        '--glow-2': 'var(--monet-secondary)',
+        '--ai-bubble-bg': '#27272a', 
+        '--text-color': '#f3f4f6', 
+        '--input-bg': 'rgba(255, 255, 255, 0.08)',
+        '--header-bg': getThemeBackground(activeOverlay),
+        '--border-color': 'rgba(255, 255, 255, 0.1)',
     };
 
     return (
@@ -121,47 +134,41 @@ const ChatDialog = ({ isOpen, onClose, messages, onSendMessage, isAiThinking }) 
             timeout={300}
             classNames="chat-dialog-transition"
             unmountOnExit
-            nodeRef={dialogRef} // [FIX] Pass nodeRef here
+            nodeRef={dialogRef}
         >
             <div 
-                ref={dialogRef} // [FIX] Attach ref here
+                ref={dialogRef} 
                 className="chat-dialog" 
                 role="dialog" 
                 aria-label="AI Chat"
                 style={dialogStyle}
             >
-                {/* --- AMBIENT GLOW EFFECTS --- */}
-                <div style={{
-                    position: 'absolute', top: '-20%', left: '-20%', width: '300px', height: '300px',
-                    background: `radial-gradient(circle, var(--glow-1) 0%, rgba(0,0,0,0) 70%)`,
-                    pointerEvents: 'none', zIndex: 0, filter: 'blur(80px)', opacity: 0.4
-                }} />
-                <div style={{
-                    position: 'absolute', bottom: '-20%', right: '-20%', width: '300px', height: '300px',
-                    background: `radial-gradient(circle, var(--glow-2) 0%, rgba(0,0,0,0) 70%)`,
-                    pointerEvents: 'none', zIndex: 0, filter: 'blur(80px)', opacity: 0.4
-                }} />
+                {/* Mobile Drag Indicator */}
+                <div className="mobile-drag-handle"></div>
 
                 <div className="chat-header">
                     <div className="chat-info">
-                        <img src={chatbotProfilePic} alt="Chatbot" className="chat-profile-pic" />
+                        <div className="avatar-wrapper">
+                            <img src={chatbotProfilePic} alt="Chatbot" className="chat-profile-pic" />
+                            <span className={`status-dot ${isAiThinking ? 'thinking' : 'online'}`} />
+                        </div>
                         <div className="chat-meta">
-                            <div className="chat-title">AI Assistant</div>
-                            <div className="chat-status">{isAiThinking ? 'Thinking...' : 'Online'}</div>
+                            <div className="chat-title">Teacher Assistant</div>
+                            <div className="chat-status">
+                                {isAiThinking ? 'Typing...' : 'Active now'}
+                            </div>
                         </div>
                     </div>
 
                     <button onClick={onClose} className="chat-close-btn" aria-label="Close chat">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style={{width: '20px', height: '20px'}}>
-                            <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 011.06 0L12 10.94l5.47-5.47a.75.75 0 111.06 1.06L13.06 12l5.47 5.47a.75.75 0 11-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 01-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 010-1.06z" clipRule="evenodd" />
-                        </svg>
+                        <span className="desktop-icon"><X size={20} /></span>
+                        <span className="mobile-icon"><ChevronDown size={24} /></span>
                     </button>
                 </div>
 
                 <div className="chat-messages" aria-live="polite">
                     <TransitionGroup component={null}>
                         {messages.map((msg, index) => (
-                            // [FIX] Use the helper component to handle refs automatically
                             <MessageItem 
                                 key={index} 
                                 msg={msg} 
@@ -174,8 +181,10 @@ const ChatDialog = ({ isOpen, onClose, messages, onSendMessage, isAiThinking }) 
 
                     {isAiThinking && (
                         <div className="message-bubble ai-message typing-bubble">
-                            <img src={chatbotProfilePic} alt="AI" className="message-avatar" />
-                            <div className="message-content">
+                            <div className="avatar-container">
+                                <img src={chatbotProfilePic} alt="AI" className="message-avatar" />
+                            </div>
+                            <div className="message-content typing-content">
                                 <div className="typing-indicator" aria-hidden="true">
                                     <span></span><span></span><span></span>
                                 </div>
@@ -187,28 +196,29 @@ const ChatDialog = ({ isOpen, onClose, messages, onSendMessage, isAiThinking }) 
                 </div>
 
                 <div className="chat-input-area">
-                    <textarea
-                        ref={textareaRef}
-                        value={inputValue}
-                        onChange={(e) => setInputValue(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        onInput={handleInput}
-                        placeholder="Type a message..."
-                        className="chat-input"
-                        rows="1"
-                        aria-label="Type a message"
-                    />
+                    <div className="input-wrapper">
+                        <textarea
+                            ref={textareaRef}
+                            value={inputValue}
+                            onChange={(e) => setInputValue(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            onInput={handleInput}
+                            onFocus={handleFocus} // Added focus handler
+                            placeholder="Message..."
+                            className="chat-input"
+                            rows="1"
+                            aria-label="Type a message"
+                        />
+                    </div>
                     <button
                         type="button"
                         onClick={handleSend}
                         className="send-btn"
                         disabled={!inputValue.trim()}
-                        title="Send message"
-                        style={{ backgroundColor: 'var(--monet-primary)', color: 'white' }}
+                        title="Send"
+                        style={{ color: inputValue.trim() ? 'var(--monet-primary)' : 'currentColor' }}
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style={{width: '20px', height: '20px'}}>
-                            <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
-                        </svg>
+                        <Send size={24} fill={inputValue.trim() ? "currentColor" : "none"} strokeWidth={inputValue.trim() ? 0 : 2} />
                     </button>
                 </div>
             </div>

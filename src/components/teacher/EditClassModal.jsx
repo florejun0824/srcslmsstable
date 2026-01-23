@@ -1,8 +1,7 @@
-// src/components/teacher/dashboard/modals/EditClassModal.jsx
+// src/components/teacher/EditClassModal.jsx
 import React, { useState, Fragment, useMemo, useEffect } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { useToast } from '../../contexts/ToastContext';
-import { useTheme } from '../../contexts/ThemeContext';
 
 // --- VISUAL ASSETS ---
 import { 

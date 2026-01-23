@@ -1,4 +1,4 @@
-SRCS LMS – Release v.10.1 RC (Performance & AI Overhaul)
+SRCS LMS – Release v.10.2 RC (Performance & AI Overhaul)
 "Building the future of education through superior engineering."
 
 We heard your feedback on dashboard fluidity. In this release, we stripped down the heavy animation engines and rebuilt the core scrolling mechanics to deliver a 60fps, zero-lag experience. We also aligned our AI tools with DepEd standards for a fairer, smarter classroom assistant.
