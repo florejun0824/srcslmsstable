@@ -239,9 +239,7 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
                                         animate={{ opacity: 1 }}
                                         className="flex items-center gap-3"
                                     >
-                                        <div className="p-2 bg-white/10 rounded-full">
-                                            <Sparkles className="w-5 h-5 text-yellow-300" fill="currentColor" />
-                                        </div>
+                                        
                                         <div>
                                             <h3 className="text-xl font-bold text-white">All Clear</h3>
                                             <p className="text-xs text-white/70 font-medium">No pending classes</p>

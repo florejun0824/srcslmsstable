@@ -5,7 +5,7 @@ import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { Menu, Transition } from '@headlessui/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { NavLink, useNavigate } from 'react-router-dom';
-import Lottie from 'lottie-react'; // Import Lottie
+import Lottie from 'lottie-react'; 
 
 // --- ICONS ---
 import { 
@@ -16,13 +16,13 @@ import {
 } from 'lucide-react';
 
 // SERVICES
-import { getDocs, query, collection, where } from 'firebase/firestore';
+import { getDocs, query, collection, where, writeBatch, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useToast } from '../../contexts/ToastContext';
 import { useTheme } from '../../contexts/ThemeContext';
 
 // ASSETS
-import robotAnimation from '../../assets/robot.json'; // Import the Robot Lottie JSON
+import robotAnimation from '../../assets/robot.json'; 
 
 // CORE COMPONENTS
 import AnimatedRobot from './dashboard/widgets/AnimatedRobot';
@@ -122,26 +122,61 @@ const DashboardSkeleton = memo(() => (
     </div>
 ));
 
-// --- COMPONENT: Prism Sidebar ---
+// --- NEW HELPER: Stunning Icon Wrapper ---
+const StunningIcon = memo(({ Icon, isActive }) => {
+    return (
+        <div 
+            className={`
+                relative flex items-center justify-center w-[42px] h-[42px] rounded-[14px] 
+                transition-all duration-300
+                ${isActive ? 'shadow-lg scale-110' : 'hover:scale-105'}
+            `}
+            style={{
+                // Active: Gradient from Primary to Secondary
+                // Inactive: Subtle surface variant background
+                background: isActive 
+                    ? `linear-gradient(135deg, var(--monet-primary), var(--monet-secondary))`
+                    : 'var(--monet-surface-variant)',
+                boxShadow: isActive 
+                    ? '0 8px 20px -6px var(--monet-primary-container)' 
+                    : 'none'
+            }}
+        >
+            <Icon 
+                size={20}
+                strokeWidth={isActive ? 2.5 : 2}
+                style={{
+                    // Active: White icon for contrast
+                    // Inactive: On-Surface color
+                    color: isActive ? '#ffffff' : 'var(--monet-on-surface-variant)',
+                    filter: isActive ? 'drop-shadow(0 2px 3px rgba(0,0,0,0.2))' : 'none'
+                }}
+                fill={isActive ? "currentColor" : "none"}
+            />
+        </div>
+    );
+});
+
+// --- UPDATED SIDEBAR ---
 const PrismSidebar = memo(({ navItems, activeView, handleViewChange, branding, showTutorial, onTutorialComplete }) => {
     return (
         <motion.div 
             initial={{ x: -100 }} animate={{ x: 0 }} transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="hidden lg:flex flex-col h-full w-20 hover:w-64 transition-[width] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] group relative z-50 bg-white/80 dark:bg-[#0F0F11]/80 backdrop-blur-2xl border-r border-white/20 dark:border-white/5 shadow-[4px_0_24px_rgba(0,0,0,0.02)]"
+            className="hidden lg:flex flex-col h-full w-24 hover:w-72 transition-[width] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] group relative z-50 bg-white/80 dark:bg-[#0F0F11]/80 backdrop-blur-2xl border-r border-white/20 dark:border-white/5 shadow-[4px_0_24px_rgba(0,0,0,0.02)]"
         >
             {/* Branding */}
-            <div className="h-24 flex items-center justify-center group-hover:justify-start group-hover:px-6 transition-all duration-300">
-                <div className="w-10 h-10 rounded-xl bg-white/50 dark:bg-white/10 flex items-center justify-center shadow-sm flex-shrink-0 border border-slate-200 dark:border-white/10 overflow-hidden">
-                    <img src={branding.logo} alt="Logo" className="w-8 h-8 object-contain" />
+            <div className="h-28 flex items-center justify-center group-hover:justify-start group-hover:px-7 transition-all duration-300">
+                <div className="w-12 h-12 rounded-2xl bg-white/50 dark:bg-white/10 flex items-center justify-center shadow-sm flex-shrink-0 border border-slate-200 dark:border-white/10 overflow-hidden">
+                    <img src={branding.logo} alt="Logo" className="w-9 h-9 object-contain" />
                 </div>
-                <div className="ml-3 overflow-hidden opacity-0 group-hover:opacity-100 transition-all duration-500 delay-75 whitespace-nowrap">
-                    <h1 className="font-bold text-lg text-slate-900 dark:text-white leading-none tracking-tight">{branding.name}</h1>
-                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Workspace</span>
+                <div className="ml-4 overflow-hidden opacity-0 group-hover:opacity-100 transition-all duration-500 delay-75 whitespace-nowrap">
+                    <h1 className="font-bold text-xl text-slate-900 dark:text-white leading-none tracking-tight">{branding.name}</h1>
+                    <span className="text-[11px] text-slate-500 font-bold uppercase tracking-wider mt-1 block">Teacher Workspace</span>
                 </div>
             </div>
 
             {/* Navigation */}
-            <nav className="flex-1 flex flex-col gap-2 px-3 pt-4 overflow-y-auto mac-scrollbar">
+            <nav className="flex-1 flex flex-col gap-3 px-4 pt-2 overflow-y-auto mac-scrollbar">
                 {navItems.map((item) => {
                     const isActive = activeView === item.view;
                     return (
@@ -150,28 +185,20 @@ const PrismSidebar = memo(({ navItems, activeView, handleViewChange, branding, s
                             to={item.view === 'home' ? '/dashboard' : `/dashboard/${item.view}`}
                             end={item.view === 'home'}
                             onClick={() => handleViewChange(item.view)}
-                            className="relative flex items-center h-12 rounded-[16px] group/item outline-none overflow-hidden"
+                            className="relative flex items-center h-14 rounded-[20px] group/item outline-none overflow-hidden"
                         >
-                            {isActive && (
-                                <motion.div
-                                    layoutId="prismActive"
-                                    className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 rounded-[16px] border border-indigo-500/20 dark:border-indigo-400/20"
-                                    transition={{ type: "spring", stiffness: 350, damping: 25 }}
-                                >
-                                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-indigo-500 rounded-r-full" />
-                                </motion.div>
-                            )}
-                            
-                            <div className="min-w-[3.5rem] h-full flex justify-center items-center z-10">
-                                <item.icon 
-                                    size={20} 
-                                    strokeWidth={isActive ? 2.5 : 2}
-                                    fill={isActive ? "currentColor" : "none"}
-                                    className={`transition-all duration-300 ${isActive ? 'text-indigo-600 dark:text-indigo-400 scale-110' : 'text-slate-400 dark:text-slate-500 group-hover/item:text-slate-600 dark:group-hover/item:text-slate-300'}`} 
-                                />
+                            {/* Icon Container */}
+                            <div className="min-w-[4rem] h-full flex justify-center items-center z-10">
+                                <StunningIcon Icon={item.icon} isActive={isActive} />
                             </div>
                             
-                            <span className={`text-[13px] font-medium whitespace-nowrap transition-all duration-300 opacity-0 group-hover:opacity-100 delay-[50ms] z-10 ${isActive ? 'text-indigo-900 dark:text-white font-bold' : 'text-slate-500 dark:text-slate-400'}`}>
+                            {/* Label */}
+                            <span 
+                                className={`text-[14px] font-semibold whitespace-nowrap transition-all duration-300 opacity-0 group-hover:opacity-100 delay-[50ms] z-10`}
+                                style={{ 
+                                    color: isActive ? 'var(--monet-primary)' : 'var(--monet-on-surface-variant)',
+                                }}
+                            >
                                 {item.text}
                             </span>
                         </NavLink>
@@ -180,15 +207,16 @@ const PrismSidebar = memo(({ navItems, activeView, handleViewChange, branding, s
             </nav>
 
             {/* Bottom Actions */}
-            <div className="p-4 border-t border-black/5 dark:border-white/5 relative">
+            <div className="p-5 border-t border-black/5 dark:border-white/5 relative">
                 <Menu as="div" className="relative">
                     <Menu.Button 
                         onClick={onTutorialComplete}
-                        className={`flex items-center w-full h-12 rounded-[16px] hover:bg-slate-100 dark:hover:bg-white/5 transition-colors group/btn outline-none ${showTutorial ? 'ring-2 ring-indigo-500 animate-pulse' : ''}`}
+                        className={`flex items-center w-full h-14 rounded-[20px] hover:bg-slate-100 dark:hover:bg-white/5 transition-colors group/btn outline-none ${showTutorial ? 'animate-pulse ring-2' : ''}`}
+                        style={showTutorial ? { ringColor: 'var(--monet-primary)' } : {}}
                     >
-                         <div className="min-w-[3rem] flex justify-center items-center">
-                            <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-white/10 flex items-center justify-center text-slate-500 dark:text-slate-300 group-hover/btn:text-indigo-500 transition-colors">
-                                <Palette size={16} />
+                         <div className="min-w-[4rem] flex justify-center items-center">
+                            <div className="w-[42px] h-[42px] rounded-[14px] bg-slate-200 dark:bg-white/10 flex items-center justify-center text-slate-500 dark:text-slate-300 group-hover/btn:text-indigo-500 transition-colors">
+                                <Palette size={20} />
                             </div>
                          </div>
                          <span className="ml-1 text-[13px] font-medium text-slate-600 dark:text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap overflow-hidden">
@@ -205,7 +233,7 @@ const PrismSidebar = memo(({ navItems, activeView, handleViewChange, branding, s
                         leaveFrom="opacity-100 translate-y-0 scale-100"
                         leaveTo="opacity-0 translate-y-2 scale-95"
                     >
-                        <Menu.Items className="absolute bottom-14 left-4 w-64 p-2 origin-bottom-left rounded-2xl bg-white dark:bg-[#1C1C1E] shadow-xl ring-1 ring-black/5 dark:ring-white/10 focus:outline-none z-[60]">
+                        <Menu.Items className="absolute bottom-20 left-4 w-64 p-2 origin-bottom-left rounded-2xl bg-white dark:bg-[#1C1C1E] shadow-xl ring-1 ring-black/5 dark:ring-white/10 focus:outline-none z-[60]">
                            <div className="px-3 py-2 border-b border-slate-100 dark:border-white/5 mb-2">
                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Theme Options</span>
                            </div>
@@ -213,28 +241,12 @@ const PrismSidebar = memo(({ navItems, activeView, handleViewChange, branding, s
                         </Menu.Items>
                     </Transition>
                 </Menu>
-
-                <AnimatePresence>
-                    {showTutorial && (
-                        <motion.div
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: 20 }}
-                            className="absolute left-full bottom-4 ml-4 w-64 p-4 rounded-2xl bg-indigo-600 text-white shadow-xl z-[70]"
-                        >
-                            <div className="absolute left-0 bottom-6 -translate-x-1.5 w-3 h-3 bg-indigo-600 rotate-45"></div>
-                            <h4 className="font-bold text-sm mb-1 flex items-center gap-2"><Sparkles size={14} className="text-yellow-300"/> Customize Look</h4>
-                            <p className="text-xs opacity-90 mb-2">Click the palette to switch between Dark, Light, or special themes!</p>
-                            <button onClick={onTutorialComplete} className="text-[10px] font-bold bg-white/20 hover:bg-white/30 px-2 py-1 rounded-lg w-full">Got it</button>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
             </div>
         </motion.div>
     );
 });
 
-// --- COMPONENT: Top Context Bar (With Smart Search & Robot Animation) ---
+// --- UPDATED TOP BAR (Solid Search) ---
 const TopContextBar = memo(({ userProfile, activeView, onLogout, handleOpenChat, isAiThinking, courses, activeClasses, onNavigate }) => {
     
     const [searchQuery, setSearchQuery] = useState('');
@@ -282,7 +294,7 @@ const TopContextBar = memo(({ userProfile, activeView, onLogout, handleOpenChat,
     };
 
     return (
-        <header className="h-20 px-8 flex items-center justify-between flex-shrink-0 z-40 bg-transparent">
+        <header className="h-24 px-8 flex items-center justify-between flex-shrink-0 z-40 bg-transparent">
             {/* Breadcrumb / Title */}
             <motion.div 
                 initial={{ opacity: 0, y: -10 }} 
@@ -295,26 +307,32 @@ const TopContextBar = memo(({ userProfile, activeView, onLogout, handleOpenChat,
                     <ChevronRight size={10} />
                     <span>{activeView}</span>
                 </div>
-                <h2 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">
+                <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">
                     {titles[activeView] || 'Dashboard'}
                 </h2>
             </motion.div>
 
             {/* Right Actions */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
                 
-                {/* SMART SEARCH BAR */}
+                {/* IMPROVED SEARCH BAR (Solid & Visible) */}
                 <div className="relative z-50">
                     <div 
                         className={`
-                            flex items-center gap-2 h-10 px-4 rounded-full transition-all duration-300 origin-right
+                            flex items-center gap-3 h-12 px-5 rounded-2xl transition-all duration-300 origin-right shadow-sm
                             ${isFocused 
-                                ? 'w-[400px] bg-white dark:bg-[#1C1C1E] shadow-xl ring-2 ring-indigo-500/20' 
-                                : 'w-64 bg-white/50 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-white hover:shadow-sm dark:hover:bg-white/10'
+                                ? 'w-[450px] bg-white dark:bg-[#1C1C1E] shadow-xl ring-2' 
+                                : 'w-72 bg-white/90 dark:bg-[#1C1C1E]/90 hover:bg-white dark:hover:bg-[#252528]'
                             }
                         `}
+                        // Monet Theming & Solid Borders
+                        style={{
+                            borderColor: 'var(--monet-outline)',
+                            borderWidth: '1px',
+                            ...(isFocused ? { borderColor: 'var(--monet-primary)', ringColor: 'var(--monet-primary)' } : {})
+                        }}
                     >
-                        <Search size={16} className={`transition-colors ${isFocused ? 'text-indigo-500' : 'text-slate-500'}`} />
+                        <Search size={18} style={{ color: isFocused ? 'var(--monet-primary)' : 'var(--monet-on-surface-variant)' }} />
                         <input 
                             ref={searchInputRef}
                             type="text" 
@@ -323,16 +341,16 @@ const TopContextBar = memo(({ userProfile, activeView, onLogout, handleOpenChat,
                             onFocus={() => setIsFocused(true)}
                             onBlur={() => setTimeout(() => !searchQuery && setIsFocused(false), 200)}
                             placeholder="Search subjects, classes..." 
-                            className="bg-transparent border-none outline-none text-sm w-full text-slate-700 dark:text-slate-200 placeholder:text-slate-400" 
+                            className="bg-transparent border-none outline-none text-sm w-full font-medium text-slate-700 dark:text-slate-200 placeholder:text-slate-400" 
                         />
                         {!isFocused && (
-                            <kbd className="hidden xl:inline-flex items-center gap-1 px-1.5 py-0.5 ml-2 text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-white/10 rounded-md border border-slate-200 dark:border-white/5">
-                                <Command size={8} /> K
+                            <kbd className="hidden xl:inline-flex items-center gap-1 px-2 py-1 ml-2 text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-white/5 rounded-lg border border-slate-200 dark:border-white/5">
+                                <Command size={10} /> K
                             </kbd>
                         )}
                         {isFocused && searchQuery && (
                             <button onClick={() => { setSearchQuery(''); searchInputRef.current?.focus(); }} className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-white/10">
-                                <X size={12} className="text-slate-400" />
+                                <X size={14} className="text-slate-400" />
                             </button>
                         )}
                     </div>
@@ -344,7 +362,7 @@ const TopContextBar = memo(({ userProfile, activeView, onLogout, handleOpenChat,
                                 initial={{ opacity: 0, y: 10, scale: 0.95 }}
                                 animate={{ opacity: 1, y: 0, scale: 1 }}
                                 exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                className="absolute top-12 right-0 w-[400px] bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-2xl border border-slate-100 dark:border-white/5 overflow-hidden max-h-[60vh] overflow-y-auto"
+                                className="absolute top-14 right-0 w-[450px] bg-white dark:bg-[#1C1C1E] rounded-3xl shadow-2xl border border-slate-100 dark:border-white/5 overflow-hidden max-h-[60vh] overflow-y-auto"
                             >
                                 {searchResults.courses.length === 0 && searchResults.classes.length === 0 ? (
                                     <div className="p-8 text-center text-slate-400 text-sm">No results found</div>
@@ -354,9 +372,9 @@ const TopContextBar = memo(({ userProfile, activeView, onLogout, handleOpenChat,
                                             <div className="px-2">
                                                 <div className="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Subjects</div>
                                                 {searchResults.courses.map(course => (
-                                                    <button key={course.id} onClick={() => handleResultClick('courses', course)} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 text-left transition-colors group">
-                                                        <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-500/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform">
-                                                            <BookOpen size={16} />
+                                                    <button key={course.id} onClick={() => handleResultClick('courses', course)} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl hover:bg-slate-50 dark:hover:bg-white/5 text-left transition-colors group">
+                                                        <div className="w-10 h-10 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform" style={{ backgroundColor: 'var(--monet-primary-container)', color: 'var(--monet-on-primary-container)' }}>
+                                                            <BookOpen size={18} />
                                                         </div>
                                                         <div>
                                                             <div className="text-sm font-bold text-slate-900 dark:text-white">{course.title}</div>
@@ -370,9 +388,9 @@ const TopContextBar = memo(({ userProfile, activeView, onLogout, handleOpenChat,
                                             <div className="px-2 mt-2">
                                                 <div className="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Classes</div>
                                                 {searchResults.classes.map(cls => (
-                                                    <button key={cls.id} onClick={() => handleResultClick('classes', cls)} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 text-left transition-colors group">
-                                                        <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform">
-                                                            <GraduationCap size={16} />
+                                                    <button key={cls.id} onClick={() => handleResultClick('classes', cls)} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl hover:bg-slate-50 dark:hover:bg-white/5 text-left transition-colors group">
+                                                        <div className="w-10 h-10 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform" style={{ backgroundColor: 'var(--monet-secondary-container)', color: 'var(--monet-on-secondary-container)' }}>
+                                                            <GraduationCap size={18} />
                                                         </div>
                                                         <div>
                                                             <div className="text-sm font-bold text-slate-900 dark:text-white">{cls.name}</div>
@@ -389,16 +407,17 @@ const TopContextBar = memo(({ userProfile, activeView, onLogout, handleOpenChat,
                     </AnimatePresence>
                 </div>
 
-                {/* AI Trigger (Lottie Animation) */}
+                {/* AI Trigger */}
                 <button 
                     onClick={handleOpenChat}
-                    className="group relative flex items-center gap-2 h-10 pl-2 pr-4 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:scale-105 active:scale-95 transition-all duration-300 overflow-hidden"
+                    className="group relative flex items-center gap-3 h-12 pl-3 pr-5 rounded-full text-white shadow-xl hover:scale-105 active:scale-95 transition-all duration-300 overflow-hidden"
+                    style={{ background: 'linear-gradient(135deg, var(--monet-primary) 0%, var(--monet-tertiary) 100%)' }}
                 >
                     <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
                     {isAiThinking ? (
-                        <div className="w-5 h-5 ml-2 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <div className="w-6 h-6 ml-1 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     ) : (
-                        <div className="w-9 h-9 flex items-center justify-center -ml-1">
+                        <div className="w-10 h-10 flex items-center justify-center -ml-1">
                             <Lottie animationData={robotAnimation} loop={true} className="w-full h-full" />
                         </div>
                     )}
@@ -416,7 +435,10 @@ const TopContextBar = memo(({ userProfile, activeView, onLogout, handleOpenChat,
 const ProfileDropdown = memo(({ userProfile, onLogout, size = 'desktop' }) => {
     return (
         <Menu as="div" className="relative z-50">
-            <Menu.Button className="relative flex items-center justify-center w-10 h-10 rounded-full overflow-hidden ring-2 ring-transparent hover:ring-indigo-500/50 transition-all outline-none">
+            <Menu.Button 
+                className="relative flex items-center justify-center w-12 h-12 rounded-full overflow-hidden ring-2 ring-transparent hover:ring-2 transition-all outline-none" 
+                style={{ '--tw-ring-color': 'var(--monet-primary)' }}
+            >
                 {userProfile?.photoURL ? (
                     <img src={userProfile.photoURL} alt="Profile" className="w-full h-full object-cover" />
                 ) : (
@@ -744,28 +766,51 @@ const TeacherDashboardLayout = (props) => {
                     className="glass-panel pointer-events-auto px-4 py-3 rounded-[2rem] flex items-center gap-4 sm:gap-6 shadow-2xl bg-white/90 dark:bg-[#1C1C1E]/90"
                  >
                      {/* Home */}
-                     <NavLink to="/dashboard" onClick={() => handleViewChange('home')} className={`p-2 rounded-full transition-colors ${activeView === 'home' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30' : 'text-slate-400'}`}>
-                        <Home size={22} fill={activeView === 'home' ? "currentColor" : "none"} />
+                     <NavLink 
+                        to="/dashboard" 
+                        onClick={() => handleViewChange('home')} 
+                        className="transition-transform active:scale-95"
+                    >
+                        <StunningIcon Icon={Home} isActive={activeView === 'home'} />
                      </NavLink>
                      
                      {/* Courses/Subjects */}
-                     <NavLink to="/dashboard/courses" onClick={() => handleViewChange('courses')} className={`p-2 rounded-full transition-colors ${activeView === 'courses' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30' : 'text-slate-400'}`}>
-                        <BookOpen size={22} fill={activeView === 'courses' ? "currentColor" : "none"} />
+                     <NavLink 
+                        to="/dashboard/courses" 
+                        onClick={() => handleViewChange('courses')} 
+                        className="transition-transform active:scale-95"
+                    >
+                        <StunningIcon Icon={BookOpen} isActive={activeView === 'courses'} />
                      </NavLink>
 
                      {/* Classes */}
-                     <NavLink to="/dashboard/classes" onClick={() => handleViewChange('classes')} className={`p-2 rounded-full transition-colors ${activeView === 'classes' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30' : 'text-slate-400'}`}>
-                        <GraduationCap size={22} fill={activeView === 'classes' ? "currentColor" : "none"} />
+                     <NavLink 
+                        to="/dashboard/classes" 
+                        onClick={() => handleViewChange('classes')} 
+                        className="transition-transform active:scale-95"
+                    >
+                        <StunningIcon Icon={GraduationCap} isActive={activeView === 'classes'} />
                      </NavLink>
 
                      {/* Lounge */}
-                     <NavLink to="/dashboard/lounge" onClick={() => handleViewChange('lounge')} className={`p-2 rounded-full transition-colors ${activeView === 'lounge' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30' : 'text-slate-400'}`}>
-                        <Rocket size={22} fill={activeView === 'lounge' ? "currentColor" : "none"} />
+                     <NavLink 
+                        to="/dashboard/lounge" 
+                        onClick={() => handleViewChange('lounge')} 
+                        className="transition-transform active:scale-95"
+                    >
+                        <StunningIcon Icon={Rocket} isActive={activeView === 'lounge'} />
                      </NavLink>
 
                      {/* Menu Toggle */}
-                     <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className={`p-2 rounded-full transition-colors ${isMobileMenuOpen ? 'bg-slate-800 text-white' : 'text-slate-400'}`}>
-                        {isMobileMenuOpen ? <X size={22} /> : <LayoutGrid size={22} />}
+                     <button 
+                        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
+                        className={`
+                            relative flex items-center justify-center w-[42px] h-[42px] rounded-[14px] 
+                            transition-all duration-300
+                            ${isMobileMenuOpen ? 'bg-slate-800 text-white' : 'bg-slate-100 dark:bg-white/10 text-slate-400'}
+                        `}
+                    >
+                        {isMobileMenuOpen ? <X size={20} /> : <LayoutGrid size={20} />}
                      </button>
                  </motion.div>
             </div>
@@ -782,9 +827,7 @@ const TeacherDashboardLayout = (props) => {
                         <div className="grid grid-cols-4 gap-4">
                             {navItems.filter(i => !['home','classes', 'courses', 'lounge'].includes(i.view)).map(item => (
                                 <button key={item.view} onClick={() => { handleViewChange(item.view); setIsMobileMenuOpen(false); }} className="flex flex-col items-center gap-2">
-                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${activeView === item.view ? 'bg-indigo-500 text-white' : 'bg-slate-100 dark:bg-white/5 text-slate-500'}`}>
-                                        <item.icon size={24} fill={activeView === item.view ? "currentColor" : "none"} />
-                                    </div>
+                                    <StunningIcon Icon={item.icon} isActive={activeView === item.view} />
                                     <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400">{item.text}</span>
                                 </button>
                             ))}
