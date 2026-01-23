@@ -1,372 +1,345 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  PencilSquareIcon, 
-  XMarkIcon, 
-  VideoCameraIcon, 
-  BookOpenIcon, 
-  AcademicCapIcon, 
-  ChevronDownIcon 
-} from '@heroicons/react/24/outline';
+// src/components/teacher/dashboard/modals/EditClassModal.jsx
+import React, { useState, Fragment, useMemo, useEffect } from 'react';
+import { Dialog, Transition } from '@headlessui/react';
 import { useToast } from '../../contexts/ToastContext';
 import { useTheme } from '../../contexts/ThemeContext';
 
-// --- MONET EFFECT HELPER ---
-const getThemeStyles = (overlay) => {
-    switch (overlay) {
-        case 'christmas':
-            return {
-                modalBg: '#0f291e', 
-                borderColor: 'rgba(34, 197, 94, 0.3)', 
-                innerPanelBg: 'rgba(20, 83, 45, 0.4)',
-                inputBg: 'rgba(0, 0, 0, 0.3)',
-                textColor: '#e2e8f0',
-                accentText: '#86efac', 
-            };
-        case 'valentines':
-            return {
-                modalBg: '#2a0a12', 
-                borderColor: 'rgba(244, 63, 94, 0.3)', 
-                innerPanelBg: 'rgba(80, 7, 36, 0.4)',
-                inputBg: 'rgba(0, 0, 0, 0.3)',
-                textColor: '#ffe4e6',
-                accentText: '#fda4af', 
-            };
-        case 'graduation':
-            return {
-                modalBg: '#1a1600', 
-                borderColor: 'rgba(234, 179, 8, 0.3)', 
-                innerPanelBg: 'rgba(66, 32, 6, 0.4)',
-                inputBg: 'rgba(0, 0, 0, 0.3)',
-                textColor: '#fefce8',
-                accentText: '#fde047', 
-            };
-        case 'rainy':
-            return {
-                modalBg: '#0f172a', 
-                borderColor: 'rgba(56, 189, 248, 0.3)', 
-                innerPanelBg: 'rgba(30, 41, 59, 0.5)',
-                inputBg: 'rgba(15, 23, 42, 0.5)',
-                textColor: '#f1f5f9',
-                accentText: '#7dd3fc', 
-            };
-        case 'cyberpunk':
-            return {
-                modalBg: '#180a2e', 
-                borderColor: 'rgba(217, 70, 239, 0.4)', 
-                innerPanelBg: 'rgba(46, 16, 101, 0.4)',
-                inputBg: 'rgba(0, 0, 0, 0.4)',
-                textColor: '#fae8ff',
-                accentText: '#e879f9', 
-            };
-        case 'spring':
-            return {
-                modalBg: '#2a1a1f', 
-                borderColor: 'rgba(244, 114, 182, 0.3)', 
-                innerPanelBg: 'rgba(80, 20, 40, 0.3)',
-                inputBg: 'rgba(0, 0, 0, 0.2)',
-                textColor: '#fce7f3',
-                accentText: '#f9a8d4', 
-            };
-        case 'space':
-            return {
-                modalBg: '#0b0f19', 
-                borderColor: 'rgba(99, 102, 241, 0.3)', 
-                innerPanelBg: 'rgba(17, 24, 39, 0.6)',
-                inputBg: 'rgba(0, 0, 0, 0.5)',
-                textColor: '#e0e7ff',
-                accentText: '#a5b4fc', 
-            };
-        case 'none':
-        default:
-            return {
-                modalBg: '#262a33', 
-                borderColor: 'rgba(255, 255, 255, 0.1)',
-                innerPanelBg: '#2b303b', 
-                inputBg: '#20242c', 
-                textColor: '#f1f5f9',
-                accentText: '#cbd5e1', 
-            };
-    }
-};
+// --- VISUAL ASSETS ---
+import { 
+    IconSchool, 
+    IconSection, 
+    IconVideo, 
+    IconChevronDown, 
+    IconCheck, 
+    IconBook, 
+    IconChalkboard,
+    IconX,
+    IconSearch,
+    IconPencil
+} from '@tabler/icons-react';
 
-const gradeLevels = [
-  "Kindergarten", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6",
-  "Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12"
-];
+// --- PREMIUM ONE UI 8.5 STYLES (Matching CreateClassModal) ---
+
+// Inputs: Solid, deep, slightly inset feel
+const inputStyle = "w-full bg-slate-50 dark:bg-[#09090b] border border-slate-200 dark:border-white/5 rounded-[1.25rem] px-5 py-4 pl-12 text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all text-base font-medium shadow-inner dark:shadow-none";
+
+// Labels: Small, caps, high legibility
+const labelStyle = "block text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2.5 ml-2";
+
+// Icons: Positioned perfectly inside the input
+const inputIconWrapper = "absolute left-4 top-[2.85rem] text-slate-400 dark:text-slate-500 pointer-events-none";
+
+// Dropdowns: Floating surfaces
+const dropdownBase = "relative mt-0 rounded-[1.25rem] border border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-[#09090b] cursor-pointer select-none transition-all hover:bg-slate-100 dark:hover:bg-white/5 hover:border-blue-300 dark:hover:border-blue-500/30";
+const dropdownHeader = "flex items-center justify-between p-4 pl-12 h-[58px]"; 
+const dropdownList = "absolute top-full left-0 right-0 mt-2 bg-white/90 dark:bg-[#1A1A1A]/95 backdrop-blur-xl border border-slate-100 dark:border-white/10 rounded-[1.5rem] shadow-2xl max-h-60 overflow-y-auto z-50 p-2 animate-in fade-in zoom-in-95 duration-200 origin-top overflow-hidden";
+const dropdownItem = "p-3 rounded-[1rem] hover:bg-blue-50 dark:hover:bg-blue-600/20 hover:text-blue-600 dark:hover:text-blue-300 cursor-pointer text-sm font-bold text-slate-600 dark:text-slate-300 flex items-center justify-between transition-all";
+
+// Button: Vibrant gradient, pill shape
+const primaryButtonStyles = "w-full py-4 rounded-[1.5rem] bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-lg shadow-xl shadow-blue-500/25 hover:shadow-blue-500/40 hover:scale-[1.01] active:scale-[0.98] transition-all disabled:opacity-70 disabled:cursor-not-allowed";
 
 const EditClassModal = ({ isOpen, onClose, classData, onUpdate, courses = [] }) => {
-  const [editedName, setEditedName] = useState('');
-  const [selectedSubjectId, setSelectedSubjectId] = useState('');
-  const [selectedGradeLevel, setSelectedGradeLevel] = useState('');
-  const [meetLink, setMeetLink] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  const { showToast } = useToast();
-  
-  // --- THEME HOOK ---
-  const { activeOverlay } = useTheme();
-  const themeStyles = getThemeStyles(activeOverlay);
+    const { showToast } = useToast();
+    
+    // Form State
+    const [className, setClassName] = useState('');
+    const [section, setSection] = useState(''); // Added Section State
+    const [subjectId, setSubjectId] = useState('');
+    const [gradeLevel, setGradeLevel] = useState('');
+    const [meetLink, setMeetLink] = useState('');
+    
+    // Search & UI State
+    const [subjectSearch, setSubjectSearch] = useState('');
+    const [isGradeOpen, setIsGradeOpen] = useState(false);
+    const [isSubjectOpen, setIsSubjectOpen] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // --- STYLES ---
-  const inputWrapperStyle = "relative group";
-  const inputBaseStyle = `
-    w-full pl-12 pr-4 py-3.5 
-    border 
-    rounded-2xl text-sm font-medium 
-    placeholder:opacity-50
-    focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent 
-    transition-all duration-300
-  `;
-  
-  // Extruded button style for Cancel
-  const btnExtruded = `
-    shadow-[4px_4px_8px_rgba(0,0,0,0.3),-4px_-4px_8px_rgba(255,255,255,0.02)] 
-    hover:shadow-[inset_2px_2px_4px_rgba(0,0,0,0.3),inset_-2px_-2px_4px_rgba(255,255,255,0.02)] 
-    active:shadow-[inset_4px_4px_8px_rgba(0,0,0,0.3),inset_-4px_-4px_8px_rgba(255,255,255,0.02)]
-  `;
+    const gradeLevels = ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
 
-  useEffect(() => {
-    if (isOpen && classData) {
-      setEditedName(classData.name || '');
-      setSelectedSubjectId(classData.subjectId || '');
-      setSelectedGradeLevel(classData.gradeLevel || '');
-      setMeetLink(classData.meetLink || '');
-      setIsSubmitting(false);
-    }
-  }, [isOpen, classData]);
+    // Initialize state when modal opens
+    useEffect(() => {
+        if (isOpen && classData) {
+            setClassName(classData.name || '');
+            setSection(classData.section || ''); // Initialize Section
+            setSubjectId(classData.subjectId || '');
+            setGradeLevel(classData.gradeLevel || 'Grade 7');
+            setMeetLink(classData.meetLink || '');
+            setSubjectSearch('');
+            setIsSubmitting(false);
+        }
+    }, [isOpen, classData]);
 
-  const handleSave = async (e) => {
-    e.preventDefault();
-    if (isSubmitting) return;
+    // Filter courses based on search
+    const filteredCourses = useMemo(() => {
+        if (!subjectSearch.trim()) return courses;
+        return courses.filter(course => 
+            course.title.toLowerCase().includes(subjectSearch.toLowerCase())
+        );
+    }, [courses, subjectSearch]);
 
-    setIsSubmitting(true);
-    let finalMeetLink = meetLink.trim();
+    // Clear search when dropdown closes
+    useEffect(() => {
+        if (!isSubjectOpen) {
+            setTimeout(() => setSubjectSearch(''), 300);
+        }
+    }, [isSubjectOpen]);
 
-    try {
-      if (!finalMeetLink) {
-        showToast("A persistent Google Meet link is required.", "error");
-        setIsSubmitting(false);
-        return;
-      }
-      
-      if (!finalMeetLink.startsWith("https://meet.google.com/")) {
-        showToast("Please enter a valid Google Meet URL (https://meet.google.com/...)", "warning");
-        setIsSubmitting(false);
-        return;
-      }
-      
-      await onUpdate(classData.id, {
-        name: editedName,
-        subjectId: selectedSubjectId,
-        gradeLevel: selectedGradeLevel,
-        meetLink: finalMeetLink,
-      });
-      
-      showToast("Class updated successfully!", "success");
-      onClose();
-    } catch (error) {
-      console.error("Failed to update class:", error);
-      showToast(`Failed to update class: ${error.message}`, "error");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  if (!isOpen || !classData) return null;
-
-  return (
-    // 1. BACKDROP: Reduced blur
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
-      <div 
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
-        onClick={onClose}
-      />
-
-      {/* 2. WINDOW: Themed container */}
-      <div 
-        className="relative w-full max-w-lg transform overflow-hidden rounded-[2rem] shadow-2xl flex flex-col transition-all duration-300 scale-100 opacity-100 border"
-        style={{ 
-            backgroundColor: themeStyles.modalBg, 
-            borderColor: themeStyles.borderColor 
-        }}
-      >
+    const handleSubmit = async (e) => {
+        e.preventDefault();
         
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b" style={{ borderColor: themeStyles.borderColor }}>
-          <div>
-            <h2 className="text-xl font-display font-bold tracking-tight" style={{ color: themeStyles.textColor }}>
-              Edit Class
-            </h2>
-            <p className="text-xs font-medium uppercase tracking-wider mt-1 opacity-70" style={{ color: themeStyles.textColor }}>
-              {classData.name}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            disabled={isSubmitting}
-            className="p-2 rounded-full hover:bg-white/10 transition-colors"
-            style={{ color: themeStyles.textColor }}
-          >
-            <XMarkIcon className="w-5 h-5" />
-          </button>
-        </div>
+        if (!className || !subjectId || !gradeLevel) {
+            showToast('Please fill in all required fields.', 'error');
+            return;
+        }
 
-        {/* Scrollable Form Content */}
-        <div className="p-6 sm:p-8 overflow-y-auto max-h-[70vh] custom-scrollbar">
-          <form onSubmit={handleSave} className="space-y-6">
+        let finalMeetLink = meetLink.trim();
+        if (finalMeetLink && !finalMeetLink.startsWith("https://meet.google.com/")) {
+            showToast("Please enter a valid Google Meet URL (https://meet.google.com/...)", "warning");
+            return;
+        }
+
+        setIsSubmitting(true);
+
+        try {
+            const selectedCourse = courses.find(c => c.id === subjectId);
             
-            {/* Class Name */}
-            <div className={inputWrapperStyle}>
-              <label className="block text-xs font-bold uppercase tracking-wider mb-2 ml-1 opacity-60" style={{ color: themeStyles.textColor }}>
-                Class Name
-              </label>
-              <div className="relative">
-                <PencilSquareIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 transition-colors group-focus-within:text-blue-500" style={{ color: themeStyles.accentText }} />
-                <input
-                  type="text"
-                  value={editedName}
-                  onChange={(e) => setEditedName(e.target.value)}
-                  disabled={isSubmitting}
-                  className={inputBaseStyle}
-                  style={{ 
-                    backgroundColor: themeStyles.inputBg, 
-                    color: themeStyles.textColor,
-                    borderColor: 'transparent' // Neumorphic style relies on bg/shadow usually, or clear border
-                  }}
-                  placeholder="e.g. Science 101"
-                />
-              </div>
-            </div>
+            await onUpdate(classData.id, {
+                name: className,
+                section: section || 'A', // Update Section
+                subjectId,
+                subjectName: selectedCourse?.title || 'Unknown Subject',
+                gradeLevel,
+                meetLink: finalMeetLink,
+            });
+            
+            showToast('Class updated successfully!', 'success');
+            onClose();
 
-            {/* Subject Dropdown */}
-            <div className={inputWrapperStyle}>
-              <label className="block text-xs font-bold uppercase tracking-wider mb-2 ml-1 opacity-60" style={{ color: themeStyles.textColor }}>
-                Subject
-              </label>
-              <div className="relative">
-                <BookOpenIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 transition-colors group-focus-within:text-blue-500" style={{ color: themeStyles.accentText }} />
-                <select
-                  value={selectedSubjectId}
-                  onChange={(e) => setSelectedSubjectId(e.target.value)}
-                  disabled={isSubmitting}
-                  className={`${inputBaseStyle} appearance-none cursor-pointer`}
-                  style={{ 
-                    backgroundColor: themeStyles.inputBg, 
-                    color: themeStyles.textColor,
-                    borderColor: 'transparent'
-                  }}
+        } catch (error) {
+            console.error('Error updating class:', error);
+            showToast(`Failed to update class: ${error.message}`, 'error');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    if (!isOpen || !classData) return null;
+
+    return (
+        <Transition appear show={isOpen} as={Fragment}>
+            <Dialog as="div" className="relative z-[9999]" onClose={onClose}>
+                <Transition.Child
+                    as={Fragment}
+                    enter="ease-out duration-300"
+                    enterFrom="opacity-0"
+                    enterTo="opacity-100"
+                    leave="ease-in duration-200"
+                    leaveFrom="opacity-100"
+                    leaveTo="opacity-0"
                 >
-                  <option value="" className="bg-gray-800">No Subject Assigned</option>
-                  {courses.map((course) => (
-                    <option key={course.id} value={course.id} className="bg-gray-800">
-                      {course.title}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDownIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none opacity-50" style={{ color: themeStyles.textColor }} />
-              </div>
-            </div>
+                    <div className="fixed inset-0 bg-slate-200/40 dark:bg-black/60 backdrop-blur-md transition-opacity" />
+                </Transition.Child>
 
-            {/* Grade Level Dropdown */}
-            <div className={inputWrapperStyle}>
-              <label className="block text-xs font-bold uppercase tracking-wider mb-2 ml-1 opacity-60" style={{ color: themeStyles.textColor }}>
-                Grade Level
-              </label>
-              <div className="relative">
-                <AcademicCapIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 transition-colors group-focus-within:text-blue-500" style={{ color: themeStyles.accentText }} />
-                <select
-                  value={selectedGradeLevel}
-                  onChange={(e) => setSelectedGradeLevel(e.target.value)}
-                  disabled={isSubmitting}
-                  className={`${inputBaseStyle} appearance-none cursor-pointer`}
-                  style={{ 
-                    backgroundColor: themeStyles.inputBg, 
-                    color: themeStyles.textColor,
-                    borderColor: 'transparent'
-                  }}
-                >
-                  <option value="" className="bg-gray-800">Select Grade Level</option>
-                  {gradeLevels.map((grade) => (
-                    <option key={grade} value={grade} className="bg-gray-800">
-                      {grade}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDownIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none opacity-50" style={{ color: themeStyles.textColor }} />
-              </div>
-            </div>
+                <div className="fixed inset-0 overflow-y-auto">
+                    <div className="flex min-h-full items-center justify-center p-4 text-center">
+                        <Transition.Child
+                            as={Fragment}
+                            enter="ease-[cubic-bezier(0.19,1,0.22,1)] duration-500"
+                            enterFrom="opacity-0 scale-90 translate-y-12"
+                            enterTo="opacity-100 scale-100 translate-y-0"
+                            leave="ease-in duration-200"
+                            leaveFrom="opacity-100 scale-100 translate-y-0"
+                            leaveTo="opacity-0 scale-90 translate-y-12"
+                        >
+                            <Dialog.Panel className="w-full max-w-md md:max-w-2xl transform overflow-visible rounded-[2.5rem] bg-white dark:bg-[#151518] p-8 md:p-10 text-left align-middle shadow-2xl shadow-slate-300/50 dark:shadow-black/50 transition-all border border-white/50 dark:border-white/5 ring-1 ring-black/5">
+                                
+                                {/* Header */}
+                                <div className="flex items-center justify-between mb-10">
+                                    <div>
+                                        <Dialog.Title as="h3" className="text-3xl font-[850] text-slate-900 dark:text-white tracking-tight leading-none">
+                                            Edit Class
+                                        </Dialog.Title>
+                                        <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">
+                                            Update details for <span className="text-slate-800 dark:text-white font-bold">{classData.name}</span>
+                                        </p>
+                                    </div>
+                                    <button 
+                                        onClick={onClose}
+                                        className="h-10 w-10 rounded-full flex items-center justify-center bg-slate-50 dark:bg-white/5 text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all active:scale-90"
+                                    >
+                                        <IconX size={22} strokeWidth={2.5} />
+                                    </button>
+                                </div>
 
-            {/* Google Meet Link */}
-            <div className={inputWrapperStyle}>
-              <label className="block text-xs font-bold uppercase tracking-wider mb-2 ml-1 flex justify-between opacity-60" style={{ color: themeStyles.textColor }}>
-                <span>Google Meet Link</span>
-                <span className="text-red-400 text-[10px] font-normal normal-case">* Required</span>
-              </label>
-              <div className="relative">
-                <VideoCameraIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 transition-colors group-focus-within:text-blue-500" style={{ color: themeStyles.accentText }} />
-                <input
-                  type="url"
-                  value={meetLink}
-                  onChange={(e) => setMeetLink(e.target.value)}
-                  disabled={isSubmitting}
-                  className={inputBaseStyle}
-                  style={{ 
-                    backgroundColor: themeStyles.inputBg, 
-                    color: themeStyles.textColor,
-                    borderColor: 'transparent'
-                  }}
-                  placeholder="https://meet.google.com/..."
-                  required
-                />
-              </div>
-              <p className="text-[11px] mt-2 ml-1 leading-relaxed opacity-50" style={{ color: themeStyles.textColor }}>
-                Paste the permanent Meet link generated from your Google Calendar or Classroom.
-              </p>
-            </div>
+                                {/* Form */}
+                                <form onSubmit={handleSubmit} className="space-y-6">
+                                    
+                                    {/* 1. Class Name Input */}
+                                    <div className="relative group">
+                                        <label htmlFor="className" className={labelStyle}>
+                                            Class Name <span className="text-blue-500">*</span>
+                                        </label>
+                                        <IconChalkboard size={20} className={inputIconWrapper} />
+                                        <input
+                                            type="text"
+                                            id="className"
+                                            value={className}
+                                            onChange={(e) => setClassName(e.target.value)}
+                                            placeholder="e.g. Science 7 - Einstein"
+                                            className={inputStyle}
+                                            required 
+                                        />
+                                    </div>
 
-          </form>
-        </div>
+                                    {/* 2. Section Input (ADDED) */}
+                                    <div className="relative group">
+                                        <label htmlFor="section" className={labelStyle}>
+                                            Section
+                                        </label>
+                                        <IconSection size={20} className={inputIconWrapper} />
+                                        <input
+                                            type="text"
+                                            id="section"
+                                            value={section}
+                                            onChange={(e) => setSection(e.target.value)}
+                                            placeholder="e.g. Einstein"
+                                            className={inputStyle}
+                                        />
+                                    </div>
 
-        {/* Footer */}
-        <div className="p-6 border-t flex justify-end gap-3" style={{ borderColor: themeStyles.borderColor }}>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isSubmitting}
-            className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all active:scale-95 ${btnExtruded}`}
-            style={{ 
-                backgroundColor: themeStyles.innerPanelBg, 
-                color: themeStyles.textColor 
-            }}
-          >
-            Cancel
-          </button>
-          
-          <button
-            onClick={handleSave}
-            disabled={isSubmitting}
-            className="relative px-8 py-2.5 rounded-xl text-sm font-semibold text-white 
-                       bg-gradient-to-b from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600
-                       shadow-lg shadow-blue-500/30
-                       border-t border-white/20 transition-all active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
-          >
-            {isSubmitting ? (
-              <div className="flex items-center gap-2">
-                <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                <span>Saving...</span>
-              </div>
-            ) : (
-              'Save Changes'
-            )}
-          </button>
-        </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        {/* 3. Grade Level Dropdown */}
+                                        <div className="relative">
+                                            <label className={labelStyle}>Grade Level <span className="text-blue-500">*</span></label>
+                                            <IconSchool size={20} className={inputIconWrapper} />
+                                            <div 
+                                                className={dropdownBase}
+                                                onClick={() => { setIsGradeOpen(!isGradeOpen); setIsSubjectOpen(false); }}
+                                            >
+                                                <div className={dropdownHeader}>
+                                                    <span className="text-slate-700 dark:text-slate-200 font-bold">{gradeLevel}</span>
+                                                    <IconChevronDown size={18} className={`text-slate-400 transition-transform duration-300 ${isGradeOpen ? 'rotate-180' : ''}`} />
+                                                </div>
+                                                
+                                                {isGradeOpen && (
+                                                    <div className={dropdownList}>
+                                                        {gradeLevels.map((grade) => (
+                                                            <div 
+                                                                key={grade} 
+                                                                className={dropdownItem}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setGradeLevel(grade);
+                                                                    setIsGradeOpen(false);
+                                                                }}
+                                                            >
+                                                                {grade}
+                                                                {gradeLevel === grade && <IconCheck size={18} className="text-blue-500" />}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
 
-      </div>
-    </div>
-  );
+                                        {/* 4. Subject Selection Dropdown (WITH SEARCH) */}
+                                        <div className="relative">
+                                            <label className={labelStyle}>Subject <span className="text-blue-500">*</span></label>
+                                            <IconBook size={20} className={inputIconWrapper} />
+                                            <div 
+                                                className={dropdownBase}
+                                                onClick={() => { setIsSubjectOpen(!isSubjectOpen); setIsGradeOpen(false); }}
+                                            >
+                                                <div className={dropdownHeader}>
+                                                    <span className={`font-bold ${subjectId ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400'} truncate`}>
+                                                        {subjectId ? courses.find(c => c.id === subjectId)?.title : 'Select Subject'}
+                                                    </span>
+                                                    <IconChevronDown size={18} className={`text-slate-400 transition-transform duration-300 ${isSubjectOpen ? 'rotate-180' : ''}`} />
+                                                </div>
+                                                
+                                                {isSubjectOpen && (
+                                                    <div className={dropdownList}>
+                                                        {/* --- SEARCH BAR (Sticky) --- */}
+                                                        <div 
+                                                            className="sticky top-0 z-10 px-1 pb-2 bg-white/95 dark:bg-[#1A1A1A]/95 backdrop-blur-xl border-b border-slate-100 dark:border-white/5 mb-1"
+                                                            onClick={(e) => e.stopPropagation()} 
+                                                        >
+                                                            <div className="relative">
+                                                                <IconSearch size={16} className="absolute left-3 top-3 text-slate-400 pointer-events-none" />
+                                                                <input 
+                                                                    type="text"
+                                                                    autoFocus
+                                                                    placeholder="Search subjects..."
+                                                                    value={subjectSearch}
+                                                                    onChange={(e) => setSubjectSearch(e.target.value)}
+                                                                    className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-[0.8rem] py-2 pl-9 pr-3 text-sm font-medium text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder-slate-400"
+                                                                />
+                                                            </div>
+                                                        </div>
+
+                                                        {/* --- FILTERED LIST --- */}
+                                                        <div className="max-h-48 overflow-y-auto">
+                                                            {filteredCourses.length > 0 ? (
+                                                                filteredCourses.map((course) => (
+                                                                    <div 
+                                                                        key={course.id} 
+                                                                        className={dropdownItem}
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setSubjectId(course.id);
+                                                                            setIsSubjectOpen(false);
+                                                                        }}
+                                                                    >
+                                                                        <span className="truncate pr-2">{course.title}</span>
+                                                                        {subjectId === course.id && <IconCheck size={18} className="text-blue-500 flex-shrink-0" />}
+                                                                    </div>
+                                                                ))
+                                                            ) : (
+                                                                <div className="p-4 text-center">
+                                                                    <p className="text-xs font-bold text-slate-400">No subjects found.</p>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 5. Google Meet Link */}
+                                    <div className="relative group">
+                                        <label htmlFor="meetLink" className={labelStyle}>
+                                            Google Meet Link
+                                        </label>
+                                        <IconVideo size={20} className={inputIconWrapper} />
+                                        <input
+                                            type="url"
+                                            id="meetLink"
+                                            value={meetLink}
+                                            onChange={(e) => setMeetLink(e.target.value)}
+                                            placeholder="https://meet.google.com/..."
+                                            className={inputStyle}
+                                        />
+                                    </div>
+
+                                    <div className="pt-8">
+                                        <button type="submit" disabled={isSubmitting} className={primaryButtonStyles}>
+                                            {isSubmitting ? (
+                                                <div className="flex items-center justify-center gap-2">
+                                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                    <span>Saving Changes...</span>
+                                                </div>
+                                            ) : 'Save Changes'}
+                                        </button>
+                                    </div>
+                                </form>
+                            </Dialog.Panel>
+                        </Transition.Child>
+                    </div>
+                </div>
+            </Dialog>
+        </Transition>
+    );
 };
 
 export default EditClassModal;

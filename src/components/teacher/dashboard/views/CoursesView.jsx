@@ -699,7 +699,7 @@ const SubjectList = memo((props) => {
                     
                     {/* LEFT: Nav & Title Grouped */}
                     <div className="flex items-center gap-4 flex-1 min-w-0">
-                        {/* Nav Controls */}
+                        {/* Nav Controls (Always Visible) */}
                         <div className="flex items-center gap-2 flex-shrink-0">
                             <button 
                                 onClick={() => navigate(`/dashboard/courses/${contentGroup}`)} 
@@ -711,11 +711,11 @@ const SubjectList = memo((props) => {
                             <ContentScopeSwitcher activeGroup={contentGroup} onSwitch={(val) => navigate(`/dashboard/courses/${val}`)} monet={monet} />
                         </div>
 
-                        {/* Divider */}
+                        {/* Divider (Hidden on Mobile) */}
                         <div className="hidden md:block w-px h-6 bg-white/10 flex-shrink-0"></div>
 
-                        {/* Title (Truncated) */}
-                        <h1 className="text-lg sm:text-xl font-black tracking-tight text-white truncate drop-shadow-md leading-none mb-0.5">
+                        {/* Title (Hidden on Mobile) */}
+                        <h1 className="hidden md:block text-lg sm:text-xl font-black tracking-tight text-white truncate drop-shadow-md leading-none mb-0.5">
                             {decodedCategoryName.replace(/\s\((Teacher|Learner)'s Content\)/i, '')}
                         </h1>
                     </div>
@@ -723,7 +723,7 @@ const SubjectList = memo((props) => {
                     {/* RIGHT: Search & Action */}
                     <div className="flex items-center gap-3 flex-shrink-0">
                         
-                        {/* Search Bar (Hidden on mobile to save space) */}
+                        {/* Search Bar (Hidden on mobile via 'hidden sm:block' in existing code) */}
                         <div className="relative w-48 lg:w-60 hidden sm:block">
                             <MagnifyingGlassIcon className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
                             <input 
@@ -739,7 +739,7 @@ const SubjectList = memo((props) => {
                             />
                         </div>
 
-                        {/* New Subject Button */}
+                        {/* New Subject Button (Always Visible) */}
                         <button 
                             onClick={() => onAddSubjectClick && onAddSubjectClick(decodedCategoryName)} 
                             className={`
@@ -873,10 +873,6 @@ const CategoryList = memo((props) => {
         <div className={commonContainerClasses}>
             
             {/* --- MAIN CONTAINER --- */}
-            {/* bg-black/40: Dark see-through tint.
-                backdrop-blur-md: Performance-friendly blur.
-                transform-gpu: Forces hardware acceleration.
-            */}
             <div className="w-full max-w-7xl mx-auto h-full flex flex-col rounded-[32px] border border-white/5 bg-black/40 shadow-2xl overflow-hidden relative backdrop-blur-md transform-gpu">
                 
                 {/* Noise Texture */}
@@ -885,13 +881,12 @@ const CategoryList = memo((props) => {
                 </div>
 
                 {/* --- SUPER COMPACT HEADER (SINGLE LINE) --- */}
-                {/* Transparent bg to let the container blur show through */}
                 <div className="relative z-10 flex-none flex items-center justify-between gap-4 px-6 py-4 md:px-8 border-b border-white/5 bg-transparent">
                     
                     {/* LEFT SIDE: Controls & Title Grouped */}
                     <div className="flex items-center gap-4 md:gap-6 overflow-hidden">
                         
-                        {/* Navigation Controls */}
+                        {/* Navigation Controls (Always Visible) */}
                         <div className="flex items-center gap-2 flex-shrink-0">
                             <button 
                                 onClick={() => navigate('/dashboard/courses')} 
@@ -903,11 +898,11 @@ const CategoryList = memo((props) => {
                             <ContentScopeSwitcher activeGroup={contentGroup} onSwitch={handleSwitchGroup} monet={monet} />
                         </div>
 
-                        {/* Divider (Visible on larger screens) */}
+                        {/* Divider (Hidden on Mobile) */}
                         <div className="hidden md:block w-px h-8 bg-white/10"></div>
 
-                        {/* Title & Subtitle (Stacked tightly) */}
-                        <div className="flex flex-col justify-center min-w-0">
+                        {/* Title & Subtitle (Hidden on Mobile, Visible on MD+) */}
+                        <div className="hidden md:flex flex-col justify-center min-w-0">
                             <h1 className="text-lg sm:text-xl font-black tracking-tight text-white leading-none mb-0.5 truncate drop-shadow-sm">
                                 {title}
                             </h1>
@@ -917,7 +912,7 @@ const CategoryList = memo((props) => {
                         </div>
                     </div>
 
-                    {/* RIGHT SIDE: Action Button */}
+                    {/* RIGHT SIDE: Action Button (Always Visible) */}
                     <button 
                         onClick={() => setCreateCategoryModalOpen(true)} 
                         className={`

@@ -1,6 +1,5 @@
 // src/components/teacher/dashboard/views/components/ActivityFeed.jsx
 import React, { useState, lazy, Suspense, memo, useCallback, useMemo } from 'react';
-// REMOVED: AnimatePresence and motion (Not needed for simple list)
 import { Megaphone, Activity } from 'lucide-react';
 
 import AnnouncementCard from './AnnouncementCard';
@@ -32,7 +31,7 @@ const ActivityFeed = ({ userProfile, teacherAnnouncements, showToast }) => {
 
     const monetStyles = useMemo(() => {
         if (!activeOverlay) return null;
-        const glassBase = "backdrop-blur-none border border-white/10 shadow-lg"; // Reduced blur
+        const glassBase = "backdrop-blur-none border border-white/10 shadow-lg"; 
         switch (activeOverlay) {
             case 'christmas': return { iconBox: "bg-emerald-900/60 text-emerald-200 border border-emerald-700/50", emptyState: `${glassBase} bg-slate-900/60 text-white`, emptyIcon: "bg-emerald-900/30 text-emerald-400", textColor: "text-white" };
             case 'valentines': return { iconBox: "bg-rose-900/60 text-rose-200 border border-rose-700/50", emptyState: `${glassBase} bg-rose-950/60 text-white`, emptyIcon: "bg-rose-900/30 text-rose-400", textColor: "text-white" };
@@ -56,7 +55,8 @@ const ActivityFeed = ({ userProfile, teacherAnnouncements, showToast }) => {
     const closeReactionsBreakdownModal = useCallback(() => { setIsReactionsBreakdownModalOpen(false); setReactionsForBreakdownModal(null); }, []);
 
     return (
-        <div className="space-y-6 w-full relative z-10 pb-8">
+        // REDUCED SPACING: space-y-6 -> space-y-4
+        <div className="space-y-4 w-full relative z-10 pb-8">
             <div className="flex items-center gap-4 px-2">
                 <div className={`p-3 rounded-2xl shadow-sm ${monetStyles ? monetStyles.iconBox : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'}`}>
                     <Activity className="w-6 h-6" strokeWidth={2.5} />
@@ -66,9 +66,9 @@ const ActivityFeed = ({ userProfile, teacherAnnouncements, showToast }) => {
                 </div>
             </div>
 
-            {/* REMOVED AnimatePresence wrapper. Just plain rendering. */}
             {sortedAnnouncements && sortedAnnouncements.length > 0 ? (
-                <div className="flex flex-col gap-6">
+                // REDUCED SPACING: gap-6 -> gap-5
+                <div className="flex flex-col gap-5">
                         {sortedAnnouncements.map((post) => (
                         <AnnouncementCard
                             key={post.id}

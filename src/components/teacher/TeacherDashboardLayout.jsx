@@ -97,13 +97,13 @@ const styles = `
   }
 
   .glass-panel {
-    background: rgba(255, 255, 255, 0.7);
-    border: 1px solid rgba(255, 255, 255, 0.5);
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.8);
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
     backdrop-filter: blur(24px);
   }
   .dark .glass-panel {
-    background: rgba(20, 20, 23, 0.6);
+    background: rgba(28, 28, 30, 0.95);
     border: 1px solid rgba(255, 255, 255, 0.08);
     box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
     backdrop-filter: blur(24px);
@@ -162,7 +162,7 @@ const PrismSidebar = memo(({ navItems, activeView, handleViewChange, branding, s
     return (
         <motion.div 
             initial={{ x: -100 }} animate={{ x: 0 }} transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="hidden lg:flex flex-col h-full w-24 hover:w-72 transition-[width] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] group relative z-50 bg-white/80 dark:bg-[#0F0F11]/80 backdrop-blur-2xl border-r border-white/20 dark:border-white/5 shadow-[4px_0_24px_rgba(0,0,0,0.02)]"
+            className="hidden lg:flex flex-col h-full w-24 hover:w-72 transition-[width] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] group relative z-50 bg-white/95 dark:bg-[#0F0F11]/95 backdrop-blur-2xl border-r border-white/20 dark:border-white/5 shadow-[4px_0_24px_rgba(0,0,0,0.02)]"
         >
             {/* Branding */}
             <div className="h-28 flex items-center justify-center group-hover:justify-start group-hover:px-7 transition-all duration-300">
@@ -246,7 +246,7 @@ const PrismSidebar = memo(({ navItems, activeView, handleViewChange, branding, s
     );
 });
 
-// --- UPDATED TOP BAR (Solid Search) ---
+// --- UPDATED TOP BAR (Glass Search + Enhanced Design) ---
 const TopContextBar = memo(({ userProfile, activeView, onLogout, handleOpenChat, isAiThinking, courses, activeClasses, onNavigate }) => {
     
     const [searchQuery, setSearchQuery] = useState('');
@@ -294,45 +294,44 @@ const TopContextBar = memo(({ userProfile, activeView, onLogout, handleOpenChat,
     };
 
     return (
-        <header className="h-24 px-8 flex items-center justify-between flex-shrink-0 z-40 bg-transparent">
+        <header className="h-24 px-8 flex items-center justify-between flex-shrink-0 z-40 bg-transparent pointer-events-none">
             {/* Breadcrumb / Title */}
             <motion.div 
                 initial={{ opacity: 0, y: -10 }} 
                 animate={{ opacity: 1, y: 0 }} 
                 key={activeView}
-                className={`flex flex-col justify-center h-full transition-opacity duration-300 ${isFocused ? 'opacity-20' : 'opacity-100'}`}
+                className={`flex flex-col justify-center h-full transition-all duration-500 pointer-events-auto ${isFocused ? 'opacity-20 blur-sm scale-95' : 'opacity-100 blur-0 scale-100'}`}
             >
-                <div className="flex items-center gap-2 text-slate-400 dark:text-slate-500 text-xs font-bold uppercase tracking-wider">
+                <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-0.5">
                     <span>Teacher</span>
-                    <ChevronRight size={10} />
+                    <ChevronRight size={10} strokeWidth={3} />
                     <span>{activeView}</span>
                 </div>
-                <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">
+                <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight drop-shadow-sm">
                     {titles[activeView] || 'Dashboard'}
                 </h2>
             </motion.div>
 
             {/* Right Actions */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-5 pointer-events-auto">
                 
-                {/* IMPROVED SEARCH BAR (Solid & Visible) */}
+                {/* --- ENHANCED GLASS SEARCH BAR --- */}
                 <div className="relative z-50">
                     <div 
                         className={`
-                            flex items-center gap-3 h-12 px-5 rounded-2xl transition-all duration-300 origin-right shadow-sm
+                            group flex items-center gap-3 h-12 px-5 rounded-full transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]
+                            backdrop-blur-xl border
                             ${isFocused 
-                                ? 'w-[450px] bg-white dark:bg-[#1C1C1E] shadow-xl ring-2' 
-                                : 'w-72 bg-white/90 dark:bg-[#1C1C1E]/90 hover:bg-white dark:hover:bg-[#252528]'
+                                ? 'w-[480px] bg-white/80 dark:bg-black/60 shadow-[0_8px_32px_rgba(0,0,0,0.12)] border-white/20 ring-1 ring-white/10' 
+                                : 'w-72 bg-white/40 dark:bg-black/20 hover:bg-white/60 dark:hover:bg-black/40 hover:w-[300px] border-white/10 hover:border-white/20 shadow-sm'
                             }
                         `}
-                        // Monet Theming & Solid Borders
-                        style={{
-                            borderColor: 'var(--monet-outline)',
-                            borderWidth: '1px',
-                            ...(isFocused ? { borderColor: 'var(--monet-primary)', ringColor: 'var(--monet-primary)' } : {})
-                        }}
                     >
-                        <Search size={18} style={{ color: isFocused ? 'var(--monet-primary)' : 'var(--monet-on-surface-variant)' }} />
+                        <Search 
+                            size={18} 
+                            className={`transition-colors duration-300 ${isFocused ? 'text-indigo-500' : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200'}`} 
+                        />
+                        
                         <input 
                             ref={searchInputRef}
                             type="text" 
@@ -340,62 +339,84 @@ const TopContextBar = memo(({ userProfile, activeView, onLogout, handleOpenChat,
                             onChange={handleSearchChange}
                             onFocus={() => setIsFocused(true)}
                             onBlur={() => setTimeout(() => !searchQuery && setIsFocused(false), 200)}
-                            placeholder="Search subjects, classes..." 
-                            className="bg-transparent border-none outline-none text-sm w-full font-medium text-slate-700 dark:text-slate-200 placeholder:text-slate-400" 
+                            placeholder={isFocused ? "Search subjects, classes, or students..." : "Search..."}
+                            className="bg-transparent border-none outline-none text-sm w-full font-medium text-slate-800 dark:text-slate-100 placeholder:text-slate-500/60 dark:placeholder:text-slate-400/60 transition-all" 
                         />
-                        {!isFocused && (
-                            <kbd className="hidden xl:inline-flex items-center gap-1 px-2 py-1 ml-2 text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-white/5 rounded-lg border border-slate-200 dark:border-white/5">
-                                <Command size={10} /> K
-                            </kbd>
-                        )}
+
+                        {/* Keyboard Shortcut Badge (Styled for Glass) */}
+                        <div className={`
+                            flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] font-bold transition-all duration-300
+                            ${isFocused 
+                                ? 'opacity-0 translate-x-4 pointer-events-none' 
+                                : 'opacity-100 translate-x-0 bg-white/20 dark:bg-white/5 border-white/10 text-slate-500 dark:text-slate-400'
+                            }
+                        `}>
+                            <Command size={10} /> 
+                            <span>K</span>
+                        </div>
+
+                        {/* Clear Button */}
                         {isFocused && searchQuery && (
-                            <button onClick={() => { setSearchQuery(''); searchInputRef.current?.focus(); }} className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-white/10">
-                                <X size={14} className="text-slate-400" />
+                            <button 
+                                onClick={() => { setSearchQuery(''); searchInputRef.current?.focus(); }} 
+                                className="p-1 rounded-full hover:bg-slate-200/50 dark:hover:bg-white/10 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors animate-in fade-in zoom-in"
+                            >
+                                <X size={14} strokeWidth={3} />
                             </button>
                         )}
                     </div>
 
-                    {/* DROP DOWN RESULTS */}
+                    {/* GLASS DROPDOWN RESULTS */}
                     <AnimatePresence>
                         {isFocused && searchQuery && (
                             <motion.div
-                                initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                                animate={{ opacity: 1, y: 0, scale: 1 }}
-                                exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                className="absolute top-14 right-0 w-[450px] bg-white dark:bg-[#1C1C1E] rounded-3xl shadow-2xl border border-slate-100 dark:border-white/5 overflow-hidden max-h-[60vh] overflow-y-auto"
+                                initial={{ opacity: 0, y: 14, scale: 0.96, filter: "blur(4px)" }}
+                                animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+                                exit={{ opacity: 0, y: 14, scale: 0.96, filter: "blur(4px)" }}
+                                transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                                className="absolute top-16 right-0 w-[480px] rounded-[24px] overflow-hidden border border-white/20 shadow-[0_20px_40px_-12px_rgba(0,0,0,0.3)] backdrop-blur-2xl bg-white/80 dark:bg-[#121212]/80"
                             >
                                 {searchResults.courses.length === 0 && searchResults.classes.length === 0 ? (
-                                    <div className="p-8 text-center text-slate-400 text-sm">No results found</div>
+                                    <div className="p-12 flex flex-col items-center text-center text-slate-400">
+                                        <Search size={32} className="mb-3 opacity-20" />
+                                        <p className="text-sm font-medium">No matches found</p>
+                                    </div>
                                 ) : (
-                                    <div className="py-2">
+                                    <div className="p-2 space-y-1">
                                         {searchResults.courses.length > 0 && (
-                                            <div className="px-2">
-                                                <div className="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Subjects</div>
+                                            <div className="mb-2">
+                                                <div className="px-4 py-2 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                                                    <BookOpen size={10} /> Subjects
+                                                </div>
                                                 {searchResults.courses.map(course => (
-                                                    <button key={course.id} onClick={() => handleResultClick('courses', course)} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl hover:bg-slate-50 dark:hover:bg-white/5 text-left transition-colors group">
-                                                        <div className="w-10 h-10 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform" style={{ backgroundColor: 'var(--monet-primary-container)', color: 'var(--monet-on-primary-container)' }}>
+                                                    <button key={course.id} onClick={() => handleResultClick('courses', course)} className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors group text-left">
+                                                        <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 group-hover:scale-110 transition-transform duration-300">
                                                             <BookOpen size={18} />
                                                         </div>
-                                                        <div>
-                                                            <div className="text-sm font-bold text-slate-900 dark:text-white">{course.title}</div>
-                                                            <div className="text-[10px] text-slate-500">{course.category}</div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">{course.title}</div>
+                                                            <div className="text-[11px] font-medium text-slate-500 truncate opacity-80">{course.category}</div>
                                                         </div>
+                                                        <ChevronRight size={14} className="text-slate-300 dark:text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity" />
                                                     </button>
                                                 ))}
                                             </div>
                                         )}
                                         {searchResults.classes.length > 0 && (
-                                            <div className="px-2 mt-2">
-                                                <div className="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Classes</div>
+                                            <div>
+                                                <div className="px-4 py-2 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                                                    <GraduationCap size={10} /> Classes
+                                                </div>
                                                 {searchResults.classes.map(cls => (
-                                                    <button key={cls.id} onClick={() => handleResultClick('classes', cls)} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl hover:bg-slate-50 dark:hover:bg-white/5 text-left transition-colors group">
-                                                        <div className="w-10 h-10 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform" style={{ backgroundColor: 'var(--monet-secondary-container)', color: 'var(--monet-on-secondary-container)' }}>
+                                                    <button key={cls.id} onClick={() => handleResultClick('classes', cls)} className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors group text-left">
+                                                        <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 group-hover:scale-110 transition-transform duration-300">
                                                             <GraduationCap size={18} />
                                                         </div>
-                                                        <div>
-                                                            <div className="text-sm font-bold text-slate-900 dark:text-white">{cls.name}</div>
-                                                            <div className="text-[10px] text-slate-500">{cls.schedule || 'No schedule'}</div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">{cls.name}</div>
+                                                            <div className="text-[11px] font-medium text-slate-500 truncate opacity-80">{cls.schedule || 'No schedule'}</div>
                                                         </div>
+                                                        <ChevronRight size={14} className="text-slate-300 dark:text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity" />
                                                     </button>
                                                 ))}
                                             </div>
@@ -407,24 +428,27 @@ const TopContextBar = memo(({ userProfile, activeView, onLogout, handleOpenChat,
                     </AnimatePresence>
                 </div>
 
-                {/* AI Trigger */}
+                {/* AI Trigger (Updated to match glass theme) */}
                 <button 
                     onClick={handleOpenChat}
-                    className="group relative flex items-center gap-3 h-12 pl-3 pr-5 rounded-full text-white shadow-xl hover:scale-105 active:scale-95 transition-all duration-300 overflow-hidden"
-                    style={{ background: 'linear-gradient(135deg, var(--monet-primary) 0%, var(--monet-tertiary) 100%)' }}
+                    className="group relative flex items-center gap-3 h-12 pl-3 pr-5 rounded-full text-white shadow-[0_8px_20px_-6px_rgba(79,70,229,0.4)] hover:shadow-[0_12px_24px_-8px_rgba(79,70,229,0.6)] hover:scale-105 active:scale-95 transition-all duration-300 overflow-hidden bg-indigo-600"
                 >
+                    <div className="absolute inset-0 bg-gradient-to-tr from-indigo-600 to-violet-500" />
                     <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-                    {isAiThinking ? (
-                        <div className="w-6 h-6 ml-1 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    ) : (
-                        <div className="w-10 h-10 flex items-center justify-center -ml-1">
-                            <Lottie animationData={robotAnimation} loop={true} className="w-full h-full" />
-                        </div>
-                    )}
-                    <span className="text-sm font-bold">Ask AI</span>
+                    
+                    <div className="relative z-10 flex items-center gap-2">
+                        {isAiThinking ? (
+                            <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : (
+                            <div className="w-8 h-8 flex items-center justify-center">
+                                <Lottie animationData={robotAnimation} loop={true} className="w-full h-full scale-125" />
+                            </div>
+                        )}
+                        <span className="text-sm font-bold tracking-wide">Ask AI</span>
+                    </div>
                 </button>
 
-                <div className="w-px h-8 bg-slate-200 dark:bg-white/10 mx-2" />
+                <div className="w-px h-8 bg-slate-200 dark:bg-white/10 mx-1" />
                 <ProfileDropdown userProfile={userProfile} onLogout={onLogout} size="desktop" />
             </div>
         </header>
@@ -489,7 +513,7 @@ const ProfileDropdown = memo(({ userProfile, onLogout, size = 'desktop' }) => {
 const MobileThemeButton = memo(() => {
     return (
         <Menu as="div" className="relative z-50">
-            <Menu.Button className="relative flex items-center justify-center w-10 h-10 rounded-full bg-white/50 dark:bg-white/10 overflow-hidden ring-1 ring-black/5 dark:ring-white/10 hover:bg-white/80 dark:hover:bg-white/20 transition-all outline-none">
+            <Menu.Button className="relative flex items-center justify-center w-10 h-10 rounded-full bg-white/95 dark:bg-white/10 overflow-hidden ring-1 ring-black/5 dark:ring-white/10 hover:bg-white dark:hover:bg-white/20 transition-all outline-none">
                 <Palette size={18} className="text-slate-600 dark:text-slate-200" />
             </Menu.Button>
             <Transition
@@ -726,23 +750,27 @@ const TeacherDashboardLayout = (props) => {
 
                 {/* Main Content */}
                 <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-0 lg:px-8 lg:pb-8 scroll-smooth" id="main-scroll-container">
+                    {/* Top Spacer for Mobile Header */}
                     <div className="lg:hidden h-24"></div> 
+                    
                     <Suspense fallback={<DashboardSkeleton />}>
                         {renderMainContent()}
                     </Suspense>
-                    <div className="h-24 lg:hidden"></div>
+
+                    {/* IMPROVED BOTTOM SPACER: Increased to h-40 to prevent Dock Overlap */}
+                    <div className="h-40 lg:hidden"></div>
                 </main>
             </div>
 
 
             {/* --- MOBILE ELEMENTS --- */}
             
-            {/* Mobile Header */}
+            {/* Mobile Header (Increased Opacity) */}
             <div className="fixed top-0 left-0 right-0 z-40 px-4 pt-2 pb-2 lg:hidden">
                 <motion.div 
                     initial={{ y: -50, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
                     style={monetTheme.glassStyle}
-                    className="glass-panel relative flex items-center justify-between px-5 py-3 rounded-[1.5rem] shadow-lg"
+                    className="glass-panel relative flex items-center justify-between px-5 py-3 rounded-[1.5rem] shadow-lg bg-white/95 dark:bg-[#1C1C1E]/95"
                 >
                     {/* Fixed Mobile Branding */}
                     <div className="flex items-center gap-2">
@@ -758,12 +786,12 @@ const TeacherDashboardLayout = (props) => {
                 </motion.div>
             </div>
 
-            {/* EXPANDED Mobile Dock (5 items) */}
+            {/* EXPANDED Mobile Dock (Solid Background) */}
             <div className="fixed bottom-4 left-0 right-0 flex justify-center z-[49] lg:hidden pointer-events-none">
                  <motion.div 
                     initial={{ y: 100 }} animate={{ y: 0 }}
                     style={monetTheme.glassStyle}
-                    className="glass-panel pointer-events-auto px-4 py-3 rounded-[2rem] flex items-center gap-4 sm:gap-6 shadow-2xl bg-white/90 dark:bg-[#1C1C1E]/90"
+                    className="glass-panel pointer-events-auto px-4 py-3 rounded-[2rem] flex items-center gap-4 sm:gap-6 shadow-2xl bg-white dark:bg-[#1C1C1E]"
                  >
                      {/* Home */}
                      <NavLink 

@@ -47,7 +47,6 @@ const HomeView = ({
     const [dontShowAgain, setDontShowAgain] = useState(false);
 
     // --- RACE CONDITION FIX ---
-    // 1. Starts FALSE. SchoolBrandingHandler is blocked.
     const [readyForBranding, setReadyForBranding] = useState(false);
 
     const effectiveSchoolId = userProfile?.schoolId || 'srcs_main';
@@ -69,15 +68,11 @@ const HomeView = ({
         const hasOptedOut = localStorage.getItem(`welcome_opt_out_${userProfile.id}`);
         const hasSeenSession = sessionStorage.getItem(`welcome_seen_session_${userProfile.id}`);
         
-        // Logic:
-        // If they need to see Welcome -> Show Welcome, KEEP Branding BLOCKED (false).
-        // If they DON'T need Welcome -> Show Branding IMMEDIATELY (true).
-        
         if (!hasOptedOut && !hasSeenSession) {
             setIsWelcomeModalOpen(true);
-            setReadyForBranding(false); // Ensure it's blocked
+            setReadyForBranding(false); 
         } else {
-            setReadyForBranding(true);  // Unblock immediately
+            setReadyForBranding(true); 
         }
     }, [userProfile?.id]);
 
@@ -91,8 +86,6 @@ const HomeView = ({
         }
         setIsWelcomeModalOpen(false);
 
-        // 4. NOW we unblock the branding check
-        // We use a small timeout to ensure the modal animation clears first
         setTimeout(() => {
             setReadyForBranding(true);
         }, 300);
@@ -103,7 +96,8 @@ const HomeView = ({
             {/* --- PASSIVE BRANDING HANDLER --- */}
             <SchoolBrandingHandler shouldCheck={readyForBranding} />
 
-            <div className="flex flex-col gap-8">
+            {/* REDUCED GAP: gap-8 -> gap-4 */}
+            <div className="flex flex-col gap-4">
                 {/* 1. Bento Grid Header (Includes Create Post) */}
                 <DashboardHeader
                     userProfile={userProfile}
@@ -137,7 +131,7 @@ const HomeView = ({
                 )}
             </Suspense>
 
-            {/* 👋 RESTORED WELCOME NOTICE MODAL */}
+            {/* RESTORED WELCOME NOTICE MODAL */}
             <Transition appear show={isWelcomeModalOpen} as={Fragment}>
                 <Dialog as="div" className="relative z-[100]" onClose={() => {}}>
                     <Transition.Child

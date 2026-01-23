@@ -125,7 +125,7 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
                                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                                   <span className="relative inline-flex rounded-full h-full w-full bg-green-500"></span>
                                 </span>
-                                <span className="text-[10px] font-bold text-white uppercase tracking-wider">Online</span>
+                                <span className="text-[10px] font-bold text-white uppercase tracking-wider">All Systems are Online</span>
                             </div>
                             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-white tracking-tighter drop-shadow-lg leading-[0.9]">
                                 {greeting}, <br />
@@ -242,7 +242,7 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
                                         
                                         <div>
                                             <h3 className="text-xl font-bold text-white">All Clear</h3>
-                                            <p className="text-xs text-white/70 font-medium">No pending classes</p>
+                                           
                                         </div>
                                     </motion.div>
                                 )}
