@@ -1,18 +1,14 @@
-// src/components/teacher/dashboard/views/HomeView.jsx
 import React, { useState, lazy, Suspense, memo, useEffect, Fragment, useCallback } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { ShieldCheck, Share2, CheckCircle2, Check } from 'lucide-react'; 
 import DashboardHeader from './components/DashboardHeader';
-import DashboardWidgets from './components/DashboardWidgets';
 import ActivityFeed from './components/ActivityFeed';
 import { useSchedule } from './hooks/useSchedule';
-
-// --- IMPORT BRANDING HANDLER ---
 import SchoolBrandingHandler from '../../../common/SchoolBrandingHandler';
 
 const ScheduleModal = lazy(() => import('../widgets/ScheduleModal'));
 
-// --- STATIC HELPERS (Kept outside to prevent recreation) ---
+// Helpers
 const getSchoolName = (schoolId) => {
     const schools = {
         'srcs_main': 'San Ramon Catholic School',
@@ -43,7 +39,6 @@ const HomeView = ({
     teacherAnnouncements,
     handleCreateAnnouncement,
     activeClasses,
-    handleViewChange // Unused but kept for prop stability
 }) => {
     const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
     
@@ -51,9 +46,9 @@ const HomeView = ({
     const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(false);
     const [dontShowAgain, setDontShowAgain] = useState(false);
 
-    // --- BRANDING STATE ---
-    // Start true to prevent flash, only set false if modal needs to show
-    const [readyForBranding, setReadyForBranding] = useState(true);
+    // --- RACE CONDITION FIX ---
+    // 1. Starts FALSE. SchoolBrandingHandler is blocked.
+    const [readyForBranding, setReadyForBranding] = useState(false);
 
     const effectiveSchoolId = userProfile?.schoolId || 'srcs_main';
 
@@ -64,26 +59,29 @@ const HomeView = ({
         onDeleteActivity,
     } = useSchedule(showToast, effectiveSchoolId);
 
-    // 1. OPTIMIZATION: Memoized Handlers
     const openScheduleModal = useCallback(() => setIsScheduleModalOpen(true), []);
     const closeScheduleModal = useCallback(() => setIsScheduleModalOpen(false), []);
 
-    // 2. LOGIC: Check Welcome Modal
+    // 2. CHECK IF WELCOME MODAL IS NEEDED
     useEffect(() => {
         if (!userProfile?.id) return;
 
         const hasOptedOut = localStorage.getItem(`welcome_opt_out_${userProfile.id}`);
         const hasSeenSession = sessionStorage.getItem(`welcome_seen_session_${userProfile.id}`);
         
-        // If they need to see the modal, block branding temporarily
+        // Logic:
+        // If they need to see Welcome -> Show Welcome, KEEP Branding BLOCKED (false).
+        // If they DON'T need Welcome -> Show Branding IMMEDIATELY (true).
+        
         if (!hasOptedOut && !hasSeenSession) {
             setIsWelcomeModalOpen(true);
-            setReadyForBranding(false); 
-        } 
-        // Otherwise, readyForBranding is already true by default
+            setReadyForBranding(false); // Ensure it's blocked
+        } else {
+            setReadyForBranding(true);  // Unblock immediately
+        }
     }, [userProfile?.id]);
 
-    // 3. OPTIMIZATION: Handler dependent on state
+    // 3. WHEN WELCOME MODAL CLOSES
     const handleCloseWelcome = useCallback(() => {
         if (userProfile?.id) {
             sessionStorage.setItem(`welcome_seen_session_${userProfile.id}`, 'true');
@@ -93,39 +91,29 @@ const HomeView = ({
         }
         setIsWelcomeModalOpen(false);
 
-        // Unblock branding after animation
+        // 4. NOW we unblock the branding check
+        // We use a small timeout to ensure the modal animation clears first
         setTimeout(() => {
             setReadyForBranding(true);
         }, 300);
     }, [userProfile?.id, dontShowAgain]);
 
     return (
-        <div 
-            className="w-full space-y-6 md:space-y-8 font-sans pb-32 lg:pb-8 relative z-10"
-            // OPTIMIZATION: prevent layout shifts during scroll
-            style={{ 
-                contentVisibility: 'auto',
-                containIntrinsicSize: '1000px' 
-            }} 
-        >
+        <div className="w-full font-sans pb-32 lg:pb-8 relative z-10" style={{ contentVisibility: 'auto' }}>
+            {/* --- PASSIVE BRANDING HANDLER --- */}
             <SchoolBrandingHandler shouldCheck={readyForBranding} />
 
-            <div className="flex flex-col gap-4 sm:gap-8">
-                {/* Header is memoized, so it won't re-render unless userProfile/toast changes */}
+            <div className="flex flex-col gap-8">
+                {/* 1. Bento Grid Header (Includes Create Post) */}
                 <DashboardHeader
                     userProfile={userProfile}
                     showToast={showToast}
                     onOpenScheduleModal={openScheduleModal}
-                />
-                
-                {/* Widgets are memoized */}
-                <DashboardWidgets
                     activeClasses={activeClasses}
                     handleCreateAnnouncement={handleCreateAnnouncement}
-                    onOpenScheduleModal={openScheduleModal}
                 />
                 
-                {/* Feed is memoized, now receives stable props */}
+                {/* 2. Connected Feed */}
                 <ActivityFeed
                     userProfile={userProfile}
                     teacherAnnouncements={teacherAnnouncements}
@@ -137,7 +125,7 @@ const HomeView = ({
             
             <Suspense fallback={null}>
                 {isScheduleModalOpen && (
-                        <ScheduleModal
+                    <ScheduleModal
                         isOpen={isScheduleModalOpen}
                         onClose={closeScheduleModal}
                         userRole={userProfile?.role}
@@ -149,7 +137,7 @@ const HomeView = ({
                 )}
             </Suspense>
 
-            {/* 👋 WELCOME NOTICE MODAL */}
+            {/* 👋 RESTORED WELCOME NOTICE MODAL */}
             <Transition appear show={isWelcomeModalOpen} as={Fragment}>
                 <Dialog as="div" className="relative z-[100]" onClose={() => {}}>
                     <Transition.Child
@@ -177,6 +165,7 @@ const HomeView = ({
                             >
                                 <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-[32px] bg-white dark:bg-[#1c1c1e] p-8 text-left align-middle shadow-2xl transition-all border border-white/20 ring-1 ring-black/5 relative">
                                     
+                                    {/* Modal Content... */}
                                     <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-[24px] bg-slate-50 dark:bg-slate-800/50 mb-6 border border-slate-100 dark:border-slate-700 shadow-sm p-4">
                                         <img 
                                             src={getSchoolLogo(effectiveSchoolId)} 
@@ -236,7 +225,7 @@ const HomeView = ({
                                     <div className="mt-8">
                                         <div 
                                             className="flex items-center justify-center gap-2.5 mb-5 cursor-pointer group"
-                                            onClick={() => setDontShowAgain(prev => !prev)}
+                                            onClick={() => setDontShowAgain(!dontShowAgain)}
                                         >
                                             <div className={`
                                                 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-200

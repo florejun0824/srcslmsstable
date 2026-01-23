@@ -1,19 +1,27 @@
-import React, { lazy, Suspense, memo, useMemo, useCallback, useState, useEffect } from 'react';
+import React, { lazy, Suspense, memo, useMemo, useCallback, useState, useEffect, Fragment } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CalendarDays, Clock, ChevronRight, Image as ImageIcon, ExternalLink, Sparkles } from 'lucide-react';
+import { Dialog, Transition } from '@headlessui/react';
+import { CalendarDays, Clock, ArrowUpRight, Sparkles, Megaphone, X, PenTool, Plus } from 'lucide-react';
 
 import { useBanner } from '../hooks/useBanner';
 import { useSchedule } from '../hooks/useSchedule';
-import { useTheme } from '../../../../../contexts/ThemeContext';
+import CreateAnnouncement from '../../widgets/CreateAnnouncement'; 
 
 const AdminBannerEditModal = lazy(() => import('../../widgets/AdminBannerEditModal'));
 
-const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal }) => {
-    const { bannerSettings, isSpecialBannerActive, isBannerEditModalOpen, openBannerEditModal, closeBannerEditModal } = useBanner(showToast);
+const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeClasses, handleCreateAnnouncement }) => {
+    const { bannerSettings, isBannerEditModalOpen, openBannerEditModal, closeBannerEditModal } = useBanner(showToast);
     const { currentActivity } = useSchedule(showToast, userProfile?.schoolId || 'srcs_main');
     
+    // --- LOCAL STATE ---
     const [imageError, setImageError] = useState(false);
-    const { monetTheme } = useTheme();
+    const [greeting, setGreeting] = useState('');
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+    useEffect(() => {
+        const h = new Date().getHours();
+        setGreeting(h < 12 ? 'Good Morning' : h < 18 ? 'Good Afternoon' : 'Good Evening');
+    }, []);
 
     const handleBannerClick = useCallback(() => { 
         if (userProfile?.role === 'admin') openBannerEditModal(); 
@@ -21,287 +29,233 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal }) => {
 
     const handleLinkClick = useCallback((e) => {
         e.stopPropagation();
-        if (bannerSettings.linkUrl) {
-            window.open(bannerSettings.linkUrl, '_blank', 'noopener,noreferrer');
-        }
+        if (bannerSettings.linkUrl) window.open(bannerSettings.linkUrl, '_blank', 'noopener,noreferrer');
     }, [bannerSettings.linkUrl]);
 
-    const handleImageError = useCallback(() => setImageError(true), []);
+    const handlePostAndClose = useCallback((postData) => {
+        handleCreateAnnouncement(postData);
+        setIsCreateModalOpen(false);
+    }, [handleCreateAnnouncement]);
 
-    const [greeting, setGreeting] = useState('');
-    useEffect(() => {
-        const updateGreeting = () => {
-            const h = new Date().getHours();
-            setGreeting(h < 12 ? 'Good Morning' : h < 18 ? 'Good Afternoon' : 'Good Evening');
-        };
-        updateGreeting();
-        const timer = setInterval(updateGreeting, 60000); 
-        return () => clearInterval(timer);
-    }, []);
-
-    // ONEUI 8.5 REFINED STYLES
+    // --- STYLES ---
     const styles = useMemo(() => ({
-        headerContainer: `relative p-6 sm:p-8 md:p-10 rounded-[2.5rem] overflow-hidden isolate backdrop-blur-3xl transition-all duration-500 shadow-sm border border-white/15 group/header`,
-        scheduleWidget: `relative overflow-hidden w-full h-full min-h-[160px] md:min-h-[190px] p-6 flex flex-col justify-between cursor-pointer group rounded-[2rem] shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.97] transition-all duration-300 border border-white/20`,
-        placeholderBanner: `w-full h-full object-cover bg-gradient-to-br from-slate-400 via-slate-500 to-slate-600 flex items-center justify-center relative overflow-hidden`,
-        accent: {
-            background: `linear-gradient(145deg, var(--monet-accent) 0%, var(--monet-accent-dark) 100%)`,
-            boxShadow: '0 8px 25px -5px rgba(0,0,0,0.25)', 
-            border: '1px solid rgba(255,255,255,0.15)',
-        },
-        textBannerCard: `relative h-full w-full bg-gradient-to-br from-indigo-500/80 via-purple-500/80 to-pink-500/80 border border-white/20 rounded-[2rem] shadow-lg overflow-hidden backdrop-blur-xl p-6 flex flex-col items-center justify-center text-center group active:scale-[0.98] transition-transform`,
+        // Layout: Flex on mobile, Grid on Desktop
+        container: `flex flex-col lg:grid lg:grid-cols-3 gap-6 w-full`,
+        
+        // 1. HERO CARD (Left - 2/3 width)
+        heroCard: `relative w-full lg:col-span-2 min-h-[320px] lg:h-[380px] rounded-[2.5rem] lg:rounded-[3rem] overflow-hidden group cursor-pointer border border-white/10 shadow-2xl`,
+        heroBackground: `absolute inset-0 bg-slate-900 transition-transform duration-700 group-hover:scale-105`,
+        heroContent: `relative z-20 h-full flex flex-col justify-between p-8 sm:p-10 bg-gradient-to-t from-black/80 via-black/20 to-transparent`,
+        
+        // 2. DESKTOP STACK (Hidden on Mobile)
+        desktopStack: `hidden lg:flex col-span-1 flex-col gap-6 h-full`,
+        
+        // 3. MOBILE ACTION ROW (Hidden on Desktop)
+        mobileRow: `flex lg:hidden w-full gap-4`,
+        
+        // Desktop Cards
+        // UPDATED: Removed hardcoded indigo bg, added hover brightness for gradient compatibility
+        actionCard: `relative flex-1 rounded-[2.5rem] p-8 flex flex-col justify-between shadow-lg overflow-hidden group/action cursor-pointer transition-all duration-300 hover:brightness-110 border border-white/10`,
+        scheduleCard: `relative flex-1 min-h-[160px] rounded-[2.5rem] p-8 flex flex-col justify-between overflow-hidden shadow-lg border border-white/10 cursor-pointer transition-transform active:scale-[0.98] group/sched`,
+        
+        // Mobile Buttons (Widget Style)
+        mobileWidget: `relative flex-1 h-24 rounded-[2rem] flex items-center justify-between px-6 overflow-hidden shadow-lg border border-white/10 active:scale-95 transition-all`,
+        
+        accentGradient: `linear-gradient(135deg, var(--monet-accent) 0%, var(--monet-accent-dark) 100%)`,
     }), []);
 
-    const renderBannerContent = () => {
-        const { type, imageUrl, title, message, linkUrl, linkLabel } = bannerSettings;
-        const isCombined = type === 'combined';
-        const isTextOnly = type === 'text';
-
-        const ImageWrapper = ({ children }) => (
-            <div className="relative h-full w-full bg-white dark:bg-slate-800 border-[4px] border-white/30 dark:border-slate-700/30 rounded-[2rem] shadow-xl overflow-hidden backdrop-blur-md">
-                {!imageError ? (
-                    <>
-                        <img 
-                            src={imageUrl} 
-                            alt="Banner" 
-                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
-                            onError={handleImageError} 
-                        />
-                        {isCombined ? (
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
-                        ) : (
-                            <div className="absolute inset-0 bg-black/5 pointer-events-none" />
-                        )}
-                    </>
-                ) : (
-                    <div className={styles.placeholderBanner}>
-                         <div className="absolute inset-0 opacity-10 bg-[url('https://grainy-gradients.vercel.app/noise.svg')]"></div>
-                        <ImageIcon className="w-10 h-10 text-white/50" />
-                    </div>
-                )}
-                {children}
-            </div>
-        );
-
-        if (isTextOnly) {
-            return (
-                <div className={styles.textBannerCard}>
-                    <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 mix-blend-overlay" />
-                    <div className="relative z-10 flex flex-col items-center gap-3">
-                        {/* CHANGED: Megaphone -> Sparkles for a more 'Featured/Banner' feel */}
-                        <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center backdrop-blur-md border border-white/20 shadow-sm mb-1">
-                            <Sparkles className="w-6 h-6 text-white" fill="currentColor" fillOpacity={0.2} />
-                        </div>
-                        <div>
-                            {title && <h3 className="text-xl font-bold text-white leading-tight drop-shadow-sm line-clamp-2">{title}</h3>}
-                            {message && <p className="text-white/90 text-sm font-medium leading-relaxed line-clamp-2 mt-1 max-w-[200px]">{message}</p>}
-                        </div>
-                        {linkUrl && (
-                            <button 
-                                onClick={handleLinkClick}
-                                className="mt-2 flex items-center gap-2 bg-white text-indigo-600 px-5 py-2 rounded-full font-bold text-xs uppercase tracking-wide shadow-md hover:shadow-lg active:scale-95 transition-all"
-                            >
-                                {linkLabel || "View"} <ExternalLink className="w-3.5 h-3.5" />
-                            </button>
-                        )}
-                    </div>
-                </div>
-            );
-        }
-
-        if (isCombined) {
-            return (
-                <ImageWrapper>
-                    <div className="absolute bottom-0 left-0 right-0 p-5 text-left z-20">
-                        {title && <h3 className="text-white font-bold text-xl leading-none mb-1 drop-shadow-sm line-clamp-1">{title}</h3>}
-                        {message && <p className="text-slate-200 text-xs font-medium line-clamp-2 leading-tight max-w-[95%] opacity-90">{message}</p>}
-                        {linkUrl && (
-                            <div className="mt-3">
-                                <button 
-                                    onClick={handleLinkClick}
-                                    className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/20 px-3.5 py-1.5 rounded-full text-[10px] font-bold text-white uppercase tracking-wide transition-all"
-                                >
-                                    {linkLabel || "Open"} <ExternalLink className="w-3 h-3" />
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                </ImageWrapper>
-            );
-        }
-
-        return <ImageWrapper />;
-    };
+    const hasBannerImage = bannerSettings.imageUrl && !imageError;
 
     return (
         <>
-            <header className={styles.headerContainer} style={monetTheme.glassStyle}>
-                {/* Decorative background blurs */}
-                <div className="absolute top-0 right-0 w-80 h-80 bg-white/5 rounded-full blur-[90px] -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-                <div className="absolute bottom-0 left-0 w-60 h-60 bg-black/5 rounded-full blur-[70px] translate-y-1/2 -translate-x-1/2 pointer-events-none" />
+            <header className={styles.container}>
+                
+                {/* --- 1. HERO PORTAL (Always Visible) --- */}
+                <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                    className={styles.heroCard}
+                    onClick={handleBannerClick}
+                >
+                    {/* Background Layer */}
+                    <div className={styles.heroBackground}>
+                        {hasBannerImage ? (
+                            <img 
+                                src={bannerSettings.imageUrl} 
+                                alt="Banner" 
+                                className="w-full h-full object-cover opacity-90"
+                                onError={() => setImageError(true)}
+                            />
+                        ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 animate-gradient-xy" />
+                        )}
+                        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay" />
+                    </div>
 
-                {isSpecialBannerActive ? (
-                    // --- BALANCED 3-COLUMN LAYOUT ---
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center relative z-10">
-                        
-                        {/* LEFT: GREETING */}
-                        <div className="col-span-1 text-center md:text-left space-y-3 animate-in fade-in slide-in-from-left-4 duration-500">
-                             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 border border-white/10 text-white select-none backdrop-blur-md">
-                                <span className="relative flex h-2.5 w-2.5">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                    <span className="relative inline-flex rounded-full h-full w-full bg-emerald-500"></span>
+                    {/* Content Layer */}
+                    <div className={styles.heroContent}>
+                        <div className="flex items-start justify-between">
+                            {bannerSettings.title ? (
+                                <div className="bg-black/30 backdrop-blur-md rounded-[1.5rem] p-4 border border-white/10 max-w-md animate-in slide-in-from-top-4 fade-in duration-700">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <Sparkles className="w-4 h-4 text-yellow-300" fill="currentColor" />
+                                        <span className="text-[10px] font-bold text-yellow-100 uppercase tracking-widest">Featured</span>
+                                    </div>
+                                    <h3 className="text-white font-bold text-lg leading-tight">{bannerSettings.title}</h3>
+                                    {bannerSettings.message && <p className="text-white/80 text-xs mt-1 line-clamp-2">{bannerSettings.message}</p>}
+                                    {bannerSettings.linkUrl && (
+                                        <button onClick={handleLinkClick} className="mt-3 flex items-center gap-1 text-[10px] font-bold bg-white text-black px-3 py-1.5 rounded-full hover:bg-slate-200 transition-colors">
+                                            {bannerSettings.linkLabel || "View"} <ArrowUpRight className="w-3 h-3" />
+                                        </button>
+                                    )}
+                                </div>
+                            ) : <div></div>}
+                            
+                             {userProfile?.role === 'admin' && (
+                                <div className="p-3 bg-white/10 rounded-full backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity border border-white/20">
+                                    <Sparkles className="w-5 h-5 text-white" />
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="space-y-2">
+                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/10 backdrop-blur-md w-fit">
+                                <span className="relative flex h-2 w-2">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-full w-full bg-green-500"></span>
                                 </span>
-                                <span className="text-[10px] font-bold uppercase tracking-widest opacity-90">Live</span>
+                                <span className="text-[10px] font-bold text-white uppercase tracking-wider">Online</span>
                             </div>
-                            <div>
-                                <h1 className="text-4xl sm:text-5xl md:text-[3.5rem] font-black tracking-tighter leading-[1] drop-shadow-sm text-white">
-                                    {greeting}, <br className="hidden md:block" />
-                                    <span className="text-white/80">{userProfile?.firstName}</span>
-                                </h1>
-                            </div>
-                            <p className="text-sm md:text-base font-medium leading-relaxed max-w-xs mx-auto md:mx-0 text-slate-100/70">
-                                Manage your classes easily on the <span className="font-bold text-white hover:underline cursor-pointer">Classes Tab</span>.
-                            </p>
-                        </div>
-                        
-                        {/* CENTER: BANNER */}
-                        <div 
-                            className="col-span-1 flex items-center justify-center w-full order-first md:order-none" 
-                            onClick={handleBannerClick} 
-                            style={{ cursor: userProfile?.role === 'admin' ? 'pointer' : 'default' }}
-                        >
-                            <div className="relative group w-full max-w-[340px] md:max-w-[400px] aspect-[16/10] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]">
-                                {renderBannerContent()}
-                                {/* Admin Edit Hint */}
-                                {userProfile?.role === 'admin' && (
-                                    <div className="absolute top-3 right-3 p-2 bg-black/40 backdrop-blur-md rounded-full opacity-0 group-hover:opacity-100 transition-opacity border border-white/10">
-                                        <Sparkles className="w-4 h-4 text-white" />
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* RIGHT: SCHEDULE */}
-                        <div className="hidden md:flex col-span-1 items-center justify-center h-full animate-in fade-in slide-in-from-right-4 duration-500" onClick={onOpenScheduleModal}>
-                            <motion.div whileTap={{ scale: 0.96 }} className={styles.scheduleWidget} style={styles.accent}>
-                                <div className="absolute inset-0 opacity-30 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] mix-blend-overlay"></div>
-                                
-                                <div className="flex items-center justify-between relative z-10">
-                                    <div className="w-12 h-12 rounded-[1.25rem] bg-white/20 backdrop-blur-xl border border-white/20 flex items-center justify-center shadow-inner">
-                                        <CalendarDays className="w-6 h-6 text-white" strokeWidth={2.5} />
-                                    </div>
-                                    <div className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center">
-                                        <ChevronRight className="w-5 h-5 text-white" strokeWidth={3} />
-                                    </div>
-                                </div>
-                                <div className="flex-grow flex items-center justify-center text-center mt-2 relative z-10">
-                                    <AnimatePresence mode="wait">
-                                        {currentActivity ? (
-                                            <motion.div 
-                                                key={currentActivity.id}
-                                                initial={{ opacity: 0, y: 5 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                className="w-full"
-                                            >
-                                                <span className="font-bold text-2xl text-white leading-tight mb-2 line-clamp-2">
-                                                    {currentActivity.title}
-                                                </span>
-                                                {currentActivity.time && (
-                                                    <div className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-black/10 backdrop-blur-md border border-white/5 text-[11px] font-bold text-white">
-                                                        <Clock className="w-3.5 h-3.5" strokeWidth={2.5} /> 
-                                                        {currentActivity.time}
-                                                    </div>
-                                                )}
-                                            </motion.div>
-                                        ) : (
-                                            <motion.div 
-                                                initial={{ opacity: 0 }}
-                                                animate={{ opacity: 1 }}
-                                                className="text-center text-white"
-                                            >
-                                                <p className="text-xl font-bold tracking-tight">All Clear</p>
-                                                <p className="text-[10px] font-bold opacity-70 uppercase tracking-widest">No classes</p>
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
-                                </div>
-                            </motion.div>
+                            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-white tracking-tighter drop-shadow-lg leading-[0.9]">
+                                {greeting}, <br />
+                                <span className="text-white/80">{userProfile?.firstName}</span>
+                            </h1>
                         </div>
                     </div>
-                ) : (
-                    // --- DEFAULT LAYOUT (Restored Size) ---
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between h-full w-full relative z-10 gap-8">
-                         <div className="flex-1 text-center md:text-left space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border shadow-sm backdrop-blur-md bg-white/10 border-white/10 text-white select-none">
-                                 <span className="w-2 h-2 rounded-full bg-orange-400 animate-pulse" />
-                                 <span className="text-[10px] font-bold uppercase tracking-widest">Instructor Portal</span>
-                             </div>
-                            <h1 className="text-4xl sm:text-6xl md:text-7xl font-black tracking-tighter leading-[0.95] drop-shadow-sm text-white">
-                                {greeting}, <br className="hidden md:block"/>
-                                <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-white/70">
-                                    {userProfile?.firstName}!
-                                </span>
-                            </h1>
-                            <p className="text-base font-medium tracking-wide text-slate-100/80 max-w-md mx-auto md:mx-0">
-                                Ready to shape young minds today?
-                            </p>
+                </motion.div>
+
+                {/* --- 2. MOBILE WIDGET ROW (Visible ONLY on Mobile) --- */}
+                <div className={styles.mobileRow}>
+                    {/* Mobile Post Button - UPDATED to Monet */}
+                    <motion.button
+                        whileTap={{ scale: 0.95 }}
+                        className={`${styles.mobileWidget} text-white`}
+                        style={{ background: styles.accentGradient }}
+                        onClick={() => setIsCreateModalOpen(true)}
+                    >
+                         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay pointer-events-none" />
+                         <div className="flex flex-col items-start gap-1 relative z-10">
+                             <span className="text-[10px] font-bold uppercase tracking-wider opacity-80">Compose</span>
+                             <span className="text-lg font-black tracking-tight">Post</span>
+                         </div>
+                         <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-md border border-white/10 relative z-10">
+                            <PenTool className="w-5 h-5 text-white" />
+                         </div>
+                    </motion.button>
+
+                    {/* Mobile Schedule Button */}
+                    <motion.button
+                         whileTap={{ scale: 0.95 }}
+                         className={`${styles.mobileWidget} text-white`}
+                         style={{ background: styles.accentGradient }}
+                         onClick={onOpenScheduleModal}
+                    >
+                         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay pointer-events-none" />
+                         <div className="flex flex-col items-start gap-1 relative z-10">
+                             <span className="text-[10px] font-bold uppercase tracking-wider opacity-80">View</span>
+                             <span className="text-lg font-black tracking-tight">Schedule</span>
+                         </div>
+                         <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-md border border-white/10 relative z-10">
+                            <CalendarDays className="w-5 h-5 text-white" />
+                         </div>
+                    </motion.button>
+                </div>
+
+                {/* --- 3. DESKTOP STACK (Visible ONLY on Large Screens) --- */}
+                <div className={styles.desktopStack}>
+                    
+                    {/* Desktop Post Card - UPDATED to Monet */}
+                    <motion.div 
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className={styles.actionCard}
+                        style={{ background: styles.accentGradient }}
+                        onClick={() => setIsCreateModalOpen(true)}
+                    >
+                         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay pointer-events-none" />
+                         <div className="flex justify-between items-start relative z-10">
+                            <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center backdrop-blur-md border border-white/20 group-hover/action:scale-110 transition-transform duration-300">
+                                <PenTool className="w-6 h-6 text-white" />
+                            </div>
+                            <div className="bg-black/20 px-3 py-1 rounded-full backdrop-blur-md border border-white/5">
+                                <span className="text-[10px] font-bold text-white uppercase tracking-wider">Create</span>
+                            </div>
+                         </div>
+                         <div className="relative z-10">
+                            <h2 className="text-2xl font-black text-white tracking-tight leading-none mb-1">New Post</h2>
+                            <p className="text-xs font-medium text-white/80">Share an update with your classes.</p>
+                         </div>
+                         <Megaphone className="absolute -bottom-4 -right-4 w-24 h-24 text-white opacity-10 -rotate-12 group-hover/action:rotate-0 group-hover/action:scale-110 transition-all duration-500" />
+                    </motion.div>
+
+                    {/* Desktop Schedule Card */}
+                    <motion.div 
+                        onClick={onOpenScheduleModal}
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className={styles.scheduleCard}
+                        style={{ background: styles.accentGradient }}
+                    >
+                        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay pointer-events-none" />
+                        <div className="flex justify-between items-start relative z-10">
+                            <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center backdrop-blur-md border border-white/20">
+                                <CalendarDays className="w-5 h-5 text-white" strokeWidth={2.5} />
+                            </div>
+                            <div className="bg-black/20 px-3 py-1 rounded-full backdrop-blur-md border border-white/5">
+                                <span className="text-[10px] font-bold text-white uppercase tracking-wider">Schedule</span>
+                            </div>
                         </div>
-                        
-                        <div className="hidden md:flex relative w-full max-w-[360px] animate-in fade-in slide-in-from-right-4 duration-500" onClick={onOpenScheduleModal}>
-                            <motion.div whileTap={{ scale: 0.97 }} className={styles.scheduleWidget} style={styles.accent}>
-                                <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150"></div>
-                                <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
-                                
-                                <div className="flex items-center justify-between relative z-10 mb-4">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-[1.25rem] bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/10 shadow-inner">
-                                            <CalendarDays className="w-6 h-6 text-white" strokeWidth={2.5} />
+                        <div className="relative z-10 mt-4">
+                            <AnimatePresence mode="wait">
+                                {currentActivity ? (
+                                    <motion.div
+                                        key="activity"
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -10 }}
+                                    >
+                                        <p className="text-xs font-bold text-white/70 uppercase tracking-wide mb-1">Up Next</p>
+                                        <h3 className="text-2xl font-bold text-white leading-tight line-clamp-2">{currentActivity.title}</h3>
+                                        <div className="flex items-center gap-2 mt-2">
+                                            <Clock className="w-3.5 h-3.5 text-white/80" />
+                                            <span className="text-xs font-bold text-white/90">{currentActivity.time}</span>
+                                        </div>
+                                    </motion.div>
+                                ) : (
+                                    <motion.div
+                                        key="empty"
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        className="flex items-center gap-3"
+                                    >
+                                        <div className="p-2 bg-white/10 rounded-full">
+                                            <Sparkles className="w-5 h-5 text-yellow-300" fill="currentColor" />
                                         </div>
                                         <div>
-                                            <h3 className="font-bold text-white text-base tracking-tight">Timeline</h3>
-                                            <p className="text-[10px] text-slate-200/70 font-bold uppercase tracking-wider">Today</p>
+                                            <h3 className="text-xl font-bold text-white">All Clear</h3>
+                                            <p className="text-xs text-white/70 font-medium">No pending classes</p>
                                         </div>
-                                    </div>
-                                    <ChevronRight className="w-5 h-5 text-white/80" strokeWidth={3} />
-                                </div>
-                                
-                                <div className="flex-grow flex items-center justify-center text-center relative z-10">
-                                    <AnimatePresence mode="wait">
-                                        {currentActivity ? (
-                                            <motion.div 
-                                                key={currentActivity.id}
-                                                initial={{ opacity: 0, x: 10 }}
-                                                animate={{ opacity: 1, x: 0 }}
-                                                className="w-full"
-                                            >
-                                                <span className="font-black text-3xl text-white leading-none mb-2 block tracking-tight">
-                                                    {currentActivity.title}
-                                                </span>
-                                                {currentActivity.time && (
-                                                    <span className="inline-flex items-center text-xs font-bold text-white bg-white/20 px-4 py-1.5 rounded-full border border-white/10 backdrop-blur-md">
-                                                        <Clock className="w-3.5 h-3.5 mr-1.5" strokeWidth={2.5} /> 
-                                                        {currentActivity.time}
-                                                    </span>
-                                                )}
-                                            </motion.div>
-                                        ) : (
-                                            <motion.div 
-                                                initial={{ opacity: 0 }}
-                                                animate={{ opacity: 1 }}
-                                                className="text-center"
-                                            >
-                                                <p className="text-2xl font-black text-white tracking-tight">All Clear!</p>
-                                                <p className="text-[11px] font-bold text-white/60 mt-0.5 uppercase tracking-wider">Relax</p>
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
-                                </div>
-                            </motion.div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
                         </div>
-                    </div>
-                )}
+                        <ArrowUpRight className="absolute bottom-6 right-6 w-6 h-6 text-white/30 group-hover/sched:text-white group-hover/sched:translate-x-1 group-hover/sched:-translate-y-1 transition-all" />
+                    </motion.div>
+                </div>
             </header>
-            
+
+            {/* --- MODALS --- */}
             <Suspense fallback={null}>
                 {isBannerEditModalOpen && (
                     <AdminBannerEditModal 
@@ -314,10 +268,30 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal }) => {
                         currentMessage={bannerSettings.message}
                         currentLinkUrl={bannerSettings.linkUrl}
                         currentLinkLabel={bannerSettings.linkLabel}
-                        onSaveSuccess={() => { }} 
                     />
                 )}
             </Suspense>
+
+            {/* Create Announcement Modal */}
+            <Transition appear show={isCreateModalOpen} as={Fragment}>
+                <Dialog as="div" className="relative z-[100]" onClose={() => setIsCreateModalOpen(false)}>
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
+                    <div className="fixed inset-0 overflow-y-auto">
+                        <div className="flex min-h-full items-center justify-center p-4">
+                            <Dialog.Panel className="w-full max-w-lg transform overflow-hidden rounded-[3rem] bg-white dark:bg-[#1E1E1E] p-8 shadow-2xl transition-all border border-slate-200 dark:border-white/10">
+                                <div className="flex items-center justify-between mb-8">
+                                    <Dialog.Title as="h3" className="text-2xl font-black text-slate-800 dark:text-white flex items-center gap-4">
+                                        <div className="p-3.5 rounded-[1.2rem] text-white shadow-lg" style={{ background: 'var(--monet-accent)' }}><Megaphone className="w-6 h-6" strokeWidth={3} /></div>
+                                        New Post
+                                    </Dialog.Title>
+                                    <button onClick={() => setIsCreateModalOpen(false)} className="h-11 w-11 rounded-full bg-slate-100 dark:bg-white/5 text-slate-500 flex items-center justify-center hover:bg-slate-200"><X size={22} strokeWidth={2.5} /></button>
+                                </div>
+                                <CreateAnnouncement classes={activeClasses} onPost={handlePostAndClose} />
+                            </Dialog.Panel>
+                        </div>
+                    </div>
+                </Dialog>
+            </Transition>
         </>
     );
 };
