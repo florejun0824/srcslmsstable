@@ -29,3 +29,5 @@ my-release-key.keystore
 service-account.json
 .env.production
 firestore-debug.log
+.vercel
+.env*.local
