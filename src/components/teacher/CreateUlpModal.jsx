@@ -209,235 +209,263 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
       return true;
     };
 
-    const generateUlpSection = async (type, context, maxRetries = 3) => {
-      let prompt;
-      const iCan = context.language === 'Filipino' ? 'Kaya kong...' : 'I can...';
+	const generateUlpSection = async (type, context, maxRetries = 3) => {
+	      let prompt;
+	      const iCan = context.language === 'Filipino' ? 'Kaya kong...' : 'I can...';
 
-      // --- SCAFFOLDING CONTEXT ---
-      const contextInjection = context.previousContent ? `
-      **SCAFFOLDING CONTEXT (CRITICAL):**
-      You are writing the NEXT lesson in a sequence.
-      - **Reinforce:** Explicitly reference concepts from the previous lesson to build connection.
-      - **Scaffold:** Ensure the complexity increases from the previous content.
+	      // --- SCAFFOLDING CONTEXT ---
+	      const contextInjection = context.previousContent ? `
+	      **SCAFFOLDING CONTEXT:**
+	      You are writing the NEXT stage in the learning sequence.
+	      - **The Golden Thread:** This activity MUST unveil a concept needed for the Unit Performance Task: "${context.performanceStandard}".
+	      - **Connect Concepts:** Build upon the previous concepts naturally.
+	      - **STRICT CONSTRAINT:** DO NOT cite "Lesson 1" or "The previous lesson". Discuss the *concepts* directly as if flowing continuously.
       
-      --- PREVIOUS CONTENT SUMMARY ---
-      ${context.previousContent}
-      --- END PREVIOUS CONTENT ---
-      ` : "";
+	      --- PREVIOUS CONCEPT SUMMARY ---
+	      ${context.previousContent}
+	      --- END SUMMARY ---
+	      ` : "";
 
-      const verbosityRules = `
-      **CRITICAL CONTENT RULES (MUST FOLLOW):**
-      1. **BE EXTREMELY DETAILED:** Do not just summarize. Write out the actual content.
-      2. **MARKDOWN FORMATTING:** You MUST use valid Markdown. 
-         - For bold text use **text**.
-         - For numbered lists use 1. (space) text.
-      3. **CREATE THE MATERIALS:** If an activity uses "Scenario Cards" or "Worksheets", YOU MUST WRITE THE CONTENT of those cards/worksheets in the instruction text.
-      `;
+	      const verbosityRules = `
+	      **CRITICAL CONTENT RULES (MUST FOLLOW):**
+	      1. **SOURCE ADHERENCE:** All content must be based on the provided "Content Source".
+	      2. **BE EXTREMELY DETAILED:** Do not just summarize. Write out the actual content.
+	      3. **MARKDOWN FORMATTING:** You MUST use valid Markdown. 
+	         - For bold text use **text**.
+	         - For numbered lists use 1. (space) text.
+	      4. **CREATE THE MATERIALS:** If an activity uses "Scenario Cards", "Mock Social Media Posts", or "Data Sets", YOU MUST WRITE THE ACTUAL CONTENT of those materials in the instruction text.
+	      `;
 
-      const valuesRule = `
-      **SRCS VALUES INTEGRATION (REQUIRED):**
-      ${SRCS_VALUES_CONTEXT}
-      **INSTRUCTION:** Select **ONE** specific value. Write a **seamless, conversational 'Small Talk' or 'Teacher's Connection' paragraph** (3-4 sentences). 
-      - DO NOT just define the value. 
-      - Speak as if you are the teacher transitioning the class, connecting the activity they just did to the SRCS Core Value and a real-world application.
-      - Make it flow naturally.
-      **OUTPUT FIELD:** "valuesIntegration": { "value": "Name", "integration": "Conversational paragraph..." }
-      `;
+	      // --- VALUES INTEGRATION (RESTORED TO PERFECT STATE) ---
+	      const valuesRule = `
+	      **SRCS VALUES INTEGRATION (REAL-WORLD CONNECTION):**
+	      ${SRCS_VALUES_CONTEXT}
+	      **INSTRUCTION:** This is the PRIMARY section for Real-World Context.
+	      - **TASK:** Select ONE value. Write a narrative paragraph connecting the *academic concept* to *student realities/society*.
+	      - **TONE:** Natural, conversational, and inspiring.
+	      - **OUTPUT FIELD:** "valuesIntegration": { "value": "Name", "integration": "A natural paragraph connecting the Concept -> Value -> Real World Application." }
+	      `;
 
-      // --- UPDATED COMMON RULES ---
-      const commonRules = `
-      **ROLE:** You are a Master Curriculum Developer for San Ramon Catholic School (SRCS). 
+	      // --- COMMON RULES ---
+	      const commonRules = `
+	      **ROLE:** You are a Master Curriculum Developer for San Ramon Catholic School (SRCS). 
       
-      **INPUTS:**
-      - Standards: ${context.contentStandard} / ${context.performanceStandard}
-      - Content Source: ${context.sourceLessonTitles}
-      - Language: ${context.language}
-      - **GRADE LEVEL:** ${context.gradeLevel} (Philippines K-12 Context)
+	      **INPUTS:**
+	      - Standards: ${context.contentStandard} / ${context.performanceStandard}
+	      - Content Source: ${context.sourceLessonTitles}
+	      - Language: ${context.language}
+	      - **GRADE LEVEL:** ${context.gradeLevel} (Philippines K-12 Context)
 
-      **CRITICAL LOCALIZATION RULES (NON-NEGOTIABLE):**
-      1. **Geography & Culture:** Use Philippine settings (e.g., *barangay*, *sari-sari store*, *jeepney*, *fiesta*). Do not use US examples (e.g., *lemonade stands*, *suburbs*, *snow*).
-      2. **Currency:** All monetary values MUST be in **PHP / Pesos**.
-      3. **Names:** Use Filipino names (e.g., *Juan, Maria, Cruz, Santos*) in scenarios.
+	      **SCAFFOLDING STRATEGY (THE THROUGH-LINE):**
+	      - **Goal:** Every activity must act as a stepping stone (scaffold) toward the Performance Task.
+	      - **Execution:** Unveil the concept *gradually*. Firm-Up introduces the facts; Deepen analyzes the meaning; Transfer applies it.
 
-      ${contextInjection}
-      ${verbosityRules}
-      ${valuesRule}
+	      **ZERO PRIOR KNOWLEDGE ASSUMPTION:**
+	      - **The Requirement:** You MUST generate **"Stimulus Materials"** (e.g., a short reading, a data table, a definition card, or a specific case study) INSIDE the activity instructions. Students will analyze THIS material to discover the concept.
 
-      **GRADE LEVEL & TONE INSTRUCTIONS (CRITICAL):**
-      1. **Cognitive Level:** Write content appropriate for **${context.gradeLevel}**.
-      2. **TONE CONSTRAINT (NEGATIVE):** **DO NOT** use phrases like "Grade 10 learners..." or "As a Grade 7 student...". Just present the content directly and professionally.
-      3. **Content Depth:** For "Hook Activities", do not just describe the activity. **WRITE THE ACTUAL CONTENT** (e.g., The specific moral dilemma text, the specific questions to ask).
+	      **TEACHING STYLE (NATURAL NARRATIVE & NUANCE):**
+	      - **In "Support Discussion":**
+	        1. **NO BULLETED DEFINITIONS:** Do NOT create a list of terms (e.g., "Intellect: Definition...").
+	        2. **Conversational Flow:** Write a cohesive paragraph. State the term, then **immediately** follow it with a simple analogy or "real talk" elaboration in the same sentence or the next.
+	           - *Bad:* "Intellect: The power to think. Free Will: The power to choose."
+	           - *Good:* "The Intellect is like a flashlight that helps us see the Truth, but seeing isn't enough; we also need the Free Will, which acts as the steering wheel, allowing us to choose the Good path we just spotted."
+	        3. **Detail Rich:** Be comprehensive but accessible.
 
-      **HEADER & ACTIVITY NAMING:**
-      - **GENERIC SECTION HEADERS:** Use simple titles (e.g., "Key Definitions", not "Key Definitions for Grade 10").
-      - **ACTIVITY TITLES:** ALL Activities must have a specific, bold title formatted as: **Activity [N]: [Creative Name]** (e.g., **Activity 1: The Great Debate**)
+	      **STRICT LANGUAGE CONTROL:**
+	      1. **NO TAGLISH:** Do not mix English and Filipino. Use the selected language strictly.
+      
+	      **CONTEXTUALIZATION:**
+	      1. **Implicit Localization:** Use Philippine settings naturally.
+	      2. **Currency:** PHP / Pesos.
 
-      **MATH & SCIENCE FORMATTING:**
-      1. **Use LaTeX:** For all formulas ($...$).
-      2. **JSON ESCAPING:** Double-escape backslashes (e.g., $\\\\frac{1}{2}$).
+	      **NEGATIVE CONSTRAINTS:**
+	      1. **NO META-REFERENCES:** NEVER say "In Lesson 2".
+	      2. **NO FLUFF:** Avoid robotic phrases like "It is imperative to note...".
 
-      **STRICT TABLE RULE (CRITICAL - READ CAREFULLY):**
-      1. **NO MARKDOWN TABLES:** Do not use pipes (|).
-      2. **USE HTML TABLES:** Use <table class='inner-table'>...</table>.
-      3. **HTML FORMATTING (REQUIRED):** - **Use <strong>text</strong>** for bolding inside tables. (Markdown **text** is IGNORED inside HTML tags).
-         - **Use <br>** for line breaks inside tables. (Markdown \\n is IGNORED inside HTML tags).
-         - **Example:** <td><strong>Key Concept</strong><br>Definition text.</td>
+	      ${contextInjection}
+	      ${verbosityRules}
+	      ${valuesRule}
 
-      **TECHNICAL RULES:**
-      1. **OUTPUT:** Valid JSON object ONLY.
-      2. **ESCAPING:** Escape double quotes inside strings (\\").
-      3. **FORMATTING:** Use \\n for line breaks inside standard JSON text strings, but keep HTML tags clean.
+	      **HEADER & ACTIVITY NAMING:**
+	      - **ACTIVITY TITLES:** **Activity [N]: [Creative/Catchy Name]**
+
+	      **MATH & SCIENCE FORMATTING:**
+	      1. **Use LaTeX:** For all formulas ($...$).
+	      2. **JSON ESCAPING:** Double-escape backslashes (e.g., $\\\\frac{1}{2}$).
+
+	      **STRICT TABLE RULE:**
+	      1. **NO MARKDOWN TABLES:** Do not use pipes (|).
+	      2. **USE HTML TABLES:** Use <table class='inner-table'>...</table>.
+	      3. **HTML FORMATTING (REQUIRED):** - **Use <strong>text</strong>** for bolding.
+
+	      **TECHNICAL RULES:**
+	      1. **OUTPUT:** Valid JSON object ONLY.
+	      2. **ESCAPING:** Escape double quotes inside strings (\\").
+	      3. **FORMATTING:** Use \\n for line breaks inside standard JSON text strings.
 	  
-	  **SYSTEM INSTRUCTION:** DO NOT output your thinking process. Output ONLY raw, valid JSON.
-      `;
+		  **SYSTEM INSTRUCTION:** DO NOT output your thinking process. Output ONLY raw, valid JSON.
+	      `;
       
-      switch (type) {
-              case 'explore':
-                prompt = `
-                  ${commonRules}
-                  **TASK:** Generate "Explore" (Diagnosis/Hook).
-                  **JSON STRUCTURE:**
-                  {
-                  "type": "explore",
-                  "lessonsList": "Bulleted list of lessons.",
-                  "unitOverview": "2 paragraphs welcome/summary tailored to ${context.gradeLevel}.",
-                  "hookedActivities": [
-                    {
-                        "title": "Activity 1: [Creative Name]",
-                        "content": "THE ACTUAL CONTENT/SCRIPT. (e.g., 'Read this scenario to the class: You find a wallet...')",
-                        "instructions": "Step-by-step teacher instructions."
-                    },
-                    {
-                        "title": "Activity 2: [Creative Name]",
-                        "content": "THE ACTUAL CONTENT/SCRIPT.",
-                        "instructions": "Step-by-step teacher instructions."
-                    }
-                  ],
-                  "mapOfConceptualChange": "Instructions for diagnostic activity.",
-                  "essentialQuestions": ["EQ1", "EQ2", "EQ3"]
-                  }
-                  `;
-                break;
+	      switch (type) {
+	              case 'explore':
+	                prompt = `
+	                  ${commonRules}
+	                  **TASK:** Generate "Explore" (Diagnosis/Hook).
+	                  **JSON STRUCTURE:**
+	                  {
+	                  "type": "explore",
+	                  "lessonsList": "Bulleted list of topics covered.",
+	                  "unitOverview": "2 paragraphs welcome/summary tailored to ${context.gradeLevel}. Focus on the 'Big Idea'.",
+	                  "hookedActivities": [
+	                    {
+	                        "title": "Activity 1: [Catchy Name]",
+	                        "content": "THE ACTUAL CONTENT/SCRIPT. Ensure this hooks the student's interest using a **Mystery** or **Relatable Dilemma**. **Must be self-contained.**",
+	                        "instructions": "Step-by-step instructions including how to present the stimulus."
+	                    },
+	                    {
+	                        "title": "Activity 2: [Catchy Name]",
+	                        "content": "THE ACTUAL CONTENT/SCRIPT.",
+	                        "instructions": "Step-by-step instructions."
+	                    }
+	                  ],
+	                  "mapOfConceptualChange": "Instructions for diagnostic activity (e.g., 'Before this unit, I thought...').",
+	                  "essentialQuestions": ["EQ1", "EQ2", "EQ3"]
+	                  }
+	                  `;
+	                break;
 
-              case 'firmUp':
-                prompt = `
-                  ${commonRules}
-                  **TASK:** Generate "Firm-Up" (Acquisition) for: "${context.competency}" (${context.code}).
-                  **FOCUS:** Acquisition of facts and skills appropriate for ${context.gradeLevel}.
-            
-                  **JSON STRUCTURE:**
-                  {
-                  "type": "firmUp",
-                  "code": "${context.code}",
-                  "competency": "${context.competency}",
-                  "learningTargets": ["${iCan} define...", "${iCan} identify..."],
-                  "successIndicators": ["3 distinct bullet points."],
-                  "inPersonActivity": { 
-                      "instructions": "**Activity 1: [Creative Name]**\\n\\n1. [Step 1]...\\n\\n**CONTENT FOR WORKSHEET:**\\n<table class='inner-table'><thead><tr><th>Column 1</th><th>Column 2</th></tr></thead><tbody><tr><td><strong>Item 1</strong></td><td>Detail 1</td></tr></tbody></table>", 
-                      "materials": "List." 
-                  },
-                  "onlineActivity": { "instructions": "Digital equivalent.", "materials": "Tools..." },
-                  "supportDiscussion": "**Checking for Understanding:**\\n1. [Q1]...\\n\\n**In-Depth Discussion:**\\n[Paragraphs]",
-                  "assessment": { "type": "Quiz", "content": "Matching or Multiple Choice. Use <table class='inner-table'> for matching columns." },
-                  "templates": "Content for 'Key Definitions' or similar. Title MUST be simple (e.g., 'Key Definitions').",
-                  "valuesIntegration": { "value": "Value Name", "integration": "Conversational connection." }
-                  }
-                  `;
-                break;
+	              case 'firmUp':
+	                prompt = `
+	                  ${commonRules}
+	                  **TASK:** Generate "Firm-Up" (Acquisition) for: "${context.competency}" (${context.code}).
+                  
+	                  **ALIGNMENT GUIDE (ACQUISITION):**
+	                  - **Target Competencies:** List, Select, Name, Operate, Enumerate, Sequence, Identify, Compute, Define, Differentiate, State, Locate, Solve, Describe, Compare, Copy, Classify, Point, Report.
+	                  - **Recommended Activities:** Frayer Model, Venn Diagram, 2-Column Comparison, Table Vocabulary Exercise, Pictionary, Labeling Exercise, Sequencing/Flow Chart, Sorting/Classifying, Hands-on Modelling, Demo.
+	                  - **Assessment Types:** Multiple Choice, Fill in the blank, Matching Type, Enumeration, Alternative Response (True/False), Hands-on Operation, Labeling.
 
-              case 'deepen':
-                prompt = `
-                  ${commonRules}
-                  **TASK:** Generate "Deepen" (Meaning-Making) for: "${context.competency}" (${context.code}).
-                  **CRITICAL:** Generate specific "Scenario Cards" or "Case Studies" using HTML TABLES. Ensure scenarios are relatable to a ${context.gradeLevel} student.
-            
-                  **JSON STRUCTURE:**
-                  {
-                  "type": "deepen",
-                  "code": "${context.code}",
-                  "competency": "${context.competency}",
-                  "learningTargets": ["${iCan} analyze...", "${iCan} justify..."],
-                  "successIndicators": ["3 distinct indicators."],
-                  "inPersonActivity": { 
-                      "instructions": "**Activity 2: [Creative Name]**\\n\\nInstructions:\\n1. [Step]...\\n\\n**SCENARIO CARDS:**\\n<table class='inner-table'><thead><tr><th style='width:30%'>Card</th><th>Scenario</th></tr></thead><tbody><tr><td><strong>Card 1</strong></td><td>[Text]</td></tr></tbody></table>", 
-                      "materials": "List." 
-                  },
-                  "onlineActivity": { "instructions": "Instructions.", "materials": "Links..." },
-                  "supportDiscussion": "**Detailed Summarization:**\\n[Text]\\n\\n**In-Depth Elaboration:**\\n* [Question 1]",
-                  "assessment": { "type": "Case Analysis", "content": "Instructions." },
-                  "templates": "Worksheet structure. Keep titles GENERIC.",
-                  "valuesIntegration": { "value": "Value Name", "integration": "Connection." }
-                  }
-                  `;
-                break;
+	                  **JSON STRUCTURE:**
+	                  {
+	                  "type": "firmUp",
+	                  "code": "${context.code}",
+	                  "competency": "${context.competency}",
+	                  "learningTargets": ["${iCan} define...", "${iCan} identify..."],
+	                  "successIndicators": ["3 distinct bullet points."],
+	                  "inPersonActivity": { 
+	                      "instructions": "**Activity 1: [Select from Recommended Activities]**\\n\\n1. [Step 1]...\\n\\n**STIMULUS MATERIAL (REQUIRED):**\\n(Provide the exact text excerpt, data table, definition card, or image description here).\\n\\n**WORKSHEET CONTENT:**\\n<table class='inner-table'><thead><tr><th>Column 1</th><th>Column 2</th></tr></thead><tbody><tr><td><strong>Item 1</strong></td><td>Detail 1</td></tr></tbody></table>", 
+	                      "materials": "List." 
+	                  },
+	                  "onlineActivity": { "instructions": "Digital equivalent (e.g., Drag and Drop, Online Quiz).", "materials": "Tools..." },
+	                  "supportDiscussion": "**Checking for Understanding:**\\n1. [Question 1]\\n2. [Question 2]\\n\\n**In-Depth Discussion:**\\n[Write a **DETAIL RICH** narrative. DO NOT LIST TERMS. Weave the definitions and their nuances into a cohesive story or lecture. Connect the terms to the examples from the activity. **DO NOT cite the source explicitly.**]",
+	                  "assessment": { "type": "[Select ONE from Assessment Types above]", "content": "Generate the specific content/questions. Use <table class='inner-table'> for columns if needed." },
+	                  "templates": "Content for 'Key Definitions' or similar. Title MUST be simple (e.g., 'Key Definitions').",
+	                  "valuesIntegration": { "value": "Value Name", "integration": "Natural narrative connecting the concept -> value -> real world." }
+	                  }
+	                  `;
+	                break;
 
-              case 'transfer':
-                prompt = `
-                  ${commonRules}
-                  **TASK:** Generate "Transfer" (Application) for: "${context.competency}" (${context.code}).
-            
-                  **JSON STRUCTURE:**
-                  {
-                  "type": "transfer",
-                  "code": "${context.code}",
-                  "competency": "${context.competency}",
-                  "learningTargets": ["${iCan} apply...", "${iCan} prepare..."],
-                  "successIndicators": ["3 indicators."],
-                  "inPersonActivity": { 
-                      "instructions": "**Activity 3: [Creative Name]**\\n\\nInstructions:\\n1. [Step]...\\n\\n**SELF-DIAGNOSIS WORKSHEET:**\\n<table class='inner-table'><thead><tr><th>Section</th><th>Prompt</th><th>Analysis</th></tr></thead><tbody><tr><td><strong>1. Limitation</strong></td><td>Describe...</td><td></td></tr></tbody></table>", 
-                      "materials": "List." 
-                  },
-                  "onlineActivity": { "instructions": "Digital equivalent.", "materials": "Tools..." },
-                  "supportDiscussion": "**Core Principles:**\\n[Text]\\n\\n**Practical Application:**\\n[Text]",
-                  "valuesIntegration": { "value": "Value Name", "integration": "Connection." }
-                  }
-                  `;
-                break;
+	              case 'deepen':
+	                prompt = `
+	                  ${commonRules}
+	                  **TASK:** Generate "Deepen" (Meaning-Making) for: "${context.competency}" (${context.code}).
+                  
+	                  **ALIGNMENT GUIDE (MAKE MEANING):**
+	                  - **Target Competencies:** Analyze, Explain, Elaborate, Discuss, Justify, Prove, Reflect, Persuade, Defend, Predict, Generalize, Formulate, Model, Synthesize.
+	                  - **Recommended Activities:** Close Reading, 5E Inquiry-based Learning, Issue Investigation, Experimentation, Situation Analysis, Text Analysis, Picture/Video Analysis, Problem Analysis, Debate, Jigsaw Puzzle, Predict-Observe-Explain, Data Retrieval Chart Analysis, Writing Generalizations/Conclusions.
+	                  - **Assessment Types:** Short Paragraph, Essay, Critique Writing, Concept Mapping, Journal Writing.
 
-              case 'synthesis':
-                prompt = `
-                  ${commonRules}
-                  **TASK:** Final Synthesis.
-                  **JSON STRUCTURE:** { "type": "synthesis", "summary": "3 Paragraphs summarizing the journey suitable for ${context.gradeLevel} reading level." }
-                  `;
-                break;
+	                  **JSON STRUCTURE:**
+	                  {
+	                  "type": "deepen",
+	                  "code": "${context.code}",
+	                  "competency": "${context.competency}",
+	                  "learningTargets": ["${iCan} analyze...", "${iCan} justify..."],
+	                  "successIndicators": ["3 distinct indicators."],
+	                  "inPersonActivity": { 
+	                      "instructions": "**Activity 2: [Select from Recommended Activities]**\\n\\nInstructions:\\n1. [Step]...\\n\\n**STIMULUS MATERIALS / ROLES (Detailed):**\\n(Provide the specific roles, conflict details, or simulation rules here).\\n\\n<table class='inner-table'><thead><tr><th style='width:30%'>Role/Element</th><th>Description</th></tr></thead><tbody><tr><td><strong>Role 1</strong></td><td>[Detailed Instructions]</td></tr></tbody></table>", 
+	                      "materials": "List." 
+	                  },
+	                  "onlineActivity": { "instructions": "Instructions.", "materials": "Links..." },
+	                  "supportDiscussion": "**Detailed Summarization:**\\n[Provide a rich, flowing summary of the key concepts.]\\n\\n**In-Depth Elaboration:**\\n[Elaborate on the nuances. DO NOT BULLET. Discuss the 'Why' and 'How' in a natural, teacher-like voice.]\\n\\n**Probing Questions:**\\n1. [Question 1]",
+	                  "assessment": { "type": "[Select ONE from Assessment Types above]", "content": "Generate the specific prompt or instructions." },
+	                  "templates": "Worksheet structure. Keep titles GENERIC.",
+	                  "valuesIntegration": { "value": "Value Name", "integration": "Natural narrative connecting the concept -> value -> real world." }
+	                  }
+	                  `;
+	                break;
 
-              case 'performanceTask':
-                prompt = `
-                  ${commonRules}
-                  **TASK:** Unit Performance Task (GRASPS).
-                  **JSON STRUCTURE:**
-                  {
-                  "type": "performanceTask",
-                  "graspsTask": {
-                      "goal": "Goal.", "role": "Role.", "audience": "Audience.", 
-                      "situation": "Situation.", "product": "Product.", "standards": "Standards."
-                  },
-                  "rubric": "Generate the Rubric strictly as an HTML TABLE string: <table class='inner-table'><thead><tr><th>Criteria</th><th>Description</th><th>Points</th></tr></thead><tbody><tr><td><strong>Content</strong></td><td>Desc...</td><td>20</td></tr></tbody></table>"
-                  }
-                  `;
-                break;
+	              case 'transfer':
+	                prompt = `
+	                  ${commonRules}
+	                  **TASK:** Generate "Transfer" (Application) for: "${context.competency}" (${context.code}).
+                  
+	                  **ALIGNMENT GUIDE (TRANSFER):**
+	                  - **Target Competencies:** Show, Demonstrate, Improve, Design, Create, Invent, Simulate, Plan, Revise, Convert, Compose, Recommend, Formulate, Model, Synthesize, Reflect.
+	                  - **Recommended Activities:** Scaffold for Transfer (Guided case studies, practice activities), Project Exercises (Designing a marketing plan, creating a public awareness campaign, etc.).
+	                  - **Assessment Types:** Performance Task, Portfolio. (Note: The activity itself is the assessment here).
+
+	                  **JSON STRUCTURE:**
+	                  {
+	                  "type": "transfer",
+	                  "code": "${context.code}",
+	                  "competency": "${context.competency}",
+	                  "learningTargets": ["${iCan} apply...", "${iCan} prepare..."],
+	                  "successIndicators": ["3 indicators."],
+	                  "inPersonActivity": { 
+	                      "instructions": "**Activity 3: [Select from Recommended Activities]**\\n\\nInstructions:\\n1. [Step]...\\n\\n**SELF-DIAGNOSIS / PLANNING WORKSHEET:**\\n<table class='inner-table'><thead><tr><th>Section</th><th>Prompt</th><th>Analysis</th></tr></thead><tbody><tr><td><strong>1. Diagnosis</strong></td><td>Describe...</td><td></td></tr></tbody></table>", 
+	                      "materials": "List." 
+	                  },
+	                  "onlineActivity": { "instructions": "Digital equivalent.", "materials": "Tools..." },
+	                  "supportDiscussion": "[Summarize the key principles. Keep it punchy and direct. **DO NOT** use headers.]",
+	                  "practicalApplication": "[A separate paragraph detailing a specific 'How-To' or 'Virtue Practice' for daily life. Start with: 'Practical Application: ...']",
+	                  "valuesIntegration": { "value": "Value Name", "integration": "Natural narrative connecting the concept -> value -> real world." }
+	                  }
+	                  `;
+	                break;
+
+	              case 'synthesis':
+	                prompt = `
+	                  ${commonRules}
+	                  **TASK:** Final Synthesis.
+	                  **JSON STRUCTURE:** { "type": "synthesis", "summary": "3 Paragraphs summarizing the journey. Focus on the transformation of the student's understanding. Do not cite lesson numbers." }
+	                  `;
+	                break;
+
+	              case 'performanceTask':
+	                prompt = `
+	                  ${commonRules}
+	                  **TASK:** Unit Performance Task (GRASPS).
+	                  **JSON STRUCTURE:**
+	                  {
+	                  "type": "performanceTask",
+	                  "graspsTask": {
+	                      "goal": "Goal.", "role": "Role.", "audience": "Audience.", 
+	                      "situation": "Situation (Must be a specific, realistic scenario in a Philippine setting).", "product": "Product.", "standards": "Standards."
+	                  },
+	                  "rubric": "Generate the Rubric strictly as an HTML TABLE string: <table class='inner-table'><thead><tr><th>Criteria</th><th>Description</th><th>Points</th></tr></thead><tbody><tr><td><strong>Content</strong></td><td>Desc...</td><td>20</td></tr></tbody></table>"
+	                  }
+	                  `;
+	                break;
         
-              default: return Promise.resolve(null);
-            }
+	              default: return Promise.resolve(null);
+	            }
 
-      let retries = 0;
-      while (retries < maxRetries) {
-        try {
-          const jsonString = await callGeminiWithLimitCheck(prompt, { maxOutputTokens: 8192 }); 
-          const parsedJson = tryParseJson(extractJson(jsonString));
-          if (!parsedJson) throw new Error(`Failed to generate valid JSON for section: ${type}`);
-          validateUlpJson(type, parsedJson);
-          return parsedJson;
-        } catch (error) {
-          console.error(`Attempt ${retries + 1} for '${type}' failed.`, error);
-          retries++;
-          await new Promise(res => setTimeout(res, 1500));
-        }
-      }
-      throw new Error(`Failed to generate section '${type}' after ${maxRetries} retries.`);
-    };
-
+	      let retries = 0;
+	      while (retries < maxRetries) {
+	        try {
+	          const jsonString = await callGeminiWithLimitCheck(prompt, { maxOutputTokens: 8192 }); 
+	          const parsedJson = tryParseJson(extractJson(jsonString));
+	          if (!parsedJson) throw new Error(`Failed to generate valid JSON for section: ${type}`);
+	          validateUlpJson(type, parsedJson);
+	          return parsedJson;
+	        } catch (error) {
+	          console.error(`Attempt ${retries + 1} for '${type}' failed.`, error);
+	          retries++;
+	          await new Promise(res => setTimeout(res, 1500));
+	        }
+	      }
+	      throw new Error(`Failed to generate section '${type}' after ${maxRetries} retries.`);
+	    };
     // --- HTML Assembler (Full Logic) ---
     const assembleUlpFromComponents = (components) => {
             let tbody = '';

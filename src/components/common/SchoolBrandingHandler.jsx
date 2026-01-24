@@ -6,7 +6,7 @@ import { Dialog } from '@headlessui/react';
 const AppIcon = registerPlugin('SchoolIcon');
 
 const SCHOOL_BRANDING = {
-    'srcs_main': { name: 'SRCS Learning Management System', logo: '/logo.png', alias: 'MainActivitySRCS' },
+    'srcs_main': { name: 'SRCS Digital Ecosystem', logo: '/logo.png', alias: 'MainActivitySRCS' },
     'hras_sipalay': { name: 'HRA Learning Management System', logo: '/logos/hra.png', alias: 'MainActivityHRA' },
     'kcc_kabankalan': { name: 'KCC Learning Management System', logo: '/logos/kcc.png', alias: 'MainActivityKCC' },
     'icad_dancalan': { name: 'ICA Learning Management System', logo: '/logos/ica.png', alias: 'MainActivityICA' },

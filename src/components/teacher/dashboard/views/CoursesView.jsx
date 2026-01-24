@@ -694,8 +694,9 @@ const SubjectList = memo((props) => {
             {/* bg-black/40 + backdrop-blur-md: Performance-friendly dark glass */}
             <div className="w-full max-w-7xl mx-auto h-full flex flex-col rounded-[32px] border border-white/5 bg-black/40 shadow-2xl overflow-hidden relative backdrop-blur-md transform-gpu">
                 
-                {/* --- SINGLE LINE HEADER --- */}
-                <div className="relative z-10 flex-none flex items-center justify-between gap-4 px-6 py-4 md:px-8 border-b border-white/5 bg-transparent">
+			{/* --- SINGLE LINE HEADER --- */}
+			{/* FIX: Increased z-index to z-30 */}
+			<div className="relative z-30 flex-none flex items-center justify-between gap-4 px-6 py-4 md:px-8 border-b border-white/5 bg-transparent">
                     
                     {/* LEFT: Nav & Title Grouped */}
                     <div className="flex items-center gap-4 flex-1 min-w-0">
@@ -880,11 +881,13 @@ const CategoryList = memo((props) => {
                      style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}>
                 </div>
 
-                {/* --- SUPER COMPACT HEADER (SINGLE LINE) --- */}
-                <div className="relative z-10 flex-none flex items-center justify-between gap-4 px-6 py-4 md:px-8 border-b border-white/5 bg-transparent">
-                    
-                    {/* LEFT SIDE: Controls & Title Grouped */}
-                    <div className="flex items-center gap-4 md:gap-6 overflow-hidden">
+					 {/* --- SUPER COMPACT HEADER (SINGLE LINE) --- */}
+					 {/* FIX: Increased z-index to z-30 to stay above content */}
+					 <div className="relative z-30 flex-none flex items-center justify-between gap-4 px-6 py-4 md:px-8 border-b border-white/5 bg-transparent">
+    
+					     {/* LEFT SIDE: Controls & Title Grouped */}
+					     {/* FIX: Removed 'overflow-hidden' so the dropdown isn't clipped */}
+					     <div className="flex items-center gap-4 md:gap-6">
                         
                         {/* Navigation Controls (Always Visible) */}
                         <div className="flex items-center gap-2 flex-shrink-0">

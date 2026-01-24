@@ -6,121 +6,96 @@ import CreateUlpModal from './CreateUlpModal';
 import CreateAtgModal from './CreateAtgModal';
 import CreateExamAndTosModal from './CreateExamAndTosModal';
 import {
-    DocumentTextIcon,
-    DocumentChartBarIcon,
-    AcademicCapIcon,
-    XMarkIcon,
-    PencilSquareIcon,
-    ArrowRightIcon,
     SparklesIcon,
-    ComputerDesktopIcon,
-    BeakerIcon,
-    ClipboardDocumentCheckIcon,
-    BookOpenIcon
-} from '@heroicons/react/24/solid'; // Switched to solid for richer One UI look
+    XMarkIcon,
+    ArrowRightIcon,
+    DocumentTextIcon,
+    AcademicCapIcon,
+    ChartBarIcon,
+    CpuChipIcon,
+    MoonIcon
+} from '@heroicons/react/24/solid';
 
-// --- ONE UI 8.5 MONET ENGINE ---
-const getMonetPalette = (overlay) => {
-    // Default "Brand" Palette (Samsung Blue-ish)
-    const base = {
-        bg: "bg-white dark:bg-[#121212]",
-        modalBg: "bg-[#F7F9FC] dark:bg-[#1E1E1E]",
-        accent: "bg-blue-600",
-        accentGradient: "from-blue-500 to-indigo-600",
-        accentLight: "bg-blue-50 dark:bg-blue-900/20",
-        textPrimary: "text-slate-900 dark:text-white",
-        textSecondary: "text-slate-500 dark:text-slate-400",
-        textAccent: "text-blue-600 dark:text-blue-400",
-        border: "border-slate-200 dark:border-slate-700",
-        iconContainer: "bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-300",
-        ring: "focus:ring-blue-500",
-        hoverShadow: "hover:shadow-blue-500/10"
-    };
-
-    switch (overlay) {
-        case 'christmas':
-            return {
-                ...base,
-                modalBg: "bg-[#F0FDF4] dark:bg-[#0a1f12]",
-                accent: "bg-emerald-600",
-                accentGradient: "from-emerald-500 to-green-600",
-                accentLight: "bg-emerald-50 dark:bg-emerald-900/20",
-                textAccent: "text-emerald-700 dark:text-emerald-400",
-                iconContainer: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300",
-                ring: "focus:ring-emerald-500",
-                hoverShadow: "hover:shadow-emerald-500/10"
-            };
-        case 'valentines':
-            return {
-                ...base,
-                modalBg: "bg-[#FFF1F2] dark:bg-[#2a0a10]",
-                accent: "bg-rose-600",
-                accentGradient: "from-rose-500 to-pink-600",
-                accentLight: "bg-rose-50 dark:bg-rose-900/20",
-                textAccent: "text-rose-700 dark:text-rose-400",
-                iconContainer: "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300",
-                ring: "focus:ring-rose-500",
-                hoverShadow: "hover:shadow-rose-500/10"
-            };
-        case 'graduation':
-            return {
-                ...base,
-                modalBg: "bg-[#FFFBEB] dark:bg-[#1f1a0a]",
-                accent: "bg-amber-500",
-                accentGradient: "from-amber-400 to-orange-500",
-                accentLight: "bg-amber-50 dark:bg-amber-900/20",
-                textAccent: "text-amber-700 dark:text-amber-400",
-                iconContainer: "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300",
-                ring: "focus:ring-amber-500",
-                hoverShadow: "hover:shadow-amber-500/10"
-            };
-        case 'rainy':
-            return {
-                ...base,
-                modalBg: "bg-[#F0F9FF] dark:bg-[#0a1a2a]",
-                accent: "bg-cyan-600",
-                accentGradient: "from-cyan-500 to-blue-600",
-                accentLight: "bg-cyan-50 dark:bg-cyan-900/20",
-                textAccent: "text-cyan-700 dark:text-cyan-400",
-                iconContainer: "bg-cyan-100 text-cyan-700 dark:bg-cyan-500/20 dark:text-cyan-300",
-                ring: "focus:ring-cyan-500",
-                hoverShadow: "hover:shadow-cyan-500/10"
-            };
-        default:
-            return base;
+// --- MOONLIGHT OS STYLES ---
+const MOONLIGHT_STYLES = `
+    @keyframes moon-float {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-6px); }
     }
-};
+    @keyframes star-twinkle {
+        0%, 100% { opacity: 0.3; transform: scale(1); }
+        50% { opacity: 1; transform: scale(1.2); }
+    }
+    @keyframes beam-scan {
+        0% { background-position: -200% 0; }
+        100% { background-position: 200% 0; }
+    }
 
-// --- ONE UI CARD COMPONENT ---
-const AIToolCard = ({ title, description, icon: Icon, onClick, disabled, badge, monet }) => {
+    .moon-bg {
+        background: radial-gradient(circle at 50% 0%, #1e293b 0%, #020617 100%);
+    }
+    
+    .moon-card {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 4px 24px -1px rgba(0, 0, 0, 0.2);
+        backdrop-filter: blur(12px); 
+        -webkit-backdrop-filter: blur(12px);
+    }
+
+    /* The "Moonlight" Rim Light Effect */
+    .moon-card:hover {
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%);
+        border-color: rgba(255, 255, 255, 0.3);
+        box-shadow: 0 0 30px rgba(148, 163, 184, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        transform: translateY(-2px);
+    }
+    
+    .moon-text-glow {
+        text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+    }
+    
+    .moon-beam {
+        position: absolute;
+        top: 0; left: 0; right: 0; height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent);
+        opacity: 0.3;
+    }
+`;
+
+// --- MOONLIGHT CARD COMPONENT ---
+const MoonlightCard = ({ title, description, icon: Icon, onClick, badge, index }) => {
     return (
         <button
             onClick={onClick}
-            disabled={disabled}
+            style={{ animationDelay: `${index * 100}ms` }}
             className={`
                 group relative w-full h-full flex flex-col p-6 text-left
-                rounded-[32px] border transition-all duration-300 ease-out
-                ${disabled ? 'opacity-60 cursor-not-allowed grayscale' : 'cursor-pointer hover:-translate-y-1.5'}
-                bg-white dark:bg-[#252525] 
-                ${monet.border}
-                shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none
-                ${monet.hoverShadow} hover:shadow-2xl
+                rounded-[24px] transition-all duration-500 ease-out
+                moon-card overflow-hidden
+                animate-in fade-in slide-in-from-bottom-8 fill-mode-backwards
             `}
         >
-            {/* Header: Icon & Badge */}
-            <div className="flex justify-between items-start w-full mb-5">
+            {/* Top Beam Light */}
+            <div className="moon-beam group-hover:opacity-100 transition-opacity duration-500" />
+
+            {/* Header */}
+            <div className="relative z-10 flex justify-between items-start w-full mb-6">
                 <div className={`
-                    w-16 h-16 rounded-[22px] flex items-center justify-center
-                    bg-gradient-to-br ${monet.accentGradient}
-                    text-white shadow-md transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3
+                    w-12 h-12 rounded-2xl flex items-center justify-center
+                    bg-white/5 border border-white/10 
+                    text-indigo-200 shadow-[0_0_15px_rgba(99,102,241,0.15)]
+                    group-hover:text-white group-hover:shadow-[0_0_25px_rgba(99,102,241,0.4)]
+                    transition-all duration-500 group-hover:scale-110
                 `}>
-                    <Icon className="w-8 h-8" />
+                    <Icon className="w-6 h-6" />
                 </div>
                 
                 {badge && (
                     <span className={`
-                        px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider
-                        ${monet.accentLight} ${monet.textAccent}
+                        px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest
+                        bg-indigo-500/10 border border-indigo-400/20 text-indigo-300
+                        shadow-lg
                     `}>
                         {badge}
                     </span>
@@ -128,19 +103,23 @@ const AIToolCard = ({ title, description, icon: Icon, onClick, disabled, badge, 
             </div>
 
             {/* Content */}
-            <div className="flex-1 flex flex-col">
-                <h3 className={`text-xl font-bold mb-2 tracking-tight ${monet.textPrimary}`}>
+            <div className="relative z-10 flex-1">
+                <h3 className="text-xl font-medium tracking-wide text-white mb-2 group-hover:moon-text-glow transition-all">
                     {title}
                 </h3>
-                <p className={`text-sm font-medium leading-relaxed ${monet.textSecondary}`}>
+                <p className="text-sm font-light text-slate-400 leading-relaxed group-hover:text-slate-200 transition-colors">
                     {description}
                 </p>
             </div>
 
-            {/* Footer Action */}
-            <div className={`mt-6 flex items-center text-xs font-bold uppercase tracking-widest transition-colors ${monet.textAccent} group-hover:opacity-80`}>
-                <span>Launch Tool</span>
-                <ArrowRightIcon className="w-4 h-4 ml-2 transition-transform duration-300 group-hover:translate-x-1" />
+            {/* Action Footer */}
+            <div className="relative z-10 mt-8 flex items-center justify-between border-t border-white/5 pt-4">
+                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 group-hover:text-indigo-300 transition-colors">
+                    Initialize
+                </span>
+                <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-indigo-500/20 transition-colors">
+                    <ArrowRightIcon className="w-3 h-3 text-slate-400 group-hover:text-white transition-colors" />
+                </div>
             </div>
         </button>
     );
@@ -148,53 +127,57 @@ const AIToolCard = ({ title, description, icon: Icon, onClick, disabled, badge, 
 
 export default function AiGenerationHub({ isOpen, onClose, unitId, subjectId }) {
     const [activeGenerator, setActiveGenerator] = useState(null);
-    const { activeOverlay } = useTheme();
-    
-    // Get Dynamic One UI Theme
-    const monet = getMonetPalette(activeOverlay);
 
-    // --- ENHANCED OPTIONS CONFIGURATION ---
+    // Lock Scroll & Inject Styles
+    useEffect(() => {
+        if (isOpen) {
+            document.body.style.overflow = 'hidden';
+            if (!document.getElementById('moonlight-styles')) {
+                const style = document.createElement('style');
+                style.id = 'moonlight-styles';
+                style.innerHTML = MOONLIGHT_STYLES;
+                document.head.appendChild(style);
+            }
+        } else {
+            document.body.style.overflow = 'unset';
+        }
+        return () => { document.body.style.overflow = 'unset'; };
+    }, [isOpen]);
+
     const generatorOptions = [
         {
-            title: "Learning Guide",
-            description: "Generate comprehensive, pedagogically sound lesson plans aligned with K-12 standards instantly.",
-            icon: BookOpenIcon,
+            title: "Lesson Guide",
+            description: "Craft detailed lesson plans tailored to curriculum standards.",
+            icon: DocumentTextIcon,
             action: () => setActiveGenerator('lesson'),
-            badge: "Most Popular",
+            badge: "Essentials",
         },
         {
             title: "Unit Learning Plan",
-            description: "Structure entire learning units (ULP) with cohesive objectives, firm-up activities, and transfer tasks.",
-            icon: DocumentChartBarIcon, // Represents structure/planning
+            description: "Structure comprehensive Unit Learning Plans (ULP) effortlessly.",
+            icon: ChartBarIcon,
             action: () => setActiveGenerator('ulp'),
-            badge: "Strategic",
+            badge: "Structure",
         },
         {
             title: "Adaptive Teaching Guide",
-            description: "Create personalized ATG guides that adapt instruction for diverse learner needs and prerequisites.",
-            icon: AcademicCapIcon, // Represents teaching mastery
+            description: "Generate non-linear teaching guides for diverse learners.",
+            icon: CpuChipIcon,
             action: () => setActiveGenerator('atg'),
         },
         {
-            title: "Assessment Suite",
-            description: "Automatically construct balanced Exams and Tables of Specifications (TOS) based on your lessons.",
-            icon: ClipboardDocumentCheckIcon, // Represents checking/testing
+            title: "Exam & TOS",
+            description: "Synthesize balanced assessments and specification tables.",
+            icon: AcademicCapIcon,
             action: () => setActiveGenerator('exam'),
-            badge: "High Value",
+            badge: "New",
         }
     ];
 
     if (!isOpen) return null;
 
-    // --- RENDER ACTIVE MODAL ---
     const renderActiveModal = () => {
-        const commonProps = {
-            isOpen: true,
-            onClose: () => setActiveGenerator(null),
-            unitId,
-            subjectId
-        };
-
+        const commonProps = { isOpen: true, onClose: () => setActiveGenerator(null), unitId, subjectId };
         switch (activeGenerator) {
             case 'lesson': return <CreateLearningGuideModal {...commonProps} />;
             case 'ulp': return <CreateUlpModal {...commonProps} />;
@@ -206,75 +189,74 @@ export default function AiGenerationHub({ isOpen, onClose, unitId, subjectId }) 
 
     return (
         <>
-            {/* Main Hub Modal */}
             {!activeGenerator && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                    {/* Glassmorphic Backdrop */}
+                    
+                    {/* --- BACKGROUND (Night Sky) --- */}
                     <div 
-                        className="fixed inset-0 bg-slate-900/40 backdrop-blur-xl transition-opacity duration-300"
+                        className="fixed inset-0 bg-[#020617]/90 backdrop-blur-sm transition-opacity duration-500"
                         onClick={onClose}
                     />
 
-                    {/* One UI Container */}
+                    {/* --- MAIN CONTAINER (The Monolith) --- */}
                     <div className={`
-                        relative w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col
-                        rounded-[40px] shadow-2xl ring-1 ring-white/10
-                        ${monet.modalBg} animate-in fade-in zoom-in-95 duration-300
+                        relative w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden
+                        rounded-[32px] shadow-2xl ring-1 ring-white/10
+                        moon-bg animate-in zoom-in-95 duration-500 ease-out
                     `}>
                         
-                        {/* Header Section */}
-                        <div className="flex-shrink-0 px-8 pt-10 pb-6 flex items-start justify-between">
-                            <div className="max-w-2xl">
-                                <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-4 ${monet.accentLight} ${monet.textAccent}`}>
-                                    <SparklesIcon className="w-4 h-4" />
-                                    <span>AI Assistant Suite 8.5</span>
+                        {/* Decorative: Ambient Glow */}
+                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-indigo-500/10 blur-[100px] pointer-events-none rounded-full" />
+
+                        {/* --- HEADER --- */}
+                        <div className="relative z-10 flex-shrink-0 px-8 pt-10 pb-6 flex items-start justify-between">
+                            <div>
+                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest mb-4 bg-white/5 border border-white/10 text-indigo-200 shadow-[0_0_15px_rgba(99,102,241,0.1)]">
+                                    <MoonIcon className="w-3 h-3 text-indigo-300" />
+                                    <span>Moonlight OS</span>
                                 </div>
-                                <h2 className={`text-4xl font-black tracking-tighter mb-3 ${monet.textPrimary}`}>
-                                    What would you like to create?
+                                <h2 className="text-4xl sm:text-5xl font-light tracking-tight text-white mb-2">
+                                    Creation <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400">Hub.</span>
                                 </h2>
-                                <p className={`text-lg font-medium ${monet.textSecondary}`}>
-                                    Select a tool below to generate high-fidelity academic content tailored to your curriculum.
+                                <p className="text-sm sm:text-base font-light text-slate-400 max-w-md">
+                                    Select an intelligence module to begin generating content.
                                 </p>
                             </div>
                             
                             <button 
                                 onClick={onClose}
-                                className={`
-                                    p-3 rounded-full transition-all duration-200
-                                    hover:bg-slate-200 dark:hover:bg-white/10
-                                    ${monet.textSecondary}
-                                `}
+                                className="group p-3 rounded-full bg-white/5 hover:bg-white/10 transition-colors border border-white/5"
                             >
-                                <XMarkIcon className="w-8 h-8" />
+                                <XMarkIcon className="w-6 h-6 text-slate-400 group-hover:text-white transition-colors" />
                             </button>
                         </div>
 
-                        {/* Scrollable Grid Area */}
-                        <div className="flex-1 overflow-y-auto px-8 pb-10 custom-scrollbar">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
-                                {generatorOptions.map((option) => (
-                                    <div key={option.title} className="h-full min-h-[240px]">
-                                        <AIToolCard
+                        {/* --- CONTENT GRID --- */}
+                        <div className="relative z-10 flex-1 overflow-y-auto px-8 pb-12 custom-scrollbar">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {generatorOptions.map((option, idx) => (
+                                    <div key={option.title} className="h-[240px]">
+                                        <MoonlightCard
+                                            index={idx}
                                             title={option.title}
                                             description={option.description}
                                             icon={option.icon}
                                             onClick={option.action}
                                             badge={option.badge}
-                                            monet={monet}
                                         />
                                     </div>
                                 ))}
                             </div>
                         </div>
 
-                        {/* Footer / Branding */}
-                        <div className={`
-                            px-8 py-4 text-center border-t 
-                            ${monet.border} bg-white/50 dark:bg-black/10 backdrop-blur-md
-                        `}>
-                            <p className={`text-xs font-bold uppercase tracking-widest opacity-40 ${monet.textSecondary}`}>
-                                SRCS LMS • ALL RIGHTS RESERVED
-                            </p>
+                        {/* --- FOOTER STATUS --- */}
+                        <div className="relative z-10 py-4 text-center border-t border-white/5 bg-[#020617]/50 backdrop-blur-md">
+                            <div className="flex items-center justify-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" />
+                                <span className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                                    AI Core Online
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -67,7 +67,7 @@ const CommandPalette = lazy(() => import('./CommandPalette'));
 
 // --- CONFIGURATION ---
 const SCHOOL_BRANDING = {
-    'srcs_main': { name: 'SRCS LMS', logo: '/logo.png' },
+    'srcs_main': { name: 'SRCS Digital Ecosystem', logo: '/logo.png' },
     'hras_sipalay': { name: 'HRA LMS', logo: '/logos/hra.png' },
     'kcc_kabankalan': { name: 'KCC LMS', logo: '/logos/kcc.png' },
     'icad_dancalan': { name: 'ICA LMS', logo: '/logos/ica.png' },
@@ -122,62 +122,87 @@ const DashboardSkeleton = memo(() => (
     </div>
 ));
 
-// --- NEW: Aesthetic Icon with Micro-Interactions ---
+// --- REDESIGNED: Aesthetic Icon with Dynamic Monet Theme Highlights ---
+// --- COMPONENT: Dark Mode "Neon" Icon ---
 const AestheticIcon = memo(({ Icon, isActive }) => {
     return (
         <div className="relative flex items-center justify-center">
-            {/* Active Glow Backdrop */}
+            {/* 1. Active Glow (The 'Light Source') */}
             <AnimatePresence>
                 {isActive && (
                     <motion.div
                         initial={{ opacity: 0, scale: 0.5 }}
-                        animate={{ opacity: 1, scale: 1 }}
+                        animate={{ opacity: 0.6, scale: 1.4 }} // Soft outer glow
                         exit={{ opacity: 0, scale: 0.5 }}
-                        className="absolute inset-0 rounded-2xl bg-gradient-to-tr from-indigo-500 to-violet-500 blur-md opacity-40"
+                        className="absolute inset-0 rounded-full blur-xl"
+                        style={{ backgroundColor: 'var(--monet-primary)' }}
                     />
                 )}
             </AnimatePresence>
 
-            {/* Icon Container */}
+            {/* 2. The Icon Container */}
             <motion.div
                 className={`
-                    relative flex items-center justify-center w-11 h-11 rounded-xl
-                    transition-all duration-300 z-10
-                    ${isActive 
-                        ? 'bg-gradient-to-br from-indigo-600 to-violet-600 shadow-lg shadow-indigo-500/30' 
-                        : 'bg-slate-100 dark:bg-white/5 group-hover/item:bg-white dark:group-hover/item:bg-white/10'
-                    }
+                    relative flex items-center justify-center w-11 h-11 rounded-[14px]
+                    transition-all duration-300 z-10 border
                 `}
-                whileHover={{ rotate: isActive ? 0 : [0, -10, 10, 0], scale: 1.05 }}
-                transition={{ duration: 0.3 }}
+                style={{
+                    // Active: Solid dark background + Colored Border + Inner Glow
+                    // Inactive: Transparent + Transparent Border
+                    backgroundColor: isActive ? 'rgba(0,0,0,0.3)' : 'transparent',
+                    borderColor: isActive ? 'var(--monet-primary)' : 'transparent',
+                    boxShadow: isActive ? 'inset 0 0 12px rgba(0,0,0,0.5)' : 'none'
+                }}
+                whileHover={{ scale: 1.1 }}
             >
                 <Icon
-                    size={20}
-                    strokeWidth={isActive ? 2.5 : 2}
-                    className={`transition-colors duration-300 ${isActive ? 'text-white' : 'text-slate-500 dark:text-slate-400 group-hover/item:text-indigo-500 dark:group-hover/item:text-indigo-300'}`}
-                    fill={isActive ? "currentColor" : "transparent"}
+                    size={22}
+                    strokeWidth={isActive ? 2.5 : 2} // Thicker stroke when active
+                    style={{ 
+                        // Active: Pure White (for contrast against color glow) or Theme Color
+                        // Inactive: Muted Grey
+                        color: isActive ? 'var(--monet-primary)' : '#94a3b8',
+                        
+                        // The 'Neon' Text Shadow effect
+                        filter: isActive 
+                            ? 'drop-shadow(0 0 8px var(--monet-primary))' 
+                            : 'none'
+                    }}
                 />
             </motion.div>
         </div>
     );
 });
 
-// --- NEW: Aesthetic Sidebar with Fluid Hover Effects ---
+// --- COMPONENT: Dark Mode Sidebar (Fixed) ---
 const AestheticSidebar = memo(({ navItems, activeView, handleViewChange, branding, showTutorial, onTutorialComplete }) => {
     return (
         <motion.div
             initial={{ x: -100 }} animate={{ x: 0 }} 
-            className="hidden lg:flex flex-col h-full w-[88px] hover:w-[280px] transition-[width] duration-500 cubic-bezier(0.25, 1, 0.5, 1) group relative z-50 bg-white/80 dark:bg-[#0F0F11]/90 backdrop-blur-3xl border-r border-slate-200/50 dark:border-white/5"
+            // FIXED: Hardcoded dark background matching strictly dark mode
+            className="hidden lg:flex flex-col h-full w-[88px] hover:w-[280px] transition-[width] duration-500 cubic-bezier(0.25, 1, 0.5, 1) group relative z-50 border-r border-white/5"
+            style={{
+                backgroundColor: '#09090b', // Deep dark background (Slate 950)
+                // Optional: Use a very subtle tint of the primary color on the background itself
+                // backgroundImage: 'linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(var(--monet-primary-rgb), 0.05) 100%)' 
+            }}
         >
             {/* Branding Section */}
             <div className="h-24 flex items-center px-5 overflow-hidden whitespace-nowrap">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-white to-slate-100 dark:from-white/10 dark:to-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center shadow-sm flex-shrink-0 z-20">
+                {/* Logo Box */}
+                <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center shadow-sm flex-shrink-0 z-20">
                     <img src={branding.logo} alt="Logo" className="w-8 h-8 object-contain" />
                 </div>
                 
+                {/* Text */}
                 <div className="ml-4 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-100 flex flex-col">
-                    <h1 className="font-bold text-lg text-slate-900 dark:text-white leading-none tracking-tight">{branding.name}</h1>
-                    <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest mt-1.5">Teacher Workspace</span>
+                    <h1 className="font-bold text-md text-white leading-none tracking-tight">{branding.name}</h1>
+                    <span 
+                        className="text-[10px] font-bold uppercase tracking-widest mt-1.5"
+                        style={{ color: 'var(--monet-primary)' }} // Dynamic Theme Color
+                    >
+                        Teacher Workspace
+                    </span>
                 </div>
             </div>
 
@@ -192,16 +217,22 @@ const AestheticSidebar = memo(({ navItems, activeView, handleViewChange, brandin
                             end={item.view === 'home'}
                             onClick={() => handleViewChange(item.view)}
                             className={`
-                                relative flex items-center h-16 rounded-[18px] group/item cursor-pointer
-                                transition-all duration-300 outline-none
-                                ${isActive ? 'bg-slate-50 dark:bg-white/5' : 'hover:bg-slate-50 dark:hover:bg-white/5'}
+                                relative flex items-center h-16 rounded-[20px] group/item cursor-pointer
+                                transition-all duration-300 outline-none mb-1 mx-1
                             `}
+                            style={{
+                                // Active: Very low opacity background tint of the theme color
+                                backgroundColor: isActive 
+                                    ? 'rgba(255, 255, 255, 0.03)' 
+                                    : 'transparent',
+                            }}
                         >
-                            {/* Active Indicator Strip (Left) */}
+                            {/* ACTIVE INDICATOR (Glowing Line) */}
                             {isActive && (
                                 <motion.div 
-                                    layoutId="activeStrip"
-                                    className="absolute left-0 w-1 h-8 bg-indigo-500 rounded-r-full"
+                                    layoutId="activeGlowStrip"
+                                    className="absolute left-0 w-1 h-8 rounded-r-full shadow-[0_0_15px_currentColor]"
+                                    style={{ backgroundColor: 'var(--monet-primary)', color: 'var(--monet-primary)' }}
                                 />
                             )}
 
@@ -211,11 +242,27 @@ const AestheticSidebar = memo(({ navItems, activeView, handleViewChange, brandin
                             </div>
                             
                             {/* Text Label */}
-                            <div className="flex-1 flex items-center justify-between pr-4 overflow-hidden opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-75">
-                                <span className={`text-[14px] font-semibold tracking-wide ${isActive ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400 group-hover/item:text-slate-700 dark:group-hover/item:text-slate-200'}`}>
+                            <div className="flex-1 flex items-center justify-between pr-4 overflow-hidden opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                <span 
+                                    className="text-[14px] font-bold tracking-wide transition-colors"
+                                    style={{
+                                        // Active: Theme Color
+                                        // Inactive: Grey
+                                        color: isActive 
+                                            ? 'var(--monet-primary)' 
+                                            : '#94a3b8' 
+                                    }}
+                                >
                                     {item.text}
                                 </span>
-                                {isActive && <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.6)]" />}
+                                
+                                {/* Optional: Tiny glowing dot for active state */}
+                                {isActive && (
+                                    <div 
+                                        className="w-1.5 h-1.5 rounded-full shadow-[0_0_8px_currentColor]"
+                                        style={{ backgroundColor: 'var(--monet-primary)', color: 'var(--monet-primary)' }}
+                                    />
+                                )}
                             </div>
                         </NavLink>
                     );
@@ -223,32 +270,29 @@ const AestheticSidebar = memo(({ navItems, activeView, handleViewChange, brandin
             </nav>
 
             {/* Bottom Actions (Theme Toggle) */}
-            <div className="p-4 border-t border-slate-200/50 dark:border-white/5">
+            <div className="p-4 border-t border-white/5">
                 <Menu as="div" className="relative">
                     <Menu.Button 
                         onClick={onTutorialComplete}
                         className={`
                             flex items-center w-full h-14 rounded-[18px] 
-                            hover:bg-indigo-50 dark:hover:bg-indigo-500/10 
-                            transition-colors group/btn outline-none
-                            ${showTutorial ? 'ring-2 ring-indigo-500 ring-offset-2 dark:ring-offset-slate-900' : ''}
+                            hover:bg-white/5 transition-colors group/btn outline-none
+                            ${showTutorial ? 'ring-1 ring-white/20' : ''}
                         `}
                     >
                          <div className="min-w-[4rem] flex justify-center items-center">
-                            <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-500 dark:text-slate-400 group-hover/btn:text-indigo-600 dark:group-hover/btn:text-indigo-300 transition-colors">
+                            <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-slate-400 group-hover/btn:text-white transition-colors">
                                 <Palette size={18} />
                             </div>
                          </div>
                          <div className="ml-1 flex flex-col items-start overflow-hidden opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                             <span className="text-[13px] font-bold text-slate-700 dark:text-slate-200">
+                             <span className="text-[13px] font-bold text-white">
                                  Appearance
-                             </span>
-                             <span className="text-[10px] font-medium text-slate-400">
-                                 Change Theme
                              </span>
                          </div>
                     </Menu.Button>
                     
+                    {/* Dark Mode Optimized Menu */}
                     <Transition
                         as={Fragment}
                         enter="transition ease-out duration-200"
@@ -258,9 +302,14 @@ const AestheticSidebar = memo(({ navItems, activeView, handleViewChange, brandin
                         leaveFrom="opacity-100 translate-y-0 scale-100"
                         leaveTo="opacity-0 translate-y-2 scale-95"
                     >
-                        <Menu.Items className="absolute bottom-full left-4 mb-2 w-64 p-3 origin-bottom-left rounded-3xl bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-2xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.2)] ring-1 ring-slate-200 dark:ring-white/10 focus:outline-none z-[60]">
-                           <div className="px-3 py-2 border-b border-slate-100 dark:border-white/5 mb-3">
-                               <span className="text-xs font-bold text-indigo-500 uppercase tracking-widest">Display Settings</span>
+                        <Menu.Items className="absolute bottom-full left-4 mb-2 w-64 p-3 origin-bottom-left rounded-3xl bg-[#18181b] border border-white/10 shadow-2xl focus:outline-none z-[60]">
+                           <div className="px-3 py-2 border-b border-white/10 mb-3">
+                               <span 
+                                   className="text-xs font-bold uppercase tracking-widest"
+                                   style={{ color: 'var(--monet-primary)' }}
+                                >
+                                   Display Settings
+                                </span>
                            </div>
                            <ThemeToggle />
                         </Menu.Items>
@@ -940,22 +989,67 @@ const TeacherDashboardLayout = (props) => {
                 {rest.isDeleteSubjectModalOpen && <DeleteSubjectModal isOpen={rest.isDeleteSubjectModalOpen} onClose={() => rest.setDeleteSubjectModalOpen(false)} subject={rest.subjectToActOn} />}
             </Suspense>
 
-            {/* Logout Modal */}
-            <CSSTransition in={isLogoutModalOpen} timeout={400} classNames="logout-modal" unmountOnExit>
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-                    <div className="glass-panel rounded-[2.5rem] shadow-2xl p-8 w-full max-w-sm text-center transform transition-all bg-white dark:bg-[#1A1D24]">
-                        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/30 dark:to-red-900/50 text-red-500 mx-auto mb-5 flex items-center justify-center shadow-inner ring-4 ring-slate-100 dark:ring-white/5">
-                            <Power size={28} strokeWidth={2} />
-                        </div>
-                        <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2 tracking-tight">Sign Out?</h2>
-                        <p className="text-sm text-slate-500 dark:text-slate-400 mb-8 leading-relaxed font-medium">You are about to end your session.<br/>Are you sure you want to continue?</p>
-                        <div className="flex flex-col gap-3">
-                            <button onClick={confirmLogout} className="w-full py-3.5 rounded-2xl font-bold text-white bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 shadow-lg shadow-red-500/30 transition-all active:scale-95 text-sm tracking-wide">Yes, Log Out</button>
-                            <button onClick={cancelLogout} className="w-full py-3.5 rounded-2xl font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all text-sm tracking-wide">Cancel</button>
-                        </div>
-                    </div>
-                </div>
-            </CSSTransition>
+				{/* Logout Modal - Moonlight OS Edition (Fixed) */}
+				<CSSTransition in={isLogoutModalOpen} timeout={400} classNames="logout-modal" unmountOnExit>
+				    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+        
+				        {/* Backdrop - Added z-0 to ensure it stays behind */}
+				        <div 
+				            className="absolute inset-0 z-0 bg-[#020617]/80 backdrop-blur-md transition-opacity" 
+				            onClick={cancelLogout}
+				        />
+
+				        {/* Modal Panel - Added z-10 relative to ensure it sits above backdrop */}
+				        <div className="relative z-10 w-full max-w-sm rounded-[32px] overflow-hidden border border-white/10 shadow-2xl bg-[#0f172a] transform transition-all">
+            
+				            {/* Ambient "Hazard" Glow - Added pointer-events-none */}
+				            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_rgba(220,38,38,0.15),_transparent_70%)] pointer-events-none" />
+            
+				            {/* Noise Texture - FIXED: Added pointer-events-none */}
+				            <div className="absolute inset-0 opacity-[0.03] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] mix-blend-overlay pointer-events-none" />
+
+				            {/* Content Container - z-20 to sit above all decorations */}
+				            <div className="relative z-20 p-8 text-center">
+                
+				                {/* Icon Container */}
+				                <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 mx-auto mb-6 flex items-center justify-center shadow-[0_0_30px_rgba(220,38,38,0.2)] group">
+				                    <div className="relative z-10 text-red-500 drop-shadow-[0_0_8px_rgba(220,38,38,0.8)] transition-transform duration-500 group-hover:scale-110">
+				                        <Power size={32} strokeWidth={2} />
+				                    </div>
+				                    {/* Inner pulse ring - Added pointer-events-none */}
+				                    <div className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-red-500/20 pointer-events-none" />
+				                </div>
+
+				                <h2 className="text-2xl font-medium text-white mb-2 tracking-tight drop-shadow-md">
+				                    System Sign Out
+				                </h2>
+                
+				                <p className="text-sm text-slate-400 mb-8 leading-relaxed font-light">
+				                    You are terminating your active session.<br/>
+				                    <span className="text-red-400/80">Unsaved data may be lost in the void.</span>
+				                </p>
+
+				                <div className="flex flex-col gap-3">
+				                    {/* Confirm Button */}
+				                    <button 
+				                        onClick={confirmLogout} 
+				                        className="w-full py-3.5 rounded-xl font-bold text-white text-sm tracking-widest uppercase bg-red-600 hover:bg-red-500 shadow-[0_0_20px_rgba(220,38,38,0.4)] hover:shadow-[0_0_30px_rgba(220,38,38,0.6)] border border-red-500/50 transition-all active:scale-95 cursor-pointer relative z-30"
+				                    >
+				                        Confirm Termination
+				                    </button>
+                    
+				                    {/* Cancel Button */}
+				                    <button 
+				                        onClick={cancelLogout} 
+				                        className="w-full py-3.5 rounded-xl font-bold text-slate-400 hover:text-white text-sm tracking-widest uppercase hover:bg-white/5 border border-transparent hover:border-white/10 transition-all active:scale-95 cursor-pointer relative z-30"
+				                    >
+				                        Abort
+				                    </button>
+				                </div>
+				            </div>
+				        </div>
+				    </div>
+				</CSSTransition>
         </div>
     );
 };

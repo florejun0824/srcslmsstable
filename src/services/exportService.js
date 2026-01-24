@@ -338,7 +338,8 @@ const preProcessHtmlForExport = (rawHtml, mode = 'pdf') => {
                         currentTable.style.marginBottom = '8px';
                         
                         const colGroup = document.createElement('colgroup');
-                        colGroup.innerHTML = '<col style="width:30%"><col style="width:70%">';
+                        // MODIFIED: Changed from 30%/70% to 25%/75% to match PDF requirements
+                        colGroup.innerHTML = '<col style="width:25%"><col style="width:75%">';
                         currentTable.appendChild(colGroup);
                         
                         table.parentNode.insertBefore(currentTable, table);
@@ -453,8 +454,14 @@ const cleanUpPdfContent = (content, inTable = false, depth = 0, tableCols = 1) =
                 });
             });
 
-            const colWidth = 100 / safeMaxCols;
-            content.table.widths = Array(safeMaxCols).fill(colWidth + '%');
+            // MODIFIED: Apply 25/75 width for 2-column tables (ULP style) to save pages
+            if (safeMaxCols === 2) {
+                content.table.widths = ['25%', '*'];
+            } else {
+                const colWidth = 100 / safeMaxCols;
+                content.table.widths = Array(safeMaxCols).fill(colWidth + '%');
+            }
+
             content.layout = {
                 hLineWidth: () => 0.5,
                 vLineWidth: () => 0.5,
@@ -632,11 +639,19 @@ export const generateDocx = async (lesson, subject, showToast) => {
                     <meta charset="utf-8">
                     <title>${lessonTitle}</title>
                     <style>
-                        @page Section1 { size: 8.5in 13in; margin: 1.0in 0.5in 0.5in 0.5in; mso-header-margin: 0.5in; mso-footer-margin: 0.5in; }
+                        @page Section1 { size: 8.5in 13in; margin: 1.0in 0.5in 1.0in 0.5in; mso-header-margin: 0.5in; mso-footer-margin: 0.5in; }
                         div.Section1 { page: Section1; }
                         body { font-family: 'Arial', sans-serif; }
-                        table { border-collapse: collapse; width: 100%; margin-bottom: 10px; }
-                        td, th { border: 1px solid black; padding: 8px; vertical-align: top; }
+                        
+                        /* MODIFIED: Fixed table layout to prevent destruction */
+                        table { 
+                            border-collapse: collapse; 
+                            width: 100%; 
+                            table-layout: fixed; 
+                            margin-bottom: 10px; 
+                        }
+                        
+                        td, th { border: 1px solid black; padding: 8px; vertical-align: top; word-wrap: break-word; }
                         th { background-color: #f0f0f0; font-weight: bold; }
                         thead { display: table-header-group; }
                         img { max-width: 100%; }
@@ -649,9 +664,15 @@ export const generateDocx = async (lesson, subject, showToast) => {
                 </html>
             `;
 
+            // MODIFIED: Updated margins (1440 = 1 inch, 720 = 0.5 inch)
             const blob = await asBlob(fullHtml, {
                 orientation: 'portrait',
-                margins: { top: 1440, right: 720, bottom: 720, left: 720 }
+                margins: { 
+                    top: 1440,     // 1 inch
+                    right: 720,    // 0.5 inch
+                    bottom: 1440,  // 1 inch
+                    left: 720      // 0.5 inch
+                }
             });
 
             if (isNativePlatform()) {
