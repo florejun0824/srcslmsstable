@@ -2,7 +2,7 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import PrivacyPolicyContent, { POLICY_VERSION } from '../components/PrivacyPolicyContent';
-import { ShieldCheckIcon, ArrowLeftIcon } from '@heroicons/react/24/solid';
+import { ShieldCheckIcon, ArrowLeftIcon, HomeIcon } from '@heroicons/react/24/solid';
 
 // --- SHARED BACKGROUND (Matching Login) ---
 const MeshGradientBackground = () => (
@@ -16,66 +16,95 @@ const MeshGradientBackground = () => (
 const PrivacyPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const previousFormData = location.state?.formData;
 
   const handleBack = () => {
-     navigate('/login', { state: { formData: previousFormData } });
+    if (location.state?.formData) {
+        navigate('/login', { state: { formData: location.state.formData } });
+    } else {
+        navigate('/login');
+    }
+  };
+
+  const handleHome = () => {
+    navigate('/');
   };
 
   return (
-    <div className="relative min-h-[100dvh] w-full flex items-center justify-center font-sans overflow-hidden bg-slate-50 dark:bg-black p-4 sm:p-6">
+    <div className="min-h-screen w-full flex items-center justify-center relative font-sans bg-slate-50 dark:bg-black">
+      
       <MeshGradientBackground />
 
-      {/* CARD CONTAINER */}
-      <div className="relative z-20 w-full max-w-4xl h-[90vh] sm:h-[85vh] animate-in fade-in zoom-in-95 duration-500">
+      <div className="absolute inset-0 flex flex-col p-4 sm:p-6 md:p-8">
+        
+        {/* CARD CONTAINER */}
         <div className="
-            flex flex-col h-full
+            relative flex flex-col w-full max-w-4xl mx-auto h-full
             bg-white/70 dark:bg-[#121212]/70
             backdrop-blur-2xl backdrop-saturate-[1.5]
             rounded-[2.5rem] 
             border border-white/60 dark:border-white/10
-            shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)]
-            overflow-hidden
+            shadow-2xl overflow-hidden
         ">
             
-            {/* --- HEADER (Sticky) --- */}
+            {/* --- HEADER --- */}
             <div className="flex-none p-6 sm:p-8 border-b border-slate-200/50 dark:border-white/5 bg-white/50 dark:bg-white/5 backdrop-blur-xl z-20">
                 <div className="flex items-center gap-4">
-                    <div className="p-3 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 shadow-sm border border-blue-100 dark:border-blue-900/30">
-                        <ShieldCheckIcon className="w-8 h-8" />
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20 text-white">
+                        <ShieldCheckIcon className="w-6 h-6" />
                     </div>
                     <div>
-                        <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight leading-tight">
-                            Privacy & Data Agreement
+                        <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                            Privacy Policy
                         </h1>
-                        <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1">
-                            Version {POLICY_VERSION}
-                        </p>
+                        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                            <span>Last Updated: {POLICY_VERSION}</span>
+                            <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600" />
+                            <span className="text-blue-600 dark:text-blue-400">Official</span>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* --- SCROLLABLE CONTENT --- */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 sm:p-8">
-                <div className="prose prose-slate dark:prose-invert max-w-none prose-headings:font-bold prose-a:text-blue-600 dark:prose-a:text-blue-400">
+            {/* --- CONTENT (Scrollable) --- */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar relative">
+                <div className="p-6 sm:p-10">
                     <PrivacyPolicyContent />
                 </div>
             </div>
 
-            {/* --- FOOTER (Sticky) --- */}
+            {/* --- FOOTER (Sticky Buttons) --- */}
             <div className="flex-none p-6 sm:p-8 border-t border-slate-200/50 dark:border-white/5 bg-white/50 dark:bg-white/5 backdrop-blur-xl z-20">
-                <button
-                    onClick={handleBack}
-                    className="
-                        group w-full py-4 rounded-2xl font-bold text-white text-[15px] shadow-lg
-                        bg-gradient-to-r from-blue-600 to-indigo-600 
-                        hover:shadow-blue-500/25 hover:scale-[1.01] active:scale-[0.98] 
-                        transition-all duration-300 overflow-hidden flex items-center justify-center gap-2
-                    "
-                >
-                    <ArrowLeftIcon className="w-4 h-4 transition-transform group-hover:-translate-x-1" strokeWidth={2.5} />
-                    <span>Back to Login</span>
-                </button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    
+                    {/* BUTTON 1: Back to Main Page (Secondary/Ghost Style) */}
+                    <button
+                        onClick={handleHome}
+                        className="
+                            group w-full py-4 rounded-2xl font-bold text-slate-700 dark:text-slate-200 text-[15px]
+                            bg-white/60 dark:bg-white/10 border border-slate-200 dark:border-white/10
+                            hover:bg-white dark:hover:bg-white/20 hover:scale-[1.01] active:scale-[0.98]
+                            transition-all duration-300 flex items-center justify-center gap-2
+                        "
+                    >
+                        <HomeIcon className="w-4 h-4 text-slate-500 dark:text-slate-400 group-hover:text-blue-500 transition-colors" />
+                        <span>Main Page</span>
+                    </button>
+
+                    {/* BUTTON 2: Back to Login (Primary Gradient Style) */}
+                    <button
+                        onClick={handleBack}
+                        className="
+                            group w-full py-4 rounded-2xl font-bold text-white text-[15px] shadow-lg
+                            bg-gradient-to-r from-blue-600 to-indigo-600 
+                            hover:shadow-blue-500/25 hover:scale-[1.01] active:scale-[0.98] 
+                            transition-all duration-300 overflow-hidden flex items-center justify-center gap-2
+                        "
+                    >
+                        <ArrowLeftIcon className="w-4 h-4 transition-transform group-hover:-translate-x-1" strokeWidth={2.5} />
+                        <span>Back to Login</span>
+                    </button>
+
+                </div>
             </div>
 
         </div>

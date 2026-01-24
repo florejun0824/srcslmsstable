@@ -208,7 +208,7 @@ const LoginPage = () => {
                         Welcome Back
                     </h1>
                     <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-2 max-w-[260px] mx-auto">
-                        SRCS Learning Management System
+                        SRCS Digital Ecosystem
                     </p>
                 </div>
 
@@ -329,7 +329,7 @@ const LoginPage = () => {
             {/* Footer */}
             <div className="mt-8 text-center pb-4">
                 <p className="text-[11px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest">
-                    © 2026 SRCS Portal
+                    © 2026 SRCS Digital Ecosystem
                 </p>
             </div>
 

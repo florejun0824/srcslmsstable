@@ -25,6 +25,7 @@ if (typeof window !== "undefined") {
 }
 
 // --- LAZY LOADED PAGES (Code Splitting) ---
+const LandingPage = lazy(() => import('./pages/LandingPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const TeacherDashboard = lazy(() => import('./pages/TeacherDashboard'));
 const StudentDashboard = lazy(() => import('./pages/StudentDashboard'));
@@ -313,6 +314,7 @@ const AppRouter = () => {
         
         <Route path="/privacy" element={<PrivacyPage />} />
 	    <Route path="/terms" element={<TermsPage />} />
+		<Route path="/" element={<LandingPage />} />
 
         <Route 
             path="/login" 

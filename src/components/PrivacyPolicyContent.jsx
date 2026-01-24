@@ -6,7 +6,7 @@ const PrivacyPolicyContent = () => {
   return (
     <div className="prose prose-sm dark:prose-invert max-w-none text-slate-600 dark:text-slate-300">
       <h4>1. Introduction</h4>
-      <p>This Privacy Policy describes how the SRCS Learning Portal ("Service") collects, uses, and shares your personal and academic information. Your use of the Service constitutes your agreement to this policy.</p>
+      <p>This Privacy Policy describes how the SRCS Digital Ecosystem ("Service") collects, uses, and shares your personal and academic information. Your use of the Service constitutes your agreement to this policy.</p>
 
       <h4>2. Information We Collect</h4>
       <ul>
