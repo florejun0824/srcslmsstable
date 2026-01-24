@@ -480,27 +480,24 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         - **DO NOT** stop after the first few paragraphs. 
         - **DO NOT** summarize the whole document into one single generic lesson if there are clearly distinct chapters or major topics.
 
-        **Step 1: Identify Structure**
-        Scan the text for lesson headers (e.g., "Lesson 1", "1.1", "Lesson A") or major topic changes.
-        
-        **Step 2: Apply Strict Rules**
-        
-        **RULE A: SINGLE LESSON (Standard)**
-        - If the document focuses on **ONE** specific lesson title (e.g., "Lesson 1: Comparison Texts") or one main topic, create **EXACTLY ONE** lesson object.
-        - However, ensure the *summary* of that lesson is broad enough to cover all sub-points in the text.
+		**CRITICAL INSTRUCTION: THE "SINGLE LESSON" BIAS**
+        - **DEFAULT BEHAVIOR:** You should assume the entire file is **ONE SINGLE LESSON** unless proven otherwise.
+        - **MERGE, DON'T SPLIT:** If the file contains "Topic A" and "Topic B", merge them into one lesson titled "Topic A & B" rather than creating two separate lessons.
+        - **IGNORE SUB-HEADERS:** Do NOT treat headers like "1.1", "Part 2", or "Activity 3" as new lessons. These are just sections within the same lesson.
 
-        **RULE B: MULTIPLE LESSONS (Only if explicit)**
-        - ONLY generate multiple lessons if the source text explicitly contains distinct headers for multiple lessons (e.g., It contains text for "Lesson 1" AND text for "Lesson 2").
-        
-        **RULE C: UNIT OVERVIEW**
-        - Only create a "Unit Overview" lesson if the uploaded file is a Table of Contents or a Syllabus covering an entire Quarter/Unit.
+        **WHEN TO CREATE MULTIPLE LESSONS (STRICT CRITERIA):**
+        - Only create a second lesson object if the source text explicitly says "LESSON 2" or "CHAPTER 2" with a completely different subject matter.
+        - If the file is just a long explanation of one topic (e.g., "The Water Cycle"), it must remain **ONE** lesson.
+
+        **RULE FOR UNIT OVERVIEW:**
+        - Do NOT create a "Unit Overview" lesson unless the file is explicitly a Syllabus or Table of Contents. If it is standard reading material, skip the Unit Overview.
 
         **JSON OUTPUT FORMAT:**
         {
           "lessons": [
             {
-              "lessonTitle": "Lesson ${existingLessonCount + 1}: [Title]",
-              "summary": "Detailed summary covering all key points in this section."
+              "lessonTitle": "Lesson ${existingLessonCount + 1}: [Comprehensive Title]",
+              "summary": "Detailed summary covering ALL key points from the start to the end of the file."
             }
           ]
         }
@@ -637,32 +634,46 @@ const masterInstructions = `
 			                const currentIndex = extraData.currentIndex !== undefined ? extraData.currentIndex : 0;
 			                const currentTitle = extraData.contentTitle;
                 
+			                // NEW: Get list of previous and next titles to set strict boundaries
+			                const previousTitles = allTitles.slice(0, currentIndex).join(', ');
+			                const nextTitles = allTitles.slice(currentIndex + 1).join(', ');
+
 			                const contentContextInstruction = `
 			                **PAGING CONTEXT:** Page ${currentIndex + 1} of ${allTitles.length}.
-			                - **Current Title:** "${currentTitle}"
+			                - **CURRENT FOCUS:** "${currentTitle}"
+			                - **PREVIOUSLY COVERED (DO NOT REPEAT):** ${previousTitles || "None - This is the first page."}
+			                - **COMING NEXT (DO NOT SPOIL):** ${nextTitles || "None - This is the last page."}
 			                `;
 
-							taskInstruction = `Generate *one* core content page for this lesson.
-							- **Page Title:** It MUST be exactly: "${currentTitle}"
-							${contentContextInstruction}
+			                taskInstruction = `Generate *one* core content page for this lesson.
+			                - **Page Title:** It MUST be exactly: "${currentTitle}"
+			                ${contentContextInstruction}
 
-							**CRITICAL RULE: COMPREHENSIVE COVERAGE (DO NOT SKIP DETAILS)**
-							- **Scope:** You must cover **ALL** the details, sub-points, and examples found in the source text for this specific section.
-							- **No Over-Simplification:** Do not "dumb down" the content to the point where details are lost. If the source lists 5 types, you must teach all 5 types.
-							- **Depth:** It is better to have a long, detailed page than a short, incomplete one.
+			                **CRITICAL "ANTI-REDUNDANCY" RULE (NON-NEGOTIABLE):**
+			                - **EXCLUSIVE SCOPE:** You must scan the Source Text *only* for information specifically related to "${currentTitle}".
+			                - **IGNORE PREVIOUS TOPICS:** The user has *already read* pages about [${previousTitles}]. Do NOT re-define or re-introduce concepts from those pages. Assume the student already knows them.
+			                - **IGNORE FUTURE TOPICS:** Do NOT jump ahead to [${nextTitles}]. Save that information for the next page.
+                
+			                **IF THE SOURCE TEXT IS AMBIGUOUS:**
+			                - If the Source Text blends this topic with others, extract *only* the specific details that belong to "${currentTitle}".
 
-							**CRITICAL RULE: INVISIBLE AUDIENCE (NO META-TALK)**
-							- **Strict Prohibition:** You are **FORBIDDEN** from using phrases like "For Grade 7 learners," "At your grade level," "As a high school student," or "Young readers."
-							- **Direct Address:** Just speak to "you" (the student). Trust that the simplicity of your language is enough to match the grade level. Do not announce it.
+							**CRITICAL RULE: THE "VERBATIM + ELABORATION" PATTERN**
+							For every key term or concept in this section, follow this 2-step flow:
+							
+							1.  **STEP 1 (The Anchor):** State the definition **exactly word-for-word** from the source text. Bold the key term (e.g., "**Globalization**").
+							
+							2.  **STEP 2 (The Remix):** Immediately after, explain it in simple, engaging, yet details rich language.
+							    - **BANNED PHRASE:** You are **FORBIDDEN** from using "In other words" more than once per page.
+							    - **Natural Transitions:** Instead, use varied phrases like:
+							      - *"Think of this like..."*
+							      - *"To put it simply..."*
+							      - *"This essentially means..."*
+							      - *"Imagine if..."*
+							      - Or simply start the next sentence naturally (e.g., *"This process allows..."*).
 
-							**CRITICAL RULE: INVISIBLE SOURCE (NO LABELS)**
-							- **No Labels:** Do NOT use "Source Definition:", "Simplified:", or "Key Term:". Write in standard, flowing paragraphs.
-							- **Direct Authority:** Define terms as absolute facts. Never say "The source says..."
-
-							**CONTENT FLOW:**
-							1.  **Define:** Start with the exact concept/definition from the source (integrated into a sentence, no quotes unless necessary).
-							2.  **Unpack:** Immediately explain the details, mechanisms, or reasons behind that concept.
-							3.  **Context:** Use a Philippine example *only* if the concept is abstract. If the source text already has good examples, use those instead.
+			                **CONTENT FLOW:**
+			                1.  **Dive Right In:** Start immediately with the specific details of "${currentTitle}". Do not write a generic introduction.
+			                
 
 							**TONE:**
 							- **Expert & Engaging:** Speak with the confidence of a professor, but the clarity of a storyteller.`;
