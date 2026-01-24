@@ -197,20 +197,22 @@ const LoginPage = () => {
               transition-all duration-500
             `}>
                 
-                {/* 1. Header Section */}
-                <div className="text-center mb-8">
-                    <div className="inline-block relative group mb-6">
-                        <div className="absolute inset-0 bg-blue-500 blur-xl opacity-20 rounded-full group-hover:opacity-30 transition-opacity"></div>
-                        <img src="/logo.png" alt="Logo" className="relative w-20 h-20 object-contain drop-shadow-lg" />
-                    </div>
-                    
-                    <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                        Welcome Back
-                    </h1>
-                    <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-2 max-w-[260px] mx-auto">
-                        SRCS Digital Ecosystem
-                    </p>
-                </div>
+				{/* 1. Header Section */}
+				<div className="text-center mb-8">
+				    <div className="inline-block relative group mb-6">
+				        <div className="absolute inset-0 bg-blue-500 blur-xl opacity-20 rounded-full group-hover:opacity-30 transition-opacity"></div>
+				        <img src="/logo.png" alt="Logo" className="relative w-20 h-20 object-contain drop-shadow-lg" />
+				    </div>
+    
+				    {/* CHANGE: App Name is now the Main Title (H1) */}
+				    <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+				        SRCS Digital Ecosystem
+				    </h1>
+				    {/* CHANGE: 'Welcome Back' is now the subtitle */}
+				    <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-2 max-w-[260px] mx-auto">
+				        Welcome Back! Please sign in.
+				    </p>
+				</div>
 
                 {/* 2. Role Switcher Pill */}
                 <div className="relative p-1 bg-slate-200/50 dark:bg-white/5 rounded-2xl flex items-center mb-8 border border-white/20 dark:border-white/5">
