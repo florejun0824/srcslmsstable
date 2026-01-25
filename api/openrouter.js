@@ -48,8 +48,9 @@ export default async function handler(req) {
     if (!bodyText) return new Response(JSON.stringify({ error: "Empty body" }), { status: 400, headers: corsHeaders });
     
     const body = JSON.parse(bodyText);
-    // Destructure 'model' so aiService.jsx can override the default
-    const { prompt, imageUrl, model: requestedModel } = body; 
+    
+    // Destructure inputs, including maxOutputTokens
+    const { prompt, imageUrl, model: requestedModel, maxOutputTokens } = body; 
 
     // 3. Validate Inputs
     if (!prompt || typeof prompt !== 'string') {
@@ -62,8 +63,8 @@ export default async function handler(req) {
     }
 
     // 4. Construct Messages & Select Model
-    // Priority: 1. Image (Gemini) -> 2. Requested (aiService.jsx) -> 3. Default (GPT-OSS 120B)
-    let selectedModel = requestedModel || "openai/gpt-oss-120b:free"; 
+    // UPDATED DEFAULT: Use Gemini 2.0 Flash as the default fallback if client doesn't specify
+    let selectedModel = requestedModel || "google/gemini-2.0-flash-exp:free"; 
     let messages = [];
 
     if (imageUrl) {
@@ -80,7 +81,7 @@ export default async function handler(req) {
         }
       ];
     } else {
-      // Standard Text Path with Reasoning Trigger for 120B Model
+      // Standard Text Path
       messages = [
         {
           role: "system",
@@ -106,6 +107,8 @@ export default async function handler(req) {
         model: selectedModel,
         messages: messages,
         stream: true,
+        // Pass the max tokens to ensure we get long lesson outputs (default to 8k if missing)
+        max_tokens: maxOutputTokens || 8192,
         // Optional: Include reasoning for models that support it natively
         include_reasoning: true 
       }),

@@ -19,12 +19,18 @@ const isNative = Capacitor.isNativePlatform();
 const API_BASE = PROD_API_URL;
 
 // --- CONFIGURATION ---
-// TIER 1: OpenRouter (Primary Account) - Configured for single paid key
+// TIER 1: OpenRouter (Primary Account) - Configured to use Gemini 2.0 Flash
 const PRIMARY_CONFIGS = [
-    { service: 'openrouter', url: `${API_BASE}/api/openrouter`, name: 'Deep Seek (Primary)' },
+    { 
+        service: 'openrouter', 
+        url: `${API_BASE}/api/openrouter`, 
+        name: 'Gemini 2.0 Flash (Primary)',
+        model: 'google/gemini-2.0-flash-exp:free' // Explicitly request 1M Context Model
+    },
 ];
 
 // TIER 2: Google Gemini - RELIABLE BACKUP
+// We also switch the fallback to Flash-Exp for consistency
 const GEMINI_MODEL = 'gemma-3-27b-it'; 
 const FALLBACK_CONFIGS = [
     { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Backup 1' },
@@ -95,7 +101,7 @@ const callProxyApiInternal = async (prompt, jsonMode = false, config, maxOutputT
                 prompt: prompt,
                 jsonMode: jsonMode,
                 maxOutputTokens: maxOutputTokens,
-                model: config.model // Only used for Gemini, ignored by OpenRouter endpoint
+                model: config.model // Sends 'google/gemini-2.0-flash-exp:free' to OpenRouter
             }),
         });
 
@@ -135,7 +141,7 @@ const callProxyApiInternal = async (prompt, jsonMode = false, config, maxOutputT
 const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTokens = undefined) => {
     const errors = {};
     
-    // PHASE 1: Try Primary Tier (OpenRouter / MiMo)
+    // PHASE 1: Try Primary Tier (OpenRouter / Gemini Flash)
     // We try 3 attempts on Primary before giving up to save time
     const maxPrimaryAttempts = 3; 
 
@@ -150,9 +156,8 @@ const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTo
             
             const response = await callProxyApiInternal(prompt, jsonMode, config, maxOutputTokens);
             
-            // CLEAN MIMO OUTPUT: Remove <think> tags
-            let cleanResponse = response.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
-            return cleanResponse;
+            // Clean potentially verbose output if needed, though Gemini is usually clean
+            return response;
 
         } catch (error) {
             console.warn(`${config.name} failed (Attempt ${i+1}):`, error.message); 
@@ -164,9 +169,9 @@ const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTo
         }
     }
 
-    console.warn("Primary AI tier failed. Switching to FALLBACK TIER (Gemini).");
+    console.warn("Primary AI tier failed. Switching to FALLBACK TIER (Gemini Backup).");
 
-    // PHASE 2: Try Fallback Tier (Google Gemini)
+    // PHASE 2: Try Fallback Tier (Direct/Proxy Gemini)
     // Try all configured backup keys
     for (let i = 0; i < FALLBACK_CONFIGS.length; i++) {
         const config = FALLBACK_CONFIGS[fallbackIndex];
@@ -177,7 +182,7 @@ const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTo
             console.log(`Using ${config.name}...`);
             
             const response = await callProxyApiInternal(prompt, jsonMode, config, maxOutputTokens);
-            return response; // Gemini usually doesn't need <think> cleaning
+            return response; 
 
         } catch (error) {
             console.warn(`${config.name} failed:`, error.message);

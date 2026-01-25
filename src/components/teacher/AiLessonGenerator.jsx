@@ -21,6 +21,7 @@ import {
     ExclamationTriangleIcon,
     FunnelIcon,
     ChevronDownIcon,
+    PhotoIcon
 } from '@heroicons/react/24/outline'; 
 import LessonPage from './LessonPage';
 import mammoth from 'mammoth';
@@ -53,6 +54,41 @@ const generatePollinationsUrl = (prompt) => {
     const safePrompt = encodeURIComponent(cleanPrompt + ", ultrarealistic, 8k, scientific photography, educational diagram");
     
     return `https://image.pollinations.ai/prompt/${safePrompt}?nologo=true&width=1024&height=576&seed=${seed}`;
+};
+
+/**
+ * --- Helper: Cloudinary Uploader ---
+ * Handles the "Generate Once, Cache Forever" strategy.
+ */
+const uploadToCloudinary = async (imageUrl) => {
+    if (!imageUrl) return null;
+    try {
+        // 1. Fetch the image from Pollinations
+        const response = await fetch(imageUrl);
+        const blob = await response.blob();
+
+        // 2. Prepare FormData for Cloudinary
+        const formData = new FormData();
+        formData.append('file', blob);
+        formData.append('upload_preset', 'lessons'); // User Preset
+        
+        // 3. Upload to Cloudinary
+        const uploadResponse = await fetch(
+            `https://api.cloudinary.com/v1_1/de2uhc6gl/image/upload`, // User Cloud Name
+            {
+                method: 'POST',
+                body: formData,
+            }
+        );
+
+        if (!uploadResponse.ok) throw new Error('Cloudinary upload failed');
+        
+        const data = await uploadResponse.json();
+        return data.secure_url; // Return the permanent Cloudinary URL
+    } catch (error) {
+        console.error("Image upload failed, falling back to original URL:", error);
+        return imageUrl; // Fallback: Keep the Pollinations URL if upload fails
+    }
 };
 
 /**
@@ -880,7 +916,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
             // --- INCREASED TRUNCATION LIMIT FOR FULL CONTEXT ---
             // Increased to 50,000 characters (approx 12,000 tokens).
             // This covers significantly more of the file.
-            const sourceText = extractedText.substring(0, 90000); 
+            const sourceText = extractedText.substring(0, 10000); 
             
             // --- PHASE 2: PLANNING (5% -> 15%) ---
             setCurrentAction('Creating curriculum outline and lesson map...');
@@ -1058,11 +1094,31 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         }
     };
     
+    // --- CLOUDINARY & FIREBASE SAVE LOGIC ---
     const handleSaveLesson = async () => {
         if (previewLessons.length === 0) return;
         setSaving(true);
+        setCurrentAction("Persisting images to cloud storage..."); // User feedback for image upload phase
+
         try {
-            const savePromises = previewLessons.map((lesson, index) =>
+            // 1. Process Lessons: Upload Pollinations images to Cloudinary BEFORE saving to DB
+            const processedLessons = await Promise.all(previewLessons.map(async (lesson) => {
+                
+                // Loop through pages to find and upload Pollinations images
+                const processedPages = await Promise.all(lesson.pages.map(async (page) => {
+                    // Detect Pollinations URL and upload
+                    if (page.imageUrl && page.imageUrl.includes('pollinations.ai')) {
+                        const permanentUrl = await uploadToCloudinary(page.imageUrl);
+                        return { ...page, imageUrl: permanentUrl };
+                    }
+                    return page;
+                }));
+
+                return { ...lesson, pages: processedPages };
+            }));
+
+            // 2. Save the PROCESSED lessons (now with Cloudinary URLs) to Firebase
+            const savePromises = processedLessons.map((lesson, index) =>
                 addDoc(collection(db, 'lessons'), {
                     title: lesson.lessonTitle,
                     unitId,
@@ -1077,12 +1133,15 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                     performanceStandard: performanceStandard || ''
                 })
             );
+            
             await Promise.all(savePromises);
-            showToast(`${previewLessons.length} lesson(s) saved successfully!`, 'success');
+            
+            showToast(`${previewLessons.length} lesson(s) saved successfully with permanent images!`, 'success');
             resetGeneratorState();
             onClose(); 
         } catch (err) {
-            setError('Failed to save lessons.');
+            console.error("Save error:", err);
+            setError('Failed to save lessons or upload images.');
         } finally {
             setSaving(false);
         }
@@ -1093,383 +1152,361 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
     const objectivesAsMarkdown = useMemo(() => selectedLesson?.learningObjectives?.map(obj => `* ${obj}`).join('\n'), [selectedLesson]);
 
     const gradeLevels = ["Kindergarten", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6", "Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12"];
-    const panelClass = `${themeStyles.panelBg} border ${themeStyles.borderColor} rounded-[24px] shadow-2xl shadow-black/5 transition-colors duration-500`;
-    const inputClass = `w-full ${themeStyles.inputBg} border ${themeStyles.borderColor} rounded-[14px] px-4 py-3 text-[15px] ${themeStyles.textColor} placeholder-slate-400 focus:ring-2 focus:ring-blue-500/50 outline-none transition-all shadow-inner appearance-none`;
-    const labelClass = `text-[11px] font-bold ${themeStyles.subText} mb-2 block tracking-wide uppercase ml-1`;
+    
+    // Neo-Glass v10 System Constants
+    const panelClass = `bg-white/70 dark:bg-black/40 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-[32px] shadow-2xl transition-all duration-500`;
+    const inputClass = `w-full bg-white/50 dark:bg-black/20 border border-white/20 dark:border-white/10 rounded-[18px] px-4 py-3 text-[15px] ${themeStyles.textColor} placeholder-slate-400 focus:ring-2 focus:ring-blue-500/50 outline-none transition-all shadow-sm appearance-none`;
+    const labelClass = `text-[10px] font-black ${themeStyles.subText} mb-1.5 block tracking-[0.1em] uppercase ml-1 opacity-70`;
 
     return (
         <div className={`flex flex-col h-[100dvh] font-sans ${themeStyles.bgGradient} ${themeStyles.textColor} overflow-hidden transition-colors duration-500`}>
-             <div className={`flex-shrink-0 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between ${themeStyles.panelBg} border-b ${themeStyles.borderColor} z-20 sticky top-0 transition-colors duration-500`}>
-                <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-[14px] flex items-center justify-center shadow-lg ${activeOverlay !== 'none' ? themeStyles.buttonGradient : 'bg-gradient-to-br from-blue-500 to-indigo-600'}`}>
-                        <SparklesIcon className="w-5 h-5 text-white stroke-[2]" />
+            
+            {/* --- TOP NAVIGATION BAR --- */}
+            <div className={`flex-shrink-0 px-8 py-5 flex items-center justify-between bg-white/40 dark:bg-black/20 backdrop-blur-md border-b border-white/10 z-20 sticky top-0 transition-colors duration-500`}>
+                <div className="flex items-center gap-5">
+                    <div className={`w-12 h-12 rounded-[18px] flex items-center justify-center shadow-xl bg-gradient-to-br from-blue-600 to-indigo-700 ring-4 ring-blue-500/20`}>
+                        <SparklesIcon className="w-7 h-7 text-white animate-pulse" />
                     </div>
                     <div>
-                        <h3 className="text-lg font-bold tracking-tight leading-tight">AI Lesson Generator</h3>
-                        <p className={`text-[12px] font-medium hidden sm:block ${themeStyles.subText}`}>Upload material to create structured lessons</p>
+                        <h3 className="text-2xl font-black tracking-tighter leading-none">Curriculum AI</h3>
+                        <p className={`text-[11px] font-bold mt-1.5 uppercase tracking-[0.2em] opacity-50`}>Synthesis Engine v10.2 RC</p>
                     </div>
                 </div>
-                <button onClick={onBack} className={`px-4 py-2 rounded-[20px] text-[13px] font-semibold transition-all flex items-center gap-2 active:scale-95 ${activeOverlay !== 'none' ? 'bg-black/20 hover:bg-black/30' : 'bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20'}`}>
-                    <ArrowUturnLeftIcon className="w-4 h-4 stroke-[2.5]" /> Back
+                <button onClick={onBack} className={`px-6 py-2.5 rounded-full text-[13px] font-black transition-all flex items-center gap-2 active:scale-95 bg-white/10 hover:bg-white/20 border border-white/10 shadow-lg backdrop-blur-xl uppercase tracking-widest`}>
+                    <ArrowUturnLeftIcon className="w-4 h-4 stroke-[3]" /> Back
                 </button>
             </div>
 
-            <div className="flex-grow overflow-y-auto lg:overflow-hidden">
-                <div className="flex flex-col lg:flex-row lg:h-full p-3 sm:p-4 gap-4 max-w-[1920px] mx-auto">
-                    <div className={`w-full lg:w-[380px] flex flex-col flex-shrink-0 ${panelClass} lg:h-full lg:overflow-hidden`}>
-                        <div className="flex-grow lg:overflow-y-auto custom-scrollbar p-5 space-y-6">
+            <div className="flex-grow overflow-hidden">
+                <div className="flex flex-col lg:flex-row h-full p-5 gap-5 max-w-[1920px] mx-auto min-h-0">
+                    
+                    {/* --- LEFT PANEL: CONFIGURATION --- */}
+                    <div className={`w-full lg:w-[400px] flex flex-col flex-shrink-0 ${panelClass} h-full overflow-hidden`}>
+                        <div className="flex-grow overflow-y-auto custom-scrollbar p-8 space-y-8">
                             {isProcessing ? (
-                                <div className="flex flex-col items-center justify-center py-12 space-y-4 animate-in fade-in duration-500">
-                                    <div className="relative">
-                                        <div className={`absolute inset-0 rounded-full blur-xl animate-pulse ${themeStyles.iconBg}`} />
-                                        <svg className={`animate-spin h-10 w-10 ${themeStyles.accentColor}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
+                                /* --- ANIMATED AI CORE (LEFT) --- */
+                                <div className="flex flex-col items-center justify-center h-full space-y-8 animate-in fade-in zoom-in-95 duration-1000">
+                                    <div className="relative w-32 h-32">
+                                        {/* Orbital Rings */}
+                                        <div className="absolute inset-0 border-2 border-blue-500/20 rounded-full animate-[spin_8s_linear_infinite]" />
+                                        <div className="absolute inset-2 border border-indigo-500/30 rounded-full animate-[spin_4s_linear_infinite_reverse]" />
+                                        
+                                        {/* Glowing AI Pulse Core */}
+                                        <div className="absolute inset-0 flex items-center justify-center">
+                                            <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-[0_0_40px_rgba(37,99,235,0.6)] animate-pulse">
+                                                <SparklesIcon className="w-10 h-10 text-white" />
+                                            </div>
+                                        </div>
                                     </div>
-                                    <p className={`text-[15px] font-medium text-center max-w-[240px] leading-relaxed ${themeStyles.textColor}`}>
-                                        Thinking...
-                                    </p>
-                                    <p className="text-xs text-center opacity-60">
-                                        Please keep this open.
-                                    </p>
+                                    
+                                    <div className="text-center space-y-3">
+                                        <p className="text-xl font-black tracking-tight text-blue-500">Synthesizing</p>
+                                        <div className="flex justify-center gap-1">
+                                            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                                            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                                            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" />
+                                        </div>
+                                    </div>
                                 </div>
                             ) : (
                                 <>
-                                    <div>
-                                        <label className={labelClass}>Source Material</label>
+                                    <div className="animate-in slide-in-from-left-6 duration-500">
+                                        <label className={labelClass}>Material Source</label>
                                         {!file ? (
-                                            <label className={`group flex flex-col items-center justify-center w-full h-40 rounded-[20px] border-[1.5px] border-dashed transition-all cursor-pointer relative overflow-hidden active:scale-[0.99] ${themeStyles.inputBg} ${themeStyles.borderColor} hover:bg-blue-50/10 hover:border-blue-500`}>
-                                                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity"/>
-                                                <DocumentArrowUpIcon className={`w-8 h-8 mb-2 group-hover:scale-110 transition-transform duration-300 stroke-[1.5] ${themeStyles.subText}`} />
-                                                <span className={`text-sm font-semibold ${themeStyles.subText}`}>Upload PDF, DOCX, or TXT</span>
+                                            <label className={`group flex flex-col items-center justify-center w-full h-48 rounded-[28px] border-2 border-dashed transition-all cursor-pointer relative overflow-hidden bg-white/30 dark:bg-black/20 border-white/20 hover:border-blue-500/50 hover:bg-blue-500/5`}>
+                                                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"/>
+                                                <DocumentArrowUpIcon className={`w-12 h-12 mb-3 opacity-30 group-hover:scale-110 group-hover:opacity-100 transition-all duration-500 text-blue-500`} />
+                                                <span className={`text-[13px] font-black uppercase tracking-widest opacity-40`}>Initialize PDF/DOCX</span>
                                                 <input type="file" className="hidden" accept=".pdf,.docx,.txt" onChange={handleFileChange} />
                                             </label>
                                         ) : (
-                                            <div className={`relative flex items-center p-3.5 rounded-[18px] border shadow-sm group ${themeStyles.inputBg} ${themeStyles.borderColor}`}>
-                                                <div className={`w-10 h-10 rounded-[12px] flex items-center justify-center mr-3 ${themeStyles.iconBg} ${themeStyles.accentColor}`}>
-                                                    <DocumentTextIcon className="w-6 h-6" />
+                                            <div className={`relative flex items-center p-5 rounded-[24px] border bg-blue-500/10 border-blue-500/20 shadow-xl group overflow-hidden`}>
+                                                <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full -mr-12 -mt-12 blur-2xl" />
+                                                <div className={`w-12 h-12 rounded-[14px] flex items-center justify-center mr-4 bg-white dark:bg-black/40 text-blue-500 shadow-md`}>
+                                                    <DocumentTextIcon className="w-7 h-7" />
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <p className={`text-sm font-bold truncate ${themeStyles.textColor}`}>{file.name}</p>
-                                                    <p className={`text-xs font-medium ${themeStyles.subText}`}>{(file.size/1024).toFixed(0)} KB</p>
+                                                    <p className={`text-sm font-black truncate ${themeStyles.textColor}`}>{file.name}</p>
+                                                    <p className={`text-[10px] font-black opacity-40 uppercase tracking-widest mt-1`}>{(file.size/1024).toFixed(0)} KB • Ready</p>
                                                 </div>
-                                                <button onClick={removeFile} className={`p-2 rounded-full transition-colors active:scale-90 ${activeOverlay !== 'none' ? 'bg-white/10 hover:bg-red-500/40 text-white/70 hover:text-white' : 'bg-slate-100 dark:bg-white/10 text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20'}`}>
-                                                    <XMarkIcon className="w-4 h-4 stroke-[2.5]" />
+                                                <button onClick={removeFile} className={`p-2.5 rounded-full transition-all active:scale-90 bg-white/50 dark:bg-black/20 text-red-500 hover:bg-red-500 hover:text-white shadow-sm`}>
+                                                    <XMarkIcon className="w-5 h-5 stroke-[3]" />
                                                 </button>
                                             </div>
                                         )}
                                     </div>
-                                    <div className={`h-px bg-gradient-to-r from-transparent via-current to-transparent opacity-10`} />
-                                    <div className="grid grid-cols-2 gap-3">
+
+                                    <div className="grid grid-cols-2 gap-5 animate-in slide-in-from-left-8 duration-500">
                                         <div>
-                                            <label htmlFor="language" className={labelClass}>Language</label>
-                                            <div className="relative">
-                                                <select id="language" value={language} onChange={(e) => setLanguage(e.target.value)} className={inputClass}>
-                                                    <option className="bg-slate-800">English</option>
-                                                    <option className="bg-slate-800">Filipino</option>
-                                                </select>
-                                                <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 opacity-50 pointer-events-none" />
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label htmlFor="grade" className={labelClass}>Grade Level</label>
-                                            <div className="relative">
-                                                <select id="grade" value={gradeLevel} onChange={(e) => setGradeLevel(e.target.value)} className={inputClass}>
-                                                    {gradeLevels.map(l => <option key={l} value={l} className="bg-slate-800">{l}</option>)}
-                                                </select>
-                                                <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 opacity-50 pointer-events-none" />
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label htmlFor="subject" className={labelClass}>Subject</label>
-                                        <div className="relative w-full min-w-0">
-                                            <select id="subject" value={selectedSubject || ''} onChange={(e) => setSelectedSubject(e.target.value)} className={`${inputClass} truncate pr-10`}>
-                                                <option value="" disabled className="bg-slate-800">Select Subject</option>
-                                                {sortedSubjects.map(s => <option key={s.id} value={s.id} className="bg-slate-800">{s.title}</option>)}
+                                            <label className={labelClass}>Linguistic Mode</label>
+                                            <select value={language} onChange={(e) => setLanguage(e.target.value)} className={inputClass}>
+                                                <option className="bg-slate-900">English</option>
+                                                <option className="bg-slate-900">Filipino</option>
                                             </select>
-                                            <FunnelIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 opacity-50 pointer-events-none" />
+                                        </div>
+                                        <div>
+                                            <label className={labelClass}>Academic Level</label>
+                                            <select value={gradeLevel} onChange={(e) => setGradeLevel(e.target.value)} className={inputClass}>
+                                                {gradeLevels.map(l => <option key={l} value={l} className="bg-slate-900">{l}</option>)}
+                                            </select>
                                         </div>
                                     </div>
-                                    <div className="space-y-4">
+
+                                    <div className="animate-in slide-in-from-left-10 duration-500">
+                                        <label className={labelClass}>Subject Context</label>
+                                        <select value={selectedSubject || ''} onChange={(e) => setSelectedSubject(e.target.value)} className={inputClass}>
+                                            <option value="" disabled className="bg-slate-900">Select Domain...</option>
+                                            {sortedSubjects.map(s => <option key={s.id} value={s.id} className="bg-slate-900">{s.title}</option>)}
+                                        </select>
+                                    </div>
+
+                                    <div className="space-y-6 animate-in slide-in-from-left-12 duration-700">
                                         <div>
                                             <label className={labelClass}>Learning Competencies</label>
-                                            <textarea value={learningCompetencies} onChange={(e) => setLearningCompetencies(e.target.value)} className={`${inputClass} min-h-[80px] resize-none`} placeholder="Paste competencies here..." />
+                                            <textarea value={learningCompetencies} onChange={(e) => setLearningCompetencies(e.target.value)} className={`${inputClass} min-h-[100px] resize-none leading-relaxed text-sm`} placeholder="Paste target learning competencies..." />
                                         </div>
-                                        <div className="grid grid-cols-1 gap-4">
-                                            <div>
-                                                <label className={labelClass}>Content Standard (Optional)</label>
-                                                <textarea value={contentStandard} onChange={(e) => setContentStandard(e.target.value)} className={`${inputClass} min-h-[60px] resize-none`} placeholder="Demonstrate understanding..." />
-                                            </div>
-                                            <div>
-                                                <label className={labelClass}>Performance Standard (Optional)</label>
-                                                <textarea value={performanceStandard} onChange={(e) => setPerformanceStandard(e.target.value)} className={`${inputClass} min-h-[60px] resize-none`} placeholder="Learners shall be able to..." />
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className={labelClass}>Prerequisites (Scaffolding)</label>
-                                        <div className={`${inputClass} p-2 max-h-[220px] overflow-y-auto custom-scrollbar`}>
-                                            {sortedUnits.length > 0 ? (
-                                                sortedUnits.map(unit => {
-                                                    const lessonsInUnit = lessonsByUnit[unit.id] || [];
-                                                    if (lessonsInUnit.length === 0) return null;
-                                                    const isExpanded = expandedScaffoldUnits.has(unit.id);
-                                                    const selectedCount = lessonsInUnit.filter(l => scaffoldLessonIds.has(l.id)).length;
-                                                    const isAll = selectedCount > 0 && selectedCount === lessonsInUnit.length;
-                                                    const isPartial = selectedCount > 0 && !isAll;
+                                        
+                                        <div className="p-5 rounded-[24px] bg-black/5 dark:bg-white/5 border border-white/10 shadow-inner">
+                                            <label className={labelClass}>Scaffolding Network</label>
+                                            <div className="max-h-[200px] overflow-y-auto custom-scrollbar space-y-1.5">
+                                                {sortedUnits.length > 0 ? (
+                                                    sortedUnits.map(unit => {
+                                                        const lessonsInUnit = lessonsByUnit[unit.id] || [];
+                                                        if (lessonsInUnit.length === 0) return null;
+                                                        const isExpanded = expandedScaffoldUnits.has(unit.id);
+                                                        const selectedCount = lessonsInUnit.filter(l => scaffoldLessonIds.has(l.id)).length;
+                                                        const isAll = selectedCount > 0 && selectedCount === lessonsInUnit.length;
+                                                        const isPartial = selectedCount > 0 && !isAll;
 
-                                                    return (
-                                                        <div key={unit.id} className="mb-1">
-                                                            <div 
-                                                                className="flex items-center p-2 rounded-[12px] hover:bg-white/10 transition-colors cursor-pointer select-none"
-                                                                onClick={() => handleToggleUnitExpansion(unit.id)}
-                                                            >
-                                                                <div className="p-1 opacity-50">
-                                                                    <ChevronRightIcon className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} strokeWidth={3} />
-                                                                </div>
+                                                        return (
+                                                            <div key={unit.id} className="mb-2 last:mb-0">
                                                                 <div 
-                                                                    onClick={(e) => { e.stopPropagation(); handleUnitCheckboxChange(lessonsInUnit); }}
-                                                                    className={`w-5 h-5 mx-2 rounded-[6px] flex items-center justify-center transition-all duration-300 shadow-sm border ${
-                                                                        isAll || isPartial ? `bg-blue-500 border-transparent scale-105` : `${themeStyles.borderColor} bg-transparent`
-                                                                    }`}
+                                                                    className="flex items-center p-3 rounded-[16px] hover:bg-white/20 dark:hover:bg-white/5 transition-all cursor-pointer select-none border border-transparent hover:border-white/10"
+                                                                    onClick={() => handleToggleUnitExpansion(unit.id)}
                                                                 >
-                                                                    {isAll && <CheckIcon className="w-3.5 h-3.5 text-white stroke-[3.5]" />}
-                                                                    {isPartial && <div className="w-2.5 h-0.5 bg-white rounded-full" />}
+                                                                    <ChevronRightIcon className={`w-4 h-4 mr-2 transition-transform duration-300 opacity-40 ${isExpanded ? 'rotate-90' : ''}`} strokeWidth={4} />
+                                                                    <div 
+                                                                        onClick={(e) => { e.stopPropagation(); handleUnitCheckboxChange(lessonsInUnit); }}
+                                                                        className={`w-5 h-5 mr-3 rounded-[7px] flex items-center justify-center transition-all duration-300 border shadow-sm ${
+                                                                            isAll || isPartial ? `bg-blue-600 border-transparent scale-110` : `border-white/30 bg-transparent`
+                                                                        }`}
+                                                                    >
+                                                                        {isAll && <CheckIcon className="w-3.5 h-3.5 text-white stroke-[4]" />}
+                                                                        {isPartial && <div className="w-2.5 h-0.5 bg-white rounded-full" />}
+                                                                    </div>
+                                                                    <span className={`text-[13px] font-black truncate`}>{unit.title}</span>
                                                                 </div>
-                                                                <span className={`text-[13px] font-bold truncate ${themeStyles.textColor}`}>{unit.title}</span>
-                                                            </div>
-                                                            {isExpanded && (
-                                                                <div className={`ml-9 pl-2 border-l-2 space-y-1 mt-1 ${themeStyles.borderColor}`}>
-                                                                    {lessonsInUnit.map(lesson => {
-                                                                        const isSelected = scaffoldLessonIds.has(lesson.id);
-                                                                        return (
-                                                                            <div 
-                                                                                key={lesson.id} 
-                                                                                className="flex items-center gap-3 p-2 cursor-pointer hover:bg-white/10 rounded-[10px] group transition-all" 
-                                                                                onClick={() => {
-                                                                                    const newSet = new Set(scaffoldLessonIds);
-                                                                                    if (newSet.has(lesson.id)) newSet.delete(lesson.id);
-                                                                                    else newSet.add(lesson.id);
-                                                                                    setScaffoldLessonIds(newSet);
-                                                                                }}
-                                                                            >
-                                                                                <div className={`w-4 h-4 rounded-[5px] flex items-center justify-center transition-all duration-200 border ${isSelected ? 'bg-blue-500 border-transparent' : `bg-transparent ${themeStyles.borderColor} opacity-50 group-hover:opacity-100`}`}>
-                                                                                    {isSelected && <CheckIcon className="w-3 h-3 text-white stroke-[3]" />}
+                                                                {isExpanded && (
+                                                                    <div className={`ml-10 pl-3 border-l-2 border-blue-500/20 space-y-2 mt-1.5`}>
+                                                                        {lessonsInUnit.map(lesson => {
+                                                                            const isSelected = scaffoldLessonIds.has(lesson.id);
+                                                                            return (
+                                                                                <div 
+                                                                                    key={lesson.id} 
+                                                                                    className="flex items-center gap-3 p-2.5 cursor-pointer hover:bg-white/10 rounded-[14px] group transition-all" 
+                                                                                    onClick={() => {
+                                                                                        const newSet = new Set(scaffoldLessonIds);
+                                                                                        if (newSet.has(lesson.id)) newSet.delete(lesson.id);
+                                                                                        else newSet.add(lesson.id);
+                                                                                        setScaffoldLessonIds(newSet);
+                                                                                    }}
+                                                                                >
+                                                                                    <div className={`w-4.5 h-4.5 rounded-[6px] flex items-center justify-center transition-all duration-200 border ${isSelected ? 'bg-blue-600 border-transparent shadow-lg shadow-blue-500/30' : `bg-transparent border-white/20 opacity-40 group-hover:opacity-100`}`}>
+                                                                                        {isSelected && <CheckIcon className="w-3 h-3 text-white stroke-[4]" />}
+                                                                                    </div>
+                                                                                    <span className={`text-[12px] font-bold truncate transition-colors ${isSelected ? 'text-blue-500' : 'opacity-50'}`}>{lesson.title}</span>
                                                                                 </div>
-                                                                                <span className={`text-[12px] font-medium truncate transition-colors ${isSelected ? themeStyles.accentColor : themeStyles.subText}`}>{lesson.title}</span>
-                                                                            </div>
-                                                                        );
-                                                                    })}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    )
-                                                })
-                                            ) : (
-                                                <p className="text-xs opacity-50 p-4 text-center italic">No existing lessons to scaffold from.</p>
-                                            )}
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )
+                                                    })
+                                                ) : (
+                                                    <p className="text-[10px] opacity-30 p-5 text-center font-black uppercase tracking-widest italic">Neural Network Empty</p>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 </>
                             )}
                         </div>
-                        <div className={`p-4 border-t sticky bottom-0 z-10 rounded-b-[24px] ${themeStyles.panelBg} ${themeStyles.borderColor}`}>
+                        
+                        <div className={`p-8 border-t bg-white/20 dark:bg-black/20 backdrop-blur-md rounded-b-[32px] border-white/10`}>
                             <button 
                                 onClick={handleGenerateLesson} 
                                 disabled={!file || isProcessing}
-                                className={`w-full h-12 rounded-[16px] font-bold text-[15px] text-white shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-2
-                                    ${!file || isProcessing ? 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed shadow-none opacity-70' : `${activeOverlay !== 'none' ? `bg-gradient-to-r ${themeStyles.buttonGradient}` : 'bg-[#007AFF] hover:bg-[#0062CC]'} shadow-blue-500/25 hover:shadow-blue-500/40`}`}
+                                className={`w-full h-16 rounded-[22px] font-black text-[17px] text-white shadow-2xl transition-all active:scale-[0.97] flex items-center justify-center gap-4 uppercase tracking-widest
+                                    ${!file || isProcessing ? 'bg-slate-400/20 grayscale cursor-not-allowed opacity-40' : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:shadow-blue-500/40'}`}
                             >
-                                {isProcessing ? (
-                                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                ) : (
-                                    <SparklesIcon className="w-5 h-5 stroke-[2]" />
-                                )}
-                                {previewLessons.length > 0 ? 'Regenerate Content' : 'Generate Lessons'}
+                                {isProcessing ? 'System Syncing...' : <><SparklesIcon className="w-6 h-6" /> Generate</>}
                             </button>
                         </div>
                     </div>
 
-                    {/* --- RIGHT PANEL: LIVE CONSOLE & PREVIEW --- */}
-                    <div className={`flex-grow flex flex-col relative overflow-hidden rounded-[24px] min-h-[500px] lg:min-h-0 lg:h-full ${panelClass}`}>
+                    {/* --- RIGHT PANEL: BLUEPRINT & SYNTHESIS --- */}
+                    <div className={`flex-grow flex flex-col relative overflow-hidden ${panelClass} min-h-0`}>
                         
-                        {/* 1. PROCESSING STATE (The Live Console) */}
+                        {/* 1. PROCESSING STATE: COMPACT BLUEPRINT VISUALIZATION */}
                         {isProcessing ? (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center p-8 bg-white/90 dark:bg-[#1c1c1e]/90 backdrop-blur-md z-50 animate-in fade-in duration-500">
-                                <div className="flex flex-col items-center w-full max-w-lg">
-                                    
-                                    {/* Visual Pulse */}
-                                    <div className="relative mb-8">
-                                        <div className={`absolute inset-0 rounded-full blur-2xl animate-pulse opacity-40 ${themeStyles.iconBg}`} />
-                                        <div className={`w-24 h-24 rounded-[32px] flex items-center justify-center shadow-2xl border bg-white dark:bg-black ${themeStyles.borderColor}`}>
-                                            <svg className={`animate-spin h-10 w-10 ${themeStyles.accentColor}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                            </svg>
+                            <div className="absolute inset-0 flex flex-col items-center justify-between p-8 z-50 animate-in fade-in duration-1000 overflow-hidden">
+                                {/* Atmospheric Glows */}
+                                <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-[120px] animate-pulse" />
+                                <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-indigo-500/5 rounded-full blur-[120px] animate-pulse [animation-delay:2s]" />
+
+                                <div className="w-full max-w-2xl flex flex-col items-center flex-grow justify-center">
+                                    {/* Blueprint Progress Header */}
+                                    <div className="text-center mb-6 relative">
+                                        <div className="inline-block px-3 py-0.5 rounded-full border border-blue-500/30 bg-blue-500/10 mb-2">
+                                            <span className="text-[9px] font-black uppercase tracking-[0.4em] text-blue-400 animate-pulse">Synthesis Active</span>
+                                        </div>
+                                        <div className="relative">
+                                            <h4 className="text-7xl font-black tracking-tighter relative z-10 drop-shadow-2xl">{generationProgress}%</h4>
+                                            <div className="w-20 h-1 bg-blue-500/40 mx-auto rounded-full mt-1" />
                                         </div>
                                     </div>
 
-                                    {/* Percentage & Status */}
-                                    <h4 className={`text-6xl font-black mb-1 tracking-tighter ${themeStyles.textColor}`}>
-                                        {generationProgress}%
-                                    </h4>
-                                    <p className={`text-xs font-bold uppercase tracking-widest opacity-50 mb-8 ${themeStyles.textColor}`}>
-                                        Building Curriculum
-                                    </p>
+                                    {/* SCALED DOWN BLUEPRINT (h-40 to prevent overflow) */}
+                                    <div className="relative h-40 w-full flex items-center justify-center">
+                                        {/* Central Hub (Scaled down to w-16) */}
+                                        <div className="w-16 h-16 rounded-full bg-blue-600/20 border-2 border-blue-500/40 flex items-center justify-center relative z-20 shadow-[0_0_60px_rgba(37,99,235,0.2)]">
+                                            <DocumentTextIcon className="w-7 h-7 text-blue-500" />
+                                            <div className="absolute inset-0 border-r-4 border-blue-500 rounded-full animate-spin opacity-50" />
+                                        </div>
 
-                                    {/* TERMINAL: Shows Real-Time Actions */}
-                                    <div className="w-full bg-[#1e1e1e] rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10 mb-8">
-                                        {/* Terminal Header */}
-                                        <div className="bg-[#2d2d2d] px-4 py-2 flex items-center gap-2 border-b border-white/5">
-                                            <div className="flex gap-1.5">
-                                                <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f56]" />
-                                                <div className="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]" />
-                                                <div className="w-2.5 h-2.5 rounded-full bg-[#27c93f]" />
+                                        {/* Mini Nodes (Scaled down to w-8 and tighter orbit radius) */}
+                                        {[...Array(6)].map((_, i) => (
+                                            <div 
+                                                key={i}
+                                                className={`absolute w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shadow-xl animate-bounce [animation-duration:4s]`}
+                                                style={{ 
+                                                    left: `${50 + 28 * Math.cos(i * 60 * Math.PI / 180)}%`, 
+                                                    top: `${50 + 28 * Math.sin(i * 60 * Math.PI / 180)}%`,
+                                                    animationDelay: `${i * 0.5}s`,
+                                                    opacity: generationProgress > (i * 15) ? 1 : 0.1,
+                                                    transition: 'all 0.8s ease-in-out',
+                                                    transform: `translate(-50%, -50%) scale(${generationProgress > (i * 15) ? 1 : 0.7})`
+                                                }}
+                                            >
+                                                {i === 0 && <ListBulletIcon className="w-4 h-4 opacity-40 text-blue-400" />}
+                                                {i === 1 && <PhotoIcon className="w-4 h-4 opacity-40 text-indigo-400" />}
+                                                {i === 2 && <CheckIcon className="w-4 h-4 opacity-40 text-cyan-400" />}
+                                                {i === 3 && <SparklesIcon className="w-4 h-4 opacity-40 text-blue-400" />}
+                                                {i === 4 && <ArrowPathIcon className="w-4 h-4 opacity-40 text-indigo-400" />}
+                                                {i === 5 && <DocumentTextIcon className="w-4 h-4 opacity-40 text-cyan-400" />}
+                                                
+                                                {/* Shortened Connecting Ray */}
+                                                <div 
+                                                    className="absolute w-16 h-px bg-gradient-to-r from-blue-500/10 to-transparent origin-left rotate-[180deg]" 
+                                                    style={{ left: '50%', top: '50%', transform: `rotate(${i * 60 + 180}deg) translate(16px)` }}
+                                                />
                                             </div>
-                                            <span className="text-[10px] font-mono text-white/40 ml-2">ai_agent_logs</span>
-                                        </div>
-                                        
-                                        {/* Terminal Body */}
-                                        <div className="p-5 font-mono text-sm min-h-[140px] flex flex-col justify-end">
-                                            <div className="text-blue-400/60 text-xs mb-2">
-                                                {new Date().toLocaleTimeString()} [info] Connected to model...
-                                            </div>
-                                            <p className="text-green-400 font-bold whitespace-pre-wrap leading-relaxed">
-                                                <span className="opacity-50 mr-2">$</span>
-                                                {currentAction || "Initializing..."}
-                                                <span className="inline-block w-2 h-4 ml-1 bg-green-400/50 animate-pulse align-middle" />
-                                            </p>
-                                        </div>
+                                        ))}
                                     </div>
 
-                                    {/* Progress Bar */}
-                                    <div className="w-full h-1.5 bg-slate-200 dark:bg-white/10 rounded-full overflow-hidden">
-                                        <div 
-                                            className={`h-full transition-all duration-500 ease-out ${activeOverlay !== 'none' ? `bg-gradient-to-r ${themeStyles.buttonGradient}` : 'bg-blue-600'}`}
-                                            style={{ width: `${generationProgress}%` }}
-                                        />
+                                    {/* COMPACT ACTIVITY PILL (Prioritizes visibility of currentAction) */}
+                                    <div className="mt-8 text-center w-full max-w-lg bg-white/5 backdrop-blur-lg p-5 rounded-[24px] border border-white/10 shadow-inner">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.3em] opacity-30 mb-2">Stream Context</p>
+                                        <p className="text-base font-black italic tracking-tight text-blue-500 leading-tight min-h-[2.5rem] line-clamp-2">
+                                            {currentAction || "Initializing semantic nodes..."}
+                                        </p>
                                     </div>
-                                    
-                                    <p className="mt-4 text-[11px] text-center opacity-40 max-w-xs leading-relaxed font-medium">
-                                        Generating detailed lesson plans, quizzes, and objectives. Complex files may take 1-2 minutes.
-                                    </p>
                                 </div>
                             </div>
                         ) : previewLessons.length === 0 ? (
-                            
-                            /* 2. READY STATE (Empty) */
-                            <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8">
-                                <div className={`w-24 h-24 rounded-[28px] flex items-center justify-center mb-6 shadow-inner border ${themeStyles.inputBg} ${themeStyles.borderColor}`}>
-                                    <SparklesIcon className={`w-10 h-10 opacity-50 ${themeStyles.textColor}`} />
+                            /* READY STATE (EMPTY) */
+                            <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-12 animate-in fade-in duration-1000">
+                                <div className="w-40 h-40 rounded-[48px] bg-gradient-to-br from-blue-500/5 to-indigo-500/5 border border-white/10 flex items-center justify-center mb-10 shadow-inner group">
+                                    <SparklesIcon className="w-16 h-16 text-blue-500/20 group-hover:text-blue-500/40 transition-colors duration-500" />
                                 </div>
-                                <h3 className={`text-2xl font-bold mb-2 tracking-tight ${themeStyles.textColor}`}>Ready to Create</h3>
-                                <p className={`max-w-sm leading-relaxed ${themeStyles.subText}`}>
-                                    AI will analyze your document and generate a structured lesson plan with objectives, activities, and assessments.
-                                </p>
+                                <h3 className="text-4xl font-black mb-4 tracking-tighter opacity-80">Synthesis Ready</h3>
+                                <p className="max-w-md text-base leading-relaxed opacity-40 font-medium">Upload resource materials to initiate AI-driven curriculum generation. Knowledge nodes will be mapped automatically.</p>
                             </div>
-
                         ) : (
-                            
-                            /* 3. PREVIEW STATE (Results) */
-                            <div className="flex flex-col lg:flex-row h-full gap-4">
-                                <div className={`w-full lg:w-[280px] flex-shrink-0 border-b lg:border-b-0 lg:border-r flex flex-col ${themeStyles.borderColor} ${themeStyles.inputBg}`}>
-                                    <div className="p-4">
-                                        <h4 className={labelClass}>GENERATED LESSONS</h4>
+                            /* PREVIEW STATE (RESULTS) */
+                            <div className="flex flex-col h-full animate-in fade-in duration-1000">
+                                <div className="flex-grow flex overflow-hidden">
+                                    {/* RAIL: LESSON LIST */}
+                                    <div className="w-[320px] border-r border-white/10 bg-black/5 flex flex-col">
+                                        <div className="p-8">
+                                            <h4 className={labelClass}>Generated Modules</h4>
+                                        </div>
+                                        <div className="flex-grow overflow-y-auto custom-scrollbar p-4 space-y-3">
+                                            {previewLessons.map((lesson, idx) => (
+                                                <button
+                                                    key={idx}
+                                                    onClick={() => { setSelectedLessonIndex(idx); setSelectedPageIndex(0); }}
+                                                    className={`w-full text-left px-6 py-5 rounded-[24px] transition-all border ${selectedLessonIndex === idx ? 'bg-blue-600 text-white border-transparent shadow-2xl scale-[1.03] z-10' : 'bg-transparent border-transparent opacity-50 hover:opacity-100 hover:bg-white/5'}`}
+                                                >
+                                                    <p className={`text-[15px] font-black leading-tight mb-1.5`}>{lesson.lessonTitle}</p>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`text-[9px] uppercase font-black tracking-widest px-2 py-0.5 rounded-md ${selectedLessonIndex === idx ? 'bg-white/20' : 'bg-blue-500/10 text-blue-500'}`}>{lesson.pages.length} Pages</span>
+                                                        <span className={`text-[9px] uppercase font-black tracking-widest opacity-60`}>Verified</span>
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
-                                    <div className="flex-grow overflow-y-auto custom-scrollbar p-2 space-y-1">
-                                        {previewLessons.map((lesson, idx) => (
-                                            <button
-                                                key={idx}
-                                                onClick={() => { setSelectedLessonIndex(idx); setSelectedPageIndex(0); }}
-                                                className={`w-full text-left px-4 py-3 rounded-[14px] transition-all flex items-start gap-3 group border ${selectedLessonIndex === idx ? `${themeStyles.highlight} shadow-md` : 'border-transparent hover:bg-black/5 dark:hover:bg-white/5 opacity-70 hover:opacity-100'}`}
-                                            >
-                                                <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 transition-colors ${selectedLessonIndex === idx ? 'bg-blue-500 shadow-[0_0_8px_rgba(0,122,255,0.5)]' : 'bg-slate-400'}`} />
-                                                <div>
-                                                    <p className={`text-[13px] font-bold leading-snug ${themeStyles.textColor}`}>{lesson.lessonTitle}</p>
-                                                    <p className="text-[11px] opacity-70 mt-0.5 font-medium">{lesson.pages.length} pages</p>
-                                                </div>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                                <div className="flex-grow flex flex-col overflow-hidden">
-                                    {selectedLesson && (
-                                        <>
-                                            <div className={`flex-shrink-0 p-6 border-b z-10 ${themeStyles.panelBg} ${themeStyles.borderColor}`}>
-                                                <h2 className={`text-2xl font-bold mb-4 tracking-tight leading-tight ${themeStyles.textColor}`}>{selectedLesson.lessonTitle}</h2>
-                                                
-                                                {objectivesAsMarkdown && (
-                                                    <div className={`p-4 rounded-[18px] border mb-6 max-h-[150px] overflow-y-auto custom-scrollbar ${themeStyles.highlight}`}>
-                                                        <h5 className={`text-[11px] font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5 ${themeStyles.accentColor}`}>
-                                                            <ListBulletIcon className="w-4 h-4" /> Objectives
-                                                        </h5>
-                                                        <div className="prose prose-sm prose-blue max-w-none dark:prose-invert leading-relaxed opacity-90">
-                                                            <LessonPage page={{ content: objectivesAsMarkdown }} isEditable={false} />
-                                                        </div>
+
+                                    {/* CONTENT VIEWER */}
+                                    <div className="flex-grow flex flex-col bg-white/10 dark:bg-black/10 overflow-hidden">
+                                        <div className="p-12 border-b border-white/10 bg-white/40 dark:bg-black/20 backdrop-blur-md">
+                                            <h2 className="text-5xl font-black tracking-tighter mb-10 leading-tight italic">{selectedLesson?.lessonTitle}</h2>
+                                            
+                                            <div className="flex items-center gap-3 overflow-x-auto no-scrollbar pb-2">
+                                                {selectedLesson.pages?.map((page, idx) => (
+                                                    <button
+                                                        key={idx}
+                                                        onClick={() => setSelectedPageIndex(idx)}
+                                                        className={`px-7 py-2.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] transition-all border ${selectedPageIndex === idx ? 'bg-blue-600 text-white shadow-xl border-transparent scale-105' : 'bg-white/10 border-white/10 opacity-40 hover:opacity-100'}`}
+                                                    >
+                                                        {page.title}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="flex-grow overflow-y-auto custom-scrollbar p-12 md:p-20">
+                                            <div className="max-w-4xl mx-auto min-h-[500px]">
+                                                {selectedPage ? (
+                                                    <div className="prose prose-slate prose-2xl dark:prose-invert max-w-none animate-in fade-in slide-in-from-bottom-8 duration-1000">
+                                                        <LessonPage page={selectedPage} isEditable={false} />
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex flex-col items-center justify-center h-full opacity-10">
+                                                        <ArrowPathIcon className="w-20 h-20 animate-spin" />
                                                     </div>
                                                 )}
-
-                                                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
-                                                    {selectedLesson.pages?.map((page, idx) => (
-                                                        <button
-                                                            key={idx}
-                                                            onClick={() => setSelectedPageIndex(idx)}
-                                                            className={`flex-shrink-0 px-4 py-1.5 rounded-full text-[12px] font-bold transition-all whitespace-nowrap border ${selectedPageIndex === idx ? `${themeStyles.textColor} ${activeOverlay !== 'none' ? 'bg-white/20' : 'bg-slate-900 text-white dark:bg-white dark:text-black'} border-transparent shadow-md` : `${themeStyles.borderColor} ${themeStyles.subText} hover:bg-white/10`}`}
-                                                        >
-                                                            {page.title}
-                                                        </button>
-                                                    ))}
-                                                </div>
                                             </div>
+                                        </div>
+                                    </div>
+                                </div>
 
-                                            <div className={`flex-grow min-h-0 overflow-y-auto custom-scrollbar p-6 md:p-8 ${activeOverlay !== 'none' ? 'bg-black/20' : 'bg-slate-50 dark:bg-[#1c1c1e]/40'}`}>
-                                                <div className="max-w-3xl mx-auto min-h-[300px]">
-                                                    {selectedPage ? (
-                                                        <div className="prose prose-slate prose-lg dark:prose-invert max-w-none leading-7">
-                                                            <LessonPage page={selectedPage} isEditable={false} />
-                                                        </div>
-                                                    ) : (
-                                                        <div className="flex flex-col items-center justify-center h-64 opacity-50">
-                                                            <ArrowPathIcon className="w-8 h-8 animate-spin mb-2" />
-                                                            <p className="text-sm font-medium">Loading content...</p>
-                                                        </div>
-                                                    )}
-                                                </div>
+                                {/* GLOBAL PREVIEW FOOTER */}
+                                <div className="p-10 border-t border-white/10 bg-white/40 dark:bg-black/40 backdrop-blur-3xl flex items-center justify-between">
+                                    <div className="flex items-center gap-5">
+                                        {error && (
+                                            <div className="flex items-center gap-3 text-red-500 bg-red-500/10 px-6 py-3 rounded-2xl border border-red-500/20">
+                                                <ExclamationTriangleIcon className="w-6 h-6" />
+                                                <span className="text-xs font-black uppercase tracking-widest">{error}</span>
                                             </div>
-                                        </>
-                                    )}
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-5">
+                                        <button onClick={onClose} className="px-12 py-3.5 rounded-full font-black text-[11px] uppercase tracking-[0.3em] opacity-40 hover:opacity-100 transition-all hover:bg-white/5">Abort Process</button>
+                                        <button 
+                                            onClick={handleSaveLesson} 
+                                            disabled={saving || previewLessons.length === 0 || isProcessing}
+                                            className="px-16 py-4 rounded-[24px] bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-black text-sm shadow-[0_20px_50px_rgba(37,99,235,0.3)] active:scale-95 transition-all uppercase tracking-widest"
+                                        >
+                                            {saving ? 'Encrypting Modules...' : `Finalize ${previewLessons.length} Modules`}
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         )}
                     </div>
-                </div>
-            </div>
-
-            <div className={`flex-shrink-0 px-4 sm:px-6 py-4 border-t flex flex-col sm:flex-row items-center justify-between gap-4 z-20 ${themeStyles.panelBg} ${themeStyles.borderColor}`}>
-                <div className="flex items-center gap-3 order-2 sm:order-1 w-full sm:w-auto justify-center sm:justify-start">
-                    {error && (
-                        <div className="flex items-center gap-2 text-red-600 bg-red-50 dark:bg-red-900/20 px-4 py-2 rounded-full border border-red-100 dark:border-red-900/30">
-                            <ExclamationTriangleIcon className="w-4 h-4 stroke-[2]" />
-                            <span className="text-xs font-bold">{error}</span>
-                        </div>
-                    )}
-                </div>
-                <div className="flex items-center gap-3 order-1 sm:order-2 w-full sm:w-auto">
-                    <button onClick={onClose} className={`flex-1 sm:flex-none px-6 py-2.5 rounded-[14px] font-bold text-sm transition-colors active:scale-95 ${activeOverlay !== 'none' ? 'bg-white/10 text-white hover:bg-white/20' : 'text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20'}`}>
-                        Cancel
-                    </button>
-                    <button 
-                        onClick={handleSaveLesson} 
-                        disabled={saving || previewLessons.length === 0 || isProcessing}
-                        className={`flex-1 sm:flex-none px-8 py-2.5 rounded-[14px] font-bold text-sm text-white shadow-lg disabled:opacity-50 disabled:shadow-none transition-all active:scale-95 ${activeOverlay !== 'none' ? `bg-gradient-to-r ${themeStyles.buttonGradient}` : 'bg-[#007AFF] hover:bg-[#0062CC] shadow-blue-500/30'}`}
-                    >
-                        {saving ? 'Saving...' : `Save ${previewLessons.length} Lesson(s)`}
-                    </button>
                 </div>
             </div>
         </div>
