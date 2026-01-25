@@ -39,15 +39,19 @@ const GEMMA_SAFETY_DELAY_MS = 15000;
 // --- HELPER: Pollinations URL Generator ---
 // Moves logic from LessonPage to here for pre-generation
 const generatePollinationsUrl = (prompt) => {
+    // 1. Safety checks
     if (!prompt || typeof prompt !== 'string' || prompt.length < 5 || prompt.toLowerCase() === 'none') return null;
     
-    // Generate a pseudo-random seed from the prompt text to ensure uniqueness/stability
-    const seed = Array.from(prompt).reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    // 2. Truncate prompt if AI goes crazy (URLs have length limits)
+    // Pollinations handles long prompts well, but keeping it under 500 chars is safer for browsers.
+    const cleanPrompt = prompt.slice(0, 500); 
+
+    // 3. Generate Seed
+    const seed = Array.from(cleanPrompt).reduce((acc, char) => acc + char.charCodeAt(0), 0);
     
-    // Add enhancement tags
-    const safePrompt = encodeURIComponent(prompt + ", ultrarealistic, 8k, scientific photography, educational diagram");
+    // 4. Encode
+    const safePrompt = encodeURIComponent(cleanPrompt + ", ultrarealistic, 8k, scientific photography, educational diagram");
     
-    // Pollinations.ai URL format
     return `https://image.pollinations.ai/prompt/${safePrompt}?nologo=true&width=1024&height=576&seed=${seed}`;
 };
 

@@ -1,10 +1,12 @@
-// src/components/teacher/LessonPage.jsx
-import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle, useMemo, memo } from "react";
+// src/components/lessons/LessonPage.jsx
+import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle, memo } from "react";
 import ContentRenderer from "./ContentRenderer";
 import {
   PlusIcon,
   MinusIcon,
   TrashIcon,
+  PhotoIcon,
+  ExclamationTriangleIcon
 } from "@heroicons/react/24/solid";
 
 const getVideoEmbedUrl = (url) => {
@@ -22,50 +24,85 @@ const DEFAULT_IMAGE_WIDTH = 50;
 
 /**
  * INTERNAL COMPONENT: LessonImage
- * Now greatly simplified: Handles the async loading of PRE-GENERATED URLs.
- * Logic for constructing the URL has been moved to AiLessonGenerator to separate concerns.
+ * Updated with robust error handling, loading skeletons, and Referrer Policy fixes.
  */
 const LessonImage = memo(({ imageUrl, label }) => {
-    const [isLoaded, setIsLoaded] = useState(false);
-    
-    // Reset loading state if the URL changes
+    const [status, setStatus] = useState('loading'); // 'loading', 'loaded', 'error'
+    const [safeUrl, setSafeUrl] = useState(null);
+
+    // Reset state and sanitize URL when prop changes
     useEffect(() => {
-        setIsLoaded(false);
+        if (imageUrl) {
+            setStatus('loading');
+            // FIX: Remove trailing periods before query parameters which break some AI image hosts
+            // e.g. "prompt... .?nologo=true" -> "prompt...?nologo=true"
+            let cleaned = imageUrl;
+            try {
+                // specific fix for the Pollinations edge case in your screenshot
+                cleaned = imageUrl.replace(/\.%2C%20/g, '%2C%20'); 
+            } catch (e) {
+                cleaned = imageUrl;
+            }
+            setSafeUrl(cleaned);
+        }
     }, [imageUrl]);
 
     if (!imageUrl) return null;
 
     return (
-        <div className="mb-8 group relative rounded-3xl bg-slate-100 dark:bg-white/5 overflow-hidden border border-slate-200 dark:border-white/10 shadow-xl transition-all hover:shadow-2xl">
-            {/* Loading Skeleton */}
-            {!isLoaded && (
-                <div className="absolute inset-0 z-0 flex items-center justify-center bg-slate-100 dark:bg-slate-800 animate-pulse">
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Loading Visual...</span>
-                </div>
-            )}
-            
-            {/* key={imageUrl} forces re-mount on change to prevent stale images */}
-            <img 
-                key={imageUrl}
-                src={imageUrl} 
-                alt={label || "Lesson Figure"} 
-                className={`w-full h-auto object-cover aspect-video transition-opacity duration-700 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
-                onLoad={() => setIsLoaded(true)}
-                loading="lazy" 
-                decoding="async"
-            />
-            
-            {label && isLoaded && (
-                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-4 pt-10">
-                     <p className="text-center text-[12px] font-bold tracking-widest text-white/90 uppercase italic">
-                        {label}
-                    </p>
-                </div>
-            )}
+        <div className="mb-8 group relative rounded-3xl bg-slate-100 dark:bg-white/5 overflow-hidden border border-slate-200 dark:border-white/10 shadow-xl transition-all hover:shadow-2xl w-full">
+            {/* Aspect Ratio Container to prevent layout shifts */}
+            <div className="aspect-video w-full relative">
+                
+                {/* 1. Loading Skeleton */}
+                {status === 'loading' && (
+                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-100 dark:bg-slate-800 animate-pulse">
+                        <div className="flex flex-col items-center opacity-50">
+                            <PhotoIcon className="w-12 h-12 text-slate-400 mb-2" />
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Generating Visual...</span>
+                        </div>
+                    </div>
+                )}
+
+                {/* 2. Error Fallback */}
+                {status === 'error' && (
+                    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900 text-slate-400">
+                        <ExclamationTriangleIcon className="w-10 h-10 mb-2 opacity-50" />
+                        <span className="text-xs font-medium opacity-75">Image could not be loaded</span>
+                    </div>
+                )}
+                
+                {/* 3. The Image */}
+                {safeUrl && (
+                    <img 
+                        key={safeUrl}
+                        src={safeUrl} 
+                        alt={label || "Lesson Figure"} 
+                        className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${status === 'loaded' ? 'opacity-100 scale-100' : 'opacity-0 scale-105'}`}
+                        onLoad={() => setStatus('loaded')}
+                        onError={(e) => {
+                            console.error("Image load failed:", safeUrl);
+                            setStatus('error');
+                        }}
+                        loading="lazy" 
+                        decoding="async"
+                        // CRITICAL FIX: This allows hotlinked AI images to load by not sending the Referrer header
+                        referrerPolicy="no-referrer"
+                    />
+                )}
+                
+                {/* Label Overlay */}
+                {label && status === 'loaded' && (
+                    <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-4 pt-10">
+                        <p className="text-center text-[12px] font-bold tracking-widest text-white/90 uppercase italic">
+                            {label}
+                        </p>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }, (prevProps, nextProps) => {
-    // Only re-render if URL or label changes
     return prevProps.imageUrl === nextProps.imageUrl && prevProps.label === nextProps.label;
 });
 
@@ -334,6 +371,7 @@ const LessonPage = forwardRef(({ page, isEditable, onFinalizeDiagram, onRevertDi
                             alt="Finalized Diagram"
                             className="absolute top-1/2 left-1/2 h-full w-full -translate-x-1/2 -translate-y-1/2 object-contain"
                             loading="lazy"
+                            referrerPolicy="no-referrer" // Applied here too just in case
                         />
                     ) : (
                         <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center text-gray-500 dark:text-slate-400">
@@ -357,14 +395,10 @@ const LessonPage = forwardRef(({ page, isEditable, onFinalizeDiagram, onRevertDi
       
       return (
         <div className="mb-8 last:mb-0">
-          {/* UPDATED: Now passing the pre-generated 'imageUrl' from the generator.
-              Legacy support: fallback to empty string if not present.
-          */}
-	  <LessonImage 
-	      prompt={page.imagePrompt} 
-	      label={page.figureLabel} 
-	      savedUrl={page.imageUrl} // Pass the saved URL
-	  />
+          <LessonImage 
+              imageUrl={page.imageUrl} 
+              label={page.figureLabel} 
+          />
 
           <div className="overflow-x-auto">
             <ContentRenderer text={contentString} />
@@ -381,14 +415,12 @@ const LessonPage = forwardRef(({ page, isEditable, onFinalizeDiagram, onRevertDi
   }
 });
 
-// Memoize the entire LessonPage to prevent parent re-renders from forcing updates
+// Memoize to prevent unnecessary re-renders
 export default memo(LessonPage, (prev, next) => {
-    // Return true if props are equal (do not re-render)
-    // We check key properties to decide if an update is needed
     return (
         prev.page?.content === next.page?.content &&
         prev.page?.imagePrompt === next.page?.imagePrompt &&
-        prev.page?.imageUrl === next.page?.imageUrl && // Added imageUrl check
+        prev.page?.imageUrl === next.page?.imageUrl &&
         prev.isEditable === next.isEditable &&
         prev.isFinalizing === next.isFinalizing
     );
