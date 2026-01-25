@@ -64,7 +64,7 @@ export default async function handler(req) {
     }
 
     // 4. Construct Messages & Select Model (Hybrid Logic)
-    let selectedModel = "nousresearch/hermes-3-llama-3.1-405b"; // Default: Best Logic
+    let selectedModel = "nousresearch/hermes-3-llama-3.1-405b:free"; // Default: Best Logic
     let messagesContent;
 
     if (imageUrl) {
