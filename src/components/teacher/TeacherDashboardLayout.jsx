@@ -1,19 +1,31 @@
 // src/components/teacher/TeacherDashboardLayout.jsx
 import React, { useState, Suspense, lazy, Fragment, useEffect, useMemo, useCallback, memo, useRef } from 'react';
 import { CSSTransition } from 'react-transition-group'; 
-import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { Menu, Transition } from '@headlessui/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { NavLink, useNavigate } from 'react-router-dom';
 import Lottie from 'lottie-react'; 
 
-// --- ICONS ---
+// --- ICON LIBRARY: PHOSPHOR ICONS ---
 import { 
-    Home, Users, GraduationCap, BookOpen, UserCircle, Settings, 
-    BarChart2, Rocket, Menu as MenuIcon, X, LayoutGrid, Palette, 
-    LogOut, Power, ChevronDown, Sparkles, Search, Command, ChevronRight,
-    MessageCircle, Bell, Calendar
-} from 'lucide-react';
+    House,              // Home
+    ChalkboardTeacher,  // Classes
+    Books,              // Subjects/Library
+    Student,            // Students
+    Coffee,             // Lounge
+    ChartPieSlice,      // Analytics
+    UserCircle,         // Profile
+    Gear,               // Admin/Settings
+    SignOut,            // Logout
+    Palette,            // Theme
+    MagnifyingGlass,    // Search
+    Command,            // Cmd Key
+    CaretRight,         // Chevron
+    X,                  // Close
+    SquaresFour,        // Mobile Menu
+    Robot,              // AI Icon
+    WarningCircle       // Error
+} from '@phosphor-icons/react';
 
 // SERVICES
 import { getDocs, query, collection, where, writeBatch, doc, updateDoc } from 'firebase/firestore';
@@ -85,28 +97,22 @@ const styles = `
   .mac-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(0, 0, 0, 0.1); border-radius: 100px; }
   .dark .mac-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(255, 255, 255, 0.1); }
   
-  .noise-bg {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    opacity: 0.03;
-    z-index: 0;
-    pointer-events: none;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  /* Smooth Width Transition for Sidebar */
+  .sidebar-transition {
+    transition: width 0.4s cubic-bezier(0.2, 0.8, 0.2, 1.0);
+    will-change: width;
   }
-
+  
+  /* Performance Optimized Glass */
   .glass-panel {
     background: rgba(255, 255, 255, 0.95);
     border: 1px solid rgba(255, 255, 255, 0.8);
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-    backdrop-filter: blur(24px);
   }
   .dark .glass-panel {
     background: rgba(28, 28, 30, 0.95);
     border: 1px solid rgba(255, 255, 255, 0.08);
     box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(24px);
   }
 `;
 
@@ -122,87 +128,98 @@ const DashboardSkeleton = memo(() => (
     </div>
 ));
 
-// --- REDESIGNED: Aesthetic Icon with Dynamic Monet Theme Highlights ---
-// --- COMPONENT: Dark Mode "Neon" Icon ---
+// --- COMPONENT: Premium Phosphor Icon with Radar Indicator ---
 const AestheticIcon = memo(({ Icon, isActive }) => {
     return (
-        <div className="relative flex items-center justify-center">
-            {/* 1. Active Glow (The 'Light Source') */}
+        <div className="relative flex items-center justify-center w-10 h-10">
+            
+            {/* 1. Stronger Background Glow */}
             <AnimatePresence>
                 {isActive && (
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.5 }}
-                        animate={{ opacity: 0.6, scale: 1.4 }} // Soft outer glow
-                        exit={{ opacity: 0, scale: 0.5 }}
-                        className="absolute inset-0 rounded-full blur-xl"
-                        style={{ backgroundColor: 'var(--monet-primary)' }}
+                        layoutId="navGlow"
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                        transition={{ duration: 0.2 }}
+                        className="absolute inset-0 rounded-xl"
+                        style={{ 
+                            backgroundColor: 'var(--monet-primary)', 
+                            opacity: 0.2, // Increased opacity for better visibility
+                            boxShadow: '0 0 15px rgba(var(--monet-primary-rgb), 0.15)' // Soft ambient light
+                        }}
                     />
                 )}
             </AnimatePresence>
 
-            {/* 2. The Icon Container */}
-            <motion.div
-                className={`
-                    relative flex items-center justify-center w-11 h-11 rounded-[14px]
-                    transition-all duration-300 z-10 border
-                `}
-                style={{
-                    // Active: Solid dark background + Colored Border + Inner Glow
-                    // Inactive: Transparent + Transparent Border
-                    backgroundColor: isActive ? 'rgba(0,0,0,0.3)' : 'transparent',
-                    borderColor: isActive ? 'var(--monet-primary)' : 'transparent',
-                    boxShadow: isActive ? 'inset 0 0 12px rgba(0,0,0,0.5)' : 'none'
-                }}
-                whileHover={{ scale: 1.1 }}
-            >
-                <Icon
-                    size={22}
-                    strokeWidth={isActive ? 2.5 : 2} // Thicker stroke when active
-                    style={{ 
-                        // Active: Pure White (for contrast against color glow) or Theme Color
-                        // Inactive: Muted Grey
-                        color: isActive ? 'var(--monet-primary)' : '#94a3b8',
+            {/* 2. The "Radar" Beacon Indicator */}
+            <AnimatePresence>
+                {isActive && (
+                    <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        exit={{ scale: 0 }}
+                        className="absolute top-1.5 right-1.5 z-20 flex h-2.5 w-2.5"
+                    >
+                        {/* The Ripple Ring (Ping Animation) */}
+                        <span 
+                            className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" 
+                            style={{ backgroundColor: 'var(--monet-primary)' }}
+                        />
                         
-                        // The 'Neon' Text Shadow effect
-                        filter: isActive 
-                            ? 'drop-shadow(0 0 8px var(--monet-primary))' 
-                            : 'none'
-                    }}
-                />
-            </motion.div>
+                        {/* The Solid Core */}
+                        <span 
+                            className="relative inline-flex rounded-full h-2.5 w-2.5" 
+                            style={{ 
+                                backgroundColor: 'var(--monet-primary)',
+                                boxShadow: '0 0 6px var(--monet-primary)' // Neon Core
+                            }}
+                        />
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* 3. The Icon */}
+            <Icon
+                size={24}
+                weight={isActive ? "fill" : "regular"} // "Fill" weight is bolder than "Duotone"
+                className={`relative z-10 transition-all duration-300 ${isActive ? 'scale-105' : 'scale-100 opacity-60 group-hover:opacity-100'}`}
+                style={{ 
+                    color: isActive ? 'var(--monet-primary)' : 'currentColor',
+                    filter: isActive ? 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' : 'none'
+                }}
+            />
         </div>
     );
 });
 
-// --- COMPONENT: Dark Mode Sidebar (Fixed) ---
+// --- COMPONENT: Themed & Lightweight Sidebar ---
 const AestheticSidebar = memo(({ navItems, activeView, handleViewChange, branding, showTutorial, onTutorialComplete }) => {
     return (
-        <motion.div
-            initial={{ x: -100 }} animate={{ x: 0 }} 
-            // FIXED: Hardcoded dark background matching strictly dark mode
-            className="hidden lg:flex flex-col h-full w-[88px] hover:w-[280px] transition-[width] duration-500 cubic-bezier(0.25, 1, 0.5, 1) group relative z-50 border-r border-white/5"
+        <div
+            className="hidden lg:flex flex-col h-full sidebar-transition w-[88px] hover:w-[260px] group relative z-50 shadow-[4px_0_24px_rgba(0,0,0,0.02)] border-r border-white/5"
             style={{
-                backgroundColor: '#09090b', // Deep dark background (Slate 950)
-                // Optional: Use a very subtle tint of the primary color on the background itself
-                // backgroundImage: 'linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(var(--monet-primary-rgb), 0.05) 100%)' 
+                // FIXED: Monet Theming Restored
+                // We use the theme's surface color but force 60% opacity for the glass look.
+                // Assuming --monet-surface is an RGB or hex value. If it's a variable, we set background-color with opacity.
+                backgroundColor: 'rgba(var(--monet-surface-rgb, 15, 23, 42), 0.50)', // Fallback to slate-900 if var missing
+                
+                // NO BLUR filter to save CPU usage
+                backdropFilter: 'none',
+                WebkitBackdropFilter: 'none'
             }}
         >
             {/* Branding Section */}
-            <div className="h-24 flex items-center px-5 overflow-hidden whitespace-nowrap">
-                {/* Logo Box */}
-                <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center shadow-sm flex-shrink-0 z-20">
-                    <img src={branding.logo} alt="Logo" className="w-8 h-8 object-contain" />
+            <div className="h-24 flex items-center px-5 overflow-hidden whitespace-nowrap shrink-0">
+                <div 
+                    className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0 z-20 transition-all duration-300 group-hover:scale-105 bg-white/10 border border-white/10"
+                >
+                    <img src={branding.logo} alt="Logo" className="w-7 h-7 object-contain drop-shadow-md" />
                 </div>
                 
-                {/* Text */}
-                <div className="ml-4 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-100 flex flex-col">
-                    <h1 className="font-bold text-md text-white leading-none tracking-tight">{branding.name}</h1>
-                    <span 
-                        className="text-[10px] font-bold uppercase tracking-widest mt-1.5"
-                        style={{ color: 'var(--monet-primary)' }} // Dynamic Theme Color
-                    >
-                        Teacher Workspace
-                    </span>
+                <div className="ml-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100 flex flex-col">
+                    <h1 className="font-bold text-sm text-slate-800 dark:text-white leading-none tracking-tight">{branding.name}</h1>
+                    <span className="text-[10px] font-bold uppercase tracking-widest mt-1 opacity-60" style={{ color: 'var(--monet-primary)' }}>Teacher OS</span>
                 </div>
             </div>
 
@@ -216,83 +233,58 @@ const AestheticSidebar = memo(({ navItems, activeView, handleViewChange, brandin
                             to={item.view === 'home' ? '/dashboard' : `/dashboard/${item.view}`}
                             end={item.view === 'home'}
                             onClick={() => handleViewChange(item.view)}
-                            className={`
-                                relative flex items-center h-16 rounded-[20px] group/item cursor-pointer
-                                transition-all duration-300 outline-none mb-1 mx-1
-                            `}
-                            style={{
-                                // Active: Very low opacity background tint of the theme color
-                                backgroundColor: isActive 
-                                    ? 'rgba(255, 255, 255, 0.03)' 
-                                    : 'transparent',
-                            }}
+                            className="relative flex items-center h-14 rounded-2xl group/item cursor-pointer overflow-hidden transition-all duration-200"
                         >
-                            {/* ACTIVE INDICATOR (Glowing Line) */}
-                            {isActive && (
-                                <motion.div 
-                                    layoutId="activeGlowStrip"
-                                    className="absolute left-0 w-1 h-8 rounded-r-full shadow-[0_0_15px_currentColor]"
-                                    style={{ backgroundColor: 'var(--monet-primary)', color: 'var(--monet-primary)' }}
-                                />
-                            )}
-
                             {/* Icon Wrapper */}
                             <div className="min-w-[4rem] h-full flex justify-center items-center z-10">
                                 <AestheticIcon Icon={item.icon} isActive={isActive} />
                             </div>
                             
                             {/* Text Label */}
-                            <div className="flex-1 flex items-center justify-between pr-4 overflow-hidden opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                            <div className="flex-1 flex items-center pr-4 overflow-hidden opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-75">
                                 <span 
-                                    className="text-[14px] font-bold tracking-wide transition-colors"
-                                    style={{
-                                        // Active: Theme Color
-                                        // Inactive: Grey
-                                        color: isActive 
-                                            ? 'var(--monet-primary)' 
-                                            : '#94a3b8' 
-                                    }}
+                                    className={`text-[13px] font-semibold tracking-wide transition-colors ${isActive ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}
                                 >
                                     {item.text}
                                 </span>
-                                
-                                {/* Optional: Tiny glowing dot for active state */}
-                                {isActive && (
-                                    <div 
-                                        className="w-1.5 h-1.5 rounded-full shadow-[0_0_8px_currentColor]"
-                                        style={{ backgroundColor: 'var(--monet-primary)', color: 'var(--monet-primary)' }}
-                                    />
-                                )}
                             </div>
+
+                            {/* Active Indicator Strip (Left) */}
+                            {isActive && (
+                                <motion.div 
+                                    layoutId="activeStrip"
+                                    className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full"
+                                    style={{ backgroundColor: 'var(--monet-primary)' }}
+                                />
+                            )}
                         </NavLink>
                     );
                 })}
             </nav>
 
-            {/* Bottom Actions (Theme Toggle) */}
-            <div className="p-4 border-t border-white/5">
+            {/* Bottom Actions */}
+            <div className="p-4 border-t border-white/5 shrink-0">
                 <Menu as="div" className="relative">
                     <Menu.Button 
                         onClick={onTutorialComplete}
                         className={`
-                            flex items-center w-full h-14 rounded-[18px] 
-                            hover:bg-white/5 transition-colors group/btn outline-none
-                            ${showTutorial ? 'ring-1 ring-white/20' : ''}
+                            flex items-center w-full h-14 rounded-2xl 
+                            hover:bg-black/5 dark:hover:bg-white/5 transition-colors group/btn outline-none
+                            ${showTutorial ? 'ring-1 ring-indigo-500' : ''}
                         `}
                     >
                          <div className="min-w-[4rem] flex justify-center items-center">
-                            <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-slate-400 group-hover/btn:text-white transition-colors">
-                                <Palette size={18} />
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 group-hover/btn:text-slate-800 dark:group-hover/btn:text-white transition-colors">
+                                <Palette size={24} weight="duotone" />
                             </div>
                          </div>
-                         <div className="ml-1 flex flex-col items-start overflow-hidden opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                             <span className="text-[13px] font-bold text-white">
-                                 Appearance
+                         <div className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300 overflow-hidden whitespace-nowrap">
+                             <span className="text-[13px] font-medium text-slate-700 dark:text-slate-200">
+                                 Theming
                              </span>
                          </div>
                     </Menu.Button>
                     
-                    {/* Dark Mode Optimized Menu */}
                     <Transition
                         as={Fragment}
                         enter="transition ease-out duration-200"
@@ -302,13 +294,13 @@ const AestheticSidebar = memo(({ navItems, activeView, handleViewChange, brandin
                         leaveFrom="opacity-100 translate-y-0 scale-100"
                         leaveTo="opacity-0 translate-y-2 scale-95"
                     >
-                        <Menu.Items className="absolute bottom-full left-4 mb-2 w-64 p-3 origin-bottom-left rounded-3xl bg-[#18181b] border border-white/10 shadow-2xl focus:outline-none z-[60]">
-                           <div className="px-3 py-2 border-b border-white/10 mb-3">
+                        <Menu.Items className="absolute bottom-full left-4 mb-2 w-64 p-3 origin-bottom-left rounded-3xl bg-white dark:bg-[#18181b] border border-slate-200 dark:border-white/10 shadow-2xl focus:outline-none z-[60]">
+                           <div className="px-3 py-2 border-b border-slate-100 dark:border-white/10 mb-3">
                                <span 
                                    className="text-xs font-bold uppercase tracking-widest"
                                    style={{ color: 'var(--monet-primary)' }}
                                 >
-                                   Display Settings
+                                   Appearance
                                 </span>
                            </div>
                            <ThemeToggle />
@@ -316,11 +308,11 @@ const AestheticSidebar = memo(({ navItems, activeView, handleViewChange, brandin
                     </Transition>
                 </Menu>
             </div>
-        </motion.div>
+        </div>
     );
 });
 
-// --- UPDATED TOP BAR (Glass Search + Enhanced Design) ---
+// --- UPDATED TOP BAR ---
 const TopContextBar = memo(({ userProfile, activeView, onLogout, handleOpenChat, isAiThinking, courses, activeClasses, onNavigate }) => {
     
     const [searchQuery, setSearchQuery] = useState('');
@@ -328,18 +320,12 @@ const TopContextBar = memo(({ userProfile, activeView, onLogout, handleOpenChat,
     const [searchResults, setSearchResults] = useState({ courses: [], classes: [] });
     const searchInputRef = useRef(null);
 
-    // Auto-Close Search
     const handleSearchChange = (e) => {
         const val = e.target.value;
         setSearchQuery(val);
-        
         if (val === '') {
-            setTimeout(() => {
-               if (searchInputRef.current) searchInputRef.current.blur();
-               setIsFocused(false);
-            }, 100); 
+            setTimeout(() => { if (searchInputRef.current) searchInputRef.current.blur(); setIsFocused(false); }, 100); 
         }
-
         if (val.trim()) {
             const lowerQuery = val.toLowerCase();
             const filteredCourses = courses?.filter(c => c.title.toLowerCase().includes(lowerQuery)) || [];
@@ -358,13 +344,13 @@ const TopContextBar = memo(({ userProfile, activeView, onLogout, handleOpenChat,
 
     const titles = {
         home: 'Dashboard Overview',
-       
+        lounge: 'Faculty Lounge',
         studentManagement: 'Student Directory',
-        classes: 'My Classes',
-        courses: 'Course Library',
-        analytics: 'Performance Analytics',
-        profile: 'User Profile',
-        admin: 'Admin Settings'
+        classes: 'Active Classes',
+        courses: 'Subject Library',
+        analytics: 'Performance Data',
+        profile: 'My Profile',
+        admin: 'System Admin'
     };
 
     return (
@@ -376,10 +362,10 @@ const TopContextBar = memo(({ userProfile, activeView, onLogout, handleOpenChat,
                 key={activeView}
                 className={`flex flex-col justify-center h-full transition-all duration-500 pointer-events-auto ${isFocused ? 'opacity-20 blur-sm scale-95' : 'opacity-100 blur-0 scale-100'}`}
             >
-                <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-0.5">
-                    <span>Teacher</span>
-                    <ChevronRight size={10} strokeWidth={3} />
-                    <span>{activeView}</span>
+                <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">
+                    <span className="opacity-70">Workspace</span>
+                    <CaretRight size={12} weight="bold" />
+                    <span style={{ color: 'var(--monet-primary)' }}>{activeView}</span>
                 </div>
                 <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight drop-shadow-sm">
                     {titles[activeView] || 'Teacher Workspace'}
@@ -389,21 +375,22 @@ const TopContextBar = memo(({ userProfile, activeView, onLogout, handleOpenChat,
             {/* Right Actions */}
             <div className="flex items-center gap-5 pointer-events-auto">
                 
-                {/* --- ENHANCED GLASS SEARCH BAR --- */}
+                {/* Search Bar */}
                 <div className="relative z-50">
                     <div 
                         className={`
                             group flex items-center gap-3 h-12 px-5 rounded-full transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]
                             backdrop-blur-xl border
                             ${isFocused 
-                                ? 'w-[480px] bg-white/80 dark:bg-black/60 shadow-[0_8px_32px_rgba(0,0,0,0.12)] border-white/20 ring-1 ring-white/10' 
+                                ? 'w-[480px] bg-white/90 dark:bg-black/80 shadow-2xl border-white/20 ring-1 ring-white/10' 
                                 : 'w-72 bg-white/40 dark:bg-black/20 hover:bg-white/60 dark:hover:bg-black/40 hover:w-[300px] border-white/10 hover:border-white/20 shadow-sm'
                             }
                         `}
                     >
-                        <Search 
-                            size={18} 
-                            className={`transition-colors duration-300 ${isFocused ? 'text-indigo-500' : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200'}`} 
+                        <MagnifyingGlass 
+                            size={20} 
+                            weight="bold"
+                            className={`transition-colors duration-300 ${isFocused ? 'text-indigo-500' : 'text-slate-500 dark:text-slate-400'}`} 
                         />
                         
                         <input 
@@ -417,7 +404,7 @@ const TopContextBar = memo(({ userProfile, activeView, onLogout, handleOpenChat,
                             className="bg-transparent border-none outline-none text-sm w-full font-medium text-slate-800 dark:text-slate-100 placeholder:text-slate-500/60 dark:placeholder:text-slate-400/60 transition-all" 
                         />
 
-                        {/* Keyboard Shortcut Badge (Styled for Glass) */}
+                        {/* Keyboard Shortcut Badge */}
                         <div className={`
                             flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] font-bold transition-all duration-300
                             ${isFocused 
@@ -425,7 +412,7 @@ const TopContextBar = memo(({ userProfile, activeView, onLogout, handleOpenChat,
                                 : 'opacity-100 translate-x-0 bg-white/20 dark:bg-white/5 border-white/10 text-slate-500 dark:text-slate-400'
                             }
                         `}>
-                            <Command size={10} /> 
+                            <Command size={12} weight="bold" /> 
                             <span>K</span>
                         </div>
 
@@ -433,14 +420,14 @@ const TopContextBar = memo(({ userProfile, activeView, onLogout, handleOpenChat,
                         {isFocused && searchQuery && (
                             <button 
                                 onClick={() => { setSearchQuery(''); searchInputRef.current?.focus(); }} 
-                                className="p-1 rounded-full hover:bg-slate-200/50 dark:hover:bg-white/10 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors animate-in fade-in zoom-in"
+                                className="p-1 rounded-full hover:bg-slate-200/50 dark:hover:bg-white/10 text-slate-400 transition-colors animate-in fade-in zoom-in"
                             >
-                                <X size={14} strokeWidth={3} />
+                                <X size={14} weight="bold" />
                             </button>
                         )}
                     </div>
 
-                    {/* GLASS DROPDOWN RESULTS */}
+                    {/* Dropdown Results */}
                     <AnimatePresence>
                         {isFocused && searchQuery && (
                             <motion.div
@@ -452,7 +439,7 @@ const TopContextBar = memo(({ userProfile, activeView, onLogout, handleOpenChat,
                             >
                                 {searchResults.courses.length === 0 && searchResults.classes.length === 0 ? (
                                     <div className="p-12 flex flex-col items-center text-center text-slate-400">
-                                        <Search size={32} className="mb-3 opacity-20" />
+                                        <MagnifyingGlass size={32} weight="duotone" className="mb-3 opacity-20" />
                                         <p className="text-sm font-medium">No matches found</p>
                                     </div>
                                 ) : (
@@ -460,18 +447,17 @@ const TopContextBar = memo(({ userProfile, activeView, onLogout, handleOpenChat,
                                         {searchResults.courses.length > 0 && (
                                             <div className="mb-2">
                                                 <div className="px-4 py-2 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                                                    <BookOpen size={10} /> Subjects
+                                                    <Books size={14} weight="fill" /> Subjects
                                                 </div>
                                                 {searchResults.courses.map(course => (
                                                     <button key={course.id} onClick={() => handleResultClick('courses', course)} className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors group text-left">
                                                         <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 group-hover:scale-110 transition-transform duration-300">
-                                                            <BookOpen size={18} />
+                                                            <Books size={20} weight="duotone" />
                                                         </div>
                                                         <div className="flex-1 min-w-0">
                                                             <div className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">{course.title}</div>
                                                             <div className="text-[11px] font-medium text-slate-500 truncate opacity-80">{course.category}</div>
                                                         </div>
-                                                        <ChevronRight size={14} className="text-slate-300 dark:text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity" />
                                                     </button>
                                                 ))}
                                             </div>
@@ -479,18 +465,17 @@ const TopContextBar = memo(({ userProfile, activeView, onLogout, handleOpenChat,
                                         {searchResults.classes.length > 0 && (
                                             <div>
                                                 <div className="px-4 py-2 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                                                    <GraduationCap size={10} /> Classes
+                                                    <ChalkboardTeacher size={14} weight="fill" /> Classes
                                                 </div>
                                                 {searchResults.classes.map(cls => (
                                                     <button key={cls.id} onClick={() => handleResultClick('classes', cls)} className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors group text-left">
                                                         <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 group-hover:scale-110 transition-transform duration-300">
-                                                            <GraduationCap size={18} />
+                                                            <ChalkboardTeacher size={20} weight="duotone" />
                                                         </div>
                                                         <div className="flex-1 min-w-0">
                                                             <div className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">{cls.name}</div>
                                                             <div className="text-[11px] font-medium text-slate-500 truncate opacity-80">{cls.schedule || 'No schedule'}</div>
                                                         </div>
-                                                        <ChevronRight size={14} className="text-slate-300 dark:text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity" />
                                                     </button>
                                                 ))}
                                             </div>
@@ -502,14 +487,13 @@ const TopContextBar = memo(({ userProfile, activeView, onLogout, handleOpenChat,
                     </AnimatePresence>
                 </div>
 
-                {/* AI Trigger (Updated to match glass theme) */}
+                {/* AI Trigger */}
                 <button 
                     onClick={handleOpenChat}
-                    className="group relative flex items-center gap-3 h-12 pl-3 pr-5 rounded-full text-white shadow-[0_8px_20px_-6px_rgba(79,70,229,0.4)] hover:shadow-[0_12px_24px_-8px_rgba(79,70,229,0.6)] hover:scale-105 active:scale-95 transition-all duration-300 overflow-hidden bg-indigo-600"
+                    className="group relative flex items-center gap-3 h-12 pl-3 pr-5 rounded-full text-white shadow-[0_8px_20px_-6px_rgba(79,70,229,0.4)] hover:shadow-[0_12px_24px_-8px_rgba(79,70,229,0.6)] hover:scale-105 active:scale-95 transition-all duration-300 overflow-hidden"
+                    style={{ backgroundColor: 'var(--monet-primary)' }}
                 >
-                    <div className="absolute inset-0 bg-gradient-to-tr from-indigo-600 to-violet-500" />
-                    <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-                    
+                    <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent pointer-events-none" />
                     <div className="relative z-10 flex items-center gap-2">
                         {isAiThinking ? (
                             <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -563,7 +547,7 @@ const ProfileDropdown = memo(({ userProfile, onLogout, size = 'desktop' }) => {
                          <Menu.Item>
                             {({ active }) => (
                                 <NavLink to="/dashboard/profile" className={`${active ? 'bg-slate-50 dark:bg-white/5' : ''} flex items-center gap-2 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 font-medium`}>
-                                    <UserCircle size={16} /> My Profile
+                                    <UserCircle size={18} weight="duotone" /> My Profile
                                 </NavLink>
                             )}
                         </Menu.Item>
@@ -572,7 +556,7 @@ const ProfileDropdown = memo(({ userProfile, onLogout, size = 'desktop' }) => {
                         <Menu.Item>
                             {({ active }) => (
                                 <button onClick={onLogout} className={`${active ? 'bg-red-50 dark:bg-red-900/10 text-red-600' : 'text-slate-700 dark:text-slate-300'} flex w-full items-center gap-2 px-4 py-2 text-sm font-medium`}>
-                                    <LogOut size={16} /> Sign Out
+                                    <SignOut size={18} weight="duotone" /> Sign Out
                                 </button>
                             )}
                         </Menu.Item>
@@ -588,7 +572,7 @@ const MobileThemeButton = memo(() => {
     return (
         <Menu as="div" className="relative z-50">
             <Menu.Button className="relative flex items-center justify-center w-10 h-10 rounded-full bg-white/95 dark:bg-white/10 overflow-hidden ring-1 ring-black/5 dark:ring-white/10 hover:bg-white dark:hover:bg-white/20 transition-all outline-none">
-                <Palette size={18} className="text-slate-600 dark:text-slate-200" />
+                <Palette size={20} weight="duotone" className="text-slate-600 dark:text-slate-200" />
             </Menu.Button>
             <Transition
                 as={Fragment}
@@ -627,8 +611,6 @@ const TeacherDashboardLayout = (props) => {
     const [isChangePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [showAmbienceTutorial, setShowAmbienceTutorial] = useState(false);
-    
-    // Command Palette State (Lazy loaded to avoid circular dependencies if any)
     const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
     
     const { showToast } = useToast();
@@ -674,10 +656,8 @@ const TeacherDashboardLayout = (props) => {
     const handleCloseAiHub = useCallback(() => setIsAiHubOpen(false), [setIsAiHubOpen]);
     const handleClosePasswordModal = useCallback(() => setChangePasswordModalOpen(false), []);
     
-    // NAVIGATION LOGIC (DEEP LINKING FIX)
     const handleSearchNavigation = useCallback((type, item) => {
         if (type === 'courses' && item) {
-            // FIXED: Direct navigation to subject
             const url = `/dashboard/courses/teacher/${encodeURIComponent(item.category)}/${item.id}`;
             navigate(url);
         } else if (type === 'classes' && item) {
@@ -687,7 +667,6 @@ const TeacherDashboardLayout = (props) => {
         }
     }, [navigate, handleViewChange]);
 
-    // Command Actions
     const commandActions = useMemo(() => ({
         createClass: () => rest.setCreateClassModalOpen(true),
         createSubject: () => rest.setCreateCourseModalOpen(true),
@@ -698,7 +677,6 @@ const TeacherDashboardLayout = (props) => {
         logout: handleLogoutClick
     }), [rest.setCreateClassModalOpen, rest.setCreateCourseModalOpen, setIsAiHubOpen, handleViewChange, handleLogoutClick, rest.setIsArchivedModalOpen]);
 
-    // ... (Existing Logic: Categories, Online Class)
     const handleRenameCategory = useCallback(async (newName) => {
         const oldName = categoryToEdit?.name;
         if (!oldName || !newName || oldName === newName) { setIsEditCategoryModalOpen(false); return; }
@@ -744,18 +722,18 @@ const TeacherDashboardLayout = (props) => {
         } catch (error) { console.error("Error ending online class:", error); showToast('Failed to end the online class.', 'error'); }
     }, [showToast]);
     
-    // NAVIGATION ITEMS
+    // NAVIGATION ITEMS (Updated with Phosphor Icons)
     const navItems = useMemo(() => {
         const items = [
-            { view: 'home', text: 'Home', icon: Home },
-            { view: 'lounge', text: 'Lounge', icon: Rocket },
-            { view: 'studentManagement', text: 'Students', icon: Users },
-            { view: 'classes', text: 'Classes', icon: GraduationCap },
-            { view: 'courses', text: 'Subjects', icon: BookOpen },
-            { view: 'analytics', text: 'Analytics', icon: BarChart2 },
+            { view: 'home', text: 'Dashboard', icon: House },
+            { view: 'lounge', text: 'Lounge', icon: Coffee },
+            { view: 'studentManagement', text: 'Students', icon: Student },
+            { view: 'classes', text: 'Classes', icon: ChalkboardTeacher },
+            { view: 'courses', text: 'Library', icon: Books },
+            { view: 'analytics', text: 'Reports', icon: ChartPieSlice },
             { view: 'profile', text: 'Profile', icon: UserCircle },
         ];
-        if (userProfile?.role === 'admin') items.push({ view: 'admin', text: 'Admin', icon: Settings });
+        if (userProfile?.role === 'admin') items.push({ view: 'admin', text: 'System', icon: Gear });
         return items;
     }, [userProfile?.role]);
 
@@ -765,7 +743,7 @@ const TeacherDashboardLayout = (props) => {
         if (error) {
             return (
                 <div className="glass-panel border-l-4 border-red-500 text-red-800 dark:text-red-200 p-6 rounded-2xl m-4">
-                    <div className="flex items-start gap-3"><ExclamationTriangleIcon className="w-6 h-6 text-red-500" /><div><strong className="block text-lg font-bold">System Notification</strong><span className="text-sm opacity-80">{error}</span></div></div>
+                    <div className="flex items-start gap-3"><WarningCircle size={24} weight="fill" className="text-red-500" /><div><strong className="block text-lg font-bold">System Notification</strong><span className="text-sm opacity-80">{error}</span></div></div>
                 </div>
             );
         }
@@ -793,9 +771,7 @@ const TeacherDashboardLayout = (props) => {
             <div className="noise-bg opacity-30 dark:opacity-10 pointer-events-none"></div>
             <UniversalBackground />
 
-            {/* --- LAYOUT STRUCTURE (Aesthetic Vision 2.0) --- */}
-            
-            {/* 1. Left Vertical Rail */}
+            {/* 1. Left Vertical Rail (Themed & Frosted) */}
             <AestheticSidebar 
                 navItems={navItems} 
                 activeView={activeView} 
@@ -831,28 +807,25 @@ const TeacherDashboardLayout = (props) => {
                         {renderMainContent()}
                     </Suspense>
 
-                    {/* IMPROVED BOTTOM SPACER: Increased to h-40 to prevent Dock Overlap */}
                     <div className="h-40 lg:hidden"></div>
                 </main>
             </div>
 
 
-            {/* --- MOBILE ELEMENTS --- */}
+            {/* --- MOBILE ELEMENTS (Optimized Icons) --- */}
             
-            {/* Mobile Header (Increased Opacity) */}
+            {/* Mobile Header */}
             <div className="fixed top-0 left-0 right-0 z-40 px-4 pt-2 pb-2 lg:hidden">
                 <motion.div 
                     initial={{ y: -50, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
                     style={monetTheme.glassStyle}
                     className="glass-panel relative flex items-center justify-between px-5 py-3 rounded-[1.5rem] shadow-lg bg-white/95 dark:bg-[#1C1C1E]/95"
                 >
-                    {/* Fixed Mobile Branding */}
                     <div className="flex items-center gap-2">
                         <img src={branding.logo} alt="Logo" className="w-8 h-8 object-contain" />
                         <span className="font-bold text-lg text-slate-800 dark:text-white">{branding.name}</span>
                     </div>
                     
-                    {/* Mobile Actions: Theme + Profile */}
                     <div className="flex items-center gap-3">
                         <MobileThemeButton />
                         <ProfileDropdown userProfile={userProfile} onLogout={handleLogoutClick} size="mobile" />
@@ -860,59 +833,55 @@ const TeacherDashboardLayout = (props) => {
                 </motion.div>
             </div>
 
-            {/* EXPANDED Mobile Dock (Solid Background) */}
+            {/* EXPANDED Mobile Dock */}
             <div className="fixed bottom-4 left-0 right-0 flex justify-center z-[49] lg:hidden pointer-events-none">
                  <motion.div 
                     initial={{ y: 100 }} animate={{ y: 0 }}
                     style={monetTheme.glassStyle}
-                    className="glass-panel pointer-events-auto px-4 py-3 rounded-[2rem] flex items-center gap-4 sm:gap-6 shadow-2xl bg-white dark:bg-[#1C1C1E]"
+                    className="glass-panel pointer-events-auto px-6 py-4 rounded-[2.5rem] flex items-center gap-6 shadow-2xl bg-white dark:bg-[#1C1C1E] border border-white/20"
                  >
-                     {/* Home */}
                      <NavLink 
                         to="/dashboard" 
                         onClick={() => handleViewChange('home')} 
                         className="transition-transform active:scale-95"
                     >
-                        <AestheticIcon Icon={Home} isActive={activeView === 'home'} />
-                     </NavLink>
+                        <AestheticIcon Icon={House} isActive={activeView === 'home'} />
+                    </NavLink>
                      
-                     {/* Courses/Subjects */}
                      <NavLink 
                         to="/dashboard/courses" 
                         onClick={() => handleViewChange('courses')} 
                         className="transition-transform active:scale-95"
                     >
-                        <AestheticIcon Icon={BookOpen} isActive={activeView === 'courses'} />
+                        <AestheticIcon Icon={Books} isActive={activeView === 'courses'} />
                      </NavLink>
 
-                     {/* Classes */}
                      <NavLink 
                         to="/dashboard/classes" 
                         onClick={() => handleViewChange('classes')} 
                         className="transition-transform active:scale-95"
                     >
-                        <AestheticIcon Icon={GraduationCap} isActive={activeView === 'classes'} />
+                        <AestheticIcon Icon={ChalkboardTeacher} isActive={activeView === 'classes'} />
                      </NavLink>
 
-                     {/* Lounge */}
                      <NavLink 
                         to="/dashboard/lounge" 
                         onClick={() => handleViewChange('lounge')} 
                         className="transition-transform active:scale-95"
                     >
-                        <AestheticIcon Icon={Rocket} isActive={activeView === 'lounge'} />
+                        <AestheticIcon Icon={Coffee} isActive={activeView === 'lounge'} />
                      </NavLink>
 
                      {/* Menu Toggle */}
                      <button 
                         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
                         className={`
-                            relative flex items-center justify-center w-[42px] h-[42px] rounded-[14px] 
-                            transition-all duration-300
+                            relative flex items-center justify-center w-[46px] h-[46px] rounded-[18px] 
+                            transition-all duration-300 shadow-md
                             ${isMobileMenuOpen ? 'bg-slate-800 text-white' : 'bg-slate-100 dark:bg-white/10 text-slate-400'}
                         `}
                     >
-                        {isMobileMenuOpen ? <X size={20} /> : <LayoutGrid size={20} />}
+                        {isMobileMenuOpen ? <X size={22} /> : <SquaresFour size={22} />}
                      </button>
                  </motion.div>
             </div>
@@ -924,7 +893,7 @@ const TeacherDashboardLayout = (props) => {
                         initial={{ opacity: 0, scale: 0.9, y: 50 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.9, y: 50 }}
-                        className="fixed bottom-24 left-4 right-4 z-40 glass-panel rounded-[2rem] p-6 lg:hidden shadow-2xl bg-white dark:bg-[#1C1C1E]"
+                        className="fixed bottom-24 left-4 right-4 z-40 glass-panel rounded-[2.5rem] p-6 lg:hidden shadow-2xl bg-white dark:bg-[#1C1C1E]"
                     >
                         <div className="grid grid-cols-4 gap-4">
                             {navItems.filter(i => !['home','classes', 'courses', 'lounge'].includes(i.view)).map(item => (
@@ -941,7 +910,6 @@ const TeacherDashboardLayout = (props) => {
 
             {/* --- MODALS & OVERLAYS --- */}
             <Suspense fallback={null}>
-                {/* AI Chat Drawer (Desktop) & Robot (Mobile) */}
                 <div className="lg:hidden">
                     {!isChatOpen && activeView === 'home' && (
                         <div className="fixed bottom-28 right-4 z-40">
@@ -950,7 +918,6 @@ const TeacherDashboardLayout = (props) => {
                     )}
                 </div>
 
-                {/* Command Palette */}
                 <Suspense fallback={null}>
                     {isCommandPaletteOpen && (
                         <CommandPalette 
@@ -967,7 +934,6 @@ const TeacherDashboardLayout = (props) => {
                 {isAiHubOpen && <AiGenerationHub isOpen={isAiHubOpen} onClose={handleCloseAiHub} subjectId={activeSubject?.id} unitId={activeUnit?.id} />}
                 {isChatOpen && <ChatDialog isOpen={isChatOpen} onClose={handleCloseChat} messages={messages} onSendMessage={handleAskAiWrapper} isAiThinking={isAiThinking} userFirstName={userProfile?.firstName} />}
                 
-                {/* Other Modals... */}
                 {rest.isArchivedModalOpen && <ArchivedClassesModal isOpen={rest.isArchivedModalOpen} onClose={() => rest.setIsArchivedModalOpen(false)} archivedClasses={rest.archivedClasses} onUnarchive={rest.handleUnarchiveClass} onDelete={props.handleDeleteClass} />}
                 {rest.isEditProfileModalOpen && <EditProfileModal isOpen={rest.isEditProfileModalOpen} onClose={() => rest.setEditProfileModalOpen(false)} userProfile={userProfile} onUpdate={rest.handleUpdateProfile} setChangePasswordModalOpen={setChangePasswordModalOpen} />}
                 <ChangePasswordModal isOpen={isChangePasswordModalOpen} onClose={handleClosePasswordModal} onSubmit={rest.handleChangePassword} />
@@ -989,67 +955,47 @@ const TeacherDashboardLayout = (props) => {
                 {rest.isDeleteSubjectModalOpen && <DeleteSubjectModal isOpen={rest.isDeleteSubjectModalOpen} onClose={() => rest.setDeleteSubjectModalOpen(false)} subject={rest.subjectToActOn} />}
             </Suspense>
 
-				{/* Logout Modal - Moonlight OS Edition (Fixed) */}
-				<CSSTransition in={isLogoutModalOpen} timeout={400} classNames="logout-modal" unmountOnExit>
-				    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-        
-				        {/* Backdrop - Added z-0 to ensure it stays behind */}
-				        <div 
-				            className="absolute inset-0 z-0 bg-[#020617]/80 backdrop-blur-md transition-opacity" 
-				            onClick={cancelLogout}
-				        />
-
-				        {/* Modal Panel - Added z-10 relative to ensure it sits above backdrop */}
-				        <div className="relative z-10 w-full max-w-sm rounded-[32px] overflow-hidden border border-white/10 shadow-2xl bg-[#0f172a] transform transition-all">
-            
-				            {/* Ambient "Hazard" Glow - Added pointer-events-none */}
-				            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_rgba(220,38,38,0.15),_transparent_70%)] pointer-events-none" />
-            
-				            {/* Noise Texture - FIXED: Added pointer-events-none */}
-				            <div className="absolute inset-0 opacity-[0.03] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] mix-blend-overlay pointer-events-none" />
-
-				            {/* Content Container - z-20 to sit above all decorations */}
-				            <div className="relative z-20 p-8 text-center">
-                
-				                {/* Icon Container */}
-				                <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 mx-auto mb-6 flex items-center justify-center shadow-[0_0_30px_rgba(220,38,38,0.2)] group">
-				                    <div className="relative z-10 text-red-500 drop-shadow-[0_0_8px_rgba(220,38,38,0.8)] transition-transform duration-500 group-hover:scale-110">
-				                        <Power size={32} strokeWidth={2} />
-				                    </div>
-				                    {/* Inner pulse ring - Added pointer-events-none */}
-				                    <div className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-red-500/20 pointer-events-none" />
-				                </div>
-
-				                <h2 className="text-2xl font-medium text-white mb-2 tracking-tight drop-shadow-md">
-				                    System Sign Out
-				                </h2>
-                
-				                <p className="text-sm text-slate-400 mb-8 leading-relaxed font-light">
-				                    You are terminating your active session.<br/>
-				                    <span className="text-red-400/80">Unsaved data may be lost in the void.</span>
-				                </p>
-
-				                <div className="flex flex-col gap-3">
-				                    {/* Confirm Button */}
-				                    <button 
-				                        onClick={confirmLogout} 
-				                        className="w-full py-3.5 rounded-xl font-bold text-white text-sm tracking-widest uppercase bg-red-600 hover:bg-red-500 shadow-[0_0_20px_rgba(220,38,38,0.4)] hover:shadow-[0_0_30px_rgba(220,38,38,0.6)] border border-red-500/50 transition-all active:scale-95 cursor-pointer relative z-30"
-				                    >
-				                        Confirm Termination
-				                    </button>
-                    
-				                    {/* Cancel Button */}
-				                    <button 
-				                        onClick={cancelLogout} 
-				                        className="w-full py-3.5 rounded-xl font-bold text-slate-400 hover:text-white text-sm tracking-widest uppercase hover:bg-white/5 border border-transparent hover:border-white/10 transition-all active:scale-95 cursor-pointer relative z-30"
-				                    >
-				                        Abort
-				                    </button>
-				                </div>
-				            </div>
-				        </div>
-				    </div>
-				</CSSTransition>
+            <CSSTransition in={isLogoutModalOpen} timeout={400} classNames="logout-modal" unmountOnExit>
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+                    <div 
+                        className="absolute inset-0 z-0 bg-[#020617]/80 backdrop-blur-md transition-opacity" 
+                        onClick={cancelLogout}
+                    />
+                    <div className="relative z-10 w-full max-w-sm rounded-[32px] overflow-hidden border border-white/10 shadow-2xl bg-[#0f172a] transform transition-all">
+                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_rgba(220,38,38,0.15),_transparent_70%)] pointer-events-none" />
+                        <div className="absolute inset-0 opacity-[0.03] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] mix-blend-overlay pointer-events-none" />
+                        <div className="relative z-20 p-8 text-center">
+                            <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 mx-auto mb-6 flex items-center justify-center shadow-[0_0_30px_rgba(220,38,38,0.2)] group">
+                                <div className="relative z-10 text-red-500 drop-shadow-[0_0_8px_rgba(220,38,38,0.8)] transition-transform duration-500 group-hover:scale-110">
+                                    <SignOut size={32} weight="duotone" />
+                                </div>
+                                <div className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-red-500/20 pointer-events-none" />
+                            </div>
+                            <h2 className="text-2xl font-medium text-white mb-2 tracking-tight drop-shadow-md">
+                                System Sign Out
+                            </h2>
+                            <p className="text-sm text-slate-400 mb-8 leading-relaxed font-light">
+                                You are terminating your active session.<br/>
+                                <span className="text-red-400/80">Unsaved data may be lost in the void.</span>
+                            </p>
+                            <div className="flex flex-col gap-3">
+                                <button 
+                                    onClick={confirmLogout} 
+                                    className="w-full py-3.5 rounded-xl font-bold text-white text-sm tracking-widest uppercase bg-red-600 hover:bg-red-500 shadow-[0_0_20px_rgba(220,38,38,0.4)] hover:shadow-[0_0_30px_rgba(220,38,38,0.6)] border border-red-500/50 transition-all active:scale-95 cursor-pointer relative z-30"
+                                >
+                                    Confirm Termination
+                                </button>
+                                <button 
+                                    onClick={cancelLogout} 
+                                    className="w-full py-3.5 rounded-xl font-bold text-slate-400 hover:text-white text-sm tracking-widest uppercase hover:bg-white/5 border border-transparent hover:border-white/10 transition-all active:scale-95 cursor-pointer relative z-30"
+                                >
+                                    Abort
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </CSSTransition>
         </div>
     );
 };

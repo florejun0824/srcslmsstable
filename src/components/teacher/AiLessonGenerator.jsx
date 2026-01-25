@@ -606,70 +606,71 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                 jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "coreContentTitles": [\n    "First Sub-Topic Title",\n    "Second Sub-Topic Title"\n  ]\n}`;
                 break;
 
-            case 'CoreContentPage':
-                            const allTitles = extraData.allContentTitles || [extraData.contentTitle];
-                            const currentIndex = extraData.currentIndex !== undefined ? extraData.currentIndex : 0;
-                            const currentTitle = extraData.contentTitle;
+			case 'CoreContentPage':
+			                const allTitles = extraData.allContentTitles || [extraData.contentTitle];
+			                const currentIndex = extraData.currentIndex !== undefined ? extraData.currentIndex : 0;
+			                const currentTitle = extraData.contentTitle;
+    
+			                // NEW: Get list of previous and next titles to set strict boundaries
+			                const previousTitles = allTitles.slice(0, currentIndex).join(', ');
+			                const nextTitles = allTitles.slice(currentIndex + 1).join(', ');
+
+			                const contentContextInstruction = `
+			                **PAGING CONTEXT:** Page ${currentIndex + 1} of ${allTitles.length}.
+			                - **CURRENT FOCUS:** "${currentTitle}"
+			                - **PREVIOUSLY COVERED (DO NOT REPEAT):** ${previousTitles || "None - This is the first page."}
+			                - **COMING NEXT (DO NOT SPOIL):** ${nextTitles || "None - This is the last page."}
+			                `;
+
+			                taskInstruction = `Generate *one* core content page for this lesson.
+			                - **Page Title:** It MUST be exactly: "${currentTitle}"
+			                ${contentContextInstruction}
                 
-                            // NEW: Get list of previous and next titles to set strict boundaries
-                            const previousTitles = allTitles.slice(0, currentIndex).join(', ');
-                            const nextTitles = allTitles.slice(currentIndex + 1).join(', ');
+			                **SMART IMAGE INJECTION RULES:**
+			                1. **Analogy/Scenario detection:** If you use an analogy (e.g., comparing a cell to a city), you MUST generate an "imagePrompt" visualizing that analogy.
+			                2. **Visual Support:** If describing a specific tool (e.g., Beaker, Microscope), generate an "imagePrompt" for it.
+			                3. **Placement:** Provide a "figureLabel" (e.g., "Figure ${currentIndex + 2}: [Description]").
+			                If no visual is needed, leave imagePrompt and figureLabel as empty strings.
 
-                            const contentContextInstruction = `
-                            **PAGING CONTEXT:** Page ${currentIndex + 1} of ${allTitles.length}.
-                            - **CURRENT FOCUS:** "${currentTitle}"
-                            - **PREVIOUSLY COVERED (DO NOT REPEAT):** ${previousTitles || "None - This is the first page."}
-                            - **COMING NEXT (DO NOT SPOIL):** ${nextTitles || "None - This is the last page."}
-                            `;
+			                **CRITICAL "ANTI-REDUNDANCY" RULE:**
+			                - **EXCLUSIVE SCOPE:** Scan the Source Text *only* for information specifically related to "${currentTitle}".
+			                - **BOUNDARIES:** Do NOT re-define concepts from [${previousTitles}]. Do NOT jump ahead to [${nextTitles}].
 
-                            taskInstruction = `Generate *one* core content page for this lesson.
-                            - **Page Title:** It MUST be exactly: "${currentTitle}"
-                            ${contentContextInstruction}
-                            
-                            **SMART IMAGE INJECTION RULES:**
-                            1. **Analogy/Scenario detection:** If you use an analogy (e.g., comparing a cell to a city), you MUST generate an "imagePrompt" visualizing that analogy.
-                            2. **Visual Support:** If describing a specific tool (e.g., Beaker, Microscope), generate an "imagePrompt" for it.
-                            3. **Placement:** Provide a "figureLabel" (e.g., "Figure ${currentIndex + 2}: [Description]").
-                            If no visual is needed, leave imagePrompt and figureLabel as empty strings.
+			                **CRITICAL RULE: THE "TWIN ENHANCED COPY" PROTOCOL (NON-NEGOTIABLE):**
+			                You are NOT a summarizer. You are a **CONTENT RESTORATION ENGINE**. You must follow this strict 2-Phase Hierarchy:
 
-                            **CRITICAL "ANTI-REDUNDANCY" RULE (NON-NEGOTIABLE):**
-                            - **EXCLUSIVE SCOPE:** You must scan the Source Text *only* for information specifically related to "${currentTitle}".
-                            - **IGNORE PREVIOUS TOPICS:** The user has *already read* pages about [${previousTitles}]. Do NOT re-define or re-introduce concepts from those pages. Assume the student already knows them.
-                            - **IGNORE FUTURE TOPICS:** Do NOT jump ahead to [${nextTitles}]. Save that information for the next page.
+			                **PHASE 1: THE TWIN MIRROR (90% of Content - The Source Authority)**
+			                - **Goal:** Create a **detail-rich, high-fidelity paraphrase** of the Source Text.
+			                - **NO CONDENSATION:** If the source text devotes 5 sentences to explaining a specific mechanism, you must also devote at least 5 sentences to it. Do NOT compress a paragraph into a bullet point.
+			                - **PRESERVE SPECIFICS:** You must capture every **date**, **name**, **number**, **step**, and **original example** found in the source text.
+			                    - *Example:* If the source mentions "The 1986 EDSA Revolution," you must discuss the 1986 EDSA Revolution. Do not swap it for a different event.
+			                - **ENHANCEMENT:** Your only liberty is to improve the *flow* and *clarity* of the writing. Fix the grammar, make the tone engaging, but keep the **information density** exactly the same as the source.
+
+			                **PHASE 2: THE SUPPLEMENTARY BRIDGE (10% of Content - Local Context)**
+			                - **Goal:** Make the content relatable *without* removing the original context.
+			                - **Placement:** This comes *only* after you have fully explained the concept using the Source Text's details.
+			                - **Method:** Use a "Supplementary Bridge" sentence:
+			                  - *"To visualize this in our local setting..."*
+			                  - *"A similar concept applies in the Philippines when..."*
+			                - **Constraint:** These are SIDE NOTES. They must never replace the main content.
+
+			                **CONTENT STRUCTURE & TONE:**
+			                - **Deep Dive:** Start immediately with the specific details of "${currentTitle}".
+			                - **Academic Storytelling:** Write in full, rich paragraphs. Use bullet points *only* if the source text explicitly uses a list.
+			                - **Bold Key Terms:** When you hit a major term from the source, **bold it**, then ensure the surrounding text fully explains it as the source does.
                 
-                            **IF THE SOURCE TEXT IS AMBIGUOUS:**
-                            - If the Source Text blends this topic with others, extract *only* the specific details that belong to "${currentTitle}".
-
-                            **CRITICAL RULE: THE "VERBATIM + ELABORATION" PATTERN**
-                            For every key term or concept in this section, follow this 2-step flow:
-                            
-                            1.  **STEP 1 (The Anchor):** State the definition **exactly word-for-word** from the source text. Bold the key term (e.g., "**Globalization**").
-                            
-                            2.  **STEP 2 (The Remix):** Immediately after, explain it in simple, engaging, yet details rich language.
-                                - **BANNED PHRASE:** You are **FORBIDDEN** from using "In other words" more than once per page.
-                                - **Natural Transitions:** Instead, use varied phrases like:
-                                  - *"Think of this like..."*
-                                  - *"To put it simply..."*
-                                  - *"This essentially means..."*
-                                  - *"Imagine if..."*
-                                  - Or simply start the next sentence naturally (e.g., *"This process allows..."*).
-
-                            **CONTENT FLOW:**
-                            1.  **Dive Right In:** Start immediately with the specific details of "${currentTitle}". Do not write a generic introduction.
-                            
-
-                            **TONE:**
-                            - **Expert & Engaging:** Speak with the confidence of a professor, but the clarity of a storyteller.`;
-                            
-                            jsonFormat = `{
-                                  "page": {
-                                    "title": "${currentTitle}",
-                                    "content": "Detailed markdown content...",
-                                    "imagePrompt": "Ultrarealistic scientific 8k prompt...",
-                                    "figureLabel": "Figure ${currentIndex + 2}: [Topic] Illustration"
-                                  }
-                                }`;
-                                break;
+			                **TONE:**
+			                - **Expert & Engaging:** Speak with the confidence of a professor, but the clarity of a storyteller.`;
+                
+			                jsonFormat = `{
+			                      "page": {
+			                        "title": "${currentTitle}",
+			                        "content": "Detailed markdown content...",
+			                        "imagePrompt": "Ultrarealistic scientific 8k prompt...",
+			                        "figureLabel": "Figure ${currentIndex + 2}: [Topic] Illustration"
+			                      }
+			                    }`;
+			                    break;
             
             case 'CheckForUnderstanding':
                 taskInstruction = `Generate the "Check for Understanding" page. 3-4 concept questions based on the lesson.`;
@@ -759,7 +760,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
 
             try {
                 // Lower max output tokens to save TPM
-                const aiResponse = await callGeminiWithLimitCheck(finalPrompt, { maxOutputTokens: 12288, signal });
+                const aiResponse = await callGeminiWithLimitCheck(finalPrompt, { maxOutputTokens: 8912, signal });
                 
                 if (!isMountedRef.current || signal?.aborted) throw new Error("Aborted");
                 return sanitizeJsonComponent(aiResponse); 
@@ -1170,167 +1171,187 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                         </div>
                     </div>
 
-                    {/* --- RIGHT PANEL: BLUEPRINT & SYNTHESIS --- */}
-                    <div className={`flex-grow flex flex-col relative overflow-hidden ${panelClass} min-h-0`}>
+								{/* --- RIGHT PANEL: BLUEPRINT & SYNTHESIS --- */}
+								<div className={`flex-grow flex flex-col relative overflow-hidden ${panelClass} min-h-0`}>
+    
+								    {/* 1. PROCESSING STATE: LIVE FABRICATION CONSOLE */}
+								    {isProcessing ? (
+								        <div className="absolute inset-0 flex flex-col items-center justify-center p-8 z-50 animate-in fade-in duration-1000 overflow-hidden">
+            
+								            {/* Background Atmosphere */}
+								            <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-[100px] animate-pulse" />
+								            <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-indigo-500/10 rounded-full blur-[100px] animate-pulse [animation-delay:2s]" />
+
+								            <div className="w-full max-w-lg flex flex-col items-center relative z-10">
+                
+								                {/* A. Progress Percentage */}
+								                <div className="text-center mb-10 relative group cursor-default">
+								                    <div className="absolute -inset-10 bg-gradient-to-r from-blue-500/0 via-blue-500/10 to-blue-500/0 blur-xl opacity-50 group-hover:opacity-100 transition-opacity duration-1000" />
+								                    <h4 className="text-8xl font-black tracking-tighter relative z-10 drop-shadow-2xl bg-clip-text text-transparent bg-gradient-to-b from-white to-white/50">
+								                        {generationProgress}%
+								                    </h4>
+								                    <p className="text-[10px] font-black uppercase tracking-[0.5em] opacity-40 mt-2 animate-pulse">Synthesis In Progress</p>
+								                </div>
+
+								                {/* B. The "Active Task" Card (Split View) */}
+								                <div className="w-full bg-black/20 backdrop-blur-xl border border-white/10 rounded-[24px] overflow-hidden shadow-2xl ring-1 ring-white/5 relative">
+								                    {/* Scanning Line Animation */}
+								                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent opacity-50 animate-[shimmer_2s_infinite]" />
+
+								                    {/* Parsing Logic: Splits "Generating Lesson 1: Title \n Core Content..." */}
+								                    {(() => {
+								                        const parts = currentAction ? currentAction.split('\n') : [];
+								                        const contextLine = parts[0] || "System Core"; // "Generating Lesson 1: Title"
+								                        const taskLine = parts[1] || "Initializing..."; // "Core Content Page..."
                         
-                        {/* 1. PROCESSING STATE: COMPACT BLUEPRINT VISUALIZATION */}
-                        {isProcessing ? (
-                            <div className="absolute inset-0 flex flex-col items-center justify-between p-8 z-50 animate-in fade-in duration-1000 overflow-hidden">
-                                {/* Atmospheric Glows */}
-                                <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-[120px] animate-pulse" />
-                                <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-indigo-500/5 rounded-full blur-[120px] animate-pulse [animation-delay:2s]" />
+								                        // Clean up strings
+								                        const displayContext = contextLine.replace('Generating ', '');
+								                        const displayTask = taskLine.replace('...', '');
 
-                                <div className="w-full max-w-xl flex flex-col items-center flex-grow justify-center">
-                                    {/* Blueprint Progress Header */}
-                                    <div className="text-center mb-6 relative">
-                                        <div className="inline-block px-3 py-0.5 rounded-full border border-blue-500/30 bg-blue-500/10 mb-2">
-                                            <span className="text-[9px] font-black uppercase tracking-[0.4em] text-blue-400 animate-pulse">Synthesis Active</span>
-                                        </div>
-                                        <div className="relative">
-                                            <h4 className="text-6xl font-black tracking-tighter relative z-10 drop-shadow-2xl">{generationProgress}%</h4>
-                                            <div className="w-16 h-1 bg-blue-500/40 mx-auto rounded-full mt-1" />
-                                        </div>
-                                    </div>
+								                        return (
+								                            <>
+								                                {/* Header: Context (Lesson Number & Title) */}
+								                                <div className="px-6 py-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+								                                    <div className="flex items-center gap-3 overflow-hidden">
+								                                        <div className="w-2 h-2 bg-green-500 rounded-full animate-ping flex-shrink-0" />
+								                                        <span className="text-[10px] font-black uppercase tracking-[0.1em] opacity-60 truncate">
+								                                            {displayContext}
+								                                        </span>
+								                                    </div>
+								                                    <SparklesIcon className="w-4 h-4 text-blue-400 opacity-50 flex-shrink-0" />
+								                                </div>
 
-                                    {/* SCALED DOWN BLUEPRINT (h-32 to prevent overflow) */}
-                                    <div className="relative h-32 w-full flex items-center justify-center">
-                                        {/* Central Hub (Scaled down) */}
-                                        <div className="w-12 h-12 rounded-full bg-blue-600/20 border-2 border-blue-500/40 flex items-center justify-center relative z-20 shadow-[0_0_60px_rgba(37,99,235,0.2)]">
-                                            <DocumentTextIcon className="w-5 h-5 text-blue-500" />
-                                            <div className="absolute inset-0 border-r-4 border-blue-500 rounded-full animate-spin opacity-50" />
-                                        </div>
+								                                {/* Body: THE REAL PART BEING GENERATED (Big & Bold) */}
+								                                <div className="p-8 flex flex-col items-center text-center space-y-5">
+								                                    <div className="w-14 h-14 rounded-2xl bg-blue-500/20 text-blue-400 flex items-center justify-center mb-1 border border-blue-500/30 shadow-[0_0_30px_rgba(59,130,246,0.3)] group">
+								                                        {/* Dynamic Icon based on task content */}
+								                                        {displayTask.toLowerCase().includes('image') ? <PhotoIcon className="w-7 h-7 animate-pulse" /> : 
+								                                         displayTask.toLowerCase().includes('assessment') || displayTask.toLowerCase().includes('quiz') ? <CheckIcon className="w-7 h-7 animate-pulse" /> :
+								                                         displayTask.toLowerCase().includes('summary') ? <ListBulletIcon className="w-7 h-7 animate-pulse" /> :
+								                                         <ArrowPathIcon className="w-7 h-7 animate-spin" />}
+								                                    </div>
+                                    
+								                                    <div>
+								                                        <p className="text-[9px] font-black uppercase tracking-[0.3em] opacity-40 mb-2 text-blue-200">Currently Writing</p>
+								                                        <h3 className="text-2xl md:text-3xl font-black tracking-tight text-white leading-none drop-shadow-lg">
+								                                            {displayTask}
+								                                        </h3>
+								                                    </div>
 
-                                        {/* Mini Nodes (Scaled down) */}
-                                        {[...Array(6)].map((_, i) => (
-                                            <div 
-                                                key={i}
-                                                className={`absolute w-6 h-6 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shadow-xl animate-bounce [animation-duration:4s]`}
-                                                style={{ 
-                                                    left: `${50 + 20 * Math.cos(i * 60 * Math.PI / 180)}%`, 
-                                                    top: `${50 + 20 * Math.sin(i * 60 * Math.PI / 180)}%`,
-                                                    animationDelay: `${i * 0.5}s`,
-                                                    opacity: generationProgress > (i * 15) ? 1 : 0.1,
-                                                    transition: 'all 0.8s ease-in-out',
-                                                    transform: `translate(-50%, -50%) scale(${generationProgress > (i * 15) ? 1 : 0.7})`
-                                                }}
-                                            >
-                                                {i === 0 && <ListBulletIcon className="w-3 h-3 opacity-40 text-blue-400" />}
-                                                {i === 1 && <PhotoIcon className="w-3 h-3 opacity-40 text-indigo-400" />}
-                                                {i === 2 && <CheckIcon className="w-3 h-3 opacity-40 text-cyan-400" />}
-                                                {i === 3 && <SparklesIcon className="w-3 h-3 opacity-40 text-blue-400" />}
-                                                {i === 4 && <ArrowPathIcon className="w-3 h-3 opacity-40 text-indigo-400" />}
-                                                {i === 5 && <DocumentTextIcon className="w-3 h-3 opacity-40 text-cyan-400" />}
-                                                
-                                                {/* Shortened Connecting Ray */}
-                                                <div 
-                                                    className="absolute w-12 h-px bg-gradient-to-r from-blue-500/10 to-transparent origin-left rotate-[180deg]" 
-                                                    style={{ left: '50%', top: '50%', transform: `rotate(${i * 60 + 180}deg) translate(12px)` }}
-                                                />
-                                            </div>
-                                        ))}
-                                    </div>
+								                                    {/* Fake Terminal Log Lines */}
+								                                    <div className="w-full max-w-[180px] space-y-1.5 opacity-30 pt-2">
+								                                        <div className="h-1 w-full bg-white/20 rounded-full overflow-hidden">
+								                                            <div className="h-full bg-blue-500 w-2/3 animate-[loading_1s_ease-in-out_infinite]" />
+								                                        </div>
+								                                        <div className="flex gap-1 justify-center">
+								                                            <div className="h-1 w-1/4 bg-white/20 rounded-full" />
+								                                            <div className="h-1 w-1/2 bg-white/20 rounded-full" />
+								                                        </div>
+								                                    </div>
+								                                </div>
+								                            </>
+								                        );
+								                    })()}
+								                </div>
 
-                                    {/* COMPACT ACTIVITY PILL */}
-                                    <div className="mt-6 text-center w-full max-w-md bg-white/5 backdrop-blur-lg p-4 rounded-[20px] border border-white/10 shadow-inner">
-                                        <p className="text-[9px] font-black uppercase tracking-[0.3em] opacity-30 mb-1">Stream Context</p>
-                                        <p className="text-sm font-black italic tracking-tight text-blue-500 leading-tight min-h-[2rem] line-clamp-2">
-                                            {currentAction || "Initializing semantic nodes..."}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        ) : previewLessons.length === 0 ? (
-                            /* READY STATE (EMPTY) */
-                            <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-12 animate-in fade-in duration-1000">
-                                <div className="w-32 h-32 rounded-[36px] bg-gradient-to-br from-blue-500/5 to-indigo-500/5 border border-white/10 flex items-center justify-center mb-8 shadow-inner group">
-                                    <SparklesIcon className="w-12 h-12 text-blue-500/20 group-hover:text-blue-500/40 transition-colors duration-500" />
-                                </div>
-                                <h3 className="text-3xl font-black mb-3 tracking-tighter opacity-80">Synthesis Ready</h3>
-                                <p className="max-w-sm text-sm leading-relaxed opacity-40 font-medium">Upload resource materials to initiate AI-driven curriculum generation.</p>
-                            </div>
-                        ) : (
-                            /* PREVIEW STATE (RESULTS) */
-                            <div className="flex flex-col h-full animate-in fade-in duration-1000">
-                                <div className="flex-grow flex overflow-hidden">
-                                    {/* RAIL: LESSON LIST */}
-                                    <div className="w-[260px] border-r border-white/10 bg-black/5 flex flex-col flex-shrink-0">
-                                        <div className="p-6">
-                                            <h4 className={labelClass}>Generated Modules</h4>
-                                        </div>
-                                        <div className="flex-grow overflow-y-auto custom-scrollbar p-3 space-y-2">
-                                            {previewLessons.map((lesson, idx) => (
-                                                <button
-                                                    key={idx}
-                                                    onClick={() => { setSelectedLessonIndex(idx); setSelectedPageIndex(0); }}
-                                                    className={`w-full text-left px-5 py-4 rounded-[20px] transition-all border ${selectedLessonIndex === idx ? 'bg-blue-600 text-white border-transparent shadow-2xl scale-[1.02] z-10' : 'bg-transparent border-transparent opacity-50 hover:opacity-100 hover:bg-white/5'}`}
-                                                >
-                                                    <p className={`text-[13px] font-black leading-tight mb-1`}>{lesson.lessonTitle}</p>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className={`text-[8px] uppercase font-black tracking-widest px-1.5 py-0.5 rounded-md ${selectedLessonIndex === idx ? 'bg-white/20' : 'bg-blue-500/10 text-blue-500'}`}>{lesson.pages.length} Pages</span>
-                                                    </div>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
+								                {/* C. Footer Note */}
+								                <p className="mt-8 text-[10px] font-medium opacity-30 max-w-xs text-center leading-relaxed">
+								                    AI is structuring content based on academic standards. Complex sections (e.g. Assessments) may take longer to verify.
+								                </p>
+								            </div>
+								        </div>
+								    ) : previewLessons.length === 0 ? (
+								        /* READY STATE (EMPTY) */
+								        <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-12 animate-in fade-in duration-1000">
+								            <div className="w-32 h-32 rounded-[36px] bg-gradient-to-br from-blue-500/5 to-indigo-500/5 border border-white/10 flex items-center justify-center mb-8 shadow-inner group">
+								                <SparklesIcon className="w-12 h-12 text-blue-500/20 group-hover:text-blue-500/40 transition-colors duration-500" />
+								            </div>
+								            <h3 className="text-3xl font-black mb-3 tracking-tighter opacity-80">Synthesis Ready</h3>
+								            <p className="max-w-sm text-sm leading-relaxed opacity-40 font-medium">Upload resource materials to initiate AI-driven curriculum generation.</p>
+								        </div>
+								    ) : (
+								        /* PREVIEW STATE (RESULTS) */
+								        <div className="flex flex-col h-full animate-in fade-in duration-1000">
+								            <div className="flex-grow flex overflow-hidden">
+								                {/* RAIL: LESSON LIST */}
+								                <div className="w-[260px] border-r border-white/10 bg-black/5 flex flex-col flex-shrink-0">
+								                    <div className="p-6">
+								                        <h4 className={labelClass}>Generated Modules</h4>
+								                    </div>
+								                    <div className="flex-grow overflow-y-auto custom-scrollbar p-3 space-y-2">
+								                        {previewLessons.map((lesson, idx) => (
+								                            <button
+								                                key={idx}
+								                                onClick={() => { setSelectedLessonIndex(idx); setSelectedPageIndex(0); }}
+								                                className={`w-full text-left px-5 py-4 rounded-[20px] transition-all border ${selectedLessonIndex === idx ? 'bg-blue-600 text-white border-transparent shadow-2xl scale-[1.02] z-10' : 'bg-transparent border-transparent opacity-50 hover:opacity-100 hover:bg-white/5'}`}
+								                            >
+								                                <p className={`text-[13px] font-black leading-tight mb-1`}>{lesson.lessonTitle}</p>
+								                                <div className="flex items-center gap-2">
+								                                    <span className={`text-[8px] uppercase font-black tracking-widest px-1.5 py-0.5 rounded-md ${selectedLessonIndex === idx ? 'bg-white/20' : 'bg-blue-500/10 text-blue-500'}`}>{lesson.pages.length} Pages</span>
+								                                </div>
+								                            </button>
+								                        ))}
+								                    </div>
+								                </div>
 
-                                    {/* CONTENT VIEWER */}
-                                    <div className="flex-grow flex flex-col bg-white/10 dark:bg-black/10 overflow-hidden min-w-0">
-                                        <div className="p-8 border-b border-white/10 bg-white/40 dark:bg-black/20 backdrop-blur-md">
-                                            <h2 className="text-xl font-black tracking-tighter mb-6 leading-tight italic">{selectedLesson?.lessonTitle}</h2>
-                                            
-                                            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
-                                                {selectedLesson.pages?.map((page, idx) => (
-                                                    <button
-                                                        key={idx}
-                                                        onClick={() => setSelectedPageIndex(idx)}
-                                                        className={`px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-[0.2em] transition-all border whitespace-nowrap ${selectedPageIndex === idx ? 'bg-blue-600 text-white shadow-xl border-transparent' : 'bg-white/10 border-white/10 opacity-40 hover:opacity-100'}`}
-                                                    >
-                                                        {page.title}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
-                                        
-                                        <div className="flex-grow overflow-y-auto custom-scrollbar p-8">
-                                            <div className="max-w-4xl mx-auto min-h-[500px]">
-                                                {selectedPage ? (
-                                                    <div className="prose prose-slate prose-xl dark:prose-invert max-w-none animate-in fade-in slide-in-from-bottom-8 duration-1000">
-                                                        <LessonPage page={selectedPage} isEditable={false} />
-                                                    </div>
-                                                ) : (
-                                                    <div className="flex flex-col items-center justify-center h-full opacity-10">
-                                                        <ArrowPathIcon className="w-16 h-16 animate-spin" />
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+								                {/* CONTENT VIEWER */}
+								                <div className="flex-grow flex flex-col bg-white/10 dark:bg-black/10 overflow-hidden min-w-0">
+								                    <div className="p-8 border-b border-white/10 bg-white/40 dark:bg-black/20 backdrop-blur-md">
+								                        <h2 className="text-xl font-black tracking-tighter mb-6 leading-tight italic">{selectedLesson?.lessonTitle}</h2>
+                        
+								                        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+								                            {selectedLesson.pages?.map((page, idx) => (
+								                                <button
+								                                    key={idx}
+								                                    onClick={() => setSelectedPageIndex(idx)}
+								                                    className={`px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-[0.2em] transition-all border whitespace-nowrap ${selectedPageIndex === idx ? 'bg-blue-600 text-white shadow-xl border-transparent' : 'bg-white/10 border-white/10 opacity-40 hover:opacity-100'}`}
+								                                >
+								                                    {page.title}
+								                                </button>
+								                            ))}
+								                        </div>
+								                    </div>
+                    
+								                    <div className="flex-grow overflow-y-auto custom-scrollbar p-8">
+								                        <div className="max-w-4xl mx-auto min-h-[500px]">
+								                            {selectedPage ? (
+								                                <div className="prose prose-slate prose-xl dark:prose-invert max-w-none animate-in fade-in slide-in-from-bottom-8 duration-1000">
+								                                    <LessonPage page={selectedPage} isEditable={false} />
+								                                </div>
+								                            ) : (
+								                                <div className="flex flex-col items-center justify-center h-full opacity-10">
+								                                    <ArrowPathIcon className="w-16 h-16 animate-spin" />
+								                                </div>
+								                            )}
+								                        </div>
+								                    </div>
+								                </div>
+								            </div>
 
-                                {/* GLOBAL PREVIEW FOOTER */}
-                                <div className="p-6 border-t border-white/10 bg-white/40 dark:bg-black/40 backdrop-blur-3xl flex items-center justify-between">
-                                    <div className="flex items-center gap-4">
-                                        {error && (
-                                            <div className="flex items-center gap-2 text-red-500 bg-red-500/10 px-4 py-2 rounded-xl border border-red-500/20">
-                                                <ExclamationTriangleIcon className="w-4 h-4" />
-                                                <span className="text-[10px] font-black uppercase tracking-widest">{error}</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="flex items-center gap-4">
-                                        <button onClick={onClose} className="px-8 py-3 rounded-full font-black text-[10px] uppercase tracking-[0.3em] opacity-40 hover:opacity-100 transition-all hover:bg-white/5">Abort</button>
-                                        <button 
-                                            onClick={handleSaveLesson} 
-                                            disabled={saving || previewLessons.length === 0 || isProcessing}
-                                            className="px-10 py-3 rounded-[20px] bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-black text-xs shadow-[0_20px_50px_rgba(37,99,235,0.3)] active:scale-95 transition-all uppercase tracking-widest"
-                                        >
-                                            {saving ? 'Encrypting...' : `Finalize ${previewLessons.length} Modules`}
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
+								            {/* GLOBAL PREVIEW FOOTER */}
+								            <div className="p-6 border-t border-white/10 bg-white/40 dark:bg-black/40 backdrop-blur-3xl flex items-center justify-between">
+								                <div className="flex items-center gap-4">
+								                    {error && (
+								                        <div className="flex items-center gap-2 text-red-500 bg-red-500/10 px-4 py-2 rounded-xl border border-red-500/20">
+								                            <ExclamationTriangleIcon className="w-4 h-4" />
+								                            <span className="text-[10px] font-black uppercase tracking-widest">{error}</span>
+								                        </div>
+								                    )}
+								                </div>
+								                <div className="flex items-center gap-4">
+								                    <button onClick={onClose} className="px-8 py-3 rounded-full font-black text-[10px] uppercase tracking-[0.3em] opacity-40 hover:opacity-100 transition-all hover:bg-white/5">Abort</button>
+								                    <button 
+								                        onClick={handleSaveLesson} 
+								                        disabled={saving || previewLessons.length === 0 || isProcessing}
+								                        className="px-10 py-3 rounded-[20px] bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-black text-xs shadow-[0_20px_50px_rgba(37,99,235,0.3)] active:scale-95 transition-all uppercase tracking-widest"
+								                    >
+								                        {saving ? 'Encrypting...' : `Finalize ${previewLessons.length} Modules`}
+								                    </button>
+								                </div>
+								            </div>
+								        </div>
+								    )}
+								</div>
                 </div>
             </div>
         </div>
