@@ -7,6 +7,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { callGeminiWithLimitCheck } from '../../services/aiService';
 import { getAllSubjects } from '../../services/firestoreService';
 import { sanitizeLessonsJson as sanitizeJsonBlock } from './sanitizeLessonText';
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 
 import { 
     ArrowUturnLeftIcon, 
@@ -14,37 +15,24 @@ import {
     DocumentTextIcon, 
     XMarkIcon, 
     SparklesIcon, 
-    ChevronRightIcon, 
     CheckIcon,
     ListBulletIcon,
     ArrowPathIcon,
     ExclamationTriangleIcon,
-    FunnelIcon,
-    ChevronDownIcon,
     PhotoIcon
 } from '@heroicons/react/24/outline'; 
 import LessonPage from './LessonPage';
-import mammoth from 'mammoth';
-
-// PDF processing setup
-import * as pdfjsLib from 'pdfjs-dist';
-import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 // --- CONFIGURATION ---
 // SAFETY DELAY: Adjusted for larger context (50k chars ~= 12k tokens).
-// 15k TPM limit means we can process ~1 request of this size per minute.
-// We set this to 45 seconds to be safe (allowing for some buffer/burst capacity).
 const GEMMA_SAFETY_DELAY_MS = 15000; 
 
 // --- HELPER: Pollinations URL Generator ---
-// Moves logic from LessonPage to here for pre-generation
 const generatePollinationsUrl = (prompt) => {
     // 1. Safety checks
     if (!prompt || typeof prompt !== 'string' || prompt.length < 5 || prompt.toLowerCase() === 'none') return null;
     
-    // 2. Truncate prompt if AI goes crazy (URLs have length limits)
-    // Pollinations handles long prompts well, but keeping it under 500 chars is safer for browsers.
+    // 2. Truncate prompt
     const cleanPrompt = prompt.slice(0, 500); 
 
     // 3. Generate Seed
@@ -113,7 +101,6 @@ const smartDelay = async (ms, signal) => {
 
 /**
  * --- Micro-Worker Sanitizer (Bulletproof Version) ---
- * Fixed to ensure imagePrompt and figureLabel are extracted even in Fallback mode.
  */
 const sanitizeJsonComponent = (aiResponse) => {
     let jsonString = aiResponse;
@@ -146,11 +133,11 @@ const sanitizeJsonComponent = (aiResponse) => {
             const titleMatch = aiResponse.match(/"title"\s*:\s*"([^"]*?)"/);
             const title = titleMatch ? titleMatch[1] : "Generated Page";
 
-            // Extract Image Prompt (FIXED)
+            // Extract Image Prompt
             const imagePromptMatch = aiResponse.match(/"imagePrompt"\s*:\s*"([^"]*?)"/);
             const imagePrompt = imagePromptMatch ? imagePromptMatch[1] : "";
 
-            // Extract Figure Label (FIXED)
+            // Extract Figure Label
             const figureLabelMatch = aiResponse.match(/"figureLabel"\s*:\s*"([^"]*?)"/);
             const figureLabel = figureLabelMatch ? figureLabelMatch[1] : "";
 
@@ -188,8 +175,8 @@ const sanitizeJsonComponent = (aiResponse) => {
                 page: {
                     title: title,
                     content: content,
-                    imagePrompt: imagePrompt, // Now included
-                    figureLabel: figureLabel  // Now included
+                    imagePrompt: imagePrompt,
+                    figureLabel: figureLabel
                 }
             };
 
@@ -222,9 +209,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
     const [selectedLessonIndex, setSelectedLessonIndex] = useState(0);
     const [selectedPageIndex, setSelectedPageIndex] = useState(0);
     
-    const [subjectContext, setSubjectContext] = useState(null);
-    const [scaffoldLessonIds, setScaffoldLessonIds] = useState(new Set());
-    const [expandedScaffoldUnits, setExpandedScaffoldUnits] = useState(new Set());
     const [existingLessonCount, setExistingLessonCount] = useState(0);
 
     const [language, setLanguage] = useState('English');
@@ -291,31 +275,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         );
     }, [subjects]);
 
-    const sortedUnits = useMemo(() => {
-        if (!subjectContext?.units) return [];
-        return [...subjectContext.units].sort((a, b) => 
-            a.title.localeCompare(b.title, undefined, { numeric: true })
-        );
-    }, [subjectContext]);
-
-    const lessonsByUnit = useMemo(() => {
-        if (!subjectContext?.lessons) return {};
-        
-        const grouped = {};
-        subjectContext.lessons.forEach(lesson => {
-            if (!grouped[lesson.unitId]) {
-                grouped[lesson.unitId] = [];
-            }
-            grouped[lesson.unitId].push(lesson);
-        });
-        
-        Object.keys(grouped).forEach(unitId => {
-            grouped[unitId].sort((a, b) => (a.order || 0) - (b.order || 0));
-        });
-
-        return grouped;
-    }, [subjectContext]);
-
     useEffect(() => {
         isMounted.current = true;
         const fetchSubjects = async () => {
@@ -336,27 +295,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
     }, []);
 
     useEffect(() => {
-        if (subjectId) {
-            const fetchFullSubjectContext = async () => {
-                try {
-                    const unitsQuery = query(collection(db, 'units'), where('subjectId', '==', subjectId));
-                    const unitsSnapshot = await getDocs(unitsQuery);
-                    const unitsData = unitsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-                    const lessonsQuery = query(collection(db, 'lessons'), where('subjectId', '==', subjectId));
-                    const lessonsSnapshot = await getDocs(lessonsQuery);
-                    const lessonsData = lessonsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-                    setSubjectContext({ units: unitsData, lessons: lessonsData });
-                } catch (error) {
-                    console.error("Error fetching subject context:", error);
-                }
-            };
-            fetchFullSubjectContext();
-        }
-    }, [subjectId]);
-
-    useEffect(() => {
         if (unitId) {
             const lessonsQuery = query(collection(db, 'lessons'), where('unitId', '==', unitId));
             const unsubscribe = onSnapshot(lessonsQuery, (snapshot) => {
@@ -365,20 +303,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
             return () => unsubscribe();
         }
     }, [unitId]);
-
-    const scaffoldInfo = useMemo(() => {
-        if (scaffoldLessonIds.size === 0 || !subjectContext) return { summary: '' };
-        const relevantScaffoldLessons = subjectContext.lessons.filter(lesson => scaffoldLessonIds.has(lesson.id));
-        
-        const summary = relevantScaffoldLessons.map(lesson => {
-            const objectivesSummary = (lesson.objectives && lesson.objectives.length > 0)
-                ? `\n  - Objectives: ${lesson.objectives.join('; ')}`
-                : '';
-            return `- Lesson Title: "${lesson.title}"${objectivesSummary}`;
-        }).join('\n');
-        
-        return { summary };
-    }, [scaffoldLessonIds, subjectContext]);
 
     const resetGeneratorState = () => {
         setFile(null);
@@ -396,25 +320,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         setPerformanceStandard('');
     };
 
-    const handleToggleUnitExpansion = (unitId) => {
-        const newSet = new Set(expandedScaffoldUnits);
-        if (newSet.has(unitId)) newSet.delete(unitId);
-        else newSet.add(unitId);
-        setExpandedScaffoldUnits(newSet);
-    };
-
-    const handleUnitCheckboxChange = (lessonsInUnit) => {
-        const lessonIdsInUnit = lessonsInUnit.map(l => l.id);
-        const currentlySelectedInUnit = lessonIdsInUnit.filter(id => scaffoldLessonIds.has(id));
-        const newSet = new Set(scaffoldLessonIds);
-        if (currentlySelectedInUnit.length === lessonIdsInUnit.length) {
-            lessonIdsInUnit.forEach(id => newSet.delete(id));
-        } else {
-            lessonIdsInUnit.forEach(id => newSet.add(id));
-        }
-        setScaffoldLessonIds(newSet);
-    };
-    
     const handleFileChange = (e) => {
         if (e.target.files.length > 0) {
             setFile(e.target.files[0]);
@@ -429,8 +334,14 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
     };
 
     const extractTextFromFile = async (fileToProcess) => {
-        // 1. Handle PDF (Smart Extraction)
+        // --- DYNAMIC IMPORTS FOR PERFORMANCE ---
+        // These libraries are heavy. We only load them when the user actually starts processing.
+        
+        // 1. Handle PDF
         if (fileToProcess.type === 'application/pdf') {
+            const pdfjsLib = await import('pdfjs-dist');
+            pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+
             const pdf = await pdfjsLib.getDocument(URL.createObjectURL(fileToProcess)).promise;
             let fullText = '';
         
@@ -449,31 +360,28 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                     const currentY = item.transform ? item.transform[5] : -1; // Y-coordinate
                 
                     // DETECT NEW LINE:
-                    // If the vertical position (Y) drops significantly (> 5 units) compared to the last item,
-                    // we treat it as a new line. Otherwise, it's a continuation of the current line.
                     if (lastY !== -1 && Math.abs(currentY - lastY) > 5) {
                         pageText += '\n' + item.str;
                     } else {
-                        // Add a space between words on the same line (unless punctuation/spacing already exists)
                         pageText += (pageText.endsWith(' ') || item.str.startsWith(' ') ? '' : ' ') + item.str;
                     }
                 
                     lastY = currentY;
                 }
-            
-                // Add double newline between pages to help AI distinguish page breaks
+                // Add double newline between pages
                 fullText += pageText + '\n\n';
             }
             return fullText;
 
         } else if (fileToProcess.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-            // DOCX handling (Keep existing)
+            // 2. DOCX handling
+            const mammoth = await import('mammoth');
             const arrayBuffer = await fileToProcess.arrayBuffer();
             const result = await mammoth.extractRawText({ arrayBuffer });
             return result.value;
 
         } else if (fileToProcess.type === 'text/plain') {
-            // TXT handling (Keep existing)
+            // 3. TXT handling
             return await fileToProcess.text();
 
         } else {
@@ -507,18 +415,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
             `;
         }
 
-        const scaffoldingInstruction = `
-        **CONTEXT: PREVIOUSLY COVERED MATERIAL**
-        This section lists topics from lessons that already exist.
-        1.  **DO NOT RE-TEACH:** You are strictly forbidden from re-teaching the specific concepts, keywords, or learning objectives listed below.
-        2.  **BUILD UPON:** Your new lesson MUST act as a logical "next step."
-        
-        ---
-        **PREVIOUSLY COVERED MATERIAL:**
-        - **User-Selected Prerequisites:** ${scaffoldInfo.summary || "N/A"}
-        ---
-        `;
-
         const standardsInstruction = `
         **UNIT STANDARDS (NON-NEGOTIABLE CONTEXT):**
         - **Content Standard:** ${contentStandard || "Not provided."}
@@ -529,13 +425,12 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         return {
             languageAndGradeInstruction,
             perspectiveInstruction,
-            scaffoldingInstruction,
             standardsInstruction,
         };
     };
 
     const getPlannerPrompt = (sourceText, baseContext) => {
-        const { languageAndGradeInstruction, perspectiveInstruction, scaffoldingInstruction, standardsInstruction } = baseContext;
+        const { languageAndGradeInstruction, perspectiveInstruction, standardsInstruction } = baseContext;
         
         return `
         You are an expert curriculum planner. Your *only* task is to read the provided source text and curriculum context, and then generate a *plan* (a JSON array of lessons).
@@ -543,7 +438,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         ${languageAndGradeInstruction}
         ${perspectiveInstruction}
         ${standardsInstruction}
-        ${scaffoldingInstruction}
 
         **MATH & SCIENCE HANDLING:**
         If the source text contains mathematical formulas, ensure your lesson titles and summaries reflect the mathematical content accurately.
@@ -643,7 +537,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
     };
 
     const getComponentPrompt = (sourceText, baseContext, lessonPlan, componentType, styleRules, extraData = {}) => {
-        const { languageAndGradeInstruction, perspectiveInstruction, scaffoldingInstruction, standardsInstruction } = baseContext;
+        const { languageAndGradeInstruction, perspectiveInstruction, standardsInstruction } = baseContext;
         
         // --- CONTEXT ACCUMULATION ---
         const redundancyCheck = extraData.accumulatedLessonContext ? `
@@ -663,7 +557,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         
         ${languageAndGradeInstruction}
         ${perspectiveInstruction}
-        ${scaffoldingInstruction}
         ${standardsInstruction}
 
         **LESSON CONTEXT:**
@@ -906,7 +799,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
 
         try {
             // --- PHASE 1: ANALYSIS (0% -> 5%) ---
-            setCurrentAction('Reading and analyzing file structure...');
+            setCurrentAction('Initializing Neural Core & Reading file...');
             setGenerationProgress(5);
 
             let extractedText = await extractTextFromFile(file);
@@ -914,8 +807,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
             extractedText = extractedText.replace(/₱/g, 'PHP ');
             
             // --- INCREASED TRUNCATION LIMIT FOR FULL CONTEXT ---
-            // Increased to 50,000 characters (approx 12,000 tokens).
-            // This covers significantly more of the file.
             const sourceText = extractedText.substring(0, 10000); 
             
             // --- PHASE 2: PLANNING (5% -> 15%) ---
@@ -1149,62 +1040,61 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
 
     const selectedLesson = previewLessons[selectedLessonIndex];
     const selectedPage = selectedLesson?.pages?.[selectedPageIndex];
-    const objectivesAsMarkdown = useMemo(() => selectedLesson?.learningObjectives?.map(obj => `* ${obj}`).join('\n'), [selectedLesson]);
 
     const gradeLevels = ["Kindergarten", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6", "Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12"];
     
     // Neo-Glass v10 System Constants
     const panelClass = `bg-white/70 dark:bg-black/40 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-[32px] shadow-2xl transition-all duration-500`;
-    const inputClass = `w-full bg-white/50 dark:bg-black/20 border border-white/20 dark:border-white/10 rounded-[18px] px-4 py-3 text-[15px] ${themeStyles.textColor} placeholder-slate-400 focus:ring-2 focus:ring-blue-500/50 outline-none transition-all shadow-sm appearance-none`;
-    const labelClass = `text-[10px] font-black ${themeStyles.subText} mb-1.5 block tracking-[0.1em] uppercase ml-1 opacity-70`;
+    const inputClass = `w-full bg-white/50 dark:bg-black/20 border border-white/20 dark:border-white/10 rounded-[18px] px-3 py-2 text-[14px] ${themeStyles.textColor} placeholder-slate-400 focus:ring-2 focus:ring-blue-500/50 outline-none transition-all shadow-sm appearance-none`;
+    const labelClass = `text-[9px] font-black ${themeStyles.subText} mb-1 block tracking-[0.1em] uppercase ml-1 opacity-70`;
 
     return (
         <div className={`flex flex-col h-[100dvh] font-sans ${themeStyles.bgGradient} ${themeStyles.textColor} overflow-hidden transition-colors duration-500`}>
             
             {/* --- TOP NAVIGATION BAR --- */}
-            <div className={`flex-shrink-0 px-8 py-5 flex items-center justify-between bg-white/40 dark:bg-black/20 backdrop-blur-md border-b border-white/10 z-20 sticky top-0 transition-colors duration-500`}>
-                <div className="flex items-center gap-5">
-                    <div className={`w-12 h-12 rounded-[18px] flex items-center justify-center shadow-xl bg-gradient-to-br from-blue-600 to-indigo-700 ring-4 ring-blue-500/20`}>
-                        <SparklesIcon className="w-7 h-7 text-white animate-pulse" />
+            <div className={`flex-shrink-0 px-6 py-3 flex items-center justify-between bg-white/40 dark:bg-black/20 backdrop-blur-md border-b border-white/10 z-20 sticky top-0 transition-colors duration-500`}>
+                <div className="flex items-center gap-4">
+                    <div className={`w-10 h-10 rounded-[14px] flex items-center justify-center shadow-xl bg-gradient-to-br from-blue-600 to-indigo-700 ring-2 ring-blue-500/20`}>
+                        <SparklesIcon className="w-5 h-5 text-white animate-pulse" />
                     </div>
                     <div>
-                        <h3 className="text-2xl font-black tracking-tighter leading-none">Curriculum AI</h3>
-                        <p className={`text-[11px] font-bold mt-1.5 uppercase tracking-[0.2em] opacity-50`}>Synthesis Engine v10.2 RC</p>
+                        <h3 className="text-xl font-black tracking-tighter leading-none">Curriculum AI</h3>
+                        <p className={`text-[10px] font-bold mt-1 uppercase tracking-[0.2em] opacity-50`}>Synthesis Engine v10.2</p>
                     </div>
                 </div>
-                <button onClick={onBack} className={`px-6 py-2.5 rounded-full text-[13px] font-black transition-all flex items-center gap-2 active:scale-95 bg-white/10 hover:bg-white/20 border border-white/10 shadow-lg backdrop-blur-xl uppercase tracking-widest`}>
-                    <ArrowUturnLeftIcon className="w-4 h-4 stroke-[3]" /> Back
+                <button onClick={onBack} className={`px-5 py-2 rounded-full text-[12px] font-black transition-all flex items-center gap-2 active:scale-95 bg-white/10 hover:bg-white/20 border border-white/10 shadow-lg backdrop-blur-xl uppercase tracking-widest`}>
+                    <ArrowUturnLeftIcon className="w-3.5 h-3.5 stroke-[3]" /> Back
                 </button>
             </div>
 
             <div className="flex-grow overflow-hidden">
-                <div className="flex flex-col lg:flex-row h-full p-5 gap-5 max-w-[1920px] mx-auto min-h-0">
+                <div className="flex flex-col lg:flex-row h-full p-4 gap-4 max-w-[1920px] mx-auto min-h-0">
                     
                     {/* --- LEFT PANEL: CONFIGURATION --- */}
-                    <div className={`w-full lg:w-[400px] flex flex-col flex-shrink-0 ${panelClass} h-full overflow-hidden`}>
-                        <div className="flex-grow overflow-y-auto custom-scrollbar p-8 space-y-8">
+                    <div className={`w-full lg:w-[260px] flex flex-col flex-shrink-0 ${panelClass} h-full overflow-hidden`}>
+                        <div className="flex-grow overflow-y-auto custom-scrollbar p-5 space-y-6">
                             {isProcessing ? (
                                 /* --- ANIMATED AI CORE (LEFT) --- */
                                 <div className="flex flex-col items-center justify-center h-full space-y-8 animate-in fade-in zoom-in-95 duration-1000">
-                                    <div className="relative w-32 h-32">
+                                    <div className="relative w-24 h-24">
                                         {/* Orbital Rings */}
                                         <div className="absolute inset-0 border-2 border-blue-500/20 rounded-full animate-[spin_8s_linear_infinite]" />
                                         <div className="absolute inset-2 border border-indigo-500/30 rounded-full animate-[spin_4s_linear_infinite_reverse]" />
                                         
                                         {/* Glowing AI Pulse Core */}
                                         <div className="absolute inset-0 flex items-center justify-center">
-                                            <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-[0_0_40px_rgba(37,99,235,0.6)] animate-pulse">
-                                                <SparklesIcon className="w-10 h-10 text-white" />
+                                            <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center shadow-[0_0_40px_rgba(37,99,235,0.6)] animate-pulse">
+                                                <SparklesIcon className="w-6 h-6 text-white" />
                                             </div>
                                         </div>
                                     </div>
                                     
-                                    <div className="text-center space-y-3">
-                                        <p className="text-xl font-black tracking-tight text-blue-500">Synthesizing</p>
+                                    <div className="text-center space-y-2">
+                                        <p className="text-sm font-black tracking-tight text-blue-500">Synthesizing</p>
                                         <div className="flex justify-center gap-1">
-                                            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.3s]" />
-                                            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                                            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" />
+                                            <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                                            <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                                            <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce" />
                                         </div>
                                     </div>
                                 </div>
@@ -1213,39 +1103,39 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                     <div className="animate-in slide-in-from-left-6 duration-500">
                                         <label className={labelClass}>Material Source</label>
                                         {!file ? (
-                                            <label className={`group flex flex-col items-center justify-center w-full h-48 rounded-[28px] border-2 border-dashed transition-all cursor-pointer relative overflow-hidden bg-white/30 dark:bg-black/20 border-white/20 hover:border-blue-500/50 hover:bg-blue-500/5`}>
+                                            <label className={`group flex flex-col items-center justify-center w-full h-32 rounded-[24px] border-2 border-dashed transition-all cursor-pointer relative overflow-hidden bg-white/30 dark:bg-black/20 border-white/20 hover:border-blue-500/50 hover:bg-blue-500/5`}>
                                                 <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"/>
-                                                <DocumentArrowUpIcon className={`w-12 h-12 mb-3 opacity-30 group-hover:scale-110 group-hover:opacity-100 transition-all duration-500 text-blue-500`} />
-                                                <span className={`text-[13px] font-black uppercase tracking-widest opacity-40`}>Initialize PDF/DOCX</span>
+                                                <DocumentArrowUpIcon className={`w-8 h-8 mb-2 opacity-30 group-hover:scale-110 group-hover:opacity-100 transition-all duration-500 text-blue-500`} />
+                                                <span className={`text-[10px] font-black uppercase tracking-widest opacity-40`}>Initialize PDF/DOCX</span>
                                                 <input type="file" className="hidden" accept=".pdf,.docx,.txt" onChange={handleFileChange} />
                                             </label>
                                         ) : (
-                                            <div className={`relative flex items-center p-5 rounded-[24px] border bg-blue-500/10 border-blue-500/20 shadow-xl group overflow-hidden`}>
+                                            <div className={`relative flex items-center p-3 rounded-[20px] border bg-blue-500/10 border-blue-500/20 shadow-xl group overflow-hidden`}>
                                                 <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full -mr-12 -mt-12 blur-2xl" />
-                                                <div className={`w-12 h-12 rounded-[14px] flex items-center justify-center mr-4 bg-white dark:bg-black/40 text-blue-500 shadow-md`}>
-                                                    <DocumentTextIcon className="w-7 h-7" />
+                                                <div className={`w-10 h-10 rounded-[12px] flex items-center justify-center mr-3 bg-white dark:bg-black/40 text-blue-500 shadow-md`}>
+                                                    <DocumentTextIcon className="w-5 h-5" />
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <p className={`text-sm font-black truncate ${themeStyles.textColor}`}>{file.name}</p>
-                                                    <p className={`text-[10px] font-black opacity-40 uppercase tracking-widest mt-1`}>{(file.size/1024).toFixed(0)} KB • Ready</p>
+                                                    <p className={`text-xs font-black truncate ${themeStyles.textColor}`}>{file.name}</p>
+                                                    <p className={`text-[9px] font-black opacity-40 uppercase tracking-widest mt-0.5`}>{(file.size/1024).toFixed(0)} KB • Ready</p>
                                                 </div>
-                                                <button onClick={removeFile} className={`p-2.5 rounded-full transition-all active:scale-90 bg-white/50 dark:bg-black/20 text-red-500 hover:bg-red-500 hover:text-white shadow-sm`}>
-                                                    <XMarkIcon className="w-5 h-5 stroke-[3]" />
+                                                <button onClick={removeFile} className={`p-1.5 rounded-full transition-all active:scale-90 bg-white/50 dark:bg-black/20 text-red-500 hover:bg-red-500 hover:text-white shadow-sm`}>
+                                                    <XMarkIcon className="w-4 h-4 stroke-[3]" />
                                                 </button>
                                             </div>
                                         )}
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-5 animate-in slide-in-from-left-8 duration-500">
+                                    <div className="grid grid-cols-2 gap-3 animate-in slide-in-from-left-8 duration-500">
                                         <div>
-                                            <label className={labelClass}>Linguistic Mode</label>
+                                            <label className={labelClass}>Language</label>
                                             <select value={language} onChange={(e) => setLanguage(e.target.value)} className={inputClass}>
                                                 <option className="bg-slate-900">English</option>
                                                 <option className="bg-slate-900">Filipino</option>
                                             </select>
                                         </div>
                                         <div>
-                                            <label className={labelClass}>Academic Level</label>
+                                            <label className={labelClass}>Level</label>
                                             <select value={gradeLevel} onChange={(e) => setGradeLevel(e.target.value)} className={inputClass}>
                                                 {gradeLevels.map(l => <option key={l} value={l} className="bg-slate-900">{l}</option>)}
                                             </select>
@@ -1253,94 +1143,29 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                     </div>
 
                                     <div className="animate-in slide-in-from-left-10 duration-500">
-                                        <label className={labelClass}>Subject Context</label>
+                                        <label className={labelClass}>Domain</label>
                                         <select value={selectedSubject || ''} onChange={(e) => setSelectedSubject(e.target.value)} className={inputClass}>
-                                            <option value="" disabled className="bg-slate-900">Select Domain...</option>
+                                            <option value="" disabled className="bg-slate-900">Select Subject...</option>
                                             {sortedSubjects.map(s => <option key={s.id} value={s.id} className="bg-slate-900">{s.title}</option>)}
                                         </select>
                                     </div>
 
-                                    <div className="space-y-6 animate-in slide-in-from-left-12 duration-700">
-                                        <div>
-                                            <label className={labelClass}>Learning Competencies</label>
-                                            <textarea value={learningCompetencies} onChange={(e) => setLearningCompetencies(e.target.value)} className={`${inputClass} min-h-[100px] resize-none leading-relaxed text-sm`} placeholder="Paste target learning competencies..." />
-                                        </div>
-                                        
-                                        <div className="p-5 rounded-[24px] bg-black/5 dark:bg-white/5 border border-white/10 shadow-inner">
-                                            <label className={labelClass}>Scaffolding Network</label>
-                                            <div className="max-h-[200px] overflow-y-auto custom-scrollbar space-y-1.5">
-                                                {sortedUnits.length > 0 ? (
-                                                    sortedUnits.map(unit => {
-                                                        const lessonsInUnit = lessonsByUnit[unit.id] || [];
-                                                        if (lessonsInUnit.length === 0) return null;
-                                                        const isExpanded = expandedScaffoldUnits.has(unit.id);
-                                                        const selectedCount = lessonsInUnit.filter(l => scaffoldLessonIds.has(l.id)).length;
-                                                        const isAll = selectedCount > 0 && selectedCount === lessonsInUnit.length;
-                                                        const isPartial = selectedCount > 0 && !isAll;
-
-                                                        return (
-                                                            <div key={unit.id} className="mb-2 last:mb-0">
-                                                                <div 
-                                                                    className="flex items-center p-3 rounded-[16px] hover:bg-white/20 dark:hover:bg-white/5 transition-all cursor-pointer select-none border border-transparent hover:border-white/10"
-                                                                    onClick={() => handleToggleUnitExpansion(unit.id)}
-                                                                >
-                                                                    <ChevronRightIcon className={`w-4 h-4 mr-2 transition-transform duration-300 opacity-40 ${isExpanded ? 'rotate-90' : ''}`} strokeWidth={4} />
-                                                                    <div 
-                                                                        onClick={(e) => { e.stopPropagation(); handleUnitCheckboxChange(lessonsInUnit); }}
-                                                                        className={`w-5 h-5 mr-3 rounded-[7px] flex items-center justify-center transition-all duration-300 border shadow-sm ${
-                                                                            isAll || isPartial ? `bg-blue-600 border-transparent scale-110` : `border-white/30 bg-transparent`
-                                                                        }`}
-                                                                    >
-                                                                        {isAll && <CheckIcon className="w-3.5 h-3.5 text-white stroke-[4]" />}
-                                                                        {isPartial && <div className="w-2.5 h-0.5 bg-white rounded-full" />}
-                                                                    </div>
-                                                                    <span className={`text-[13px] font-black truncate`}>{unit.title}</span>
-                                                                </div>
-                                                                {isExpanded && (
-                                                                    <div className={`ml-10 pl-3 border-l-2 border-blue-500/20 space-y-2 mt-1.5`}>
-                                                                        {lessonsInUnit.map(lesson => {
-                                                                            const isSelected = scaffoldLessonIds.has(lesson.id);
-                                                                            return (
-                                                                                <div 
-                                                                                    key={lesson.id} 
-                                                                                    className="flex items-center gap-3 p-2.5 cursor-pointer hover:bg-white/10 rounded-[14px] group transition-all" 
-                                                                                    onClick={() => {
-                                                                                        const newSet = new Set(scaffoldLessonIds);
-                                                                                        if (newSet.has(lesson.id)) newSet.delete(lesson.id);
-                                                                                        else newSet.add(lesson.id);
-                                                                                        setScaffoldLessonIds(newSet);
-                                                                                    }}
-                                                                                >
-                                                                                    <div className={`w-4.5 h-4.5 rounded-[6px] flex items-center justify-center transition-all duration-200 border ${isSelected ? 'bg-blue-600 border-transparent shadow-lg shadow-blue-500/30' : `bg-transparent border-white/20 opacity-40 group-hover:opacity-100`}`}>
-                                                                                        {isSelected && <CheckIcon className="w-3 h-3 text-white stroke-[4]" />}
-                                                                                    </div>
-                                                                                    <span className={`text-[12px] font-bold truncate transition-colors ${isSelected ? 'text-blue-500' : 'opacity-50'}`}>{lesson.title}</span>
-                                                                                </div>
-                                                                            );
-                                                                        })}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        )
-                                                    })
-                                                ) : (
-                                                    <p className="text-[10px] opacity-30 p-5 text-center font-black uppercase tracking-widest italic">Neural Network Empty</p>
-                                                )}
-                                            </div>
-                                        </div>
+                                    <div className="animate-in slide-in-from-left-12 duration-700">
+                                        <label className={labelClass}>Target Competencies</label>
+                                        <textarea value={learningCompetencies} onChange={(e) => setLearningCompetencies(e.target.value)} className={`${inputClass} min-h-[120px] resize-none leading-relaxed text-xs`} placeholder="Paste target learning competencies..." />
                                     </div>
                                 </>
                             )}
                         </div>
                         
-                        <div className={`p-8 border-t bg-white/20 dark:bg-black/20 backdrop-blur-md rounded-b-[32px] border-white/10`}>
+                        <div className={`p-5 border-t bg-white/20 dark:bg-black/20 backdrop-blur-md rounded-b-[32px] border-white/10`}>
                             <button 
                                 onClick={handleGenerateLesson} 
                                 disabled={!file || isProcessing}
-                                className={`w-full h-16 rounded-[22px] font-black text-[17px] text-white shadow-2xl transition-all active:scale-[0.97] flex items-center justify-center gap-4 uppercase tracking-widest
+                                className={`w-full h-12 rounded-[18px] font-black text-[13px] text-white shadow-2xl transition-all active:scale-[0.97] flex items-center justify-center gap-3 uppercase tracking-widest
                                     ${!file || isProcessing ? 'bg-slate-400/20 grayscale cursor-not-allowed opacity-40' : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:shadow-blue-500/40'}`}
                             >
-                                {isProcessing ? 'System Syncing...' : <><SparklesIcon className="w-6 h-6" /> Generate</>}
+                                {isProcessing ? 'Syncing...' : <><SparklesIcon className="w-4 h-4" /> Generate</>}
                             </button>
                         </div>
                     </div>
@@ -1355,60 +1180,60 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                 <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-[120px] animate-pulse" />
                                 <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-indigo-500/5 rounded-full blur-[120px] animate-pulse [animation-delay:2s]" />
 
-                                <div className="w-full max-w-2xl flex flex-col items-center flex-grow justify-center">
+                                <div className="w-full max-w-xl flex flex-col items-center flex-grow justify-center">
                                     {/* Blueprint Progress Header */}
                                     <div className="text-center mb-6 relative">
                                         <div className="inline-block px-3 py-0.5 rounded-full border border-blue-500/30 bg-blue-500/10 mb-2">
                                             <span className="text-[9px] font-black uppercase tracking-[0.4em] text-blue-400 animate-pulse">Synthesis Active</span>
                                         </div>
                                         <div className="relative">
-                                            <h4 className="text-7xl font-black tracking-tighter relative z-10 drop-shadow-2xl">{generationProgress}%</h4>
-                                            <div className="w-20 h-1 bg-blue-500/40 mx-auto rounded-full mt-1" />
+                                            <h4 className="text-6xl font-black tracking-tighter relative z-10 drop-shadow-2xl">{generationProgress}%</h4>
+                                            <div className="w-16 h-1 bg-blue-500/40 mx-auto rounded-full mt-1" />
                                         </div>
                                     </div>
 
-                                    {/* SCALED DOWN BLUEPRINT (h-40 to prevent overflow) */}
-                                    <div className="relative h-40 w-full flex items-center justify-center">
-                                        {/* Central Hub (Scaled down to w-16) */}
-                                        <div className="w-16 h-16 rounded-full bg-blue-600/20 border-2 border-blue-500/40 flex items-center justify-center relative z-20 shadow-[0_0_60px_rgba(37,99,235,0.2)]">
-                                            <DocumentTextIcon className="w-7 h-7 text-blue-500" />
+                                    {/* SCALED DOWN BLUEPRINT (h-32 to prevent overflow) */}
+                                    <div className="relative h-32 w-full flex items-center justify-center">
+                                        {/* Central Hub (Scaled down) */}
+                                        <div className="w-12 h-12 rounded-full bg-blue-600/20 border-2 border-blue-500/40 flex items-center justify-center relative z-20 shadow-[0_0_60px_rgba(37,99,235,0.2)]">
+                                            <DocumentTextIcon className="w-5 h-5 text-blue-500" />
                                             <div className="absolute inset-0 border-r-4 border-blue-500 rounded-full animate-spin opacity-50" />
                                         </div>
 
-                                        {/* Mini Nodes (Scaled down to w-8 and tighter orbit radius) */}
+                                        {/* Mini Nodes (Scaled down) */}
                                         {[...Array(6)].map((_, i) => (
                                             <div 
                                                 key={i}
-                                                className={`absolute w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shadow-xl animate-bounce [animation-duration:4s]`}
+                                                className={`absolute w-6 h-6 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shadow-xl animate-bounce [animation-duration:4s]`}
                                                 style={{ 
-                                                    left: `${50 + 28 * Math.cos(i * 60 * Math.PI / 180)}%`, 
-                                                    top: `${50 + 28 * Math.sin(i * 60 * Math.PI / 180)}%`,
+                                                    left: `${50 + 20 * Math.cos(i * 60 * Math.PI / 180)}%`, 
+                                                    top: `${50 + 20 * Math.sin(i * 60 * Math.PI / 180)}%`,
                                                     animationDelay: `${i * 0.5}s`,
                                                     opacity: generationProgress > (i * 15) ? 1 : 0.1,
                                                     transition: 'all 0.8s ease-in-out',
                                                     transform: `translate(-50%, -50%) scale(${generationProgress > (i * 15) ? 1 : 0.7})`
                                                 }}
                                             >
-                                                {i === 0 && <ListBulletIcon className="w-4 h-4 opacity-40 text-blue-400" />}
-                                                {i === 1 && <PhotoIcon className="w-4 h-4 opacity-40 text-indigo-400" />}
-                                                {i === 2 && <CheckIcon className="w-4 h-4 opacity-40 text-cyan-400" />}
-                                                {i === 3 && <SparklesIcon className="w-4 h-4 opacity-40 text-blue-400" />}
-                                                {i === 4 && <ArrowPathIcon className="w-4 h-4 opacity-40 text-indigo-400" />}
-                                                {i === 5 && <DocumentTextIcon className="w-4 h-4 opacity-40 text-cyan-400" />}
+                                                {i === 0 && <ListBulletIcon className="w-3 h-3 opacity-40 text-blue-400" />}
+                                                {i === 1 && <PhotoIcon className="w-3 h-3 opacity-40 text-indigo-400" />}
+                                                {i === 2 && <CheckIcon className="w-3 h-3 opacity-40 text-cyan-400" />}
+                                                {i === 3 && <SparklesIcon className="w-3 h-3 opacity-40 text-blue-400" />}
+                                                {i === 4 && <ArrowPathIcon className="w-3 h-3 opacity-40 text-indigo-400" />}
+                                                {i === 5 && <DocumentTextIcon className="w-3 h-3 opacity-40 text-cyan-400" />}
                                                 
                                                 {/* Shortened Connecting Ray */}
                                                 <div 
-                                                    className="absolute w-16 h-px bg-gradient-to-r from-blue-500/10 to-transparent origin-left rotate-[180deg]" 
-                                                    style={{ left: '50%', top: '50%', transform: `rotate(${i * 60 + 180}deg) translate(16px)` }}
+                                                    className="absolute w-12 h-px bg-gradient-to-r from-blue-500/10 to-transparent origin-left rotate-[180deg]" 
+                                                    style={{ left: '50%', top: '50%', transform: `rotate(${i * 60 + 180}deg) translate(12px)` }}
                                                 />
                                             </div>
                                         ))}
                                     </div>
 
-                                    {/* COMPACT ACTIVITY PILL (Prioritizes visibility of currentAction) */}
-                                    <div className="mt-8 text-center w-full max-w-lg bg-white/5 backdrop-blur-lg p-5 rounded-[24px] border border-white/10 shadow-inner">
-                                        <p className="text-[9px] font-black uppercase tracking-[0.3em] opacity-30 mb-2">Stream Context</p>
-                                        <p className="text-base font-black italic tracking-tight text-blue-500 leading-tight min-h-[2.5rem] line-clamp-2">
+                                    {/* COMPACT ACTIVITY PILL */}
+                                    <div className="mt-6 text-center w-full max-w-md bg-white/5 backdrop-blur-lg p-4 rounded-[20px] border border-white/10 shadow-inner">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.3em] opacity-30 mb-1">Stream Context</p>
+                                        <p className="text-sm font-black italic tracking-tight text-blue-500 leading-tight min-h-[2rem] line-clamp-2">
                                             {currentAction || "Initializing semantic nodes..."}
                                         </p>
                                     </div>
@@ -1417,32 +1242,31 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                         ) : previewLessons.length === 0 ? (
                             /* READY STATE (EMPTY) */
                             <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-12 animate-in fade-in duration-1000">
-                                <div className="w-40 h-40 rounded-[48px] bg-gradient-to-br from-blue-500/5 to-indigo-500/5 border border-white/10 flex items-center justify-center mb-10 shadow-inner group">
-                                    <SparklesIcon className="w-16 h-16 text-blue-500/20 group-hover:text-blue-500/40 transition-colors duration-500" />
+                                <div className="w-32 h-32 rounded-[36px] bg-gradient-to-br from-blue-500/5 to-indigo-500/5 border border-white/10 flex items-center justify-center mb-8 shadow-inner group">
+                                    <SparklesIcon className="w-12 h-12 text-blue-500/20 group-hover:text-blue-500/40 transition-colors duration-500" />
                                 </div>
-                                <h3 className="text-4xl font-black mb-4 tracking-tighter opacity-80">Synthesis Ready</h3>
-                                <p className="max-w-md text-base leading-relaxed opacity-40 font-medium">Upload resource materials to initiate AI-driven curriculum generation. Knowledge nodes will be mapped automatically.</p>
+                                <h3 className="text-3xl font-black mb-3 tracking-tighter opacity-80">Synthesis Ready</h3>
+                                <p className="max-w-sm text-sm leading-relaxed opacity-40 font-medium">Upload resource materials to initiate AI-driven curriculum generation.</p>
                             </div>
                         ) : (
                             /* PREVIEW STATE (RESULTS) */
                             <div className="flex flex-col h-full animate-in fade-in duration-1000">
                                 <div className="flex-grow flex overflow-hidden">
                                     {/* RAIL: LESSON LIST */}
-                                    <div className="w-[320px] border-r border-white/10 bg-black/5 flex flex-col">
-                                        <div className="p-8">
+                                    <div className="w-[260px] border-r border-white/10 bg-black/5 flex flex-col flex-shrink-0">
+                                        <div className="p-6">
                                             <h4 className={labelClass}>Generated Modules</h4>
                                         </div>
-                                        <div className="flex-grow overflow-y-auto custom-scrollbar p-4 space-y-3">
+                                        <div className="flex-grow overflow-y-auto custom-scrollbar p-3 space-y-2">
                                             {previewLessons.map((lesson, idx) => (
                                                 <button
                                                     key={idx}
                                                     onClick={() => { setSelectedLessonIndex(idx); setSelectedPageIndex(0); }}
-                                                    className={`w-full text-left px-6 py-5 rounded-[24px] transition-all border ${selectedLessonIndex === idx ? 'bg-blue-600 text-white border-transparent shadow-2xl scale-[1.03] z-10' : 'bg-transparent border-transparent opacity-50 hover:opacity-100 hover:bg-white/5'}`}
+                                                    className={`w-full text-left px-5 py-4 rounded-[20px] transition-all border ${selectedLessonIndex === idx ? 'bg-blue-600 text-white border-transparent shadow-2xl scale-[1.02] z-10' : 'bg-transparent border-transparent opacity-50 hover:opacity-100 hover:bg-white/5'}`}
                                                 >
-                                                    <p className={`text-[15px] font-black leading-tight mb-1.5`}>{lesson.lessonTitle}</p>
+                                                    <p className={`text-[13px] font-black leading-tight mb-1`}>{lesson.lessonTitle}</p>
                                                     <div className="flex items-center gap-2">
-                                                        <span className={`text-[9px] uppercase font-black tracking-widest px-2 py-0.5 rounded-md ${selectedLessonIndex === idx ? 'bg-white/20' : 'bg-blue-500/10 text-blue-500'}`}>{lesson.pages.length} Pages</span>
-                                                        <span className={`text-[9px] uppercase font-black tracking-widest opacity-60`}>Verified</span>
+                                                        <span className={`text-[8px] uppercase font-black tracking-widest px-1.5 py-0.5 rounded-md ${selectedLessonIndex === idx ? 'bg-white/20' : 'bg-blue-500/10 text-blue-500'}`}>{lesson.pages.length} Pages</span>
                                                     </div>
                                                 </button>
                                             ))}
@@ -1450,16 +1274,16 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                     </div>
 
                                     {/* CONTENT VIEWER */}
-                                    <div className="flex-grow flex flex-col bg-white/10 dark:bg-black/10 overflow-hidden">
-                                        <div className="p-12 border-b border-white/10 bg-white/40 dark:bg-black/20 backdrop-blur-md">
-                                            <h2 className="text-5xl font-black tracking-tighter mb-10 leading-tight italic">{selectedLesson?.lessonTitle}</h2>
+                                    <div className="flex-grow flex flex-col bg-white/10 dark:bg-black/10 overflow-hidden min-w-0">
+                                        <div className="p-8 border-b border-white/10 bg-white/40 dark:bg-black/20 backdrop-blur-md">
+                                            <h2 className="text-xl font-black tracking-tighter mb-6 leading-tight italic">{selectedLesson?.lessonTitle}</h2>
                                             
-                                            <div className="flex items-center gap-3 overflow-x-auto no-scrollbar pb-2">
+                                            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
                                                 {selectedLesson.pages?.map((page, idx) => (
                                                     <button
                                                         key={idx}
                                                         onClick={() => setSelectedPageIndex(idx)}
-                                                        className={`px-7 py-2.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] transition-all border ${selectedPageIndex === idx ? 'bg-blue-600 text-white shadow-xl border-transparent scale-105' : 'bg-white/10 border-white/10 opacity-40 hover:opacity-100'}`}
+                                                        className={`px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-[0.2em] transition-all border whitespace-nowrap ${selectedPageIndex === idx ? 'bg-blue-600 text-white shadow-xl border-transparent' : 'bg-white/10 border-white/10 opacity-40 hover:opacity-100'}`}
                                                     >
                                                         {page.title}
                                                     </button>
@@ -1467,15 +1291,15 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                             </div>
                                         </div>
                                         
-                                        <div className="flex-grow overflow-y-auto custom-scrollbar p-12 md:p-20">
+                                        <div className="flex-grow overflow-y-auto custom-scrollbar p-8">
                                             <div className="max-w-4xl mx-auto min-h-[500px]">
                                                 {selectedPage ? (
-                                                    <div className="prose prose-slate prose-2xl dark:prose-invert max-w-none animate-in fade-in slide-in-from-bottom-8 duration-1000">
+                                                    <div className="prose prose-slate prose-xl dark:prose-invert max-w-none animate-in fade-in slide-in-from-bottom-8 duration-1000">
                                                         <LessonPage page={selectedPage} isEditable={false} />
                                                     </div>
                                                 ) : (
                                                     <div className="flex flex-col items-center justify-center h-full opacity-10">
-                                                        <ArrowPathIcon className="w-20 h-20 animate-spin" />
+                                                        <ArrowPathIcon className="w-16 h-16 animate-spin" />
                                                     </div>
                                                 )}
                                             </div>
@@ -1484,23 +1308,23 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                                 </div>
 
                                 {/* GLOBAL PREVIEW FOOTER */}
-                                <div className="p-10 border-t border-white/10 bg-white/40 dark:bg-black/40 backdrop-blur-3xl flex items-center justify-between">
-                                    <div className="flex items-center gap-5">
+                                <div className="p-6 border-t border-white/10 bg-white/40 dark:bg-black/40 backdrop-blur-3xl flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
                                         {error && (
-                                            <div className="flex items-center gap-3 text-red-500 bg-red-500/10 px-6 py-3 rounded-2xl border border-red-500/20">
-                                                <ExclamationTriangleIcon className="w-6 h-6" />
-                                                <span className="text-xs font-black uppercase tracking-widest">{error}</span>
+                                            <div className="flex items-center gap-2 text-red-500 bg-red-500/10 px-4 py-2 rounded-xl border border-red-500/20">
+                                                <ExclamationTriangleIcon className="w-4 h-4" />
+                                                <span className="text-[10px] font-black uppercase tracking-widest">{error}</span>
                                             </div>
                                         )}
                                     </div>
-                                    <div className="flex items-center gap-5">
-                                        <button onClick={onClose} className="px-12 py-3.5 rounded-full font-black text-[11px] uppercase tracking-[0.3em] opacity-40 hover:opacity-100 transition-all hover:bg-white/5">Abort Process</button>
+                                    <div className="flex items-center gap-4">
+                                        <button onClick={onClose} className="px-8 py-3 rounded-full font-black text-[10px] uppercase tracking-[0.3em] opacity-40 hover:opacity-100 transition-all hover:bg-white/5">Abort</button>
                                         <button 
                                             onClick={handleSaveLesson} 
                                             disabled={saving || previewLessons.length === 0 || isProcessing}
-                                            className="px-16 py-4 rounded-[24px] bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-black text-sm shadow-[0_20px_50px_rgba(37,99,235,0.3)] active:scale-95 transition-all uppercase tracking-widest"
+                                            className="px-10 py-3 rounded-[20px] bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-black text-xs shadow-[0_20px_50px_rgba(37,99,235,0.3)] active:scale-95 transition-all uppercase tracking-widest"
                                         >
-                                            {saving ? 'Encrypting Modules...' : `Finalize ${previewLessons.length} Modules`}
+                                            {saving ? 'Encrypting...' : `Finalize ${previewLessons.length} Modules`}
                                         </button>
                                     </div>
                                 </div>

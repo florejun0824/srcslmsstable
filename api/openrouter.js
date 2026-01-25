@@ -63,12 +63,13 @@ export default async function handler(req) {
     }
 
     // 4. Construct Messages & Select Model
-    // UPDATED DEFAULT: Use Gemini 2.0 Flash as the default fallback if client doesn't specify
-    let selectedModel = requestedModel || "google/gemini-2.0-flash-exp:free"; 
+    // DEFAULT TO DEEPSEEK R1 CHIMERA
+    let selectedModel = requestedModel || "tngtech/deepseek-r1t2-chimera:free"; 
     let messages = [];
 
     if (imageUrl) {
-      console.log("Image detected: Switching to Gemini 2.0 Flash");
+      // DeepSeek R1 usually doesn't support Vision. Fallback to Gemini 2.0 Flash for images.
+      console.log("Image detected: Switching to Gemini 2.0 Flash for Vision");
       selectedModel = "google/gemini-2.0-flash-exp:free";
       
       messages = [

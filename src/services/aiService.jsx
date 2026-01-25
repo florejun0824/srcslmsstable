@@ -19,19 +19,19 @@ const isNative = Capacitor.isNativePlatform();
 const API_BASE = PROD_API_URL;
 
 // --- CONFIGURATION ---
-// TIER 1: OpenRouter (Primary Account) - Configured to use Gemini 2.0 Flash
+// TIER 1: OpenRouter (Primary) - Switched to DeepSeek R1 Chimera
 const PRIMARY_CONFIGS = [
     { 
         service: 'openrouter', 
         url: `${API_BASE}/api/openrouter`, 
-        name: 'Gemini 2.0 Flash (Primary)',
-        model: 'google/gemini-2.0-flash-exp:free' // Explicitly request 1M Context Model
+        name: 'DeepSeek R1 Chimera (Primary)',
+        model: 'tngtech/deepseek-r1t2-chimera:free' 
     },
 ];
 
 // TIER 2: Google Gemini - RELIABLE BACKUP
-// We also switch the fallback to Flash-Exp for consistency
-const GEMINI_MODEL = 'gemma-3-27b-it'; 
+// Used if DeepSeek is down or rate-limited
+const GEMINI_MODEL = 'google/gemma-3-27b-it'; 
 const FALLBACK_CONFIGS = [
     { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Backup 1' },
     { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Backup 2' },
@@ -101,7 +101,7 @@ const callProxyApiInternal = async (prompt, jsonMode = false, config, maxOutputT
                 prompt: prompt,
                 jsonMode: jsonMode,
                 maxOutputTokens: maxOutputTokens,
-                model: config.model // Sends 'google/gemini-2.0-flash-exp:free' to OpenRouter
+                model: config.model // Sends the configured model to OpenRouter
             }),
         });
 
@@ -141,28 +141,21 @@ const callProxyApiInternal = async (prompt, jsonMode = false, config, maxOutputT
 const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTokens = undefined) => {
     const errors = {};
     
-    // PHASE 1: Try Primary Tier (OpenRouter / Gemini Flash)
-    // We try 3 attempts on Primary before giving up to save time
+    // PHASE 1: Try Primary Tier (OpenRouter / DeepSeek)
     const maxPrimaryAttempts = 3; 
 
     for (let i = 0; i < maxPrimaryAttempts; i++) {
-        // We use modulus even with 1 item so the logic remains valid if you add more keys later
         const config = PRIMARY_CONFIGS[primaryIndex];
         primaryIndex = (primaryIndex + 1) % PRIMARY_CONFIGS.length;
 
         try {
-            // --- LOG WHICH AI IS BEING USED ---
             console.log(`Using ${config.name} (Attempt ${i+1})...`); 
-            
             const response = await callProxyApiInternal(prompt, jsonMode, config, maxOutputTokens);
-            
-            // Clean potentially verbose output if needed, though Gemini is usually clean
             return response;
 
         } catch (error) {
             console.warn(`${config.name} failed (Attempt ${i+1}):`, error.message); 
             errors[`${config.name}-${i}`] = error.message;
-            // If it's a Rate Limit (429) or Server Error (5xx), wait briefly then retry
             if ([429, 503, 500, 504].includes(error.status)) {
                 await delay(1000); 
             }
@@ -172,15 +165,12 @@ const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTo
     console.warn("Primary AI tier failed. Switching to FALLBACK TIER (Gemini Backup).");
 
     // PHASE 2: Try Fallback Tier (Direct/Proxy Gemini)
-    // Try all configured backup keys
     for (let i = 0; i < FALLBACK_CONFIGS.length; i++) {
         const config = FALLBACK_CONFIGS[fallbackIndex];
         fallbackIndex = (fallbackIndex + 1) % FALLBACK_CONFIGS.length;
 
         try {
-            // --- LOG WHICH BACKUP IS BEING USED ---
             console.log(`Using ${config.name}...`);
-            
             const response = await callProxyApiInternal(prompt, jsonMode, config, maxOutputTokens);
             return response; 
 
@@ -230,14 +220,11 @@ export const callChatbotAi = async (prompt) => {
 // --- GRADING FUNCTION (Preserved) ---
 export const gradeEssayWithAI = async (promptText, rubric, studentAnswer) => {
     const limitReached = await checkAiLimitReached();
-    if (limitReached) {
-        throw new Error("LIMIT_REACHED");
-    }
+    if (limitReached) throw new Error("LIMIT_REACHED");
 
     const validRubric = (rubric || []).filter(item => item && item.criteria && Number(item.points) > 0);
-    if (validRubric.length === 0) {
-        throw new Error("Invalid or empty rubric provided for grading.");
-    }
+    if (validRubric.length === 0) throw new Error("Invalid or empty rubric provided.");
+    
     const rubricJson = JSON.stringify(validRubric, null, 2);
     const maxTotalPoints = validRubric.reduce((sum, item) => sum + Number(item.points), 0);
 
@@ -257,10 +244,10 @@ export const gradeEssayWithAI = async (promptText, rubric, studentAnswer) => {
     ${studentAnswer || "(No answer provided)"}
     \`\`\`
     **Instructions:**
-    1.  Carefully read the student's answer in relation to the essay prompt.
-    2.  For EACH criterion in the rubric JSON, assign points based *only* on how well the student's answer meets that specific criterion.
-    3.  Provide a concise justification (1-2 sentences).
-    4.  Return ONLY a single, valid JSON object matching the specified structure EXACTLY.
+    1.  Carefully read the student's answer.
+    2.  For EACH criterion in the rubric, assign points based *only* on the student's answer.
+    3.  Provide a concise justification.
+    4.  Return ONLY a single, valid JSON object matching the structure below.
     **JSON Output Structure (Strict):**
     \`\`\`json
     {
@@ -283,7 +270,6 @@ export const gradeEssayWithAI = async (promptText, rubric, studentAnswer) => {
         let data;
         try {
              const safeText = typeof jsonResponseText === 'string' ? jsonResponseText : JSON.stringify(jsonResponseText);
-             // Ensure no markdown lingers
              const cleanText = safeText.replace(/^```json\s*|```$/g, '').trim();
              data = JSON.parse(cleanText);
         } catch (e) {
@@ -295,10 +281,8 @@ export const gradeEssayWithAI = async (promptText, rubric, studentAnswer) => {
         }
 
         const validatedData = validateAndCleanGradingResponse(data, validRubric, "AI Grader");
-
         const usageDocRef = doc(db, 'usage_trackers', 'ai_usage');
         await updateDoc(usageDocRef, { callCount: increment(1) });
-        
         return validatedData;
 
     } catch (error) { 
@@ -308,10 +292,9 @@ export const gradeEssayWithAI = async (promptText, rubric, studentAnswer) => {
     } 
 };
 
-// --- VALIDATION HELPER (Preserved) ---
+// --- VALIDATION HELPER ---
 function validateAndCleanGradingResponse(data, validRubric, source = "AI") {
      if (!data || !Array.isArray(data.scores) || typeof data.totalScore !== 'number' || data.scores.length === 0) {
-        console.error(`Invalid grading JSON structure from ${source}:`, JSON.stringify(data, null, 2));
         throw new Error(`${source} grading response JSON structure is invalid.`);
     }
 
@@ -339,11 +322,9 @@ function validateAndCleanGradingResponse(data, validRubric, source = "AI") {
         }
     });
 
-    const finalTotalScore = Math.round(calculatedTotal);
-
     return {
         scores: validatedScores,
-        totalScore: finalTotalScore,
+        totalScore: Math.round(calculatedTotal),
         overallFeedback: data.overallFeedback || "No overall feedback provided."
     };
 }
