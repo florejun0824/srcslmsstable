@@ -36,6 +36,21 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 // We set this to 45 seconds to be safe (allowing for some buffer/burst capacity).
 const GEMMA_SAFETY_DELAY_MS = 15000; 
 
+// --- HELPER: Pollinations URL Generator ---
+// Moves logic from LessonPage to here for pre-generation
+const generatePollinationsUrl = (prompt) => {
+    if (!prompt || typeof prompt !== 'string' || prompt.length < 5 || prompt.toLowerCase() === 'none') return null;
+    
+    // Generate a pseudo-random seed from the prompt text to ensure uniqueness/stability
+    const seed = Array.from(prompt).reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    
+    // Add enhancement tags
+    const safePrompt = encodeURIComponent(prompt + ", ultrarealistic, 8k, scientific photography, educational diagram");
+    
+    // Pollinations.ai URL format
+    return `https://image.pollinations.ai/prompt/${safePrompt}?nologo=true&width=1024&height=576&seed=${seed}`;
+};
+
 /**
  * --- Helper: Smart Delay ---
  * Delays execution but can be aborted instantly if the user closes/cancels.
@@ -58,11 +73,13 @@ const smartDelay = async (ms, signal) => {
 
 /**
  * --- Micro-Worker Sanitizer (Bulletproof Version) ---
+ * Fixed to ensure imagePrompt and figureLabel are extracted even in Fallback mode.
  */
 const sanitizeJsonComponent = (aiResponse) => {
     let jsonString = aiResponse;
 
     try {
+        // Attempt 1: Standard JSON Parsing
         const markdownMatch = aiResponse.match(/```(json)?\s*(\{[\s\S]*\})\s*```/);
         if (markdownMatch && markdownMatch[2]) {
             jsonString = markdownMatch[2];
@@ -83,15 +100,28 @@ const sanitizeJsonComponent = (aiResponse) => {
         console.warn("JSON.parse failed, attempting Manual Regex Extraction:", parseError.message);
 
         try {
+            // Attempt 2: Manual Regex Extraction (Enhanced)
+            
+            // Extract Title
             const titleMatch = aiResponse.match(/"title"\s*:\s*"([^"]*?)"/);
             const title = titleMatch ? titleMatch[1] : "Generated Page";
 
+            // Extract Image Prompt (FIXED)
+            const imagePromptMatch = aiResponse.match(/"imagePrompt"\s*:\s*"([^"]*?)"/);
+            const imagePrompt = imagePromptMatch ? imagePromptMatch[1] : "";
+
+            // Extract Figure Label (FIXED)
+            const figureLabelMatch = aiResponse.match(/"figureLabel"\s*:\s*"([^"]*?)"/);
+            const figureLabel = figureLabelMatch ? figureLabelMatch[1] : "";
+
+            // Extract Content
             const contentMatch = aiResponse.match(/"content"\s*:\s*"([\s\S]*?)"(?=\s*\}|\s*,)/);
-            
             let content = "";
+            
             if (contentMatch) {
                 content = contentMatch[1];
             } else {
+                // Fallback for content if regex fails
                 const parts = aiResponse.split(/"content"\s*:\s*"/);
                 if (parts.length > 1) {
                     const roughContent = parts[1];
@@ -104,6 +134,7 @@ const sanitizeJsonComponent = (aiResponse) => {
                 }
             }
 
+            // Cleanup content string
             content = content
                 .replace(/\\n/g, '\n')
                 .replace(/\\"/g, '"')
@@ -116,7 +147,9 @@ const sanitizeJsonComponent = (aiResponse) => {
             return {
                 page: {
                     title: title,
-                    content: content
+                    content: content,
+                    imagePrompt: imagePrompt, // Now included
+                    figureLabel: figureLabel  // Now included
                 }
             };
 
@@ -355,75 +388,75 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         setPreviewLessons([]);
     };
 
-	const extractTextFromFile = async (fileToProcess) => {
-	    // 1. Handle PDF (Smart Extraction)
-	    if (fileToProcess.type === 'application/pdf') {
-	        const pdf = await pdfjsLib.getDocument(URL.createObjectURL(fileToProcess)).promise;
-	        let fullText = '';
+    const extractTextFromFile = async (fileToProcess) => {
+        // 1. Handle PDF (Smart Extraction)
+        if (fileToProcess.type === 'application/pdf') {
+            const pdf = await pdfjsLib.getDocument(URL.createObjectURL(fileToProcess)).promise;
+            let fullText = '';
         
-	        for (let i = 1; i <= pdf.numPages; i++) {
-	            const page = await pdf.getPage(i);
-	            const content = await page.getTextContent();
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const content = await page.getTextContent();
             
-	            // Variable to track the vertical position of the last item
-	            let lastY = -1;
-	            let pageText = '';
+                // Variable to track the vertical position of the last item
+                let lastY = -1;
+                let pageText = '';
 
-	            for (const item of content.items) {
-	                // Skip empty items
-	                if (!item.str || item.str.trim().length === 0) continue;
+                for (const item of content.items) {
+                    // Skip empty items
+                    if (!item.str || item.str.trim().length === 0) continue;
 
-	                const currentY = item.transform ? item.transform[5] : -1; // Y-coordinate
+                    const currentY = item.transform ? item.transform[5] : -1; // Y-coordinate
                 
-	                // DETECT NEW LINE:
-	                // If the vertical position (Y) drops significantly (> 5 units) compared to the last item,
-	                // we treat it as a new line. Otherwise, it's a continuation of the current line.
-	                if (lastY !== -1 && Math.abs(currentY - lastY) > 5) {
-	                    pageText += '\n' + item.str;
-	                } else {
-	                    // Add a space between words on the same line (unless punctuation/spacing already exists)
-	                    pageText += (pageText.endsWith(' ') || item.str.startsWith(' ') ? '' : ' ') + item.str;
-	                }
+                    // DETECT NEW LINE:
+                    // If the vertical position (Y) drops significantly (> 5 units) compared to the last item,
+                    // we treat it as a new line. Otherwise, it's a continuation of the current line.
+                    if (lastY !== -1 && Math.abs(currentY - lastY) > 5) {
+                        pageText += '\n' + item.str;
+                    } else {
+                        // Add a space between words on the same line (unless punctuation/spacing already exists)
+                        pageText += (pageText.endsWith(' ') || item.str.startsWith(' ') ? '' : ' ') + item.str;
+                    }
                 
-	                lastY = currentY;
-	            }
+                    lastY = currentY;
+                }
             
-	            // Add double newline between pages to help AI distinguish page breaks
-	            fullText += pageText + '\n\n';
-	        }
-	        return fullText;
+                // Add double newline between pages to help AI distinguish page breaks
+                fullText += pageText + '\n\n';
+            }
+            return fullText;
 
-	    } else if (fileToProcess.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-	        // DOCX handling (Keep existing)
-	        const arrayBuffer = await fileToProcess.arrayBuffer();
-	        const result = await mammoth.extractRawText({ arrayBuffer });
-	        return result.value;
+        } else if (fileToProcess.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+            // DOCX handling (Keep existing)
+            const arrayBuffer = await fileToProcess.arrayBuffer();
+            const result = await mammoth.extractRawText({ arrayBuffer });
+            return result.value;
 
-	    } else if (fileToProcess.type === 'text/plain') {
-	        // TXT handling (Keep existing)
-	        return await fileToProcess.text();
+        } else if (fileToProcess.type === 'text/plain') {
+            // TXT handling (Keep existing)
+            return await fileToProcess.text();
 
-	    } else {
-	        throw new Error('Unsupported file type. Please use PDF, DOCX, or TXT.');
-	    }
-	};
+        } else {
+            throw new Error('Unsupported file type. Please use PDF, DOCX, or TXT.');
+        }
+    };
 
     // --- PROMPTS AND INSTRUCTIONS ---
 
     const getBasePromptContext = () => {
-	const languageAndGradeInstruction = `
-	    **TARGET AUDIENCE (NON-NEGOTIABLE):**
-	    - **Context:** Philippines K-12 Curriculum (DepEd MATATAG Standards).
-	    - **Grade Level:** Grade ${gradeLevel}. Ensure content aligns with the specific learning competencies for this grade level in the Philippines.
-	    - **Localization:** Use Filipino names (e.g., Juan, Maria), local currency (PHP/Pesos), and local examples (e.g., jeepneys, barangays) in examples.
-	    - **Language:** The entire output MUST be written in **${language}**.
+    const languageAndGradeInstruction = `
+        **TARGET AUDIENCE (NON-NEGOTIABLE):**
+        - **Context:** Philippines K-12 Curriculum (DepEd MATATAG Standards).
+        - **Grade Level:** Grade ${gradeLevel}. Ensure content aligns with the specific learning competencies for this grade level in the Philippines.
+        - **Localization:** Use Filipino names (e.g., Juan, Maria), local currency (PHP/Pesos), and local examples (e.g., jeepneys, barangays) in examples.
+        - **Language:** The entire output MUST be written in **${language}**.
     
-	    ${language === 'English' ? `
-	    - **CRITICAL LANGUAGE RULE:** Use standard English grammar and sentence structure at all times. Do NOT use Taglish. Only use Filipino words (like 'barangay' or 'kamusta') if they are proper nouns or specific cultural terms that have no direct English equivalent.` : ''}
+        ${language === 'English' ? `
+        - **CRITICAL LANGUAGE RULE:** Use standard English grammar and sentence structure at all times. Do NOT use Taglish. Only use Filipino words (like 'barangay' or 'kamusta') if they are proper nouns or specific cultural terms that have no direct English equivalent.` : ''}
 
-	    ${language === 'Filipino' ? `
-	    - **CRITICAL FILIPINO LANGUAGE RULE:** Use formal, academic Filipino (Wikang Pambansa). Avoid colloquial "Taglish" unless explicitly framing it as informal dialogue.` : ''}
-	`;
+        ${language === 'Filipino' ? `
+        - **CRITICAL FILIPINO LANGUAGE RULE:** Use formal, academic Filipino (Wikang Pambansa). Avoid colloquial "Taglish" unless explicitly framing it as informal dialogue.` : ''}
+    `;
 
         const selectedSubjectData = subjects.find(s => s.id === selectedSubject);
         const catholicSubjects = ["Christian Social Living 7-10", "Religious Education 11-12"];
@@ -480,7 +513,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         - **DO NOT** stop after the first few paragraphs. 
         - **DO NOT** summarize the whole document into one single generic lesson if there are clearly distinct chapters or major topics.
 
-		**CRITICAL INSTRUCTION: THE "SINGLE LESSON" BIAS**
+        **CRITICAL INSTRUCTION: THE "SINGLE LESSON" BIAS**
         - **DEFAULT BEHAVIOR:** You should assume the entire file is **ONE SINGLE LESSON** unless proven otherwise.
         - **MERGE, DON'T SPLIT:** If the file contains "Topic A" and "Topic B", merge them into one lesson titled "Topic A & B" rather than creating two separate lessons.
         - **IGNORE SUB-HEADERS:** Do NOT treat headers like "1.1", "Part 2", or "Activity 3" as new lessons. These are just sections within the same lesson.
@@ -511,7 +544,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
     const getMasterInstructions = (baseContext) => {
         const styleRules = `
         **CRITICAL FORMATTING RULE (NON-NEGOTIABLE):** You MUST NOT use Markdown code block formatting (like indenting with four spaces or using triple backticks \\\`\\\`\\\`) for regular content like bulleted lists or standard paragraphs.
-		**SYSTEM INSTRUCTION:** DO NOT output your thinking process. Output ONLY raw, valid JSON.
+        **SYSTEM INSTRUCTION:** DO NOT output your thinking process. Output ONLY raw, valid JSON.
         
         **CRITICAL JSON & LATEX SAFETY (ABSOLUTE PRIORITY):**
         - You are writing a JSON string. ALL backslashes must be escaped.
@@ -534,14 +567,14 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         - **CRITICAL LATEX ESCAPING IN JSON:** Every single backslash \`\\\` in your LaTeX code MUST be escaped with a second backslash (\`\\\\\`).
         
         **ABSOLUTE RULE FOR CONTENT CONTINUATION (NON-NEGOTIABLE):** When a single topic or section is too long for one page and its discussion must continue onto the next page, a heading for that topic (the 'title' in the JSON) MUST ONLY appear on the very first page. ALL subsequent pages for that topic MUST have an empty string for their title: \\\`"title": ""\\\`.
-		
-		**CRITICAL TABLE HANDLING RULE:**
-   	 	- If you encounter text in the source that looks like a table (rows of data, unstructured lists), you MUST reconstruct it into a valid Markdown table.
-   	 	- **Do not** list the raw data as a jumbled paragraph.
-   	 	- **Look for patterns:** If you see "Term... Definition... Term... Definition...", format it as a 2-column table.
+        
+        **CRITICAL TABLE HANDLING RULE:**
+        - If you encounter text in the source that looks like a table (rows of data, unstructured lists), you MUST reconstruct it into a valid Markdown table.
+        - **Do not** list the raw data as a jumbled paragraph.
+        - **Look for patterns:** If you see "Term... Definition... Term... Definition...", format it as a 2-column table.
         `;
 
-const masterInstructions = `
+        const masterInstructions = `
         **Persona and Tone:** Adopt the persona of a **passionate expert lecturer** who loves the subject.
         - **Goal:** Your goal is to provide a **comprehensive and immersive** learning experience.
         - **Tone:** Enthusiastic, articulate, and detailed. Avoid being dry or robotic.
@@ -610,8 +643,19 @@ const masterInstructions = `
                 break;
 
             case 'Introduction':
-                taskInstruction = 'Generate the "Engaging Introduction" page. It MUST have a thematic, captivating subheader title.';
-                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "A Captivating Thematic Title",\n    "content": "Engaging intro markdown..."\n  }\n}`;
+                taskInstruction = `Generate the "Engaging Introduction" page. 
+                **SMART IMAGE INJECTION:** If the topic is complex (e.g., Biology, Physics), include an "imagePrompt" and "figureLabel".
+                - **figureLabel:** Use "Figure 1: [Descriptive Title]".
+                - **imagePrompt:** High-quality, ultrarealistic scientific photography description.`;
+    
+                jsonFormat = `{
+                  "page": {
+                    "title": "A Captivating Thematic Title",
+                    "content": "Engaging intro markdown...",
+                    "imagePrompt": "Detailed prompt for image generation...",
+                    "figureLabel": "Figure 1: Overview of [Topic]"
+                  }
+                }`;
                 break;
             
             case 'LetsGetStarted':
@@ -629,57 +673,70 @@ const masterInstructions = `
                 jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "coreContentTitles": [\n    "First Sub-Topic Title",\n    "Second Sub-Topic Title"\n  ]\n}`;
                 break;
 
-			case 'CoreContentPage':
-			                const allTitles = extraData.allContentTitles || [extraData.contentTitle];
-			                const currentIndex = extraData.currentIndex !== undefined ? extraData.currentIndex : 0;
-			                const currentTitle = extraData.contentTitle;
+            case 'CoreContentPage':
+                            const allTitles = extraData.allContentTitles || [extraData.contentTitle];
+                            const currentIndex = extraData.currentIndex !== undefined ? extraData.currentIndex : 0;
+                            const currentTitle = extraData.contentTitle;
                 
-			                // NEW: Get list of previous and next titles to set strict boundaries
-			                const previousTitles = allTitles.slice(0, currentIndex).join(', ');
-			                const nextTitles = allTitles.slice(currentIndex + 1).join(', ');
+                            // NEW: Get list of previous and next titles to set strict boundaries
+                            const previousTitles = allTitles.slice(0, currentIndex).join(', ');
+                            const nextTitles = allTitles.slice(currentIndex + 1).join(', ');
 
-			                const contentContextInstruction = `
-			                **PAGING CONTEXT:** Page ${currentIndex + 1} of ${allTitles.length}.
-			                - **CURRENT FOCUS:** "${currentTitle}"
-			                - **PREVIOUSLY COVERED (DO NOT REPEAT):** ${previousTitles || "None - This is the first page."}
-			                - **COMING NEXT (DO NOT SPOIL):** ${nextTitles || "None - This is the last page."}
-			                `;
+                            const contentContextInstruction = `
+                            **PAGING CONTEXT:** Page ${currentIndex + 1} of ${allTitles.length}.
+                            - **CURRENT FOCUS:** "${currentTitle}"
+                            - **PREVIOUSLY COVERED (DO NOT REPEAT):** ${previousTitles || "None - This is the first page."}
+                            - **COMING NEXT (DO NOT SPOIL):** ${nextTitles || "None - This is the last page."}
+                            `;
 
-			                taskInstruction = `Generate *one* core content page for this lesson.
-			                - **Page Title:** It MUST be exactly: "${currentTitle}"
-			                ${contentContextInstruction}
+                            taskInstruction = `Generate *one* core content page for this lesson.
+                            - **Page Title:** It MUST be exactly: "${currentTitle}"
+                            ${contentContextInstruction}
+                            
+                            **SMART IMAGE INJECTION RULES:**
+                            1. **Analogy/Scenario detection:** If you use an analogy (e.g., comparing a cell to a city), you MUST generate an "imagePrompt" visualizing that analogy.
+                            2. **Visual Support:** If describing a specific tool (e.g., Beaker, Microscope), generate an "imagePrompt" for it.
+                            3. **Placement:** Provide a "figureLabel" (e.g., "Figure ${currentIndex + 2}: [Description]").
+                            If no visual is needed, leave imagePrompt and figureLabel as empty strings.
 
-			                **CRITICAL "ANTI-REDUNDANCY" RULE (NON-NEGOTIABLE):**
-			                - **EXCLUSIVE SCOPE:** You must scan the Source Text *only* for information specifically related to "${currentTitle}".
-			                - **IGNORE PREVIOUS TOPICS:** The user has *already read* pages about [${previousTitles}]. Do NOT re-define or re-introduce concepts from those pages. Assume the student already knows them.
-			                - **IGNORE FUTURE TOPICS:** Do NOT jump ahead to [${nextTitles}]. Save that information for the next page.
+                            **CRITICAL "ANTI-REDUNDANCY" RULE (NON-NEGOTIABLE):**
+                            - **EXCLUSIVE SCOPE:** You must scan the Source Text *only* for information specifically related to "${currentTitle}".
+                            - **IGNORE PREVIOUS TOPICS:** The user has *already read* pages about [${previousTitles}]. Do NOT re-define or re-introduce concepts from those pages. Assume the student already knows them.
+                            - **IGNORE FUTURE TOPICS:** Do NOT jump ahead to [${nextTitles}]. Save that information for the next page.
                 
-			                **IF THE SOURCE TEXT IS AMBIGUOUS:**
-			                - If the Source Text blends this topic with others, extract *only* the specific details that belong to "${currentTitle}".
+                            **IF THE SOURCE TEXT IS AMBIGUOUS:**
+                            - If the Source Text blends this topic with others, extract *only* the specific details that belong to "${currentTitle}".
 
-							**CRITICAL RULE: THE "VERBATIM + ELABORATION" PATTERN**
-							For every key term or concept in this section, follow this 2-step flow:
-							
-							1.  **STEP 1 (The Anchor):** State the definition **exactly word-for-word** from the source text. Bold the key term (e.g., "**Globalization**").
-							
-							2.  **STEP 2 (The Remix):** Immediately after, explain it in simple, engaging, yet details rich language.
-							    - **BANNED PHRASE:** You are **FORBIDDEN** from using "In other words" more than once per page.
-							    - **Natural Transitions:** Instead, use varied phrases like:
-							      - *"Think of this like..."*
-							      - *"To put it simply..."*
-							      - *"This essentially means..."*
-							      - *"Imagine if..."*
-							      - Or simply start the next sentence naturally (e.g., *"This process allows..."*).
+                            **CRITICAL RULE: THE "VERBATIM + ELABORATION" PATTERN**
+                            For every key term or concept in this section, follow this 2-step flow:
+                            
+                            1.  **STEP 1 (The Anchor):** State the definition **exactly word-for-word** from the source text. Bold the key term (e.g., "**Globalization**").
+                            
+                            2.  **STEP 2 (The Remix):** Immediately after, explain it in simple, engaging, yet details rich language.
+                                - **BANNED PHRASE:** You are **FORBIDDEN** from using "In other words" more than once per page.
+                                - **Natural Transitions:** Instead, use varied phrases like:
+                                  - *"Think of this like..."*
+                                  - *"To put it simply..."*
+                                  - *"This essentially means..."*
+                                  - *"Imagine if..."*
+                                  - Or simply start the next sentence naturally (e.g., *"This process allows..."*).
 
-			                **CONTENT FLOW:**
-			                1.  **Dive Right In:** Start immediately with the specific details of "${currentTitle}". Do not write a generic introduction.
-			                
+                            **CONTENT FLOW:**
+                            1.  **Dive Right In:** Start immediately with the specific details of "${currentTitle}". Do not write a generic introduction.
+                            
 
-							**TONE:**
-							- **Expert & Engaging:** Speak with the confidence of a professor, but the clarity of a storyteller.`;
-							
-			                jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "${currentTitle}",\n    "content": "Detailed markdown content..."\n  }\n}`;
-			                break;
+                            **TONE:**
+                            - **Expert & Engaging:** Speak with the confidence of a professor, but the clarity of a storyteller.`;
+                            
+                            jsonFormat = `{
+                                  "page": {
+                                    "title": "${currentTitle}",
+                                    "content": "Detailed markdown content...",
+                                    "imagePrompt": "Ultrarealistic scientific 8k prompt...",
+                                    "figureLabel": "Figure ${currentIndex + 2}: [Topic] Illustration"
+                                  }
+                                }`;
+                                break;
             
             case 'CheckForUnderstanding':
                 taskInstruction = `Generate the "Check for Understanding" page. 3-4 concept questions based on the lesson.`;
@@ -769,7 +826,7 @@ const masterInstructions = `
 
             try {
                 // Lower max output tokens to save TPM
-                const aiResponse = await callGeminiWithLimitCheck(finalPrompt, { maxOutputTokens: 6144, signal });
+                const aiResponse = await callGeminiWithLimitCheck(finalPrompt, { maxOutputTokens: 12288, signal });
                 
                 if (!isMountedRef.current || signal?.aborted) throw new Error("Aborted");
                 return sanitizeJsonComponent(aiResponse); 
@@ -899,8 +956,8 @@ const masterInstructions = `
                         if (result?.page?.content) {
                             const newEntry = `\n\n--- [${type.toUpperCase()}]: ${result.page.title} ---\n${result.page.content}`;
                             let fullContext = accumulatedLessonContext + newEntry;
-                            if (fullContext.length > 4000) {
-                                fullContext = "..." + fullContext.slice(-4000); 
+                            if (fullContext.length > 8000) {
+                                fullContext = "..." + fullContext.slice(-8000); 
                             }
                             accumulatedLessonContext = fullContext;
                         }
@@ -930,7 +987,13 @@ const masterInstructions = `
                     if(comps) newLesson.assignedCompetencies = comps.competencies;
                     
                     const intro = await safeGenerate('Introduction');
-                    if(intro) newLesson.pages.push({ ...intro.page, type: 'text' });
+                    if(intro) {
+                        // --- SMART IMAGE URL INJECTION ---
+                        if (intro.page.imagePrompt) {
+                            intro.page.imageUrl = generatePollinationsUrl(intro.page.imagePrompt);
+                        }
+                        newLesson.pages.push({ ...intro.page, type: 'text' });
+                    }
                     
                     // 25% through lesson
                     setGenerationProgress(Math.floor(currentBaseProgress + (progressPerLesson * 0.25))); 
@@ -946,7 +1009,13 @@ const masterInstructions = `
 
                     for (const [cIdx, title] of contentTitles.entries()) {
                         const pageData = await safeGenerate('CoreContentPage', { contentTitle: title, currentIndex: cIdx, allContentTitles: contentTitles });
-                        if (pageData) newLesson.pages.push({ ...pageData.page, type: 'text' });
+                        if (pageData) {
+                            // --- SMART IMAGE URL INJECTION ---
+                            if (pageData.page.imagePrompt) {
+                                pageData.page.imageUrl = generatePollinationsUrl(pageData.page.imagePrompt);
+                            }
+                            newLesson.pages.push({ ...pageData.page, type: 'text' });
+                        }
                     }
                     
                     // 75% through lesson

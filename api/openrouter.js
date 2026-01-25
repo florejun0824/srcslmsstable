@@ -3,7 +3,6 @@ export const config = {
 };
 
 // 1. POOL OF OPENROUTER KEYS
-// Good practice for redundancy. Ensure these are set in Vercel/Netlify env vars.
 const getApiKeyPool = () => {
   const keys = new Set();
   if (process.env.OPENROUTER_API_KEY) keys.add(process.env.OPENROUTER_API_KEY);
@@ -13,7 +12,6 @@ const getApiKeyPool = () => {
   // if (process.env.OPENROUTER_API_KEY_3) keys.add(process.env.OPENROUTER_API_KEY_3);
   // -------------------------------------------------------
 
-  // Add more as needed
   return Array.from(keys).filter(k => k && k.length > 10);
 };
 
@@ -27,7 +25,6 @@ const getRandomKey = () => {
 export default async function handler(req) {
   const corsHeaders = {
     'Access-Control-Allow-Credentials': 'true',
-    // Security Note: Updated to include protocol for strict CORS compliance
     'Access-Control-Allow-Origin': '*', 
     'Access-Control-Allow-Methods': 'GET,OPTIONS,PATCH,DELETE,POST,PUT',
     'Access-Control-Allow-Headers': 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
@@ -38,7 +35,7 @@ export default async function handler(req) {
     return new Response(null, { status: 200, headers: corsHeaders });
   }
 
-  // 2. Validate Method (Reject GET or others)
+  // 2. Validate Method
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: "Method not allowed. Use POST." }), { 
       status: 405, 
@@ -51,7 +48,8 @@ export default async function handler(req) {
     if (!bodyText) return new Response(JSON.stringify({ error: "Empty body" }), { status: 400, headers: corsHeaders });
     
     const body = JSON.parse(bodyText);
-    const { prompt, imageUrl } = body; 
+    // Destructure 'model' so aiService.jsx can override the default
+    const { prompt, imageUrl, model: requestedModel } = body; 
 
     // 3. Validate Inputs
     if (!prompt || typeof prompt !== 'string') {
@@ -63,24 +61,35 @@ export default async function handler(req) {
       return new Response(JSON.stringify({ error: "Server Error: No OpenRouter API Keys configured." }), { status: 500, headers: corsHeaders });
     }
 
-    // 4. Construct Messages & Select Model (Hybrid Logic)
-    let selectedModel = "nousresearch/hermes-3-llama-3.1-405b:free"; // Default: Best Logic
-    let messagesContent;
+    // 4. Construct Messages & Select Model
+    // Priority: 1. Image (Gemini) -> 2. Requested (aiService.jsx) -> 3. Default (GPT-OSS 120B)
+    let selectedModel = requestedModel || "openai/gpt-oss-120b:free"; 
+    let messages = [];
 
     if (imageUrl) {
-      // CRITICAL FIX: Switch to Gemini for Vision support if image exists
       console.log("Image detected: Switching to Gemini 2.0 Flash");
       selectedModel = "google/gemini-2.0-flash-exp:free";
       
-      messagesContent = [
-        { type: "text", text: prompt },
-        { type: "image_url", image_url: { url: imageUrl } }
+      messages = [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: prompt },
+            { type: "image_url", image_url: { url: imageUrl } }
+          ]
+        }
       ];
     } else {
-      // Standard Text-only: DeepSeek R1
-      // Note: Using array format is generally safer for OpenRouter compatibility across models
-      messagesContent = [
-        { type: "text", text: prompt }
+      // Standard Text Path with Reasoning Trigger for 120B Model
+      messages = [
+        {
+          role: "system",
+          content: "You are a helpful and highly intelligent educational assistant. Think step-by-step and use deep reasoning to ensure accuracy."
+        },
+        {
+          role: "user",
+          content: [{ type: "text", text: prompt }]
+        }
       ];
     }
 
@@ -95,8 +104,10 @@ export default async function handler(req) {
       },
       body: JSON.stringify({
         model: selectedModel,
-        messages: [{ role: "user", content: messagesContent }],
-        stream: true, 
+        messages: messages,
+        stream: true,
+        // Optional: Include reasoning for models that support it natively
+        include_reasoning: true 
       }),
     });
 
@@ -108,7 +119,7 @@ export default async function handler(req) {
         });
     }
 
-    // 6. TRANSFORM STREAM (OpenAI SSE -> Raw Text)
+    // 6. TRANSFORM STREAM
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
     
@@ -124,7 +135,7 @@ export default async function handler(req) {
             
             buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split('\n');
-            buffer = lines.pop(); // Keep incomplete line in buffer
+            buffer = lines.pop(); 
 
             for (const line of lines) {
               const trimmed = line.trim();
@@ -138,9 +149,7 @@ export default async function handler(req) {
                   if (content) {
                     controller.enqueue(encoder.encode(content));
                   }
-                } catch (e) {
-                  // Ignore JSON parse errors on partial chunks
-                }
+                } catch (e) {}
               }
             }
           }
