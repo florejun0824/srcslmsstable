@@ -72,7 +72,7 @@ const getThemeStyles = (overlay) => {
                 accentShadow: 'shadow-indigo-500/50',
                 checkbox: 'checked:bg-indigo-600 checked:border-indigo-600',
                 chipActive: 'bg-indigo-600 text-white shadow-[0_0_15px_-3px_rgba(79,70,229,0.4)]',
-                chipInactive: 'bg-white/5 text-slate-300 hover:bg-white/10'
+                chipInactive: 'bg-white/25 text-slate-300 hover:bg-white/10'
             };
     }
 };
@@ -207,8 +207,8 @@ const StudentDesktopRow = memo(({ user, enrolledClasses, onEdit, onSelect, isSel
     return (
         <tr 
             className={`
-                group border-b border-white/5 last:border-none transition-colors cursor-pointer
-                ${isSelected ? 'bg-indigo-900/10' : 'hover:bg-white/5'}
+                group border-b border-white/15 last:border-none transition-colors cursor-pointer
+                ${isSelected ? 'bg-indigo-900/10' : 'hover:bg-white/15'}
             `}
             onClick={() => onSelect(user.id)}
         >
@@ -492,7 +492,7 @@ const StudentManagementView = () => {
         </div>
 
         {/* --- SCROLLABLE CONTENT --- */}
-        <div className="flex-1 min-h-0 rounded-[2.5rem] bg-[#121212]/40 backdrop-blur-3xl border border-white/5 overflow-hidden flex flex-col relative">
+        <div className="flex-1 min-h-0 rounded-[2.5rem] bg-[#121212]/80 backdrop-blur-3xl border border-white/5 overflow-hidden flex flex-col relative">
             {loading && allStudents.length === 0 ? (
                 <div className="flex items-center justify-center h-full">
                     <Loader2 className={`w-8 h-8 animate-spin ${theme.accentText}`} />

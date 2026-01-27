@@ -1,5 +1,5 @@
 // src/components/teacher/dashboard/widgets/AnnouncementModal.jsx
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -18,10 +18,10 @@ import {
   query,
   orderBy,
   doc,
-  setDoc,
-  deleteDoc, // We will use this directly again
+  deleteDoc,
   updateDoc,
   runTransaction,
+  deleteField // Imported for removing keys from maps
 } from 'firebase/firestore'
 import ReactionsBreakdownModal from './ReactionsBreakdownModal'
 import UserInitialsAvatar from '../../../common/UserInitialsAvatar'
@@ -29,50 +29,15 @@ import Linkify from 'react-linkify'
 
 const reactionTypes = ['like', 'heart', 'haha', 'wow', 'sad', 'angry', 'care']
 
-// --- CONFIG: STATIC VS ANIMATED PATHS ---
+// --- CONFIG: STATIC VS ANIMATED PATHS (Kept same) ---
 const reactionIcons = {
-  like: {
-    static: '/emojis/like.png',
-    animated: '/emojis/like.gif',
-    color: 'text-blue-600',
-    label: 'Like',
-  },
-  heart: {
-    static: '/emojis/love.png',
-    animated: '/emojis/love.gif',
-    color: 'text-red-600',
-    label: 'Love',
-  },
-  haha: {
-    static: '/emojis/haha.png',
-    animated: '/emojis/haha.gif',
-    color: 'text-yellow-500',
-    label: 'Haha',
-  },
-  wow: {
-    static: '/emojis/wow.png',
-    animated: '/emojis/wow.gif',
-    color: 'text-amber-500',
-    label: 'Wow',
-  },
-  sad: {
-    static: '/emojis/sad.png',
-    animated: '/emojis/sad.gif',
-    color: 'text-blue-400',
-    label: 'Sad',
-  },
-  angry: {
-    static: '/emojis/angry.png',
-    animated: '/emojis/angry.gif',
-    color: 'text-red-700',
-    label: 'Angry',
-  },
-  care: {
-    static: '/emojis/care.png',
-    animated: '/emojis/care.gif',
-    color: 'text-pink-500',
-    label: 'Care',
-  },
+  like: { static: '/emojis/like.png', animated: '/emojis/like.gif', color: 'text-blue-600', label: 'Like' },
+  heart: { static: '/emojis/love.png', animated: '/emojis/love.gif', color: 'text-red-600', label: 'Love' },
+  haha: { static: '/emojis/haha.png', animated: '/emojis/haha.gif', color: 'text-yellow-500', label: 'Haha' },
+  wow: { static: '/emojis/wow.png', animated: '/emojis/wow.gif', color: 'text-amber-500', label: 'Wow' },
+  sad: { static: '/emojis/sad.png', animated: '/emojis/sad.gif', color: 'text-blue-400', label: 'Sad' },
+  angry: { static: '/emojis/angry.png', animated: '/emojis/angry.gif', color: 'text-red-700', label: 'Angry' },
+  care: { static: '/emojis/care.png', animated: '/emojis/care.gif', color: 'text-pink-500', label: 'Care' },
 }
 
 // Link Decorator
@@ -89,47 +54,28 @@ const componentDecorator = (href, text, key) => (
   </a>
 )
 
-// --- DELETE CONFIRMATION DIALOG ---
+// --- DELETE CONFIRMATION DIALOG (Kept same) ---
 const DeleteDialog = ({ isOpen, onClose, onConfirm, title, message }) => {
   if (!isOpen) return null
   return createPortal(
     <AnimatePresence>
       <div className="fixed inset-0 z-[100000] flex items-center justify-center p-4">
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={onClose}
-          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          onClick={onClose} className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         />
         <motion.div
-          initial={{ opacity: 0, scale: 0.9, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.9, y: 20 }}
+          initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }}
           className="relative w-full max-w-sm bg-white dark:bg-[#1C1C1E] rounded-3xl p-6 border border-white/20 shadow-2xl overflow-hidden text-center"
         >
           <div className="w-12 h-12 rounded-full bg-red-50 dark:bg-red-500/10 flex items-center justify-center mb-4 text-red-500 mx-auto">
             <FaTrash className="w-5 h-5" />
           </div>
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">
-            {title || 'Delete Item?'}
-          </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
-            {message || 'This action cannot be undone.'}
-          </p>
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">{title || 'Delete Item?'}</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">{message || 'This action cannot be undone.'}</p>
           <div className="flex flex-col w-full gap-2">
-            <button
-              onClick={onConfirm}
-              className="w-full py-3 rounded-xl font-bold text-white bg-red-500 hover:bg-red-600 shadow-md active:scale-95 transition-all text-xs"
-            >
-              Yes, Delete
-            </button>
-            <button
-              onClick={onClose}
-              className="w-full py-3 rounded-xl font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 active:scale-95 transition-all text-xs"
-            >
-              Cancel
-            </button>
+            <button onClick={onConfirm} className="w-full py-3 rounded-xl font-bold text-white bg-red-500 hover:bg-red-600 shadow-md active:scale-95 transition-all text-xs">Yes, Delete</button>
+            <button onClick={onClose} className="w-full py-3 rounded-xl font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 active:scale-95 transition-all text-xs">Cancel</button>
           </div>
         </motion.div>
       </div>
@@ -138,13 +84,12 @@ const DeleteDialog = ({ isOpen, onClose, onConfirm, title, message }) => {
   )
 }
 
-// --- RECURSIVE COMMENT COMPONENT ---
+// --- OPTIMIZED RECURSIVE COMMENT COMPONENT ---
 const CommentNode = ({
   comment,
   allComments,
   usersMap,
   currentUserId,
-  commentReactions,
   editingCommentId,
   editingCommentText,
   setEditingCommentText,
@@ -162,52 +107,34 @@ const CommentNode = ({
   handleReactionOptionsMouseLeave,
   toggleReactionPicker
 }) => {
-  // Safe Access for User Profile
   const safeUsersMap = usersMap || {};
   const commentUser = safeUsersMap[comment.userId] || { firstName: 'Unknown', lastName: 'User' };
-
   const isCurrentUserComment = comment.userId === currentUserId
   const isBeingEdited = editingCommentId === comment.id
-  const currentUserCommentReaction = commentReactions[comment.id]?.[currentUserId]
+  
+  // OPTIMIZATION: Read reaction directly from the comment document prop
+  // The 'reactions' field is a Map: { [userId]: 'like', ... }
+  const reactionsMap = comment.reactions || {};
+  const currentUserCommentReaction = reactionsMap[currentUserId];
 
-  // Find children
   const replies = allComments.filter((c) => c.parentId === comment.id)
-
   const avatarWrapperClass = isReply ? "w-10 h-10" : "w-12 h-12"
   const avatarTextSize = isReply ? 'text-[11px]' : 'text-[12px]'
 
   return (
     <div className="flex gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-      {/* Avatar Wrapper */}
       <div className={`flex-shrink-0 mt-1 rounded-full overflow-hidden ${avatarWrapperClass}`}>
-        <UserInitialsAvatar
-          user={commentUser}
-          size="100%"
-          className={`w-full h-full font-bold shadow-sm object-cover ${avatarTextSize}`}
-        />
+        <UserInitialsAvatar user={commentUser} size="100%" className={`w-full h-full font-bold shadow-sm object-cover ${avatarTextSize}`} />
       </div>
 
       <div className="flex-1 min-w-0">
         <div className="group/comment relative">
-          {/* Comment Bubble */}
-          <div
-            className={`px-3 py-2 rounded-2xl relative ${
-              isCurrentUserComment
-                ? 'bg-blue-50/50 dark:bg-blue-900/10'
-                : 'bg-slate-100 dark:bg-[#1E1E1E]'
-            }`}
-          >
-            {/* Header (Name + Time) */}
+          <div className={`px-3 py-2 rounded-2xl relative ${isCurrentUserComment ? 'bg-blue-50/50 dark:bg-blue-900/10' : 'bg-slate-100 dark:bg-[#1E1E1E]'}`}>
             <div className="flex justify-between items-baseline mb-1">
-              <span className="text-sm font-bold text-slate-900 dark:text-slate-100 mr-2">
-                {commentUser.firstName} {commentUser.lastName}
-              </span>
-              <span className="text-xs font-bold text-slate-400 dark:text-slate-500">
-                {formatRelativeTime(comment.createdAt)}
-              </span>
+              <span className="text-sm font-bold text-slate-900 dark:text-slate-100 mr-2">{commentUser.firstName} {commentUser.lastName}</span>
+              <span className="text-xs font-bold text-slate-400 dark:text-slate-500">{formatRelativeTime(comment.createdAt)}</span>
             </div>
 
-            {/* Content or Edit Mode */}
             {isBeingEdited ? (
               <div className="mt-1">
                 <textarea
@@ -218,19 +145,8 @@ const CommentNode = ({
                   autoFocus
                 />
                 <div className="flex justify-end gap-2 mt-2">
-                  <button
-                    onClick={onCancelEditing}
-                    className="px-2 py-1 text-[10px] font-bold text-slate-500 hover:bg-slate-200 dark:hover:bg-white/10 rounded transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={onSaveEdit}
-                    className="px-2 py-1 text-[10px] font-bold text-white bg-blue-500 hover:bg-blue-600 rounded shadow-sm"
-                    disabled={!editingCommentText.trim()}
-                  >
-                    Save
-                  </button>
+                  <button onClick={onCancelEditing} className="px-2 py-1 text-[10px] font-bold text-slate-500 hover:bg-slate-200 dark:hover:bg-white/10 rounded transition-colors">Cancel</button>
+                  <button onClick={onSaveEdit} className="px-2 py-1 text-[10px] font-bold text-white bg-blue-500 hover:bg-blue-600 rounded shadow-sm" disabled={!editingCommentText.trim()}>Save</button>
                 </div>
               </div>
             ) : (
@@ -239,61 +155,34 @@ const CommentNode = ({
               </p>
             )}
 
-            {/* Edit/Delete Actions */}
             {isCurrentUserComment && !isBeingEdited && (
               <div className="absolute -right-6 top-1/2 -translate-y-1/2 flex flex-col gap-1 opacity-0 group-hover/comment:opacity-100 transition-opacity">
-                <button
-                  onClick={() => onStartEditing(comment)}
-                  className="p-1 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full text-slate-400 hover:text-blue-500 transition-colors"
-                >
-                  <FaEdit className="w-2.5 h-2.5" />
-                </button>
-                <button
-                  onClick={() => onDeleteComment(comment.id)}
-                  className="p-1 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full text-slate-400 hover:text-red-500 transition-colors"
-                >
-                  <FaTrash className="w-2.5 h-2.5" />
-                </button>
+                <button onClick={() => onStartEditing(comment)} className="p-1 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full text-slate-400 hover:text-blue-500 transition-colors"><FaEdit className="w-2.5 h-2.5" /></button>
+                <button onClick={() => onDeleteComment(comment.id)} className="p-1 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full text-slate-400 hover:text-red-500 transition-colors"><FaTrash className="w-2.5 h-2.5" /></button>
               </div>
             )}
           </div>
         </div>
 
-        {/* Comment Footer Actions (Like, Reply, Counts) */}
         <div className="flex items-center gap-4 mt-1 ml-2 h-5"> 
-          <div
-            className="relative flex items-center h-full"
-            onMouseEnter={() => handleReactionOptionsMouseEnter(comment.id, 'comment')}
-            onMouseLeave={handleReactionOptionsMouseLeave}
-          >
+          <div className="relative flex items-center h-full" onMouseEnter={() => handleReactionOptionsMouseEnter(comment.id, 'comment')} onMouseLeave={handleReactionOptionsMouseLeave}>
             <button
-              className={`text-xs font-bold transition-colors flex items-center h-full ${
-                currentUserCommentReaction
-                  ? 'text-blue-600 dark:text-blue-400'
-                  : 'text-slate-500 dark:text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
-              }`}
+              className={`text-xs font-bold transition-colors flex items-center h-full ${currentUserCommentReaction ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}
               onClick={() => toggleReactionPicker(comment.id, 'comment')}
             >
               {currentUserCommentReaction || 'Like'}
             </button>
-            {renderReactionPicker(comment.id, 'comment', (type) =>
-              onToggleReaction(comment.id, type),
-            )}
+            {renderReactionPicker(comment.id, 'comment', (type) => onToggleReaction(comment.id, type))}
           </div>
 
-          <button
-            className="text-xs font-bold text-slate-500 dark:text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 transition-colors flex items-center h-full"
-            onClick={() => onSetReplyTo(comment)}
-          >
-            Reply
-          </button>
+          <button className="text-xs font-bold text-slate-500 dark:text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 transition-colors flex items-center h-full" onClick={() => onSetReplyTo(comment)}>Reply</button>
 
           <div className="flex items-center h-full">
-            {renderReactionCount(commentReactions[comment.id] || {})}
+            {/* OPTIMIZATION: Pass the map directly */}
+            {renderReactionCount(reactionsMap)}
           </div>
         </div>
 
-        {/* Recursive Replies */}
         {replies.length > 0 && (
           <div className="mt-2 pl-2 space-y-2">
             {replies.map((reply) => (
@@ -303,7 +192,6 @@ const CommentNode = ({
                 allComments={allComments}
                 usersMap={safeUsersMap}
                 currentUserId={currentUserId}
-                commentReactions={commentReactions}
                 editingCommentId={editingCommentId}
                 editingCommentText={editingCommentText}
                 setEditingCommentText={setEditingCommentText}
@@ -338,18 +226,13 @@ const AnnouncementModal = ({
   postReactions,
   onToggleReaction,
   usersMap,
-  onDelete, // We might not use this if we go direct, but keeping it in props is fine
 }) => {
-  // --- STATE: Deleting Status ---
   const [isDeleting, setIsDeleting] = useState(false);
-
-  // --- CRITICAL SAFEGUARDS ---
   const safeUsersMap = usersMap || {};
   const postAuthor = (announcement?.teacherId && safeUsersMap[announcement.teacherId]) 
       ? safeUsersMap[announcement.teacherId] 
       : { firstName: 'Unknown', lastName: 'User' };
 
-  // --- STATE ---
   const [comments, setComments] = useState([])
   const [liveCommentCount, setLiveCommentCount] = useState(announcement?.commentsCount || 0)
   
@@ -363,8 +246,7 @@ const AnnouncementModal = ({
   const [replyToCommentId, setReplyToCommentId] = useState(null)
   const [replyToUserName, setReplyToUserName] = useState('')
   
-  // Comment Reactions State
-  const [commentReactions, setCommentReactions] = useState({})
+  // NOTE: Removed separate 'commentReactions' state. Reaction data now lives inside 'comments'.
 
   // Hover & Picker State
   const [hoveredReactionData, setHoveredReactionData] = useState(null)
@@ -374,7 +256,7 @@ const AnnouncementModal = ({
   // Comment Edit State
   const [editingCommentId, setEditingCommentId] = useState(null)
   const [editingCommentText, setEditingCommentText] = useState('')
-  const [commentToDeleteId, setCommentToDeleteId] = useState(null) // For dialog
+  const [commentToDeleteId, setCommentToDeleteId] = useState(null)
 
   // Modal State
   const [isReactionsBreakdownModalOpen, setIsReactionsBreakdownModalOpen] = useState(false)
@@ -391,16 +273,12 @@ const AnnouncementModal = ({
     ? collection(db, `teacherAnnouncements/${announcement.id}/comments`)
     : null
 
-  // --- EFFECT: Close on Escape ---
   useEffect(() => {
-    const handleEsc = (event) => {
-      if (event.key === 'Escape') onClose()
-    }
+    const handleEsc = (event) => { if (event.key === 'Escape') onClose() }
     if (isOpen) document.addEventListener('keydown', handleEsc)
     return () => document.removeEventListener('keydown', handleEsc)
   }, [isOpen, onClose])
 
-  // --- EFFECT: Sync Count ---
   useEffect(() => {
     setLiveCommentCount(announcement?.commentsCount || 0)
     if (announcement) {
@@ -408,42 +286,29 @@ const AnnouncementModal = ({
     }
   }, [announcement])
 
-  // --- EFFECT: Real-time Comments ---
+  // --- OPTIMIZED REAL-TIME LISTENER ---
   useEffect(() => {
     if (!isOpen || !announcement?.id || !commentsCollectionRef) {
       setComments([])
-      setCommentReactions({})
       return
     }
 
+    // Just ONE listener for the comments. 
+    // We assume the reaction data is now stored ON the comment document.
     const commentsQuery = query(commentsCollectionRef, orderBy('createdAt', 'asc'))
+    
     const unsubscribeComments = onSnapshot(commentsQuery, (snapshot) => {
       const fetchedComments = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
         createdAt: convertTimestampToDate(doc.data().createdAt),
+        // Ensure reactions object exists if legacy data doesn't have it
+        reactions: doc.data().reactions || {} 
       }))
       setComments(fetchedComments)
       setLiveCommentCount(fetchedComments.length)
-
-      const commentReactionUnsubs = fetchedComments.map((comment) => {
-        const commentReactionsRef = collection(
-          db,
-          `teacherAnnouncements/${announcement.id}/comments/${comment.id}/reactions`,
-        )
-        return onSnapshot(commentReactionsRef, (reactionSnap) => {
-          const reactionsForThisComment = {}
-          reactionSnap.docs.forEach((rDoc) => {
-            reactionsForThisComment[rDoc.id] = rDoc.data().reactionType
-          })
-          setCommentReactions((prev) => ({
-            ...prev,
-            [comment.id]: reactionsForThisComment,
-          }))
-        })
-      })
-
-      return () => commentReactionUnsubs.forEach((unsub) => unsub())
+      
+      // Removed the internal loop that created N listeners for reactions
     })
 
     return () => {
@@ -456,11 +321,7 @@ const AnnouncementModal = ({
     if (!timestamp) return null
     if (typeof timestamp.toDate === 'function') return timestamp.toDate()
     if (timestamp instanceof Date) return timestamp
-    try {
-      return new Date(timestamp)
-    } catch (e) {
-      return null
-    }
+    try { return new Date(timestamp) } catch (e) { return null }
   }
 
   const formatRelativeTime = (date) => {
@@ -478,41 +339,24 @@ const AnnouncementModal = ({
     return `${weeks}w`
   }
 
-  // --- POST EDIT/DELETE HANDLERS ---
+  // --- POST EDIT/DELETE HANDLERS (Same) ---
   const handleSavePostEdit = async () => {
     if (!editingPostText.trim() || !announcement.id) return
     const postRef = doc(db, 'teacherAnnouncements', announcement.id)
     try {
-        await updateDoc(postRef, {
-            content: editingPostText.trim()
-        })
+        await updateDoc(postRef, { content: editingPostText.trim() })
         setIsEditingPost(false)
-    } catch (error) {
-        console.error("Error updating post:", error)
-        alert("Failed to update post.")
-    }
+    } catch (error) { console.error("Error updating post:", error); alert("Failed to update post.") }
   }
 
-  // --- FIXED DELETE HANDLER ---
   const handleDeletePost = async () => {
     if (!announcement.id) return;
-    
-    // 1. Activate Loading State immediately to prevent access to undefined props
     setIsDeleting(true);
-
     try {
-        // 2. Use direct deleteDoc to bypass the faulty hook logic
         const postRef = doc(db, 'teacherAnnouncements', announcement.id);
         await deleteDoc(postRef);
-
-        // 3. Close modal after successful delete
         onClose(); 
-    } catch (error) {
-        console.error("Error deleting post:", error);
-        alert("Failed to delete post.");
-        // 4. Reset state if error occurs
-        setIsDeleting(false); 
-    }
+    } catch (error) { console.error("Error deleting post:", error); alert("Failed to delete post."); setIsDeleting(false); }
   }
 
   // --- COMMENT HANDLERS ---
@@ -533,31 +377,38 @@ const AnnouncementModal = ({
           commentText: newCommentText.trim(),
           createdAt: new Date(),
           parentId: replyToCommentId || null,
+          reactions: {} // Initialize empty map for reactions
         })
       })
       setNewCommentText('')
       setReplyToCommentId(null)
       setReplyToUserName('')
-    } catch (error) {
-      console.error('Error posting comment in transaction:', error)
-    }
+    } catch (error) { console.error('Error posting comment:', error) }
   }
 
+  // --- OPTIMIZED REACTION TOGGLE ---
   const handleToggleCommentReaction = async (commentId, reactionType) => {
     if (!currentUserId || !announcement?.id) return
 
-    const reactionRef = doc(
-      db,
-      `teacherAnnouncements/${announcement.id}/comments/${commentId}/reactions`,
-      currentUserId,
-    )
-    const currentReaction = commentReactions[commentId]?.[currentUserId]
+    // We now update the 'reactions' field on the comment document itself
+    // Structure: { reactions: { "userId": "like" } }
+    const commentRef = doc(db, `teacherAnnouncements/${announcement.id}/comments`, commentId)
+    
+    // Find current reaction from local state (fastest)
+    const comment = comments.find(c => c.id === commentId);
+    const currentReaction = comment?.reactions?.[currentUserId];
 
     try {
       if (currentReaction === reactionType) {
-        await deleteDoc(reactionRef)
+        // Remove reaction: Use dot notation with deleteField()
+        await updateDoc(commentRef, {
+            [`reactions.${currentUserId}`]: deleteField()
+        })
       } else {
-        await setDoc(reactionRef, { reactionType })
+        // Add/Update reaction: Use dot notation to update just this key in the map
+        await updateDoc(commentRef, {
+            [`reactions.${currentUserId}`]: reactionType
+        })
       }
     } catch (error) {
       console.error('Error toggling comment reaction:', error)
@@ -584,67 +435,45 @@ const AnnouncementModal = ({
 
   const handleSaveEdit = async () => {
     if (!editingCommentText.trim() || !editingCommentId) return
-    const commentRef = doc(
-      db,
-      `teacherAnnouncements/${announcement.id}/comments`,
-      editingCommentId,
-    )
+    const commentRef = doc(db, `teacherAnnouncements/${announcement.id}/comments`, editingCommentId)
     try {
-      await updateDoc(commentRef, {
-        commentText: editingCommentText.trim(),
-      })
+      await updateDoc(commentRef, { commentText: editingCommentText.trim() })
       handleCancelEditing()
-    } catch (error) {
-      console.error('Error updating comment:', error)
-    }
+    } catch (error) { console.error('Error updating comment:', error) }
   }
 
   const handleDeleteCommentConfirm = async () => {
     if (!commentToDeleteId) return
-
-    const commentRef = doc(
-      db,
-      `teacherAnnouncements/${announcement.id}/comments`,
-      commentToDeleteId,
-    )
+    const commentRef = doc(db, `teacherAnnouncements/${announcement.id}/comments`, commentToDeleteId)
     const announcementRef = doc(db, 'teacherAnnouncements', announcement.id)
     
-    // Recursive delete helper (finds all IDs in the tree below this comment)
     const getAllReplyIds = (parentId, allC) => {
         const directReplies = allC.filter(c => c.parentId === parentId)
         let ids = directReplies.map(c => c.id)
-        directReplies.forEach(r => {
-            ids = [...ids, ...getAllReplyIds(r.id, allC)]
-        })
+        directReplies.forEach(r => { ids = [...ids, ...getAllReplyIds(r.id, allC)] })
         return ids
     }
-
     const repliesToDeleteIds = getAllReplyIds(commentToDeleteId, comments)
 
     try {
       await runTransaction(db, async (transaction) => {
         const annDoc = await transaction.get(announcementRef)
         if (!annDoc.exists()) throw 'Announcement does not exist!'
-
         const deleteCount = 1 + repliesToDeleteIds.length
         const newCount = Math.max(0, (annDoc.data().commentsCount || 0) - deleteCount)
-
         transaction.update(announcementRef, { commentsCount: newCount })
         transaction.delete(commentRef)
-
+        // Note: With denormalized reactions, we don't need to recursively delete reaction subcollections!
         for (const replyId of repliesToDeleteIds) {
           const replyRef = doc(db, `teacherAnnouncements/${announcement.id}/comments`, replyId)
           transaction.delete(replyRef)
         }
       })
       setCommentToDeleteId(null)
-    } catch (error) {
-      console.error('Error deleting comment in transaction:', error)
-      setCommentToDeleteId(null)
-    }
+    } catch (error) { console.error('Error deleting comment:', error); setCommentToDeleteId(null) }
   }
 
-  // --- REACTION UI LOGIC ---
+  // --- REACTION UI LOGIC (Same) ---
   const toggleReactionPicker = (entityId, type) => {
     if (activeReactionPicker?.id === entityId && activeReactionPicker?.type === type) {
       setActiveReactionPicker(null)
@@ -668,23 +497,15 @@ const AnnouncementModal = ({
   const renderReactionPicker = (entityId, type, onSelect) => {
     const isActive = activeReactionPicker?.id === entityId && activeReactionPicker?.type === type
     const isHovered = hoveredReactionData?.id === entityId && hoveredReactionData?.type === type
-
     if (!isActive && !isHovered) return null
 
     return (
       <AnimatePresence>
         <motion.div
-          initial="hidden"
-          animate="visible"
-          exit="hidden"
+          initial="hidden" animate="visible" exit="hidden"
           variants={{
             visible: { opacity: 1, y: 0, scale: 1, transition: { staggerChildren: 0.04 } },
-            hidden: {
-              opacity: 0,
-              y: 10,
-              scale: 0.9,
-              transition: { staggerChildren: 0.02, staggerDirection: -1 },
-            },
+            hidden: { opacity: 0, y: 10, scale: 0.9, transition: { staggerChildren: 0.02, staggerDirection: -1 } },
           }}
           className="absolute bottom-full mb-3 left-0 bg-white/90 dark:bg-[#1E1E1E]/95 backdrop-blur-xl rounded-full p-2 flex items-center gap-1.5 z-50 shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-white/20 dark:border-white/10 min-w-max"
           onMouseEnter={() => handleReactionOptionsMouseEnter(entityId, type)}
@@ -693,30 +514,18 @@ const AnnouncementModal = ({
           {reactionTypes.map((rType) => {
             const icon = reactionIcons[rType]
             const isEmojiHovered = hoveredPickerEmoji === rType
-
             return (
               <motion.button
                 key={rType}
-                variants={{
-                  hidden: { opacity: 0, y: 15, scale: 0.5 },
-                  visible: { opacity: 1, y: 0, scale: 1 },
-                }}
+                variants={{ hidden: { opacity: 0, y: 15, scale: 0.5 }, visible: { opacity: 1, y: 0, scale: 1 } }}
                 whileHover={{ scale: 1.35, y: -6 }}
                 whileTap={{ scale: 0.9 }}
                 className="p-1.5 rounded-full relative group/emoji"
                 onMouseEnter={() => setHoveredPickerEmoji(rType)}
                 onMouseLeave={() => setHoveredPickerEmoji(null)}
-                onClick={() => {
-                  setActiveReactionPicker(null)
-                  handleReactionOptionsMouseLeave()
-                  onSelect(rType)
-                }}
+                onClick={() => { setActiveReactionPicker(null); handleReactionOptionsMouseLeave(); onSelect(rType); }}
               >
-                <img
-                  src={isEmojiHovered ? icon.animated : icon.static}
-                  alt={icon.label}
-                  className="w-8 h-8 object-contain drop-shadow-sm"
-                />
+                <img src={isEmojiHovered ? icon.animated : icon.static} alt={icon.label} className="w-8 h-8 object-contain drop-shadow-sm" />
                 <div className="absolute -top-9 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] font-bold px-2.5 py-1 rounded-full opacity-0 group-hover/emoji:opacity-100 transition-opacity whitespace-nowrap shadow-lg pointer-events-none">
                   {icon.label}
                 </div>
@@ -728,22 +537,25 @@ const AnnouncementModal = ({
     )
   }
 
-  const renderReactionCount = (reactions) => {
-    if (!reactions || Object.keys(reactions).length === 0) return null
+  // OPTIMIZED: Helper to count reactions from the Map
+  const renderReactionCount = (reactionsMap) => {
+    if (!reactionsMap || Object.keys(reactionsMap).length === 0) return null
 
+    // Count occurences: { "userId": "like" } -> { "like": 1 }
     const counts = {}
-    Object.values(reactions).forEach((type) => {
+    Object.values(reactionsMap).forEach((type) => {
       counts[type] = (counts[type] || 0) + 1
     })
+
     const sortedUniqueReactions = Object.entries(counts).sort(([, a], [, b]) => b - a)
-    const totalReactions = Object.keys(reactions).length
+    const totalReactions = Object.keys(reactionsMap).length
 
     return (
       <div
         className="flex items-center gap-1.5 cursor-pointer group select-none"
         onClick={(e) => {
           e.stopPropagation()
-          setReactionsForBreakdownModal(reactions)
+          setReactionsForBreakdownModal(reactionsMap)
           setIsReactionsBreakdownModalOpen(true)
         }}
       >
@@ -751,18 +563,9 @@ const AnnouncementModal = ({
           {sortedUniqueReactions.map(([type], index) => {
             const reactionConfig = reactionIcons[type] || reactionIcons['like']
             const zIndex = sortedUniqueReactions.length - index
-
             return (
-              <div
-                key={type}
-                className="relative w-4 h-4 flex items-center justify-center rounded-full bg-white dark:bg-slate-800 ring-[1.5px] ring-white dark:ring-slate-900 shadow-sm overflow-hidden"
-                style={{ zIndex: zIndex }}
-              >
-                <img
-                  src={reactionConfig.static}
-                  alt={reactionConfig.label}
-                  className="w-full h-full object-contain p-[1px]"
-                />
+              <div key={type} className="relative w-4 h-4 flex items-center justify-center rounded-full bg-white dark:bg-slate-800 ring-[1.5px] ring-white dark:ring-slate-900 shadow-sm overflow-hidden" style={{ zIndex: zIndex }}>
+                <img src={reactionConfig.static} alt={reactionConfig.label} className="w-full h-full object-contain p-[1px]" />
               </div>
             )
           })}
@@ -774,17 +577,10 @@ const AnnouncementModal = ({
     )
   }
 
-  // --- IMMEDIATE LOADING RETURN ---
-  // If we are deleting, show the spinner and DO NOT render the rest of the component.
-  // This prevents accessing `announcement` props when they might be undefined/null.
   if (isDeleting) {
     return createPortal(
       <div className="fixed inset-0 z-[100000] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-        <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white dark:bg-[#1C1C1E] p-8 rounded-3xl shadow-2xl flex flex-col items-center gap-4 border border-white/20"
-        >
+        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="bg-white dark:bg-[#1C1C1E] p-8 rounded-3xl shadow-2xl flex flex-col items-center gap-4 border border-white/20">
             <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
             <p className="text-slate-500 dark:text-slate-400 font-bold animate-pulse">Deleting post...</p>
         </motion.div>
@@ -795,104 +591,45 @@ const AnnouncementModal = ({
 
   if (!isOpen || !announcement) return null
 
-  // Post Reaction Active State
-  const isPostReactionActive =
-    (hoveredReactionData?.id === announcement.id && hoveredReactionData?.type === 'post') ||
-    (activeReactionPicker?.id === announcement.id && activeReactionPicker?.type === 'post')
-
-  // Top level comments
+  const isPostReactionActive = (hoveredReactionData?.id === announcement.id && hoveredReactionData?.type === 'post') || (activeReactionPicker?.id === announcement.id && activeReactionPicker?.type === 'post')
   const topLevelComments = comments.filter((comment) => !comment.parentId)
 
   return createPortal(
     <>
-        <DeleteDialog 
-            isOpen={showPostDeleteConfirm} 
-            onClose={() => setShowPostDeleteConfirm(false)}
-            onConfirm={handleDeletePost}
-            title="Delete Post?"
-            message="This action cannot be undone. All comments will be lost."
-        />
-        
-        <DeleteDialog 
-            isOpen={!!commentToDeleteId} 
-            onClose={() => setCommentToDeleteId(null)}
-            onConfirm={handleDeleteCommentConfirm}
-            title="Delete Comment?"
-            message="This will also delete all replies to this comment."
-        />
+        <DeleteDialog isOpen={showPostDeleteConfirm} onClose={() => setShowPostDeleteConfirm(false)} onConfirm={handleDeletePost} title="Delete Post?" message="This action cannot be undone. All comments will be lost." />
+        <DeleteDialog isOpen={!!commentToDeleteId} onClose={() => setCommentToDeleteId(null)} onConfirm={handleDeleteCommentConfirm} title="Delete Comment?" message="This will also delete all replies to this comment." />
 
         <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-[99999] bg-white dark:bg-[#000000] font-sans flex flex-col"
         >
-        
-            {/* Header - Floating Island Squircle Style */}
+            {/* Header */}
             <div className="relative flex-shrink-0 flex items-center justify-between px-6 py-4 mt-4 mx-auto w-full max-w-4xl bg-white dark:bg-[#121212] z-40 shadow-md rounded-[2rem] border border-slate-100 dark:border-white/5">
-    
-                {/* Left Group: Back Button, Title, and Author Info */}
                 <div className="flex items-center gap-3 z-10">
-                     <button
-                        onClick={onClose}
-                        className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
-                    >
-                        <FaArrowLeft className="w-4 h-4 text-slate-600 dark:text-slate-300" />
-                    </button>
-        
-                    {/* Hidden on mobile, shown on desktop */}
-                    <h2 className="hidden sm:block text-base font-bold text-slate-800 dark:text-slate-100 tracking-tight mr-4">
-                        Post Details
-                    </h2>
-
-                    {/* Author Info Container */}
+                     <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"><FaArrowLeft className="w-4 h-4 text-slate-600 dark:text-slate-300" /></button>
+                    <h2 className="hidden sm:block text-base font-bold text-slate-800 dark:text-slate-100 tracking-tight mr-4">Post Details</h2>
                     <div className="flex items-center gap-4 relative sm:absolute sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2">
                          <div className="w-12 h-12 rounded-full shadow-sm overflow-hidden border border-slate-100 dark:border-white/5">
-                            <UserInitialsAvatar
-                                user={postAuthor}
-                                size="full"
-                                className="w-full h-full text-[12px] font-bold"
-                            />
+                            <UserInitialsAvatar user={postAuthor} size="full" className="w-full h-full text-[12px] font-bold" />
                          </div>
                          <div className="flex flex-col items-start">
-                            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 leading-tight">
-                                {postAuthor.firstName} {postAuthor.lastName}
-                            </h3>
-                            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide">
-                                {formatRelativeTime(convertTimestampToDate(announcement.createdAt))}
-                            </span>
+                            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 leading-tight">{postAuthor.firstName} {postAuthor.lastName}</h3>
+                            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide">{formatRelativeTime(convertTimestampToDate(announcement.createdAt))}</span>
                         </div>
                     </div>
                 </div>
-    
-                {/* Right Group: Action Buttons */}
                 <div className="flex items-center gap-2 z-10">
                      {canModifyPost && !isEditingPost && (
                         <div className="flex gap-1 mr-2 border-r border-slate-200 dark:border-white/10 pr-2">
-                            <button 
-                                onClick={() => setIsEditingPost(true)} 
-                                className="p-2 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full text-slate-500 hover:text-blue-500 transition-colors"
-                            >
-                                <FaEdit className="w-4 h-4" />
-                            </button>
-                            <button 
-                                onClick={() => setShowPostDeleteConfirm(true)} 
-                                className="p-2 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-full text-slate-500 hover:text-red-500 transition-colors"
-                            >
-                                <FaTrash className="w-4 h-4" />
-                            </button>
+                            <button onClick={() => setIsEditingPost(true)} className="p-2 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full text-slate-500 hover:text-blue-500 transition-colors"><FaEdit className="w-4 h-4" /></button>
+                            <button onClick={() => setShowPostDeleteConfirm(true)} className="p-2 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-full text-slate-500 hover:text-red-500 transition-colors"><FaTrash className="w-4 h-4" /></button>
                         </div>
                     )}
-                    <button
-                        onClick={onClose}
-                        className="p-2 rounded-full bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 transition-all active:scale-90"
-                    >
-                        <FaTimes className="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" />
-                    </button>
+                    <button onClick={onClose} className="p-2 rounded-full bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 transition-all active:scale-90"><FaTimes className="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" /></button>
                 </div>
             </div>
 
-        {/* Scrollable Content Container */}
+        {/* Scrollable Content */}
         <div className="flex-grow overflow-y-auto custom-scrollbar bg-slate-50/50 dark:bg-black">
             <div className="w-full max-w-4xl mx-auto p-4 md:p-8 pb-72"> 
             
@@ -900,33 +637,15 @@ const AnnouncementModal = ({
             <div className="mb-6 mt-2">
                 {isEditingPost ? (
                     <div className="bg-white dark:bg-[#1C1C1E] p-4 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm">
-                         <textarea
-                            className="w-full bg-transparent resize-none focus:outline-none text-slate-800 dark:text-slate-200 text-sm font-medium leading-relaxed"
-                            rows="6"
-                            value={editingPostText}
-                            onChange={(e) => setEditingPostText(e.target.value)}
-                            autoFocus
-                        />
+                         <textarea className="w-full bg-transparent resize-none focus:outline-none text-slate-800 dark:text-slate-200 text-sm font-medium leading-relaxed" rows="6" value={editingPostText} onChange={(e) => setEditingPostText(e.target.value)} autoFocus />
                         <div className="flex justify-end gap-2 mt-4">
-                            <button 
-                                className="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg transition-colors" 
-                                onClick={() => { setIsEditingPost(false); setEditingPostText(announcement.content); }}
-                            >
-                                Cancel
-                            </button>
-                            <button 
-                                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors shadow-md" 
-                                onClick={handleSavePostEdit}
-                            >
-                                Save Changes
-                            </button>
+                            <button className="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg transition-colors" onClick={() => { setIsEditingPost(false); setEditingPostText(announcement.content); }}>Cancel</button>
+                            <button className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors shadow-md" onClick={handleSavePostEdit}>Save Changes</button>
                         </div>
                     </div>
                 ) : (
                     <p className="text-sm leading-7 text-slate-700 dark:text-slate-300 whitespace-pre-wrap break-words font-medium">
-                    <Linkify componentDecorator={componentDecorator}>
-                        {announcement.content}
-                    </Linkify>
+                        <Linkify componentDecorator={componentDecorator}>{announcement.content}</Linkify>
                     </p>
                 )}
                 
@@ -940,41 +659,22 @@ const AnnouncementModal = ({
             {/* Engagement Stats Bar */}
             <div className="flex justify-between items-center py-3 border-t border-b border-slate-100 dark:border-white/5 mb-6">
                 <div>{renderReactionCount(postReactions)}</div>
-                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide">
-                {liveCommentCount} comments
-                </span>
+                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide">{liveCommentCount} comments</span>
             </div>
 
             {/* Big Action Buttons */}
             <div className="grid grid-cols-2 gap-3 mb-10">
-                <div
-                className="relative"
-                onMouseEnter={() => handleReactionOptionsMouseEnter(announcement.id, 'post')}
-                onMouseLeave={handleReactionOptionsMouseLeave}
-                >
+                <div className="relative" onMouseEnter={() => handleReactionOptionsMouseEnter(announcement.id, 'post')} onMouseLeave={handleReactionOptionsMouseLeave}>
                 <button
-                    className={`flex items-center justify-center w-full py-3 rounded-xl font-bold text-xs transition-all duration-200 active:scale-95 ${
-                    postReactions[currentUserId]
-                        ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
-                        : 'bg-white dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/10 shadow-sm border border-slate-100 dark:border-white/5'
-                    }`}
+                    className={`flex items-center justify-center w-full py-3 rounded-xl font-bold text-xs transition-all duration-200 active:scale-95 ${postReactions[currentUserId] ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'bg-white dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/10 shadow-sm border border-slate-100 dark:border-white/5'}`}
                     onClick={() => toggleReactionPicker(announcement.id, 'post')}
                 >
                     {postReactions[currentUserId] ? (
-                    <img
-                        src={isPostReactionActive
-                            ? (reactionIcons[postReactions[currentUserId]] || reactionIcons['like']).animated
-                            : (reactionIcons[postReactions[currentUserId]] || reactionIcons['like']).static
-                        }
-                        alt="reaction"
-                        className="w-4 h-4 mr-2 object-contain"
-                    />
+                    <img src={isPostReactionActive ? (reactionIcons[postReactions[currentUserId]] || reactionIcons['like']).animated : (reactionIcons[postReactions[currentUserId]] || reactionIcons['like']).static} alt="reaction" className="w-4 h-4 mr-2 object-contain" />
                     ) : (
                     <FaThumbsUp className="h-3.5 w-3.5 mr-2" />
                     )}
-                    <span className="capitalize">
-                    {postReactions[currentUserId] || 'Like'}
-                    </span>
+                    <span className="capitalize">{postReactions[currentUserId] || 'Like'}</span>
                 </button>
                 {renderReactionPicker(announcement.id, 'post', (type) => onToggleReaction(announcement.id, type))}
                 </div>
@@ -983,8 +683,7 @@ const AnnouncementModal = ({
                 className="flex items-center justify-center w-full py-3 rounded-xl font-bold text-xs bg-white dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/10 shadow-sm border border-slate-100 dark:border-white/5 transition-all duration-200 active:scale-95"
                 onClick={() => commentInputRef.current?.focus()}
                 >
-                <FaComment className="h-3.5 w-3.5 mr-2 opacity-70" />
-                Comment
+                <FaComment className="h-3.5 w-3.5 mr-2 opacity-70" />Comment
                 </button>
             </div>
 
@@ -992,15 +691,12 @@ const AnnouncementModal = ({
             <div className="space-y-6">
                 {topLevelComments.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-12 opacity-60">
-                    <div className="w-14 h-14 bg-slate-100 dark:bg-white/5 rounded-full flex items-center justify-center mb-3">
-                        <FaComment className="w-5 h-5 text-slate-300 dark:text-slate-500" />
-                    </div>
+                    <div className="w-14 h-14 bg-slate-100 dark:bg-white/5 rounded-full flex items-center justify-center mb-3"><FaComment className="w-5 h-5 text-slate-300 dark:text-slate-500" /></div>
                     <p className="text-xs font-bold text-slate-400 dark:text-slate-500">No comments yet</p>
                     <p className="text-[10px] text-slate-400 dark:text-slate-500">Start the conversation!</p>
                 </div>
                 )}
 
-                {/* Recursive Comment Rendering */}
                 {topLevelComments.map((comment) => (
                     <CommentNode
                         key={comment.id}
@@ -1008,11 +704,10 @@ const AnnouncementModal = ({
                         allComments={comments}
                         usersMap={safeUsersMap}
                         currentUserId={currentUserId}
-                        commentReactions={commentReactions}
                         editingCommentId={editingCommentId}
                         editingCommentText={editingCommentText}
                         setEditingCommentText={setEditingCommentText}
-                        isReply={false} // Top level
+                        isReply={false}
                         onSetReplyTo={handleSetReplyTo}
                         onStartEditing={handleStartEditing}
                         onCancelEditing={handleCancelEditing}
@@ -1035,52 +730,22 @@ const AnnouncementModal = ({
                 {/* STICKY FOOTER */}
                 <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full max-w-4xl z-30 bg-white dark:bg-[#121212] border-t border-x border-slate-200 dark:border-white/10 shadow-[0_-10px_30px_rgba(0,0,0,0.1)] rounded-t-[2rem]">
                   <div className="px-6 py-4">
-                    {/* Reply indicator */}
                     {replyToCommentId && (
                       <div className="flex items-center justify-between px-4 py-2 mb-2 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-500/10">
-                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                          Replying to <span className="text-blue-600 dark:text-blue-400">{replyToUserName}</span>
-                        </span>
-                        <button
-                          onClick={() => { setReplyToCommentId(null); setReplyToUserName(''); }}
-                          className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-slate-400"
-                        >
-                          <FaTimes className="w-3 h-3" />
-                        </button>
+                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Replying to <span className="text-blue-600 dark:text-blue-400">{replyToUserName}</span></span>
+                        <button onClick={() => { setReplyToCommentId(null); setReplyToUserName(''); }} className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-slate-400"><FaTimes className="w-3 h-3" /></button>
                       </div>
                     )}
-
                     <div className="flex items-end gap-3">
-                      {/* User Avatar in Footer */}
-                      <div className="flex-shrink-0 mb-1">
-                        <UserInitialsAvatar user={userProfile} size={32} className="rounded-xl text-xs font-bold shadow-sm" />
-                      </div>
-
-                      {/* Input Field */}
+                      <div className="flex-shrink-0 mb-1"><UserInitialsAvatar user={userProfile} size={32} className="rounded-xl text-xs font-bold shadow-sm" /></div>
                       <div className="flex-grow relative">
                         <textarea
                           ref={commentInputRef}
                           className="w-full pl-4 pr-12 py-3 rounded-2xl bg-slate-100 dark:bg-[#1E1E1E] border-none text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500/50 resize-none"
-                          rows="1"
-                          placeholder="Add a comment..."
-                          value={newCommentText}
-                          onChange={(e) => setNewCommentText(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              e.preventDefault()
-                              handlePostComment()
-                            }
-                          }}
+                          rows="1" placeholder="Add a comment..." value={newCommentText} onChange={(e) => setNewCommentText(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handlePostComment(); } }}
                         />
-                        <button
-                          onClick={handlePostComment}
-                          disabled={!newCommentText.trim()}
-                          className={`absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full transition-all duration-300 ${
-                            newCommentText.trim()
-                              ? 'text-blue-600 hover:bg-blue-50 dark:hover:bg-white/10'
-                              : 'text-slate-400 cursor-not-allowed'
-                          }`}
-                        >
+                        <button onClick={handlePostComment} disabled={!newCommentText.trim()} className={`absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full transition-all duration-300 ${newCommentText.trim() ? 'text-blue-600 hover:bg-blue-50 dark:hover:bg-white/10' : 'text-slate-400 cursor-not-allowed'}`}>
                           <FaPaperPlane className="w-4 h-4" />
                         </button>
                       </div>

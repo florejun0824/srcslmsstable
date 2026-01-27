@@ -24,7 +24,8 @@ import {
     X,                  // Close
     SquaresFour,        // Mobile Menu
     Robot,              // AI Icon
-    WarningCircle       // Error
+    WarningCircle,       // Error
+    Lightning
 } from '@phosphor-icons/react';
 
 // SERVICES
@@ -99,132 +100,122 @@ const styles = `
   
   /* Smooth Width Transition for Sidebar */
   .sidebar-transition {
-    transition: width 0.4s cubic-bezier(0.2, 0.8, 0.2, 1.0);
-    will-change: width;
+    transition: width 0.5s cubic-bezier(0.2, 0.8, 0.2, 1.0), background-color 0.3s ease;
+    will-change: width, transform;
   }
   
-  /* Performance Optimized Glass */
-  .glass-panel {
-    background: rgba(255, 255, 255, 0.95);
-    border: 1px solid rgba(255, 255, 255, 0.8);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  /* Neural Glass - The core aesthetic */
+  .neural-glass {
+    background: rgba(255, 255, 255, 0.65);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 
+        0 10px 40px -10px rgba(0,0,0,0.05),
+        0 0 0 1px rgba(255,255,255,0.3) inset;
   }
-  .dark .glass-panel {
-    background: rgba(28, 28, 30, 0.95);
+  .dark .neural-glass {
+    background: rgba(18, 18, 21, 0.65);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
+    box-shadow: 
+        0 20px 50px -12px rgba(0,0,0,0.5),
+        0 0 0 1px rgba(255,255,255,0.05) inset;
+  }
+
+  /* Floating Dock Animation */
+  .dock-item-active {
+     box-shadow: 0 0 20px rgba(var(--monet-primary-rgb), 0.4);
   }
 `;
 
 // --- SKELETON ---
 const DashboardSkeleton = memo(() => (
     <div className="w-full h-full p-8 space-y-8 animate-pulse">
-        <div className="w-full h-48 bg-slate-200 dark:bg-slate-800 rounded-[2rem]"></div>
+        <div className="w-full h-48 bg-slate-200 dark:bg-slate-800/50 rounded-[2rem]"></div>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
             {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-40 bg-slate-200 dark:bg-slate-800 rounded-[1.5rem]"></div>
+                <div key={i} className="h-40 bg-slate-200 dark:bg-slate-800/50 rounded-[1.5rem]"></div>
             ))}
         </div>
     </div>
 ));
 
-// --- COMPONENT: Premium Phosphor Icon with Radar Indicator ---
+// --- COMPONENT: Neural Icon with "Alive" Pulse ---
 const AestheticIcon = memo(({ Icon, isActive }) => {
     return (
-        <div className="relative flex items-center justify-center w-10 h-10">
+        <div className="relative flex items-center justify-center w-12 h-12">
             
-            {/* 1. Stronger Background Glow */}
+            {/* 1. Alive Pulse (The Neural Synapse) */}
             <AnimatePresence>
                 {isActive && (
-                    <motion.div
-                        layoutId="navGlow"
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.8 }}
-                        transition={{ duration: 0.2 }}
-                        className="absolute inset-0 rounded-xl"
-                        style={{ 
-                            backgroundColor: 'var(--monet-primary)', 
-                            opacity: 0.2, // Increased opacity for better visibility
-                            boxShadow: '0 0 15px rgba(var(--monet-primary-rgb), 0.15)' // Soft ambient light
-                        }}
-                    />
-                )}
-            </AnimatePresence>
-
-            {/* 2. The "Radar" Beacon Indicator */}
-            <AnimatePresence>
-                {isActive && (
-                    <motion.div
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        exit={{ scale: 0 }}
-                        className="absolute top-1.5 right-1.5 z-20 flex h-2.5 w-2.5"
-                    >
-                        {/* The Ripple Ring (Ping Animation) */}
-                        <span 
-                            className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" 
-                            style={{ backgroundColor: 'var(--monet-primary)' }}
+                    <>
+                         {/* Core Glow */}
+                        <motion.div
+                            layoutId="activeGlow"
+                            initial={{ opacity: 0, scale: 0.5 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.5 }}
+                            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                            className="absolute inset-0 rounded-2xl bg-gradient-to-tr from-[var(--monet-primary)]/20 to-[var(--monet-primary)]/5"
                         />
                         
-                        {/* The Solid Core */}
-                        <span 
-                            className="relative inline-flex rounded-full h-2.5 w-2.5" 
-                            style={{ 
-                                backgroundColor: 'var(--monet-primary)',
-                                boxShadow: '0 0 6px var(--monet-primary)' // Neon Core
-                            }}
+                        {/* Synaptic Firing (Outer Ring) */}
+                        <motion.div
+                            initial={{ scale: 0.8, opacity: 1 }}
+                            animate={{ scale: 1.5, opacity: 0 }}
+                            transition={{ duration: 1.5, repeat: Infinity }}
+                            className="absolute inset-0 rounded-2xl bg-[var(--monet-primary)]/20 z-0"
                         />
-                    </motion.div>
+                    </>
                 )}
             </AnimatePresence>
 
-            {/* 3. The Icon */}
+            {/* 2. The Icon */}
             <Icon
                 size={24}
-                weight={isActive ? "fill" : "regular"} // "Fill" weight is bolder than "Duotone"
-                className={`relative z-10 transition-all duration-300 ${isActive ? 'scale-105' : 'scale-100 opacity-60 group-hover:opacity-100'}`}
-                style={{ 
-                    color: isActive ? 'var(--monet-primary)' : 'currentColor',
-                    filter: isActive ? 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' : 'none'
-                }}
+                weight={isActive ? "fill" : "duotone"} 
+                className={`relative z-10 transition-all duration-500 ${isActive ? 'text-[var(--monet-primary)] scale-110 drop-shadow-md' : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200 scale-100'}`}
             />
+            
+            {/* 3. Tiny Status Dot (Always on for active) */}
+            {isActive && (
+                 <motion.div 
+                    layoutId="activeDot"
+                    className="absolute bottom-2 right-2 w-1.5 h-1.5 rounded-full bg-[var(--monet-primary)] shadow-[0_0_8px_var(--monet-primary)] z-20"
+                 />
+            )}
         </div>
     );
 });
 
-// --- COMPONENT: Themed & Lightweight Sidebar ---
+// --- COMPONENT: The Floating Glass Rail ---
 const AestheticSidebar = memo(({ navItems, activeView, handleViewChange, branding, showTutorial, onTutorialComplete }) => {
     return (
-        <div
-            className="hidden lg:flex flex-col h-full sidebar-transition w-[88px] hover:w-[260px] group relative z-50 shadow-[4px_0_24px_rgba(0,0,0,0.02)] border-r border-white/5"
-            style={{
-                // FIXED: Monet Theming Restored
-                // We use the theme's surface color but force 60% opacity for the glass look.
-                // Assuming --monet-surface is an RGB or hex value. If it's a variable, we set background-color with opacity.
-                backgroundColor: 'rgba(var(--monet-surface-rgb, 15, 23, 42), 0.50)', // Fallback to slate-900 if var missing
-                
-                // NO BLUR filter to save CPU usage
-                backdropFilter: 'none',
-                WebkitBackdropFilter: 'none'
-            }}
+        <motion.div
+            initial={{ x: -20, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+            className="hidden lg:flex flex-col h-[calc(100vh-32px)] my-4 ml-4 rounded-[32px] sidebar-transition w-[88px] hover:w-[260px] group relative z-50 neural-glass"
         >
             {/* Branding Section */}
-            <div className="h-24 flex items-center px-5 overflow-hidden whitespace-nowrap shrink-0">
+            <div className="h-28 flex items-center px-6 overflow-hidden whitespace-nowrap shrink-0 relative">
                 <div 
-                    className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0 z-20 transition-all duration-300 group-hover:scale-105 bg-white/10 border border-white/10"
+                    className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 z-20 transition-all duration-300 bg-gradient-to-br from-white/20 to-transparent border border-white/10 shadow-lg"
                 >
-                    <img src={branding.logo} alt="Logo" className="w-7 h-7 object-contain drop-shadow-md" />
+                    <img src={branding.logo} alt="Logo" className="w-6 h-6 object-contain" />
                 </div>
                 
-                <div className="ml-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100 flex flex-col">
-                    <h1 className="font-bold text-sm text-slate-800 dark:text-white leading-none tracking-tight">{branding.name}</h1>
-                    <span className="text-[10px] font-bold uppercase tracking-widest mt-1 opacity-60" style={{ color: 'var(--monet-primary)' }}>Teacher OS</span>
+                <div className="ml-4 opacity-0 group-hover:opacity-100 transition-all duration-500 ease-out delay-75 flex flex-col justify-center">
+                    <h1 className="font-bold text-base text-slate-800 dark:text-white leading-tight tracking-tight">{branding.name}</h1>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">Version 10.2</span>
+                    </div>
                 </div>
             </div>
 
             {/* Navigation Items */}
-            <nav className="flex-1 flex flex-col gap-2 px-3 py-4 overflow-y-auto mac-scrollbar overflow-x-hidden">
+            <nav className="flex-1 flex flex-col gap-3 px-4 py-2 overflow-y-auto mac-scrollbar overflow-x-hidden">
                 {navItems.map((item) => {
                     const isActive = activeView === item.view;
                     return (
@@ -236,25 +227,24 @@ const AestheticSidebar = memo(({ navItems, activeView, handleViewChange, brandin
                             className="relative flex items-center h-14 rounded-2xl group/item cursor-pointer overflow-hidden transition-all duration-200"
                         >
                             {/* Icon Wrapper */}
-                            <div className="min-w-[4rem] h-full flex justify-center items-center z-10">
+                            <div className="min-w-[3.5rem] h-full flex justify-center items-center z-10">
                                 <AestheticIcon Icon={item.icon} isActive={isActive} />
                             </div>
                             
                             {/* Text Label */}
                             <div className="flex-1 flex items-center pr-4 overflow-hidden opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-75">
                                 <span 
-                                    className={`text-[13px] font-semibold tracking-wide transition-colors ${isActive ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}
+                                    className={`text-[14px] font-medium tracking-wide transition-colors ${isActive ? 'text-slate-900 dark:text-white font-bold' : 'text-slate-500 dark:text-slate-400'}`}
                                 >
                                     {item.text}
                                 </span>
                             </div>
 
-                            {/* Active Indicator Strip (Left) */}
+                            {/* Active Indicator Strip (Floating, not stuck to edge) */}
                             {isActive && (
                                 <motion.div 
                                     layoutId="activeStrip"
-                                    className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full"
-                                    style={{ backgroundColor: 'var(--monet-primary)' }}
+                                    className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-full bg-[var(--monet-primary)] shadow-[0_0_12px_var(--monet-primary)]"
                                 />
                             )}
                         </NavLink>
@@ -263,24 +253,24 @@ const AestheticSidebar = memo(({ navItems, activeView, handleViewChange, brandin
             </nav>
 
             {/* Bottom Actions */}
-            <div className="p-4 border-t border-white/5 shrink-0">
+            <div className="p-4 shrink-0 pb-6">
                 <Menu as="div" className="relative">
                     <Menu.Button 
                         onClick={onTutorialComplete}
                         className={`
                             flex items-center w-full h-14 rounded-2xl 
                             hover:bg-black/5 dark:hover:bg-white/5 transition-colors group/btn outline-none
-                            ${showTutorial ? 'ring-1 ring-indigo-500' : ''}
+                            ${showTutorial ? 'ring-2 ring-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.5)]' : ''}
                         `}
                     >
-                         <div className="min-w-[4rem] flex justify-center items-center">
-                            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 group-hover/btn:text-slate-800 dark:group-hover/btn:text-white transition-colors">
-                                <Palette size={24} weight="duotone" />
+                         <div className="min-w-[3.5rem] flex justify-center items-center">
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 group-hover/btn:text-slate-800 dark:group-hover/btn:text-white transition-colors bg-white/5 border border-white/5">
+                                <Palette size={20} weight="duotone" />
                             </div>
                          </div>
                          <div className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300 overflow-hidden whitespace-nowrap">
                              <span className="text-[13px] font-medium text-slate-700 dark:text-slate-200">
-                                 Theming
+                                 Appearance
                              </span>
                          </div>
                     </Menu.Button>
@@ -288,31 +278,29 @@ const AestheticSidebar = memo(({ navItems, activeView, handleViewChange, brandin
                     <Transition
                         as={Fragment}
                         enter="transition ease-out duration-200"
-                        enterFrom="opacity-0 translate-y-2 scale-95"
+                        enterFrom="opacity-0 translate-y-4 scale-95"
                         enterTo="opacity-100 translate-y-0 scale-100"
                         leave="transition ease-in duration-150"
                         leaveFrom="opacity-100 translate-y-0 scale-100"
-                        leaveTo="opacity-0 translate-y-2 scale-95"
+                        leaveTo="opacity-0 translate-y-4 scale-95"
                     >
-                        <Menu.Items className="absolute bottom-full left-4 mb-2 w-64 p-3 origin-bottom-left rounded-3xl bg-white dark:bg-[#18181b] border border-slate-200 dark:border-white/10 shadow-2xl focus:outline-none z-[60]">
-                           <div className="px-3 py-2 border-b border-slate-100 dark:border-white/10 mb-3">
-                               <span 
-                                   className="text-xs font-bold uppercase tracking-widest"
-                                   style={{ color: 'var(--monet-primary)' }}
-                                >
-                                   Appearance
+                        <Menu.Items className="absolute bottom-full left-4 mb-4 w-64 p-4 origin-bottom-left rounded-[24px] bg-white/80 dark:bg-[#0f1012]/90 backdrop-blur-xl border border-slate-200/50 dark:border-white/10 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)] focus:outline-none z-[60]">
+                           <div className="flex items-center justify-between mb-4 px-1">
+                               <span className="text-xs font-bold uppercase tracking-widest text-[var(--monet-primary)]">
+                                   Workspace Theme
                                 </span>
+                                <Lightning size={14} weight="fill" className="text-[var(--monet-primary)]" />
                            </div>
                            <ThemeToggle />
                         </Menu.Items>
                     </Transition>
                 </Menu>
             </div>
-        </div>
+        </motion.div>
     );
 });
 
-// --- UPDATED TOP BAR ---
+// --- UPDATED TOP BAR: Cinematic Header ---
 const TopContextBar = memo(({ userProfile, activeView, onLogout, handleOpenChat, isAiThinking, courses, activeClasses, onNavigate }) => {
     
     const [searchQuery, setSearchQuery] = useState('');
@@ -343,54 +331,54 @@ const TopContextBar = memo(({ userProfile, activeView, onLogout, handleOpenChat,
     };
 
     const titles = {
-        home: 'Dashboard Overview',
-        lounge: 'Faculty Lounge',
+        home: 'Dashboard',
+        lounge: 'Faculty Neural Lounge',
         studentManagement: 'Student Directory',
-        classes: 'Active Classes',
-        courses: 'Subject Library',
-        analytics: 'Performance Data',
-        profile: 'My Profile',
-        admin: 'System Admin'
+        classes: 'Live Classrooms',
+        courses: 'Knowledge Library',
+        analytics: 'Data Intelligence',
+        profile: 'User Identity',
+        admin: 'System Core'
     };
 
     return (
-        <header className="h-24 px-8 flex items-center justify-between flex-shrink-0 z-40 bg-transparent pointer-events-none">
-            {/* Breadcrumb / Title */}
+        <header className="h-28 px-8 flex items-center justify-between flex-shrink-0 z-40 bg-transparent pointer-events-none mt-2">
+            {/* Breadcrumb / Title - Floating Text */}
             <motion.div 
-                initial={{ opacity: 0, y: -10 }} 
-                animate={{ opacity: 1, y: 0 }} 
+                initial={{ opacity: 0, x: -20 }} 
+                animate={{ opacity: 1, x: 0 }} 
                 key={activeView}
                 className={`flex flex-col justify-center h-full transition-all duration-500 pointer-events-auto ${isFocused ? 'opacity-20 blur-sm scale-95' : 'opacity-100 blur-0 scale-100'}`}
             >
-                <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">
-                    <span className="opacity-70">Workspace</span>
-                    <CaretRight size={12} weight="bold" />
-                    <span style={{ color: 'var(--monet-primary)' }}>{activeView}</span>
+                <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-[11px] font-bold uppercase tracking-widest mb-1.5">
+                    <span className="opacity-50">System</span>
+                    <CaretRight size={10} weight="bold" />
+                    <span className="text-[var(--monet-primary)] drop-shadow-[0_0_8px_rgba(var(--monet-primary-rgb),0.5)]">{activeView}</span>
                 </div>
-                <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight drop-shadow-sm">
+                <h2 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-slate-900 via-slate-700 to-slate-900 dark:from-white dark:via-slate-200 dark:to-slate-500 tracking-tight drop-shadow-sm">
                     {titles[activeView] || 'Teacher Workspace'}
                 </h2>
             </motion.div>
 
-            {/* Right Actions */}
-            <div className="flex items-center gap-5 pointer-events-auto">
+            {/* Right Actions - Floating Capsule */}
+            <div className="flex items-center gap-6 pointer-events-auto">
                 
-                {/* Search Bar */}
+                {/* Search Bar - Cinematic Glass */}
                 <div className="relative z-50">
                     <div 
                         className={`
                             group flex items-center gap-3 h-12 px-5 rounded-full transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]
                             backdrop-blur-xl border
                             ${isFocused 
-                                ? 'w-[480px] bg-white/90 dark:bg-black/80 shadow-2xl border-white/20 ring-1 ring-white/10' 
-                                : 'w-72 bg-white/40 dark:bg-black/20 hover:bg-white/60 dark:hover:bg-black/40 hover:w-[300px] border-white/10 hover:border-white/20 shadow-sm'
+                                ? 'w-[520px] bg-white/90 dark:bg-black/70 shadow-[0_20px_50px_-10px_rgba(0,0,0,0.3)] border-white/20 ring-1 ring-white/10' 
+                                : 'w-64 bg-white/30 dark:bg-black/45 hover:bg-white/50 dark:hover:bg-white/10 hover:w-[280px] border-transparent hover:border-white/10 shadow-sm'
                             }
                         `}
                     >
                         <MagnifyingGlass 
-                            size={20} 
+                            size={18} 
                             weight="bold"
-                            className={`transition-colors duration-300 ${isFocused ? 'text-indigo-500' : 'text-slate-500 dark:text-slate-400'}`} 
+                            className={`transition-colors duration-300 ${isFocused ? 'text-[var(--monet-primary)]' : 'text-slate-500 dark:text-slate-400'}`} 
                         />
                         
                         <input 
@@ -400,7 +388,7 @@ const TopContextBar = memo(({ userProfile, activeView, onLogout, handleOpenChat,
                             onChange={handleSearchChange}
                             onFocus={() => setIsFocused(true)}
                             onBlur={() => setTimeout(() => !searchQuery && setIsFocused(false), 200)}
-                            placeholder={isFocused ? "Search subjects, classes, or students..." : "Search..."}
+                            placeholder={isFocused ? "Search across the neural network..." : "Search..."}
                             className="bg-transparent border-none outline-none text-sm w-full font-medium text-slate-800 dark:text-slate-100 placeholder:text-slate-500/60 dark:placeholder:text-slate-400/60 transition-all" 
                         />
 
@@ -412,7 +400,7 @@ const TopContextBar = memo(({ userProfile, activeView, onLogout, handleOpenChat,
                                 : 'opacity-100 translate-x-0 bg-white/20 dark:bg-white/5 border-white/10 text-slate-500 dark:text-slate-400'
                             }
                         `}>
-                            <Command size={12} weight="bold" /> 
+                            <Command size={10} weight="bold" /> 
                             <span>K</span>
                         </div>
 
@@ -427,31 +415,31 @@ const TopContextBar = memo(({ userProfile, activeView, onLogout, handleOpenChat,
                         )}
                     </div>
 
-                    {/* Dropdown Results */}
+                    {/* Dropdown Results - Floating Modal */}
                     <AnimatePresence>
                         {isFocused && searchQuery && (
                             <motion.div
-                                initial={{ opacity: 0, y: 14, scale: 0.96, filter: "blur(4px)" }}
+                                initial={{ opacity: 0, y: 14, scale: 0.96, filter: "blur(8px)" }}
                                 animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
-                                exit={{ opacity: 0, y: 14, scale: 0.96, filter: "blur(4px)" }}
+                                exit={{ opacity: 0, y: 14, scale: 0.96, filter: "blur(8px)" }}
                                 transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                                className="absolute top-16 right-0 w-[480px] rounded-[24px] overflow-hidden border border-white/20 shadow-[0_20px_40px_-12px_rgba(0,0,0,0.3)] backdrop-blur-2xl bg-white/80 dark:bg-[#121212]/80"
+                                className="absolute top-16 right-0 w-[520px] rounded-[32px] overflow-hidden border border-white/20 shadow-[0_30px_60px_-12px_rgba(0,0,0,0.5)] backdrop-blur-2xl bg-white/80 dark:bg-[#0a0a0c]/80"
                             >
                                 {searchResults.courses.length === 0 && searchResults.classes.length === 0 ? (
                                     <div className="p-12 flex flex-col items-center text-center text-slate-400">
-                                        <MagnifyingGlass size={32} weight="duotone" className="mb-3 opacity-20" />
-                                        <p className="text-sm font-medium">No matches found</p>
+                                        <MagnifyingGlass size={48} weight="duotone" className="mb-4 opacity-20" />
+                                        <p className="text-sm font-medium">Signal lost. No matches found.</p>
                                     </div>
                                 ) : (
-                                    <div className="p-2 space-y-1">
+                                    <div className="p-3 space-y-2">
                                         {searchResults.courses.length > 0 && (
                                             <div className="mb-2">
-                                                <div className="px-4 py-2 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                                                    <Books size={14} weight="fill" /> Subjects
+                                                <div className="px-5 py-2 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                                                    <Books size={14} weight="fill" /> Library Nodes
                                                 </div>
                                                 {searchResults.courses.map(course => (
-                                                    <button key={course.id} onClick={() => handleResultClick('courses', course)} className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors group text-left">
-                                                        <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 group-hover:scale-110 transition-transform duration-300">
+                                                    <button key={course.id} onClick={() => handleResultClick('courses', course)} className="w-full flex items-center gap-4 px-5 py-4 rounded-3xl hover:bg-white/50 dark:hover:bg-white/5 transition-colors group text-left border border-transparent hover:border-white/10">
+                                                        <div className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg bg-gradient-to-br from-indigo-500/20 to-purple-500/20 text-indigo-500 dark:text-indigo-400 group-hover:scale-110 transition-transform duration-300">
                                                             <Books size={20} weight="duotone" />
                                                         </div>
                                                         <div className="flex-1 min-w-0">
@@ -464,12 +452,12 @@ const TopContextBar = memo(({ userProfile, activeView, onLogout, handleOpenChat,
                                         )}
                                         {searchResults.classes.length > 0 && (
                                             <div>
-                                                <div className="px-4 py-2 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                                                    <ChalkboardTeacher size={14} weight="fill" /> Classes
+                                                <div className="px-5 py-2 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                                                    <ChalkboardTeacher size={14} weight="fill" /> Active Feeds
                                                 </div>
                                                 {searchResults.classes.map(cls => (
-                                                    <button key={cls.id} onClick={() => handleResultClick('classes', cls)} className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors group text-left">
-                                                        <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 group-hover:scale-110 transition-transform duration-300">
+                                                    <button key={cls.id} onClick={() => handleResultClick('classes', cls)} className="w-full flex items-center gap-4 px-5 py-4 rounded-3xl hover:bg-white/50 dark:hover:bg-white/5 transition-colors group text-left border border-transparent hover:border-white/10">
+                                                        <div className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg bg-gradient-to-br from-emerald-500/20 to-teal-500/20 text-emerald-500 dark:text-emerald-400 group-hover:scale-110 transition-transform duration-300">
                                                             <ChalkboardTeacher size={20} weight="duotone" />
                                                         </div>
                                                         <div className="flex-1 min-w-0">
@@ -487,13 +475,15 @@ const TopContextBar = memo(({ userProfile, activeView, onLogout, handleOpenChat,
                     </AnimatePresence>
                 </div>
 
-                {/* AI Trigger */}
+                {/* AI Trigger - Holographic Button */}
                 <button 
                     onClick={handleOpenChat}
-                    className="group relative flex items-center gap-3 h-12 pl-3 pr-5 rounded-full text-white shadow-[0_8px_20px_-6px_rgba(79,70,229,0.4)] hover:shadow-[0_12px_24px_-8px_rgba(79,70,229,0.6)] hover:scale-105 active:scale-95 transition-all duration-300 overflow-hidden"
+                    className="group relative flex items-center gap-3 h-12 pl-3 pr-5 rounded-full text-white shadow-[0_0_30px_-5px_var(--monet-primary)] hover:shadow-[0_0_50px_-10px_var(--monet-primary)] hover:scale-105 active:scale-95 transition-all duration-300 overflow-hidden"
                     style={{ backgroundColor: 'var(--monet-primary)' }}
                 >
-                    <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent pointer-events-none" />
+                    <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                    
                     <div className="relative z-10 flex items-center gap-2">
                         {isAiThinking ? (
                             <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -502,11 +492,11 @@ const TopContextBar = memo(({ userProfile, activeView, onLogout, handleOpenChat,
                                 <Lottie animationData={robotAnimation} loop={true} className="w-full h-full scale-125" />
                             </div>
                         )}
-                        <span className="text-sm font-bold tracking-wide">Ask AI</span>
+                        <span className="text-sm font-bold tracking-wide text-white drop-shadow-md">Ask AI</span>
                     </div>
                 </button>
 
-                <div className="w-px h-8 bg-slate-200 dark:bg-white/10 mx-1" />
+                <div className="w-px h-8 bg-slate-200 dark:bg-black/40 mx-1" />
                 <ProfileDropdown userProfile={userProfile} onLogout={onLogout} size="desktop" />
             </div>
         </header>
@@ -518,7 +508,7 @@ const ProfileDropdown = memo(({ userProfile, onLogout, size = 'desktop' }) => {
     return (
         <Menu as="div" className="relative z-50">
             <Menu.Button 
-                className="relative flex items-center justify-center w-12 h-12 rounded-full overflow-hidden ring-2 ring-transparent hover:ring-2 transition-all outline-none" 
+                className="relative flex items-center justify-center w-12 h-12 rounded-full overflow-hidden ring-2 ring-transparent hover:ring-2 transition-all outline-none group" 
                 style={{ '--tw-ring-color': 'var(--monet-primary)' }}
             >
                 {userProfile?.photoURL ? (
@@ -526,7 +516,7 @@ const ProfileDropdown = memo(({ userProfile, onLogout, size = 'desktop' }) => {
                 ) : (
                     <UserInitialsAvatar firstName={userProfile?.firstName} lastName={userProfile?.lastName} size="full" className="w-full h-full text-xs" />
                 )}
-                <div className="absolute inset-0 ring-1 ring-inset ring-black/10 dark:ring-white/10 rounded-full" />
+                <div className="absolute inset-0 ring-1 ring-inset ring-black/10 dark:ring-white/10 rounded-full group-hover:ring-transparent transition-all" />
             </Menu.Button>
             
             <Transition
@@ -538,25 +528,28 @@ const ProfileDropdown = memo(({ userProfile, onLogout, size = 'desktop' }) => {
                 leaveFrom="transform opacity-100 scale-100 translate-y-0"
                 leaveTo="transform opacity-0 scale-95 translate-y-2"
             >
-                <Menu.Items className="absolute right-0 mt-3 w-64 origin-top-right rounded-2xl bg-white dark:bg-[#1C1C1E] shadow-xl ring-1 ring-black/5 dark:ring-white/10 focus:outline-none divide-y divide-slate-100 dark:divide-white/5 overflow-hidden">
-                    <div className="px-4 py-3">
+                <Menu.Items className="absolute right-0 mt-4 w-72 origin-top-right rounded-[28px] bg-white/90 dark:bg-[#121214]/90 backdrop-blur-xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] ring-1 ring-black/5 dark:ring-white/10 focus:outline-none divide-y divide-slate-100/50 dark:divide-white/5 overflow-hidden">
+                    <div className="px-6 py-5 bg-gradient-to-b from-slate-50/50 dark:from-white/5 to-transparent">
                         <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{userProfile?.firstName} {userProfile?.lastName}</p>
-                        <p className="text-xs text-slate-500 truncate">{userProfile?.email}</p>
+                        <p className="text-xs text-slate-500 truncate mt-0.5">{userProfile?.email}</p>
+                        <div className="mt-3 inline-flex items-center px-2 py-0.5 rounded-md bg-[var(--monet-primary)]/10 text-[var(--monet-primary)] text-[10px] font-bold uppercase tracking-wider">
+                            {userProfile?.role || 'Instructor'}
+                        </div>
                     </div>
-                    <div className="py-1">
+                    <div className="p-2">
                          <Menu.Item>
                             {({ active }) => (
-                                <NavLink to="/dashboard/profile" className={`${active ? 'bg-slate-50 dark:bg-white/5' : ''} flex items-center gap-2 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 font-medium`}>
-                                    <UserCircle size={18} weight="duotone" /> My Profile
+                                <NavLink to="/dashboard/profile" className={`${active ? 'bg-slate-50 dark:bg-white/5' : ''} flex items-center gap-3 px-4 py-3 rounded-2xl text-sm text-slate-700 dark:text-slate-300 font-medium transition-colors`}>
+                                    <UserCircle size={20} weight="duotone" /> My Profile
                                 </NavLink>
                             )}
                         </Menu.Item>
                     </div>
-                    <div className="py-1">
+                    <div className="p-2">
                         <Menu.Item>
                             {({ active }) => (
-                                <button onClick={onLogout} className={`${active ? 'bg-red-50 dark:bg-red-900/10 text-red-600' : 'text-slate-700 dark:text-slate-300'} flex w-full items-center gap-2 px-4 py-2 text-sm font-medium`}>
-                                    <SignOut size={18} weight="duotone" /> Sign Out
+                                <button onClick={onLogout} className={`${active ? 'bg-red-50 dark:bg-red-900/10 text-red-600' : 'text-slate-700 dark:text-slate-300'} flex w-full items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium transition-colors`}>
+                                    <SignOut size={20} weight="duotone" /> Disconnect
                                 </button>
                             )}
                         </Menu.Item>
@@ -571,8 +564,8 @@ const ProfileDropdown = memo(({ userProfile, onLogout, size = 'desktop' }) => {
 const MobileThemeButton = memo(() => {
     return (
         <Menu as="div" className="relative z-50">
-            <Menu.Button className="relative flex items-center justify-center w-10 h-10 rounded-full bg-white/95 dark:bg-white/10 overflow-hidden ring-1 ring-black/5 dark:ring-white/10 hover:bg-white dark:hover:bg-white/20 transition-all outline-none">
-                <Palette size={20} weight="duotone" className="text-slate-600 dark:text-slate-200" />
+            <Menu.Button className="relative flex items-center justify-center w-10 h-10 rounded-full bg-white/10 backdrop-blur-md overflow-hidden ring-1 ring-white/20 hover:bg-white/20 transition-all outline-none">
+                <Palette size={20} weight="duotone" className="text-slate-800 dark:text-white" />
             </Menu.Button>
             <Transition
                 as={Fragment}
@@ -585,7 +578,7 @@ const MobileThemeButton = memo(() => {
             >
                 <Menu.Items className="absolute right-0 mt-3 w-64 origin-top-right rounded-2xl bg-white dark:bg-[#1C1C1E] shadow-xl ring-1 ring-black/5 dark:ring-white/10 focus:outline-none p-2 z-[60]">
                     <div className="px-3 py-2 border-b border-slate-100 dark:border-white/5 mb-2">
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Theme Options</span>
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Appearance</span>
                     </div>
                     <ThemeToggle />
                 </Menu.Items>
@@ -762,16 +755,21 @@ const TeacherDashboardLayout = (props) => {
 
     return (
         <div 
-            className="h-screen flex bg-slate-50 dark:bg-slate-950 font-sans antialiased text-slate-900 dark:text-slate-100 overflow-hidden"
+            className="h-screen flex bg-slate-50 dark:bg-slate-950 font-sans antialiased text-slate-900 dark:text-slate-100 overflow-hidden relative"
             style={monetTheme.variables}
         >
             <style>{styles}</style>
             
-            {/* Background */}
-            <div className="noise-bg opacity-30 dark:opacity-10 pointer-events-none"></div>
+            {/* Background - The Neural Mesh */}
+            <div className="absolute inset-0 z-0 pointer-events-none">
+                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,_rgba(var(--monet-primary-rgb),0.05),_transparent_50%)]" />
+                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_100%_100%,_rgba(var(--monet-secondary-rgb),0.05),_transparent_50%)]" />
+                 <div className="absolute inset-0 opacity-[0.02] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] mix-blend-overlay" />
+            </div>
+
             <UniversalBackground />
 
-            {/* 1. Left Vertical Rail (Themed & Frosted) */}
+            {/* 1. Left Vertical Rail (Floating Glass) */}
             <AestheticSidebar 
                 navItems={navItems} 
                 activeView={activeView} 
@@ -784,7 +782,7 @@ const TeacherDashboardLayout = (props) => {
             {/* 2. Main Workspace */}
             <div className="flex-1 flex flex-col relative z-10 h-full overflow-hidden">
                 
-                {/* Desktop Top Bar */}
+                {/* Desktop Top Bar (Cinematic) */}
                 <div className="hidden lg:block">
                     <TopContextBar 
                         userProfile={userProfile}
@@ -799,7 +797,7 @@ const TeacherDashboardLayout = (props) => {
                 </div>
 
                 {/* Main Content */}
-                <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-0 lg:px-8 lg:pb-8 scroll-smooth" id="main-scroll-container">
+                <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-0 lg:px-8 lg:pb-8 lg:mt-4 scroll-smooth" id="main-scroll-container">
                     {/* Top Spacer for Mobile Header */}
                     <div className="lg:hidden h-24"></div> 
                     
@@ -812,18 +810,17 @@ const TeacherDashboardLayout = (props) => {
             </div>
 
 
-            {/* --- MOBILE ELEMENTS (Optimized Icons) --- */}
+            {/* --- MOBILE ELEMENTS (Dynamic Island Dock) --- */}
             
             {/* Mobile Header */}
-            <div className="fixed top-0 left-0 right-0 z-40 px-4 pt-2 pb-2 lg:hidden">
+            <div className="fixed top-0 left-0 right-0 z-40 px-4 pt-3 pb-2 lg:hidden">
                 <motion.div 
                     initial={{ y: -50, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-                    style={monetTheme.glassStyle}
-                    className="glass-panel relative flex items-center justify-between px-5 py-3 rounded-[1.5rem] shadow-lg bg-white/95 dark:bg-[#1C1C1E]/95"
+                    className="neural-glass relative flex items-center justify-between px-5 py-3 rounded-[2rem] shadow-lg"
                 >
-                    <div className="flex items-center gap-2">
-                        <img src={branding.logo} alt="Logo" className="w-8 h-8 object-contain" />
-                        <span className="font-bold text-lg text-slate-800 dark:text-white">{branding.name}</span>
+                    <div className="flex items-center gap-3">
+                        <img src={branding.logo} alt="Logo" className="w-7 h-7 object-contain" />
+                        <span className="font-bold text-lg text-slate-800 dark:text-white tracking-tight">{branding.name}</span>
                     </div>
                     
                     <div className="flex items-center gap-3">
@@ -833,72 +830,79 @@ const TeacherDashboardLayout = (props) => {
                 </motion.div>
             </div>
 
-            {/* EXPANDED Mobile Dock */}
-            <div className="fixed bottom-4 left-0 right-0 flex justify-center z-[49] lg:hidden pointer-events-none">
+            {/* EXPANDED Mobile Dock (Dynamic Island Style) */}
+            <div className="fixed bottom-6 left-0 right-0 flex justify-center z-[49] lg:hidden pointer-events-none">
                  <motion.div 
-                    initial={{ y: 100 }} animate={{ y: 0 }}
-                    style={monetTheme.glassStyle}
-                    className="glass-panel pointer-events-auto px-6 py-4 rounded-[2.5rem] flex items-center gap-6 shadow-2xl bg-white dark:bg-[#1C1C1E] border border-white/20"
+                    initial={{ y: 100, scale: 0.8 }} 
+                    animate={{ y: 0, scale: 1 }}
+                    transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+                    className="neural-glass pointer-events-auto px-6 py-3 rounded-full flex items-center gap-6 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.4)] backdrop-blur-2xl bg-white/90 dark:bg-[#1C1C1E]/90 border border-white/20"
                  >
                      <NavLink 
                         to="/dashboard" 
                         onClick={() => handleViewChange('home')} 
-                        className="transition-transform active:scale-95"
+                        className="relative p-2 rounded-full transition-transform active:scale-90"
                     >
-                        <AestheticIcon Icon={House} isActive={activeView === 'home'} />
+                        <House size={24} weight={activeView === 'home' ? 'fill' : 'duotone'} className={activeView === 'home' ? 'text-[var(--monet-primary)]' : 'text-slate-500'} />
+                        {activeView === 'home' && <motion.div layoutId="mobileDot" className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-[var(--monet-primary)] rounded-full" />}
                     </NavLink>
                      
                      <NavLink 
                         to="/dashboard/courses" 
                         onClick={() => handleViewChange('courses')} 
-                        className="transition-transform active:scale-95"
+                        className="relative p-2 rounded-full transition-transform active:scale-90"
                     >
-                        <AestheticIcon Icon={Books} isActive={activeView === 'courses'} />
-                     </NavLink>
+                        <Books size={24} weight={activeView === 'courses' ? 'fill' : 'duotone'} className={activeView === 'courses' ? 'text-[var(--monet-primary)]' : 'text-slate-500'} />
+                        {activeView === 'courses' && <motion.div layoutId="mobileDot" className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-[var(--monet-primary)] rounded-full" />}
+                    </NavLink>
+
+                     {/* Center Action Button (Menu) */}
+                     <button 
+                        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
+                        className={`
+                            relative flex items-center justify-center w-12 h-12 rounded-full 
+                            transition-all duration-300 shadow-lg -mt-6 border-4 border-slate-50 dark:border-[#0f1012]
+                            ${isMobileMenuOpen ? 'bg-slate-800 text-white rotate-90' : 'bg-[var(--monet-primary)] text-white'}
+                        `}
+                    >
+                        {isMobileMenuOpen ? <X size={24} weight="bold" /> : <SquaresFour size={24} weight="fill" />}
+                     </button>
 
                      <NavLink 
                         to="/dashboard/classes" 
                         onClick={() => handleViewChange('classes')} 
-                        className="transition-transform active:scale-95"
+                        className="relative p-2 rounded-full transition-transform active:scale-90"
                     >
-                        <AestheticIcon Icon={ChalkboardTeacher} isActive={activeView === 'classes'} />
-                     </NavLink>
+                        <ChalkboardTeacher size={24} weight={activeView === 'classes' ? 'fill' : 'duotone'} className={activeView === 'classes' ? 'text-[var(--monet-primary)]' : 'text-slate-500'} />
+                        {activeView === 'classes' && <motion.div layoutId="mobileDot" className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-[var(--monet-primary)] rounded-full" />}
+                    </NavLink>
 
                      <NavLink 
                         to="/dashboard/lounge" 
                         onClick={() => handleViewChange('lounge')} 
-                        className="transition-transform active:scale-95"
+                        className="relative p-2 rounded-full transition-transform active:scale-90"
                     >
-                        <AestheticIcon Icon={Coffee} isActive={activeView === 'lounge'} />
-                     </NavLink>
-
-                     {/* Menu Toggle */}
-                     <button 
-                        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
-                        className={`
-                            relative flex items-center justify-center w-[46px] h-[46px] rounded-[18px] 
-                            transition-all duration-300 shadow-md
-                            ${isMobileMenuOpen ? 'bg-slate-800 text-white' : 'bg-slate-100 dark:bg-white/10 text-slate-400'}
-                        `}
-                    >
-                        {isMobileMenuOpen ? <X size={22} /> : <SquaresFour size={22} />}
-                     </button>
+                        <Coffee size={24} weight={activeView === 'lounge' ? 'fill' : 'duotone'} className={activeView === 'lounge' ? 'text-[var(--monet-primary)]' : 'text-slate-500'} />
+                        {activeView === 'lounge' && <motion.div layoutId="mobileDot" className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-[var(--monet-primary)] rounded-full" />}
+                    </NavLink>
                  </motion.div>
             </div>
 
-            {/* Mobile Full Menu */}
+            {/* Mobile Full Menu Overlay */}
             <AnimatePresence>
                 {isMobileMenuOpen && (
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.9, y: 50 }}
+                        initial={{ opacity: 0, scale: 0.9, y: 100 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.9, y: 50 }}
-                        className="fixed bottom-24 left-4 right-4 z-40 glass-panel rounded-[2.5rem] p-6 lg:hidden shadow-2xl bg-white dark:bg-[#1C1C1E]"
+                        exit={{ opacity: 0, scale: 0.9, y: 100 }}
+                        className="fixed bottom-28 left-4 right-4 z-40 neural-glass rounded-[2rem] p-6 lg:hidden shadow-[0_0_100px_-20px_rgba(0,0,0,0.5)] bg-white/95 dark:bg-[#1C1C1E]/95"
                     >
-                        <div className="grid grid-cols-4 gap-4">
+                        <div className="grid grid-cols-4 gap-6">
                             {navItems.filter(i => !['home','classes', 'courses', 'lounge'].includes(i.view)).map(item => (
-                                <button key={item.view} onClick={() => { handleViewChange(item.view); setIsMobileMenuOpen(false); }} className="flex flex-col items-center gap-2">
-                                    <AestheticIcon Icon={item.icon} isActive={activeView === item.view} />
+                                <button key={item.view} onClick={() => { handleViewChange(item.view); setIsMobileMenuOpen(false); }} className="flex flex-col items-center gap-2 group">
+                                    <div className={`p-3 rounded-2xl transition-colors ${activeView === item.view ? 'bg-[var(--monet-primary)]/10 text-[var(--monet-primary)]' : 'bg-slate-100 dark:bg-white/5 text-slate-500'}`}>
+                                        <item.icon size={28} weight="duotone" />
+                                    </div>
                                     <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400">{item.text}</span>
                                 </button>
                             ))}
@@ -965,31 +969,31 @@ const TeacherDashboardLayout = (props) => {
                         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_rgba(220,38,38,0.15),_transparent_70%)] pointer-events-none" />
                         <div className="absolute inset-0 opacity-[0.03] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] mix-blend-overlay pointer-events-none" />
                         <div className="relative z-20 p-8 text-center">
-                            <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 mx-auto mb-6 flex items-center justify-center shadow-[0_0_30px_rgba(220,38,38,0.2)] group">
+                            <div className="w-20 h-20 rounded-full bg-white/5 border border-white/10 mx-auto mb-6 flex items-center justify-center shadow-[0_0_40px_-10px_rgba(220,38,38,0.5)] group">
                                 <div className="relative z-10 text-red-500 drop-shadow-[0_0_8px_rgba(220,38,38,0.8)] transition-transform duration-500 group-hover:scale-110">
                                     <SignOut size={32} weight="duotone" />
                                 </div>
-                                <div className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-red-500/20 pointer-events-none" />
+                                <div className="absolute inset-0 rounded-full ring-1 ring-inset ring-red-500/20 pointer-events-none animate-pulse" />
                             </div>
-                            <h2 className="text-2xl font-medium text-white mb-2 tracking-tight drop-shadow-md">
-                                System Sign Out
+                            <h2 className="text-2xl font-bold text-white mb-2 tracking-tight drop-shadow-md">
+                                Terminate Session?
                             </h2>
                             <p className="text-sm text-slate-400 mb-8 leading-relaxed font-light">
-                                You are terminating your active session.<br/>
-                                <span className="text-red-400/80">Unsaved data may be lost in the void.</span>
+                                You are about to disconnect from the Neural Workspace.<br/>
+                                <span className="text-red-400/80 font-medium">Unsaved progress will be lost.</span>
                             </p>
                             <div className="flex flex-col gap-3">
                                 <button 
                                     onClick={confirmLogout} 
-                                    className="w-full py-3.5 rounded-xl font-bold text-white text-sm tracking-widest uppercase bg-red-600 hover:bg-red-500 shadow-[0_0_20px_rgba(220,38,38,0.4)] hover:shadow-[0_0_30px_rgba(220,38,38,0.6)] border border-red-500/50 transition-all active:scale-95 cursor-pointer relative z-30"
+                                    className="w-full py-4 rounded-2xl font-bold text-white text-sm tracking-widest uppercase bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 shadow-[0_10px_30px_-10px_rgba(220,38,38,0.6)] transition-all active:scale-95 cursor-pointer relative z-30"
                                 >
-                                    Confirm Termination
+                                    Confirm Disconnect
                                 </button>
                                 <button 
                                     onClick={cancelLogout} 
-                                    className="w-full py-3.5 rounded-xl font-bold text-slate-400 hover:text-white text-sm tracking-widest uppercase hover:bg-white/5 border border-transparent hover:border-white/10 transition-all active:scale-95 cursor-pointer relative z-30"
+                                    className="w-full py-4 rounded-2xl font-bold text-slate-400 hover:text-white text-sm tracking-widest uppercase hover:bg-white/5 border border-transparent hover:border-white/10 transition-all active:scale-95 cursor-pointer relative z-30"
                                 >
-                                    Abort
+                                    Cancel
                                 </button>
                             </div>
                         </div>
