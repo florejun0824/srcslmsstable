@@ -4,7 +4,7 @@ import { clientsClaim } from 'workbox-core';
 import { ExpirationPlugin } from 'workbox-expiration';
 import { precacheAndRoute, createHandlerBoundToURL } from 'workbox-precaching';
 import { registerRoute } from 'workbox-routing';
-import { StaleWhileRevalidate } from 'workbox-strategies';
+import { StaleWhileRevalidate, CacheFirst } from 'workbox-strategies';
 import { CacheableResponsePlugin } from 'workbox-cacheable-response';
 
 clientsClaim();
@@ -30,15 +30,14 @@ registerRoute(
   createHandlerBoundToURL('/index.html')
 );
 
+// ---------------------------------------------------------------------------
+// 1. API & Content Caching
+// ---------------------------------------------------------------------------
+
 // Content Cache (Lessons/Quizzes pages - Fallback)
 registerRoute(
   ({ request, url }) => {
-    // 1. Ignore non-GET requests (POST, PUT, DELETE, etc.) to prevent Cache API errors
-    if (request.method !== 'GET') {
-      return false;
-    }
-    
-    // 2. Check if the origin matches and path contains lessons/quizzes
+    if (request.method !== 'GET') return false;
     return (
       url.origin === self.location.origin &&
       (url.pathname.includes('/lessons/') || url.pathname.includes('/quizzes/'))
@@ -47,61 +46,102 @@ registerRoute(
   new StaleWhileRevalidate({
     cacheName: 'content-cache',
     plugins: [
-      new CacheableResponsePlugin({
-        statuses: [0, 200],
-      }),
-      new ExpirationPlugin({
-        maxEntries: 100, // Increased max entries
-        maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
-      }),
+      new CacheableResponsePlugin({ statuses: [0, 200] }),
+      new ExpirationPlugin({ maxEntries: 100, maxAgeSeconds: 30 * 24 * 60 * 60 }),
     ],
   })
 );
 
-// 1. Caching for Local Images (Your assets folder)
+// ---------------------------------------------------------------------------
+// 2. Asset Caching (Images, Fonts, Styles)
+// ---------------------------------------------------------------------------
+
+// Local Images
 registerRoute(
   ({ url }) => url.origin === self.location.origin && /\.(?:png|gif|jpg|jpeg|svg|webp)$/.test(url.pathname),
   new StaleWhileRevalidate({
     cacheName: 'local-images',
     plugins: [
-      new ExpirationPlugin({
-        maxEntries: 60,
-        maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
-      }),
+      new ExpirationPlugin({ maxEntries: 60, maxAgeSeconds: 30 * 24 * 60 * 60 }),
     ],
   })
 );
 
-// 2. Caching for Firebase Storage Images (User uploads/Diagrams)
-// CRITICAL: This enables images hosted on Firebase to be visible offline
+// Firebase Storage Images (User uploads/Diagrams)
 registerRoute(
   ({ url }) => url.origin.includes('firebasestorage.googleapis.com'),
   new StaleWhileRevalidate({
     cacheName: 'firebase-storage-images',
     plugins: [
-      new CacheableResponsePlugin({
-        statuses: [0, 200], // 0 is important for CORS/Opaque responses
-      }),
-      new ExpirationPlugin({
-        maxEntries: 200,
-        maxAgeSeconds: 60 * 24 * 60 * 60, // 60 Days
-      }),
+      new CacheableResponsePlugin({ statuses: [0, 200] }),
+      new ExpirationPlugin({ maxEntries: 300, maxAgeSeconds: 60 * 24 * 60 * 60 }),
     ],
   })
 );
 
-// This allows the web app to trigger skipWaiting via
-// registration.waiting.postMessage({type: 'SKIP_WAITING'})
+// Google Drive Images (converted links in ContentRenderer)
+registerRoute(
+  ({ url }) => url.origin.includes('drive.google.com') || url.origin.includes('googleusercontent.com'),
+  new StaleWhileRevalidate({
+    cacheName: 'google-drive-images',
+    plugins: [
+      new CacheableResponsePlugin({ statuses: [0, 200] }), // 0 is critical for opaque responses
+      new ExpirationPlugin({ maxEntries: 200, maxAgeSeconds: 30 * 24 * 60 * 60 }),
+    ],
+  })
+);
+
+// ---------------------------------------------------------------------------
+// 3. External Resources (CDNs, Fonts) - FIX FOR CRASHES
+// ---------------------------------------------------------------------------
+
+// Google Fonts Stylesheets
+registerRoute(
+  ({ url }) => url.origin === 'https://fonts.googleapis.com',
+  new StaleWhileRevalidate({
+    cacheName: 'google-fonts-stylesheets',
+  })
+);
+
+// Google Fonts Webfont Files (CacheFirst for performance)
+registerRoute(
+  ({ url }) => url.origin === 'https://fonts.gstatic.com',
+  new CacheFirst({
+    cacheName: 'google-fonts-webfonts',
+    plugins: [
+      new CacheableResponsePlugin({ statuses: [0, 200] }),
+      new ExpirationPlugin({ maxAgeSeconds: 365 * 24 * 60 * 60, maxEntries: 30 }),
+    ],
+  })
+);
+
+// External CDNs (KaTeX, etc. from index.html)
+registerRoute(
+  ({ url }) => url.origin === 'https://cdn.jsdelivr.net' || url.origin === 'https://unpkg.com',
+  new StaleWhileRevalidate({
+    cacheName: 'static-libs-cdn',
+    plugins: [
+      new CacheableResponsePlugin({ statuses: [0, 200] }),
+    ],
+  })
+);
+
+// ---------------------------------------------------------------------------
+// 4. Lifecycle & Cleanup
+// ---------------------------------------------------------------------------
+
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
 });
 
-// Clean up old caches
 self.addEventListener('activate', (event) => {
-  // Added 'local-images' and 'firebase-storage-images' to the allowlist
-  const currentCaches = ['precache-v2', 'runtime', 'content-cache', 'local-images', 'firebase-storage-images']; 
+  const currentCaches = [
+    'precache-v2', 'runtime', 'content-cache', 
+    'local-images', 'firebase-storage-images', 'google-drive-images',
+    'google-fonts-stylesheets', 'google-fonts-webfonts', 'static-libs-cdn'
+  ]; 
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(

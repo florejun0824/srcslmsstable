@@ -1,4 +1,4 @@
-SRCS LMS – Release v.10.2 RC (Performance & UI Overhaul)
+SRCS LMS – Release v.10.3 RC (Performance, AI, & UI Overhaul)
 
 Experience the Future of Learning: The Neo-Glass Era
 We believe that educational tools shouldn't just be functional—they should be beautiful, immersive, and inspiring. With SRCS LMS v10.3, we aren't just pushing code; we are redefining how you interact with your digital campus.
@@ -14,13 +14,13 @@ This isn't just an update; it’s a promise of a smoother, faster, and more stun
 🚀 How to Access
 📱 For Mobile Users:
 
-Install: Download the new 10.2 RC build.
+Install: Download the new 10.3 RC build.
 
 Authorize: Sign in using your standard faculty credentials (if asked).
 
 Note: If a 'Play Protect' prompt appears, select 'More Details' → 'Install Anyway'.
 
 💻 For Desktop Users:
-Access the LMS directly from your browser for a full-screen management experience: 👉 https://srcsdigital.web.app/
+Access the LMS directly from your browser for a full-screen management experience: 👉 https://srcsdigital.dpdns.org/
 
 Thank you for helping us build the future of Learning Management Systems!
