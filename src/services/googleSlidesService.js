@@ -4,26 +4,26 @@ import { SocialLogin } from '@capgo/capacitor-social-login';
 // --- CONFIGURATION ---
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY;
-const TEMPLATE_ID = import.meta.env.VITE_GOOGLE_SLIDES_TEMPLATE_ID;
+const TEMPLATE_FOLDER_ID = import.meta.env.VITE_GOOGLE_TEMPLATE_FOLDER_ID; // Optional: Locks picker to this folder
 
 const DISCOVERY_DOCS = [
   "https://slides.googleapis.com/$discovery/rest?version=v1",
   "https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"
 ];
 
-const SCOPES = "https://www.googleapis.com/auth/presentations https://www.googleapis.com/auth/drive";
+// STRICT SCOPE: Only drive.file (Passes Google Verification)
+const SCOPES = "https://www.googleapis.com/auth/drive.file";
 
 // --- STATE MANAGEMENT ---
 let gapiInited = false;
 let gisInited = false;
+let pickerInited = false; 
 let tokenClient;
 
 // --- HELPER: WAIT FOR SCRIPTS TO LOAD ---
-// This fixes the "gapi not loaded" race condition by polling for the object
 const waitForGlobal = (key, timeout = 5000) => {
     return new Promise((resolve, reject) => {
         if (window[key]) return resolve(window[key]);
-
         const startTime = Date.now();
         const interval = setInterval(() => {
             if (window[key]) {
@@ -37,16 +37,16 @@ const waitForGlobal = (key, timeout = 5000) => {
     });
 };
 
-// --- 1. INITIALIZE GAPI (Required for BOTH Web and Android) ---
+// --- 1. INITIALIZE GAPI & PICKER ---
 const initializeGapiClient = async () => {
-    // FIX: Wait for 'gapi' to exist before trying to use it
     await waitForGlobal('gapi');
-
     return new Promise((resolve, reject) => {
-        window.gapi.load('client', () => {
+        // LOAD BOTH 'client' AND 'picker' libraries
+        window.gapi.load('client:picker', () => {
             window.gapi.client.init({ apiKey: API_KEY, discoveryDocs: DISCOVERY_DOCS })
                 .then(() => { 
                     gapiInited = true; 
+                    pickerInited = true;
                     resolve(window.gapi); 
                 })
                 .catch(error => reject(new Error('Failed to initialize GAPI client: ' + JSON.stringify(error))));
@@ -54,29 +54,20 @@ const initializeGapiClient = async () => {
     });
 };
 
-// --- 2. INITIALIZE AUTH (The Hybrid Fix) ---
+// --- 2. INITIALIZE AUTH ---
 const initializeAuth = async () => {
-    // A. NATIVE ANDROID: Initialize the Plugin
     if (Capacitor.isNativePlatform()) {
         await SocialLogin.initialize({
             google: {
-                webClientId: CLIENT_ID, // Use your Web Client ID here
-                mode: 'online', // <--- IMPORTANT: Must be 'online'
-                scopes: [       // <--- MOVED SCOPES HERE (Fixes the "Main Activity" error)
-                    'email',
-                    'profile',
-                    'https://www.googleapis.com/auth/presentations',
-                    'https://www.googleapis.com/auth/drive'
-                ]
+                webClientId: CLIENT_ID,
+                mode: 'online', 
+                scopes: ['email', 'profile', 'https://www.googleapis.com/auth/drive.file']
             }
         });
         return; 
     }
 
-    // B. WEB BROWSER: Initialize Standard GIS
-    // FIX: Wait for 'google' global to exist
     await waitForGlobal('google');
-
     return new Promise((resolve, reject) => {
         if (!window.google?.accounts?.oauth2) return reject(new Error("GIS script not loaded."));
         if (gisInited) return resolve();
@@ -96,118 +87,130 @@ const initializeAuth = async () => {
     });
 };
 
-// --- 3. GET VALID TOKEN (The "Magic" Function) ---
-const ensureValidToken = async (slideData, presentationTitle, subjectName, unitName) => {
+// --- 3. GET VALID TOKEN ---
+const ensureValidToken = async () => {
     const currentToken = window.gapi.client.getToken();
-    if (currentToken && currentToken.access_token) return true;
+    if (currentToken && currentToken.access_token) return currentToken.access_token;
 
     if (Capacitor.isNativePlatform()) {
         try {
-            console.log("📱 Native Platform detected. Triggering Native Login...");
-            
-            // --- FIX APPLIED HERE: Removed 'options' block ---
-            // The scopes are now handled during initialize(), so we just call login() simply.
-            const res = await SocialLogin.login({
-                provider: 'google'
-            });
-
-            // CRITICAL: We take the token from the Native Plugin and give it to the Web GAPI
+            const res = await SocialLogin.login({ provider: 'google' });
             if (res.result && res.result.accessToken && res.result.accessToken.token) {
-                window.gapi.client.setToken({
-                    access_token: res.result.accessToken.token
-                });
-                return true;
+                window.gapi.client.setToken({ access_token: res.result.accessToken.token });
+                return res.result.accessToken.token;
             } else {
                 throw new Error("Native login succeeded but returned no token.");
             }
         } catch (error) {
-            console.error("Native Sign-In Failed:", error);
             throw new Error("User cancelled sign-in or native auth failed.");
         }
     } else {
-        // WEB FALLBACK
-        console.log("💻 Web Platform detected. Using Popup...");
-        redirectToGoogleAuth(slideData, presentationTitle, subjectName, unitName);
-        throw new Error("REDIRECTING_FOR_AUTH"); 
-    }
-};
-
-// --- HELPERS (Kept exactly as you had them) ---
-export const redirectToGoogleAuth = (slideData, presentationTitle, subjectName, unitName) => {
-    sessionStorage.setItem('googleSlidesData', JSON.stringify({ slideData, presentationTitle, subjectName, unitName }));
-    if (tokenClient) tokenClient.requestAccessToken({ prompt: '' });
-};
-
-export const handleAuthRedirect = async () => {
-    if (Capacitor.isNativePlatform()) return true; // Native doesn't use redirects
-    
-    // FIX: Don't check gapiInited immediately, allow the init function to handle the wait
-    try { 
-        await initializeGapiClient(); 
-        return true;
-    } catch (error) { 
-        console.error("GAPI Init Error:", error); 
-        return false; 
-    }
-};
-
-const findOrCreateFolder = async (folderName, parentFolderId = 'root') => {
-    const escapedFolderName = folderName.replace(/'/g, "\\'");
-    const response = await window.gapi.client.drive.files.list({
-        q: `mimeType='application/vnd.google-apps.folder' and name='${escapedFolderName}' and '${parentFolderId}' in parents and trashed=false`,
-        fields: 'files(id, name)',
-    });
-    if (response.result.files && response.result.files.length > 0) {
-        return response.result.files[0].id;
-    } else {
-        const fileMetadata = { name: folderName, mimeType: 'application/vnd.google-apps.folder', parents: [parentFolderId] };
-        const folder = await window.gapi.client.drive.files.create({ resource: fileMetadata, fields: 'id' });
-        return folder.result.id;
-    }
-};
-
-const findShapeByTextTag = (pageElements, tag) => {
-    if (!pageElements) return null;
-    const lowerCaseTag = tag.toLowerCase();
-    for (const el of pageElements) {
-        if (el.shape?.text?.textElements) {
-            let fullText = el.shape.text.textElements.map(textEl => textEl.textRun?.content || "").join("");
-            if (fullText.toLowerCase().includes(lowerCaseTag)) return el;
+        // Trigger generic Auth flow (caller handles redirect/popup)
+        if (tokenClient) {
+             tokenClient.requestAccessToken({ prompt: '' });
+             throw new Error("REDIRECTING_FOR_AUTH");
         }
     }
-    return null;
 };
 
-const generateUniqueId = () => 'gen_' + Math.random().toString(36).substr(2, 9);
-
-
-// --- 4. MAIN FUNCTION (Updated to use Hybrid Auth) ---
-export const createPresentationFromData = async (slideData, presentationTitle, subjectName, unitName) => {
+// --- 4. OPEN GOOGLE PICKER (Multi-Select Supported) ---
+export const openTemplatePicker = async (multiSelect = false) => {
     try {
-        if (!TEMPLATE_ID) throw new Error("Google Slides Template ID is not defined.");
+        await initializeGapiClient();
+        await initializeAuth();
+        const accessToken = await ensureValidToken();
+
+        if (!pickerInited) throw new Error("Google Picker API not loaded.");
+
+        return new Promise((resolve, reject) => {
+            const view = new window.google.picker.DocsView(window.google.picker.ViewId.PRESENTATIONS);
+            
+            // 1. Theme Store Logic: Show Grid for visuals
+            view.setMode(window.google.picker.DocsViewMode.GRID);
+            view.setIncludeFolders(true); 
+
+            // 2. Folder Lock: If .env has a folder ID, force the picker to open there
+            if (TEMPLATE_FOLDER_ID) {
+                view.setParent(TEMPLATE_FOLDER_ID);
+            }
+
+            const builder = new window.google.picker.PickerBuilder()
+                .enableFeature(window.google.picker.Feature.NAV_HIDDEN)
+                .setAppId(CLIENT_ID)
+                .setOAuthToken(accessToken) // Grants access to the picked file(s)!
+                .addView(view)
+                .setDeveloperKey(API_KEY)
+                .setCallback((data) => {
+                    if (data.action === window.google.picker.Action.PICKED) {
+                        if (multiSelect) {
+                            // Return ARRAY of templates for your "Theme Store" import
+                            const templates = data.docs.map(doc => ({
+                                id: doc.id,
+                                name: doc.name,
+                                iconUrl: doc.iconUrl,
+                                lastEditedUtc: doc.lastEditedUtc
+                            }));
+                            resolve(templates);
+                        } else {
+                            // Return SINGLE ID for direct generation
+                            const fileId = data.docs[0].id;
+                            resolve(fileId);
+                        }
+                    } else if (data.action === window.google.picker.Action.CANCEL) {
+                        resolve(null);
+                    }
+                });
+
+            // 3. Enable Multi-Select if requested
+            if (multiSelect) {
+                builder.enableFeature(window.google.picker.Feature.MULTISELECT_ENABLED);
+                builder.setTitle("Select All Templates to Import (Ctrl+A)");
+            } else {
+                builder.setTitle("Select a Slide Template");
+            }
+
+            const picker = builder.build();
+            picker.setVisible(true);
+        });
+    } catch (error) {
+        if (error.message === "REDIRECTING_FOR_AUTH") return;
+        console.error("Picker Error:", error);
+        throw error;
+    }
+};
+
+// --- 5. MAIN GENERATION FUNCTION ---
+export const createPresentationFromData = async (slideData, presentationTitle, subjectName, unitName, templateId) => {
+    try {
+        if (!templateId) throw new Error("No Template ID provided. Please select a template.");
         
-        // Initialize everything
-        // Note: These functions now have internal waiting logic, so they won't fail if called early
         await initializeGapiClient();
         await initializeAuth(); 
+        await ensureValidToken();
         
-        // GET TOKEN (Native or Web)
-        await ensureValidToken(slideData, presentationTitle, subjectName, unitName);
-        
-        // --- YOUR ORIGINAL LOGIC STARTS HERE (Unchanged) ---
+        // --- LOGIC STARTS HERE ---
         const subjectFolderId = await findOrCreateFolder(subjectName);
         const unitFolderId = await findOrCreateFolder(unitName, subjectFolderId);
 
-        const copiedFile = await window.gapi.client.drive.files.copy({ fileId: TEMPLATE_ID, resource: { name: presentationTitle, parents: [unitFolderId] } });
+        // The picker has granted us permission to this SPECIFIC templateId
+        const copiedFile = await window.gapi.client.drive.files.copy({ 
+            fileId: templateId, 
+            resource: { name: presentationTitle, parents: [unitFolderId] } 
+        });
+        
         const presentationId = copiedFile.result.id;
-
+        
+        // ... (Slide Population Logic) ...
         const presentation = await window.gapi.client.slides.presentations.get({ presentationId });
         const masterSlideId = presentation.result.slides[0].objectId;
 
+        // Delete placeholder slides if they exist (except the first one)
         if (presentation.result.slides.length > 1) {
             const deleteRequests = presentation.result.slides.slice(1).map(slide => ({ deleteObject: { objectId: slide.objectId } }));
             await window.gapi.client.slides.presentations.batchUpdate({ presentationId, requests: deleteRequests });
         }
+        
+        // Duplicate master slide to match data length
         if (slideData.length > 1) {
             const duplicateRequests = Array.from({ length: slideData.length - 1 }, () => ({ duplicateObject: { objectId: masterSlideId } }));
             await window.gapi.client.slides.presentations.batchUpdate({ presentationId, requests: duplicateRequests });
@@ -231,7 +234,7 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
                 populateRequests.push({ insertText: { objectId: titleShape.objectId, text: cleanText(data.title) } });
             }
 
-            // --- TABLE LOGIC (Restored from your file) ---
+            // --- TABLE LOGIC ---
             const hasTableRows = data.tableData && Array.isArray(data.tableData.rows) && data.tableData.rows.length > 0;
             const hasHeaders = data.tableData && Array.isArray(data.tableData.headers) && data.tableData.headers.length > 0;
             const hasTableData = hasTableRows;
@@ -328,26 +331,53 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
         }
 
         sessionStorage.removeItem('googleSlidesData');
-        
-        // 5. SUCCESS: Return the link
         return `https://docs.google.com/presentation/d/${presentationId}/edit`;
 
     } catch (error) {
-        // --- 6. ERROR HANDLING (Updated for Hybrid) ---
-        // Retry for native token expiry
+        if (error.message === "REDIRECTING_FOR_AUTH") return;
+        
+        // Native Retry Logic
         const isTokenError = error.result?.error?.code === 401 || error.result?.error?.code === 403 || error.status === 401;
         if (isTokenError && Capacitor.isNativePlatform()) {
              console.log("Token expired. Retrying native sign-in...");
-             await ensureValidToken(slideData, presentationTitle, subjectName, unitName);
-             return;
+             await ensureValidToken(); 
+             // Retry generation (recursive call)
+             return createPresentationFromData(slideData, presentationTitle, subjectName, unitName, templateId);
         }
 
-        if (error.message === "REDIRECTING_FOR_AUTH") return;
-
         console.error("Error creating Google Slides:", error);
-        let message = "Failed to create Google Slides presentation.";
-        if (error?.result?.error?.message) message = `Google API Error: ${error.result.error.message}`;
-        else if (error?.message) message = error.message;
-        throw new Error(message);
+        throw error;
     }
 };
+
+// --- HELPERS ---
+const findOrCreateFolder = async (folderName, parentFolderId = 'root') => {
+    const escapedFolderName = folderName.replace(/'/g, "\\'");
+    const response = await window.gapi.client.drive.files.list({
+        q: `mimeType='application/vnd.google-apps.folder' and name='${escapedFolderName}' and '${parentFolderId}' in parents and trashed=false`,
+        fields: 'files(id, name)',
+    });
+    if (response.result.files && response.result.files.length > 0) {
+        return response.result.files[0].id;
+    } else {
+        const fileMetadata = { name: folderName, mimeType: 'application/vnd.google-apps.folder', parents: [parentFolderId] };
+        const folder = await window.gapi.client.drive.files.create({ resource: fileMetadata, fields: 'id' });
+        return folder.result.id;
+    }
+};
+
+const findShapeByTextTag = (pageElements, tag) => {
+    if (!pageElements) return null;
+    const lowerCaseTag = tag.toLowerCase();
+    for (const el of pageElements) {
+        if (el.shape?.text?.textElements) {
+            let fullText = el.shape.text.textElements.map(textEl => textEl.textRun?.content || "").join("");
+            if (fullText.toLowerCase().includes(lowerCaseTag)) return el;
+        }
+    }
+    return null;
+};
+
+const generateUniqueId = () => 'gen_' + Math.random().toString(36).substr(2, 9);
+export const redirectToGoogleAuth = () => { if (tokenClient) tokenClient.requestAccessToken({ prompt: '' }); };
+export const handleAuthRedirect = async () => { try { await initializeGapiClient(); return true; } catch (error) { return false; } };

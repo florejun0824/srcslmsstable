@@ -1,7 +1,8 @@
 // src/hooks/usePresentationGenerator.js
 import { useState, useCallback } from 'react';
 import { callGeminiWithLimitCheck } from '../services/aiService';
-import { createPresentationFromData } from '../services/googleSlidesService';
+// UPDATED: Import the openTemplatePicker function
+import { createPresentationFromData, openTemplatePicker } from '../services/googleSlidesService';
 
 // Helper to format notes for the final slide creation
 // UPDATED: Handles both object (AI generated) and string (User edited) formats
@@ -261,6 +262,22 @@ const prompt = `
     setIsSavingPPT(true);
 
     try {
+        // --- 1. NEW: ASK FOR TEMPLATE VIA PICKER ---
+        showToast("Please select a Slide Design...", "info");
+        
+        // This grants the "drive.file" permission dynamically for the chosen file
+        // false = Single Select Mode
+        const templateId = await openTemplatePicker(false);
+
+        if (!templateId) {
+            // If user cancels or closes picker
+            setIsSavingPPT(false);
+            return; 
+        }
+
+        showToast("Design selected! Creating slides...", "info");
+        // ------------------------------------------
+
         const { lessonIds, lessonsData, unitsData } = previewData;
         
         // Use edited slides if available, otherwise fallback to original AI generation
@@ -300,12 +317,13 @@ const prompt = `
             };
         });
 
-        // Call Service
+        // --- 2. UPDATED: PASS TEMPLATE ID TO SERVICE ---
         const presentationUrl = await createPresentationFromData(
             cleanedSlides, 
             presentationTitle, 
             subjectName, 
-            unitName
+            unitName,
+            templateId // <--- Added the picker Result here
         );
 
         window.open(presentationUrl, '_blank');
@@ -313,7 +331,11 @@ const prompt = `
 
     } catch (error) { 
         console.error("Presentation Creation Error:", error); 
-        showToast(`Creation Error: ${error.message}`, "error"); 
+        // Silence the "Selection cancelled" error (Google Picker specific)
+        // Also handling generic "Selection cancelled" string thrown manually
+        if (error.message !== "Selection cancelled" && !error.message.includes("cancelled")) {
+             showToast(`Creation Error: ${error.message}`, "error");
+        }
     } finally { 
         setIsSavingPPT(false); 
     }

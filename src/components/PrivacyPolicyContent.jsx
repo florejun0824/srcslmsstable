@@ -1,6 +1,7 @@
 import React from 'react';
 
-export const POLICY_VERSION = '2.0';
+// I incremented this to 2.2 so users are forced to see the update
+export const POLICY_VERSION = '2.2';
 
 const PrivacyPolicyContent = () => {
   return (
@@ -40,6 +41,19 @@ const PrivacyPolicyContent = () => {
 
       <h4>6. Your Consent</h4>
       <p>By using the Service, you acknowledge that you have read, understood, and agree to the collection, use, and sharing of your information as described in this policy.</p>
+
+      {/* --- NEW SECTIONS REQUIRED BY GOOGLE --- */}
+      <h4>7. Data Retention</h4>
+      <p>We only retain collected personal and academic information for as long as necessary to provide you with your requested service or as required by school policy. Data is stored securely and is strictly accessed for educational purposes.</p>
+
+      <h4>8. Google User Data Handling (Limited Use)</h4>
+      <p>Our application adheres to the Google API Services User Data Policy, including the Limited Use requirements. We access Google user data solely for the following purpose:</p>
+      <ul>
+        <li><strong>Google Slides Generation:</strong> Our app uses the Google Slides API to generate presentation slides based on lesson content you select.</li>
+        <li><strong>Storage:</strong> We do <strong>not</strong> permanently store your Google Drive files or presentations on our servers. The files are created directly in your personal Google Drive.</li>
+        <li><strong>Sharing:</strong> We do not share your Google user data with third-party tools (such as AI models) without your explicit action, and only for the specific purpose of content generation.</li>
+        <li><strong>Deletion:</strong> You may request the full deletion of any account data associated with our service by contacting us at <strong>floresflorejun@gmail.com</strong>. Upon request, all associated data will be removed within 30 days.</li>
+      </ul>
     </div>
   );
 };
