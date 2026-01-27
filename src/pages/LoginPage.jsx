@@ -11,71 +11,58 @@ import {
   EyeIcon,
   EyeSlashIcon,
   FingerPrintIcon,
-  CheckIcon
+  CheckIcon,
+  ArrowRightIcon,
+  ArrowLeftIcon,
+  SparklesIcon
 } from '@heroicons/react/24/solid';
 import { BiometricAuth, BiometryErrorType } from '@aparajita/capacitor-biometric-auth';
 import { Preferences } from '@capacitor/preferences';
 
-// --- 1. BACKGROUND COMPONENT ---
-const MeshGradientBackground = ({ role }) => {
-  // Adjusted colors for a deeper, more premium gradient
-  const isStudent = role === 'student';
-  
-  return (
-    <div className="absolute inset-0 z-0 overflow-hidden bg-[#f8f9fc] dark:bg-[#050505] transition-colors duration-1000 ease-in-out">
-      {/* Noise Texture */}
-      <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.06] z-10 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] mix-blend-overlay pointer-events-none"></div>
-      
-      {/* Animated Orbs */}
-      <div className={`
-        absolute top-[-20%] left-[-10%] w-[80vw] h-[80vw] rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[120px] opacity-40 animate-blob
-        ${isStudent ? 'bg-blue-400 dark:bg-blue-900' : 'bg-teal-400 dark:bg-teal-900'}
-        transition-colors duration-1000
-      `}></div>
-      
-      <div className={`
-        absolute bottom-[-20%] right-[-10%] w-[80vw] h-[80vw] rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[120px] opacity-40 animate-blob animation-delay-2000
-        ${isStudent ? 'bg-indigo-400 dark:bg-indigo-900' : 'bg-emerald-400 dark:bg-emerald-900'}
-        transition-colors duration-1000
-      `}></div>
-      
-      <div className={`
-        absolute top-[40%] left-[50%] transform -translate-x-1/2 w-[60vw] h-[60vw] rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[100px] opacity-30 animate-blob animation-delay-4000
-        ${isStudent ? 'bg-violet-400 dark:bg-violet-900' : 'bg-cyan-400 dark:bg-cyan-900'}
-        transition-colors duration-1000
-      `}></div>
-    </div>
-  );
+// --- CONFIG: THEME DEFINITIONS ---
+const THEMES = {
+    student: {
+        primary: 'bg-blue-600',
+        gradient: 'from-blue-600 to-indigo-600',
+        shadow: 'shadow-blue-500/25',
+        text: 'text-blue-400',
+        border: 'border-blue-500/30',
+        ring: 'focus-within:ring-blue-500/30',
+        glow: 'bg-blue-500/20'
+    },
+    teacher: {
+        primary: 'bg-emerald-600',
+        gradient: 'from-emerald-600 to-teal-600',
+        shadow: 'shadow-emerald-500/25',
+        text: 'text-emerald-400',
+        border: 'border-emerald-500/30',
+        ring: 'focus-within:ring-emerald-500/30',
+        glow: 'bg-emerald-500/20'
+    }
 };
 
-// --- 2. INPUT COMPONENT ---
-const GlassInput = ({ icon: Icon, isPassword, togglePassword, showPassword, ...props }) => (
+// --- COMPONENT: MODERN INPUT FIELD ---
+const ModernInput = ({ icon: Icon, isPassword, togglePassword, showPassword, theme, ...props }) => (
   <div className="relative group mb-5">
-    {/* Input Background Layer */}
-    <div className="absolute inset-0 bg-white/50 dark:bg-black/20 rounded-2xl border border-white/60 dark:border-white/5 shadow-sm transition-all duration-300 group-focus-within:bg-white dark:group-focus-within:bg-black/40 group-focus-within:ring-2 group-focus-within:ring-blue-500/20 group-focus-within:border-blue-500/30 group-focus-within:shadow-md"></div>
+    {/* Animated Focus Border */}
+    <div className={`absolute -inset-0.5 rounded-2xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-500 bg-gradient-to-r ${theme.gradient} blur-sm`}></div>
     
-    {/* Icon */}
-    <div className="absolute top-1/2 -translate-y-1/2 left-4 text-slate-400 transition-colors duration-300 group-focus-within:text-blue-600 dark:group-focus-within:text-blue-400">
-      <Icon className="w-5 h-5" />
+    <div className="relative bg-[#0F172A] rounded-2xl border border-white/5 flex items-center shadow-sm transition-all duration-300">
+        <div className={`pl-4 pr-3 text-slate-500 transition-colors duration-300 group-focus-within:text-white`}>
+            <Icon className="w-5 h-5" />
+        </div>
+        <input
+            {...props}
+            type={isPassword && !showPassword ? 'password' : 'text'}
+            className="w-full h-14 bg-transparent border-none text-[15px] font-medium text-white placeholder-slate-600 focus:ring-0 focus:outline-none autofill:bg-transparent z-10"
+            style={{ colorScheme: 'dark' }}
+        />
+        {isPassword && (
+            <button type="button" onClick={togglePassword} className="pr-4 pl-2 text-slate-600 hover:text-white transition-colors focus:outline-none z-10">
+                {showPassword ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
+            </button>
+        )}
     </div>
-
-    {/* Actual Input */}
-    <input
-      {...props}
-      type={isPassword && !showPassword ? 'password' : 'text'}
-      className="relative w-full h-14 pl-12 pr-12 bg-transparent border-none rounded-2xl text-[15px] font-semibold text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-0 transition-all"
-    />
-
-    {/* Toggle Password Button */}
-    {isPassword && (
-      <button
-        type="button"
-        onClick={togglePassword}
-        className="absolute top-1/2 -translate-y-1/2 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors z-10 p-1.5 rounded-full hover:bg-slate-100/50 dark:hover:bg-white/10 active:scale-95"
-      >
-        {showPassword ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
-      </button>
-    )}
   </div>
 );
 
@@ -93,7 +80,9 @@ const LoginPage = () => {
   const [showBiometricButton, setShowBiometricButton] = useState(false);
   const [hasAgreed, setHasAgreed] = useState(false);
 
-  // Restore state logic
+  const theme = THEMES[selectedRole];
+
+  // Logic: Restore State
   useEffect(() => {
     if (location.state?.formData) {
         const { email, password, role, hasAgreed } = location.state.formData;
@@ -104,7 +93,7 @@ const LoginPage = () => {
     }
   }, [location.state]);
 
-  // Biometric Check
+  // Logic: Biometrics
   useEffect(() => {
     const checkBiometricSupport = async () => {
       try {
@@ -112,26 +101,19 @@ const LoginPage = () => {
         if (!isAvailable) return;
         const { value } = await Preferences.get({ key: 'userCredentials' });
         if (value) setShowBiometricButton(true);
-      } catch (error) {
-        console.error('Biometric check failed:', error);
-      }
+      } catch (error) { console.error('Biometric check failed:', error); }
     };
     checkBiometricSupport();
   }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!hasAgreed) {
-        showToast("Please accept the terms to continue.", 'error');
-        return;
-    }
+    if (!hasAgreed) { showToast("Please accept the terms to continue.", 'error'); return; }
     setError('');
     setIsLoading(true);
     try {
       const fullEmail = `${email}@srcs.edu`;
       await login(fullEmail, password, selectedRole);
-      
-      // Save credentials for biometrics if successful
       try {
         const { isAvailable } = await BiometricAuth.checkBiometry();
         if (isAvailable) {
@@ -141,13 +123,9 @@ const LoginPage = () => {
                 await Preferences.set({ key: 'tempUserCredentials', value: credentials });
             }
         }
-      } catch (e) { console.error(e); }
-    } catch (err) {
-      setError(err.message);
-      showToast(err.message, 'error');
-    } finally {
-      setIsLoading(false);
-    }
+      } catch (e) {}
+    } catch (err) { setError(err.message); showToast(err.message, 'error'); } 
+    finally { setIsLoading(false); }
   };
 
   const handleBiometricLogin = async () => {
@@ -161,201 +139,191 @@ const LoginPage = () => {
       setSelectedRole(role);
       await login(email, password, role);
     } catch (error) {
-      if (error.code === BiometryErrorType.NoEnrollment) {
-          setError("Biometrics not set up.");
-          setShowBiometricButton(false);
-      } else {
-          setError(error.message || "Authentication failed");
-      }
-    } finally {
-      setIsLoading(false);
-    }
+      if (error.code === BiometryErrorType.NoEnrollment) { setError("Biometrics not set up."); setShowBiometricButton(false); } 
+      else { setError(error.message || "Authentication failed"); }
+    } finally { setIsLoading(false); }
   };
 
   const currentFormData = { email, password, role: selectedRole, hasAgreed };
 
   return (
-    // Use dvh for mobile-friendly viewport height
-    <div className="min-h-[100dvh] w-full flex items-center justify-center relative overflow-hidden font-sans bg-slate-50 dark:bg-black">
+    <div className="flex flex-col lg:flex-row min-h-[100dvh] w-full bg-[#020617] font-sans text-white overflow-hidden">
       
-      <MeshGradientBackground role={selectedRole} />
+      {/* --- BACK BUTTON (FLOATING) --- */}
+      <div className="fixed top-6 left-6 z-50 mix-blend-difference lg:mix-blend-normal">
+        <Link 
+            to="/" 
+            className="group flex items-center justify-center lg:justify-start w-12 h-12 lg:w-auto lg:h-auto lg:px-5 lg:py-2.5 rounded-full bg-white/10 lg:bg-black/20 backdrop-blur-xl border border-white/10 transition-all hover:scale-105 active:scale-95"
+        >
+            <ArrowLeftIcon className="w-5 h-5 text-white lg:group-hover:-translate-x-1 transition-transform" />
+            <span className="hidden lg:block ml-2 text-sm font-bold text-white uppercase tracking-wider">Home</span>
+        </Link>
+      </div>
 
-      {/* Scrollable Container for small screens */}
-      <div className="absolute inset-0 overflow-y-auto custom-scrollbar flex flex-col items-center justify-center p-4">
+      {/* --- LEFT PANEL: VISUALS (Desktop: 60%, Mobile: 35vh) --- */}
+      <div className="relative w-full h-[35vh] lg:h-auto lg:w-[60%] flex-shrink-0 overflow-hidden">
+        {/* Background Image */}
+        <div 
+          className="absolute inset-0 z-0 scale-105 transition-transform duration-[20s] ease-linear hover:scale-110"
+          style={{
+            backgroundImage: "url('/srcs.jpg')", 
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        >
+             <div className="absolute inset-0 bg-gradient-to-b lg:bg-gradient-to-r from-slate-900/60 via-slate-900/40 to-[#020617] lg:to-[#020617]"></div>
+             <div className={`absolute inset-0 mix-blend-overlay opacity-60 bg-gradient-to-tr ${theme.gradient} transition-colors duration-700`}></div>
+        </div>
+
+        {/* Brand Content */}
+        <div className="absolute inset-0 z-10 flex flex-col justify-center px-8 lg:px-20 pb-8 lg:pb-0">
+            <div className="w-16 h-16 lg:w-24 lg:h-24 rounded-[2rem] bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-2xl mb-6 lg:mb-10 animate-in fade-in zoom-in duration-700">
+                <img src="/logo.png" alt="Logo" className="w-8 h-8 lg:w-14 lg:h-14 object-contain drop-shadow-lg" />
+            </div>
+            <h1 className="text-4xl lg:text-7xl font-black tracking-tighter text-white mb-2 lg:mb-4 drop-shadow-xl">
+                SRCS <br/> <span className={`text-transparent bg-clip-text bg-gradient-to-r ${theme.gradient}`}>Digital Ecosystem</span>
+            </h1>
+            <p className="text-sm lg:text-xl text-slate-300 font-medium max-w-md leading-relaxed hidden lg:block">
+                The next generation of learning management. Seamless, intuitive, and powered by AI.
+            </p>
+        </div>
+      </div>
+
+      {/* --- RIGHT PANEL: FORM (Desktop: 40%, Mobile: Flex fill) --- */}
+      <div className="relative flex-1 flex flex-col justify-center bg-[#020617] lg:bg-[#020617] -mt-8 lg:mt-0 rounded-t-[2.5rem] lg:rounded-none z-20 shadow-[0_-20px_60px_-15px_rgba(0,0,0,0.5)] lg:shadow-none border-t border-white/10 lg:border-none">
         
-        <div className="relative z-20 w-full max-w-[440px] my-auto animate-in fade-in zoom-in-95 duration-500">
+        <div className="w-full max-w-[420px] mx-auto px-6 py-12 lg:p-12 animate-in slide-in-from-bottom-8 duration-700">
             
-            {/* GLASS CARD */}
-            <div className={`
-              relative overflow-hidden
-              bg-white/70 dark:bg-[#121212]/70
-              backdrop-blur-2xl backdrop-saturate-[1.5]
-              rounded-[2.5rem] 
-              border border-white/60 dark:border-white/10
-              shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)]
-              p-6 sm:p-8 md:p-10
-              transition-all duration-500
-            `}>
-                
-				{/* 1. Header Section */}
-				<div className="text-center mb-8">
-				    <div className="inline-block relative group mb-6">
-				        <div className="absolute inset-0 bg-blue-500 blur-xl opacity-20 rounded-full group-hover:opacity-30 transition-opacity"></div>
-				        <img src="/logo.png" alt="Logo" className="relative w-20 h-20 object-contain drop-shadow-lg" />
-				    </div>
-    
-				    {/* CHANGE: App Name is now the Main Title (H1) */}
-				    <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-				        SRCS Digital Ecosystem
-				    </h1>
-				    {/* CHANGE: 'Welcome Back' is now the subtitle */}
-				    <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-2 max-w-[260px] mx-auto">
-				        Welcome Back! Please sign in.
-				    </p>
-				</div>
+            {/* Header Text */}
+            <div className="mb-10">
+                <h2 className="text-2xl lg:text-3xl font-bold text-white mb-2">Welcome Back</h2>
+                <p className="text-slate-400">Please authenticate to continue.</p>
+            </div>
 
-                {/* 2. Role Switcher Pill */}
-                <div className="relative p-1 bg-slate-200/50 dark:bg-white/5 rounded-2xl flex items-center mb-8 border border-white/20 dark:border-white/5">
-                    {/* Sliding Indicator */}
-                    <div 
-                        className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-white dark:bg-slate-700 shadow-sm rounded-xl transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] ${selectedRole === 'student' ? 'left-1' : 'left-[calc(50%)]'}`} 
-                    />
-                    
-                    <button
-                        type="button"
-                        onClick={() => setSelectedRole('student')}
-                        className={`relative flex-1 py-2.5 text-sm font-bold flex items-center justify-center gap-2 transition-colors z-10 ${selectedRole === 'student' ? 'text-slate-800 dark:text-white' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'}`}
-                    >
-                        <AcademicCapIcon className={`w-4 h-4 ${selectedRole === 'student' ? 'text-blue-500' : ''}`} />
-                        Student
-                    </button>
-                    
-                    <button
-                        type="button"
-                        onClick={() => setSelectedRole('teacher')}
-                        className={`relative flex-1 py-2.5 text-sm font-bold flex items-center justify-center gap-2 transition-colors z-10 ${selectedRole === 'teacher' ? 'text-slate-800 dark:text-white' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'}`}
-                    >
-                        <BriefcaseIcon className={`w-4 h-4 ${selectedRole === 'teacher' ? 'text-teal-500' : ''}`} />
-                        Teacher
-                    </button>
+            {/* Role Toggles */}
+            <div className="grid grid-cols-2 gap-4 mb-8">
+                <button
+                    onClick={() => setSelectedRole('student')}
+                    className={`
+                        relative h-24 rounded-2xl border transition-all duration-300 flex flex-col items-center justify-center gap-2 group
+                        ${selectedRole === 'student' 
+                            ? `bg-blue-600/10 border-blue-500/50` 
+                            : 'bg-[#0F172A] border-white/5 hover:border-white/10'}
+                    `}
+                >
+                    <div className={`p-2 rounded-full ${selectedRole === 'student' ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/40' : 'bg-white/5 text-slate-500'} transition-all`}>
+                        <AcademicCapIcon className="w-6 h-6" />
+                    </div>
+                    <span className={`text-xs font-bold uppercase tracking-wider ${selectedRole === 'student' ? 'text-white' : 'text-slate-500'}`}>Student</span>
+                    {selectedRole === 'student' && <div className="absolute top-3 right-3 w-2 h-2 rounded-full bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.8)] animate-pulse"></div>}
+                </button>
+
+                <button
+                    onClick={() => setSelectedRole('teacher')}
+                    className={`
+                        relative h-24 rounded-2xl border transition-all duration-300 flex flex-col items-center justify-center gap-2 group
+                        ${selectedRole === 'teacher' 
+                            ? `bg-emerald-600/10 border-emerald-500/50` 
+                            : 'bg-[#0F172A] border-white/5 hover:border-white/10'}
+                    `}
+                >
+                    <div className={`p-2 rounded-full ${selectedRole === 'teacher' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/40' : 'bg-white/5 text-slate-500'} transition-all`}>
+                        <BriefcaseIcon className="w-6 h-6" />
+                    </div>
+                    <span className={`text-xs font-bold uppercase tracking-wider ${selectedRole === 'teacher' ? 'text-white' : 'text-slate-500'}`}>Teacher</span>
+                    {selectedRole === 'teacher' && <div className="absolute top-3 right-3 w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse"></div>}
+                </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSubmit}>
+                <ModernInput 
+                    theme={theme}
+                    icon={AtSymbolIcon}
+                    placeholder="Username"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                />
+                
+                <ModernInput 
+                    theme={theme}
+                    icon={LockClosedIcon}
+                    isPassword={true}
+                    showPassword={showPassword}
+                    togglePassword={() => setShowPassword(!showPassword)}
+                    placeholder="Password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                />
+
+                {/* Terms */}
+                <div onClick={() => setHasAgreed(!hasAgreed)} className="flex items-center gap-3 cursor-pointer group select-none mt-2">
+                    <div className={`w-6 h-6 rounded-lg border flex items-center justify-center transition-all ${hasAgreed ? `${theme.primary} border-transparent` : 'bg-transparent border-slate-600 group-hover:border-slate-500'}`}>
+                        <CheckIcon className={`w-4 h-4 text-white transition-transform ${hasAgreed ? 'scale-100' : 'scale-0'}`} />
+                    </div>
+                    <span className="text-xs text-slate-400 font-medium">
+                        I agree to the <span className={`underline decoration-dotted ${theme.text}`}>Terms</span> & <span className={`underline decoration-dotted ${theme.text}`}>Privacy Policy</span>
+                    </span>
                 </div>
 
-                {/* 3. Form */}
-                <form onSubmit={handleSubmit}>
-                    <GlassInput 
-                        icon={AtSymbolIcon}
-                        placeholder="Username"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                    />
-
-                    <GlassInput 
-                        icon={LockClosedIcon}
-                        isPassword={true}
-                        showPassword={showPassword}
-                        togglePassword={() => setShowPassword(!showPassword)}
-                        placeholder="Password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                    />
-
-                    {/* Terms Checkbox */}
-                    <div 
-                        onClick={() => setHasAgreed(!hasAgreed)}
-                        className={`
-                            flex items-start gap-3 p-3.5 mt-4 rounded-xl border transition-all cursor-pointer select-none active:scale-[0.98]
-                            ${hasAgreed 
-                                ? 'bg-blue-50/50 border-blue-200 dark:bg-blue-900/10 dark:border-blue-800/30' 
-                                : 'bg-transparent border-transparent hover:bg-slate-50 dark:hover:bg-white/5'}
-                        `}
-                    >
-                        <div className={`mt-0.5 w-5 h-5 rounded-[6px] border-2 flex items-center justify-center transition-colors ${hasAgreed ? 'bg-blue-600 border-blue-600' : 'border-slate-300 dark:border-slate-600'}`}>
-                            <CheckIcon className={`w-3.5 h-3.5 text-white transition-transform ${hasAgreed ? 'scale-100' : 'scale-0'}`} strokeWidth={3} />
-                        </div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
-                            I accept the <Link to="/terms" state={{ formData: currentFormData }} className="text-slate-800 dark:text-white underline decoration-slate-300 underline-offset-2">Terms</Link> and <Link to="/privacy" state={{ formData: currentFormData }} className="text-slate-800 dark:text-white underline decoration-slate-300 underline-offset-2">Privacy Policy</Link>.
-                        </p>
-                    </div>
-
-                    {/* Error Toast Inline */}
-                    {error && (
-                        <div className="mt-4 p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30 text-center animate-in slide-in-from-top-2">
-                            <p className="text-xs font-bold text-red-600 dark:text-red-400">{error}</p>
-                        </div>
-                    )}
-
-                    {/* Submit Button */}
-                    <div className="mt-6">
-                        <button
-                            type="submit"
-                            disabled={isLoading || !hasAgreed}
-                            className="
-                                relative w-full h-14 rounded-2xl font-bold text-white text-[15px] shadow-lg
-                                bg-gradient-to-r from-blue-600 to-indigo-600 
-                                hover:shadow-blue-500/25 hover:scale-[1.02] active:scale-[0.98] 
-                                transition-all duration-300 overflow-hidden
-                                disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none
-                            "
-                        >
-                            {/* Shine Effect */}
-                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full hover:animate-shimmer" />
-                            
-                            <span className="relative z-10 flex items-center justify-center gap-2">
-                                {isLoading && !showBiometricButton ? (
-                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                ) : 'Sign In'}
-                            </span>
-                        </button>
-                    </div>
-                </form>
-
-                {/* 4. Biometric Option */}
-                {showBiometricButton && (
-                    <div className="mt-5 pt-5 border-t border-slate-100 dark:border-white/5 text-center">
-                        <button
-                            type="button"
-                            onClick={handleBiometricLogin}
-                            disabled={isLoading}
-                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
-                        >
-                            <FingerPrintIcon className="w-5 h-5 text-blue-500" />
-                            <span>Quick Access</span>
-                        </button>
+                {/* Error */}
+                {error && (
+                    <div className="mt-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-center animate-in slide-in-from-top-2">
+                        <p className="text-xs font-bold text-red-400">{error}</p>
                     </div>
                 )}
 
-            </div>
+                {/* Submit Button */}
+                <button
+                    type="submit"
+                    disabled={isLoading || !hasAgreed}
+                    className={`
+                        w-full h-14 mt-8 rounded-2xl font-bold text-white text-[15px] shadow-lg
+                        bg-gradient-to-r ${theme.gradient} ${theme.shadow}
+                        hover:scale-[1.02] active:scale-[0.98] 
+                        transition-all duration-300
+                        disabled:opacity-50 disabled:cursor-not-allowed
+                        flex items-center justify-center gap-2
+                    `}
+                >
+                    {isLoading && !showBiometricButton ? (
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                        <>Sign In <ArrowRightIcon className="w-4 h-4" /></>
+                    )}
+                </button>
+            </form>
 
-            {/* Footer */}
-            <div className="mt-8 text-center pb-4">
-                <p className="text-[11px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest">
-                    © 2026 SRCS Digital Ecosystem
-                </p>
+            {/* Biometric */}
+            {showBiometricButton && (
+                <div className="mt-8 pt-6 border-t border-white/5 flex justify-center">
+                    <button
+                        onClick={handleBiometricLogin}
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#0F172A] border border-white/5 hover:bg-[#1E293B] hover:border-white/10 transition-all text-slate-400 hover:text-white"
+                    >
+                        <FingerPrintIcon className={`w-5 h-5 ${theme.text}`} />
+                        <span className="text-xs font-bold uppercase tracking-wide">Biometric Login</span>
+                    </button>
+                </div>
+            )}
+            
+            <div className="mt-12 text-center">
+                 <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Secure • Private • Encrypted</p>
             </div>
 
         </div>
       </div>
 
       <style>{`
-        @keyframes blob {
-          0% { transform: translate(0px, 0px) scale(1); }
-          33% { transform: translate(30px, -50px) scale(1.1); }
-          66% { transform: translate(-20px, 20px) scale(0.9); }
-          100% { transform: translate(0px, 0px) scale(1); }
-        }
-        .animate-blob {
-          animation: blob 15s infinite cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .animation-delay-2000 { animation-delay: 2s; }
-        .animation-delay-4000 { animation-delay: 4s; }
-        
-        @keyframes shimmer {
-            100% { transform: translateX(100%); }
-        }
-        .hover\\:animate-shimmer:hover {
-            animation: shimmer 1.5s infinite;
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover, 
+        input:-webkit-autofill:focus, 
+        input:-webkit-autofill:active{
+            -webkit-box-shadow: 0 0 0 30px #0F172A inset !important;
+            -webkit-text-fill-color: white !important;
+            transition: background-color 5000s ease-in-out 0s;
         }
       `}</style>
     </div>

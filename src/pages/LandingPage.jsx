@@ -1,273 +1,321 @@
-import React from 'react';
-import { Link, Navigate } from 'react-router-dom';
+// src/components/LandingPage.jsx
+import React, { useState } from 'react';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { 
-  AcademicCapIcon, 
   PresentationChartLineIcon, 
   SparklesIcon, 
   DevicePhoneMobileIcon,
   ChatBubbleLeftRightIcon,
-  PaintBrushIcon,
   DocumentTextIcon,
   ChartBarIcon,
-  ShieldCheckIcon,
-  BoltIcon
+  BoltIcon,
+  ArrowRightIcon,
+  CpuChipIcon,
+  GlobeAltIcon
 } from '@heroicons/react/24/solid';
+
+// --- SUB-COMPONENTS ---
+
+const FeatureCard = ({ icon: Icon, title, desc, fromColor, toColor, delay }) => {
+  return (
+    <div 
+      className="group relative h-full min-h-[220px] rounded-[2rem] transition-all duration-500 hover:-translate-y-2"
+      style={{ animationDelay: delay }}
+    >
+      {/* Dynamic Border Gradient */}
+      <div className={`absolute -inset-[1px] bg-gradient-to-b ${fromColor} ${toColor} rounded-[2rem] opacity-20 group-hover:opacity-100 blur-sm transition-opacity duration-500 will-change-transform`} />
+      
+      {/* Glass Container */}
+      <div className="relative h-full bg-[#0B1121]/70 backdrop-blur-md border border-white/5 rounded-[2rem] p-8 flex flex-col items-start overflow-hidden hover:bg-[#0B1121]/80 transition-colors">
+        
+        {/* Ambient Light Leak */}
+        <div className={`absolute -top-12 -right-12 w-32 h-32 bg-gradient-to-br ${fromColor} ${toColor} blur-[60px] opacity-20 group-hover:opacity-40 transition-opacity duration-500`} />
+
+        {/* Gemstone Icon */}
+        <div className="relative w-14 h-14 mb-6 group-hover:scale-110 transition-transform duration-500 ease-out">
+           <div className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${fromColor} ${toColor} blur-md opacity-40`} />
+           <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/10 to-white/5 border border-white/10 backdrop-blur-md flex items-center justify-center shadow-inner">
+              <div className="absolute top-0 inset-x-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent opacity-50 rounded-t-xl" />
+              <Icon className={`w-7 h-7 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] relative z-10`} />
+           </div>
+        </div>
+
+        {/* Text Content */}
+        <h3 className="text-xl font-bold text-white mb-3 tracking-tight group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-blue-200 transition-all">
+            {title}
+        </h3>
+        <p className="text-sm text-slate-400 font-medium leading-relaxed group-hover:text-slate-200 transition-colors">
+            {desc}
+        </p>
+      </div>
+    </div>
+  );
+};
+
+const StatBadge = ({ number, label }) => (
+    <div className="flex flex-col">
+        <span className="text-3xl font-black text-white tracking-tighter drop-shadow-md">{number}</span>
+        <span className="text-[10px] font-bold uppercase tracking-widest text-blue-200/60 mt-1">{label}</span>
+    </div>
+);
+
+// --- MAIN COMPONENT ---
 
 const LandingPage = () => {
   const { userProfile } = useAuth();
+  const navigate = useNavigate();
+  const [isLaunching, setIsLaunching] = useState(false);
+  
+  const scrollToExplore = () => {
+    const element = document.getElementById('explore');
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
 
-  // If user is already logged in, auto-redirect them
+  const handleLaunch = (e) => {
+    e.preventDefault();
+    setIsLaunching(true);
+    setTimeout(() => {
+        navigate('/login');
+    }, 2000); 
+  };
+
   if (userProfile) {
     return <Navigate to={userProfile.role === 'student' ? "/student" : "/dashboard"} replace />;
   }
 
   return (
-    <div className="min-h-screen font-sans selection:bg-blue-500/30 relative overflow-x-hidden">
+    <div className="min-h-screen bg-[#020617] text-white font-sans selection:bg-blue-500/30 overflow-x-hidden relative">
       
-      {/* --- BACKGROUND IMAGE LAYER --- */}
-      <div 
-        className="fixed inset-0 z-0 scale-105" // Slight scale to prevent white edges
-        style={{
-          backgroundImage: "url('/srcs.jpg')", 
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat'
-        }}
-      >
-        {/* Dark Overlay: Stronger gradient to make text pop */}
-        <div className="absolute inset-0 bg-gradient-to-b from-slate-900/90 via-slate-900/85 to-slate-900/95 backdrop-blur-[3px]"></div>
-      </div>
-
-      {/* --- CONTENT LAYER --- */}
-      <div className="relative z-10">
-        
-        {/* Navigation */}
-        <nav className="fixed top-0 w-full z-50 border-b border-white/5 bg-slate-900/50 backdrop-blur-xl">
-          <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                 <div className="absolute inset-0 bg-blue-500 blur-lg opacity-20 rounded-full"></div>
-                 <img src="/logo.png" alt="Logo" className="relative w-9 h-9 drop-shadow-md" />
-              </div>
-              <span className="font-bold text-lg text-white tracking-tight">
-                SRCS Digital Ecosystem
-              </span>
-            </div>
-            <Link 
-              to="/login"
-              className="px-6 py-2.5 rounded-xl bg-white/10 border border-white/10 text-white text-sm font-bold hover:bg-white hover:text-slate-900 transition-all duration-300 shadow-lg"
-            >
-              Sign In
-            </Link>
-          </div>
-        </nav>
-
-        {/* Hero Section */}
-        <main className="pt-32 pb-20 px-6 max-w-7xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-blue-300 text-xs font-bold uppercase tracking-widest mb-8 backdrop-blur-md shadow-2xl">
-            <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse"></span>
-            Official Learning Portal
-          </div>
-          
-          <h1 className="text-5xl md:text-7xl font-black text-white mb-8 tracking-tight drop-shadow-2xl">
-            Education, <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 animate-gradient-x">
-              Reimagined.
-            </span>
-          </h1>
-          
-          <p className="text-lg md:text-xl text-slate-300 max-w-2xl mx-auto mb-12 leading-relaxed font-medium">
-            Experience the future of learning with SRCS Digital Ecosystem. 
-            Featuring AI-powered lesson generation, gamified progress tracking, and automated Google Slides creation.
-          </p>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-5">
-            <Link 
-              to="/login"
-              className="group relative w-full sm:w-auto px-8 py-4 rounded-2xl bg-blue-600 text-white font-bold shadow-xl shadow-blue-500/20 hover:scale-[1.02] hover:shadow-blue-500/40 transition-all duration-300 overflow-hidden"
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-shimmer"></div>
-              <div className="flex items-center justify-center gap-3">
-                <AcademicCapIcon className="w-5 h-5" />
-                <span>Access Portal</span>
-              </div>
-            </Link>
-            <a 
-              href="#features"
-              className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-white/5 border border-white/10 text-white font-bold hover:bg-white/10 transition-colors backdrop-blur-md"
-            >
-              Explore Features
-            </a>
-          </div>
-        </main>
-
-        {/* FEATURE SECTION */}
-        <section id="features" className="py-24 px-6 max-w-7xl mx-auto">
-          
-          {/* STUDENTS */}
-          <div className="mb-32">
-            <div className="text-center mb-16">
-              <h2 className="text-4xl font-black text-white mb-4 drop-shadow-lg">For Students</h2>
-              <p className="text-slate-400 text-lg">Immersive, engaging, and personalized for every learner.</p>
+      {/* --- CONNECTING TRANSITION SCREEN --- */}
+      {isLaunching && (
+        <div className="fixed inset-0 z-[100] bg-[#020617] flex flex-col items-center justify-center animate-in fade-in duration-500">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-blue-900/20 via-[#020617] to-[#020617]"></div>
+            
+            <div className="relative z-10 flex flex-col items-center">
+                <div className="w-24 h-24 mb-8 relative">
+                    <div className="absolute inset-0 rounded-full border-4 border-t-blue-500 border-r-transparent border-b-blue-500 border-l-transparent animate-spin"></div>
+                    <div className="absolute inset-3 rounded-full border-4 border-t-transparent border-r-indigo-500 border-b-transparent border-l-indigo-500 animate-spin-reverse"></div>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain animate-pulse" />
+                    </div>
+                </div>
+                
+                <h2 className="text-3xl font-bold text-white mb-2 tracking-tight">Connecting...</h2>
+                <p className="text-blue-400 text-sm font-bold uppercase tracking-widest animate-pulse">Establishing Secure Uplink</p>
+                
+                <div className="w-64 h-1 bg-white/10 rounded-full mt-10 overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 w-1/2 animate-[progress_1.5s_ease-in-out_infinite]"></div>
+                </div>
             </div>
             
-            <div className="grid md:grid-cols-3 gap-8">
-              <FeatureCard 
-                icon={SparklesIcon}
-                title="Gamified Learning"
-                desc="Earn rewards, XP, and badges as you complete lessons. Watch your progress bar grow!"
-                color="from-yellow-400 to-orange-500"
-                iconColor="text-yellow-400"
-              />
-              <FeatureCard 
-                icon={ShieldCheckIcon}
-                title="Interactive Quizzes"
-                desc="Experience a smooth, timed quiz interface with built-in anti-cheat protection mechanisms."
-                color="from-green-400 to-emerald-600"
-                iconColor="text-green-400"
-              />
-               <FeatureCard 
-                icon={ChatBubbleLeftRightIcon}
-                title="Social Newsfeed"
-                desc="Stay connected with class announcements. React with animated emojis and join the conversation."
-                color="from-blue-400 to-indigo-600"
-                iconColor="text-blue-400"
-              />
-              <FeatureCard 
-                icon={PaintBrushIcon}
-                title="Personalized Themes"
-                desc="Make it yours. Choose immersive backgrounds like Christmas, Space, or Cyberpunk."
-                color="from-purple-400 to-pink-600"
-                iconColor="text-purple-400"
-              />
-              <FeatureCard 
-                icon={DevicePhoneMobileIcon}
-                title="Offline-Ready"
-                desc="No internet? No problem. Access your education on the go with full offline support."
-                color="from-slate-400 to-slate-600"
-                iconColor="text-slate-300"
-              />
-            </div>
+            <style>{`
+                @keyframes progress { 0% { transform: translateX(-100%); } 100% { transform: translateX(200%); } }
+                @keyframes spin-reverse { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
+                .animate-spin-reverse { animation: spin-reverse 2s linear infinite; }
+            `}</style>
+        </div>
+      )}
+
+      {/* --- MAIN LAYOUT --- */}
+      {/* Note: Removed 'scale' transform to fix position:fixed behavior */}
+      <div className={`transition-opacity duration-700 ${isLaunching ? 'opacity-0' : 'opacity-100'}`}>
+
+          {/* --- GLOBAL BACKGROUND (Visible to Both Panes) --- */}
+          <div 
+            className="fixed inset-0 z-0"
+            style={{
+              backgroundImage: "url('/srcs.jpg')", 
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat'
+            }}
+          >
+            {/* Reduced opacity from 90% to 50% so the image is clearly visible */}
+            <div className="absolute inset-0 bg-[#020617]/50 backdrop-blur-[2px]"></div>
+            <div className="absolute inset-0 bg-gradient-to-tr from-[#020617] via-[#020617]/60 to-blue-900/10"></div>
           </div>
 
-          {/* TEACHERS */}
-          <div>
-            <div className="text-center mb-16">
-              <h2 className="text-4xl font-black text-white mb-4 drop-shadow-lg">For Teachers</h2>
-              <p className="text-slate-400 text-lg">Powerful tools to automate your workflow.</p>
-            </div>
-
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-              
-              {/* SPOTLIGHT CARD: GOOGLE SLIDES */}
-              <div className="col-span-full md:col-span-2 lg:col-span-1 group relative rounded-[2rem] overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-600 to-indigo-800 opacity-90 transition-opacity"></div>
-                <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
+          <div className="relative z-10 flex flex-col lg:flex-row min-h-screen">
+            
+            {/* --- LEFT WING (Fixed & Top Aligned) --- */}
+            {/* Added h-screen to ensure full height coverage */}
+            <div className="
+                lg:fixed lg:top-0 lg:left-0 lg:h-screen lg:w-[45%] lg:z-20
+                flex flex-col justify-start p-8 lg:p-16 
+                border-r border-white/10 bg-[#020617]/40 backdrop-blur-xl shadow-2xl
+            ">
                 
-                <div className="relative h-full p-10 flex flex-col justify-between border border-white/20 rounded-[2rem]">
-                  <div>
-                    <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-lg flex items-center justify-center mb-6 shadow-inner border border-white/20">
-                      <PresentationChartLineIcon className="w-7 h-7 text-white" />
+                {/* 1. Header */}
+                <div className="flex items-center gap-4 mb-16">
+                    <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center backdrop-blur-md shadow-lg">
+                        <img src="/logo.png" alt="SRCS Logo" className="w-7 h-7 object-contain drop-shadow-md" />
                     </div>
-                    <h3 className="text-3xl font-bold text-white mb-4">Automated Slide Generation</h3>
-                    <p className="text-blue-100 text-lg leading-relaxed mb-8">
-                      Transform your topics into professional Google Slides presentations instantly using our AI engine.
-                    </p>
-                  </div>
-                  
-                  <div className="inline-flex items-center gap-3 px-4 py-2 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 w-fit">
-                    <BoltIcon className="w-5 h-5 text-yellow-300 animate-pulse" />
-                    <span className="font-bold text-white">Powered by AI</span>
-                  </div>
+                    <div>
+                        <h1 className="text-lg font-black text-white leading-none tracking-tight">SRCS</h1>
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-blue-300">Digital Ecosystem</span>
+                    </div>
                 </div>
-              </div>
 
-              <FeatureCard 
-                icon={DocumentTextIcon}
-                title="AI Document Hub"
-                desc="Generate comprehensive lessons, quizzes, and handouts in seconds using integrated AI."
-                color="from-indigo-400 to-violet-600"
-                iconColor="text-indigo-400"
-              />
-              <FeatureCard 
-                icon={ChartBarIcon}
-                title="Deep Analytics"
-                desc="Monitor student performance with detailed reports and AI-driven insights on learning gaps."
-                color="from-emerald-400 to-teal-600"
-                iconColor="text-emerald-400"
-              />
-              <FeatureCard 
-                icon={DevicePhoneMobileIcon}
-                title="Seamless Exports"
-                desc="Turn your lessons into professional PDF or Word documents with a single tap."
-                color="from-orange-400 to-red-500"
-                iconColor="text-orange-400"
-              />
-              <FeatureCard 
-                icon={AcademicCapIcon}
-                title="Class Management"
-                desc="Organize units, lessons, and students with an intuitive drag-and-drop interface."
-                color="from-cyan-400 to-blue-600"
-                iconColor="text-cyan-400"
-              />
+                {/* 2. Main Content (Top Aligned) */}
+                <div className="flex flex-col items-start gap-8">
+                    <div className="inline-flex items-center gap-3 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-400/30 text-blue-300 text-[10px] font-bold uppercase tracking-widest shadow-[0_0_15px_rgba(59,130,246,0.2)]">
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                        </span>
+                        System Online v2.0
+                    </div>
+                    
+                    <h2 className="text-5xl lg:text-7xl font-black text-white tracking-tighter leading-[0.95] drop-shadow-2xl">
+                        Education <br/>
+                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">
+                            Reimagined.
+                        </span>
+                    </h2>
+                    
+                    <p className="text-lg text-blue-100/90 font-medium max-w-md leading-relaxed drop-shadow-md">
+                        Welcome to the future of learning. Experience AI-driven automation, gamified progress, and seamless connectivity.
+                    </p>
+
+                    {/* Buttons */}
+                    <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto mt-4">
+                        <button 
+                            onClick={handleLaunch}
+                            className="group relative px-8 py-4 rounded-2xl bg-white text-slate-900 font-bold text-sm hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 overflow-hidden shadow-[0_0_30px_rgba(255,255,255,0.2)]"
+                        >
+                            <div className="absolute inset-0 bg-gradient-to-r from-indigo-50 to-white opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                            <span className="relative z-10 flex items-center gap-2">
+                                Launch Portal <ArrowRightIcon className="w-4 h-4" />
+                            </span>
+                        </button>
+                        
+                        <button 
+                            onClick={scrollToExplore}
+                            className="px-8 py-4 rounded-2xl bg-white/5 border border-white/10 text-white font-bold text-sm hover:bg-white/10 hover:border-white/20 transition-all flex items-center justify-center gap-2 backdrop-blur-sm"
+                        >
+                            <GlobeAltIcon className="w-4 h-4 text-blue-300" /> Explore
+                        </button>
+                    </div>
+                </div>
+
+                {/* 3. Footer (Pushed to bottom) */}
+                <div className="mt-auto pt-12 border-t border-white/10 w-full">
+                    <div className="flex gap-12 mb-8">
+                        <StatBadge number="24/7" label="Access" />
+                        <StatBadge number="100%" label="Uptime" />
+                        <StatBadge number="AI" label="Powered" />
+                    </div>
+                    <div className="flex gap-6 text-[10px] font-bold text-slate-300 uppercase tracking-wider">
+                        <Link to="#" className="hover:text-white transition-colors">Privacy</Link>
+                        <Link to="#" className="hover:text-white transition-colors">Terms</Link>
+                        <span className="ml-auto opacity-70">© 2026 SRCS Digital</span>
+                    </div>
+                </div>
             </div>
-          </div>
 
-        </section>
+            {/* --- RIGHT WING (Scrollable) --- */}
+            <div className="lg:w-[55%] lg:ml-[45%] relative z-10" id="explore">
+                <div className="p-6 lg:p-16 space-y-8 pb-32">
+                    
+                    {/* Section Header */}
+                    <div className="flex items-center gap-4 mb-8 opacity-90">
+                        <span className="text-xs font-bold uppercase tracking-widest text-white drop-shadow-md">System Capabilities</span>
+                        <div className="h-px flex-1 bg-gradient-to-r from-white/30 to-transparent"></div>
+                    </div>
 
-        {/* Footer */}
-        <footer className="py-12 text-center border-t border-white/5 bg-slate-900/80 backdrop-blur-xl">
-          <div className="flex justify-center gap-8 mb-6 text-sm font-bold text-slate-400">
-            <Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
-            <Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
+                    {/* HERO FEATURE CARD */}
+                    <div className="relative rounded-[2.5rem] overflow-hidden min-h-[320px] flex items-end p-10 border border-white/10 bg-[#0B1121]/60 backdrop-blur-md shadow-2xl hover:bg-[#0B1121]/70 transition-colors">
+                        <div className="absolute inset-0 bg-gradient-to-t from-[#020617] via-[#020617]/40 to-transparent z-10"></div>
+                        
+                        <div className="relative z-20 max-w-xl">
+                            <div className="w-16 h-16 rounded-2xl bg-indigo-600 flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(99,102,241,0.4)] border border-white/10">
+                                <BoltIcon className="w-8 h-8 text-white" />
+                            </div>
+                            <h3 className="text-3xl font-black text-white mb-4 drop-shadow-md">AI Auto-Pilot</h3>
+                            <p className="text-lg text-blue-100/90 leading-relaxed font-medium">
+                                Generating curriculum materials has never been faster. Our AI engine converts raw topics into formatted Google Slides, quizzes, and lesson plans in seconds.
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* FEATURE GRID */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <FeatureCard 
+                            icon={PresentationChartLineIcon}
+                            title="Smart Slides"
+                            desc="Auto-formatted slides with speaker notes generated instantly."
+                            fromColor="from-blue-500"
+                            toColor="to-cyan-500"
+                            delay="0ms"
+                        />
+                        <FeatureCard 
+                            icon={SparklesIcon}
+                            title="Gamified Growth"
+                            desc="Earn XP, unlock themes, and level up as you complete tasks."
+                            fromColor="from-amber-400"
+                            toColor="to-orange-600"
+                            delay="50ms"
+                        />
+                        <FeatureCard 
+                            icon={ChartBarIcon}
+                            title="Deep Analytics"
+                            desc="Real-time insight into performance gaps and attendance."
+                            fromColor="from-emerald-400"
+                            toColor="to-teal-500"
+                            delay="100ms"
+                        />
+                        <FeatureCard 
+                            icon={ChatBubbleLeftRightIcon}
+                            title="Social Campus"
+                            desc="Interactive feeds, class announcements, and reactions."
+                            fromColor="from-pink-500"
+                            toColor="to-rose-500"
+                            delay="150ms"
+                        />
+                        <FeatureCard 
+                            icon={DevicePhoneMobileIcon}
+                            title="Offline Ready"
+                            desc="Access content anywhere, anytime. Learning never stops."
+                            fromColor="from-slate-400"
+                            toColor="to-slate-600"
+                            delay="200ms"
+                        />
+                        <FeatureCard 
+                            icon={DocumentTextIcon}
+                            title="Docu-Vault"
+                            desc="Secure storage for all academic resources and files."
+                            fromColor="from-violet-500"
+                            toColor="to-purple-500"
+                            delay="250ms"
+                        />
+                    </div>
+
+                    {/* CTA Card */}
+                    <div className="relative rounded-[2.5rem] bg-gradient-to-br from-blue-900/80 to-indigo-900/80 p-12 text-center overflow-hidden shadow-2xl mt-8 border border-white/10 backdrop-blur-xl">
+                        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 mix-blend-overlay"></div>
+                        
+                        <div className="relative z-10 flex flex-col items-center">
+                            <CpuChipIcon className="w-16 h-16 text-white/50 mb-6" />
+                            <h3 className="text-2xl md:text-3xl font-black text-white mb-6">Ready to upgrade your workflow?</h3>
+                            <button 
+                                onClick={handleLaunch}
+                                className="px-10 py-4 rounded-2xl bg-white text-blue-900 font-bold text-sm hover:scale-105 active:scale-95 transition-all shadow-[0_0_40px_rgba(255,255,255,0.3)]"
+                            >
+                                Get Started Now
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
           </div>
-          <p className="text-xs text-slate-500 font-medium">
-            © 2026 SRCS Digital Ecosystem. All rights reserved.
-          </p>
-        </footer>
       </div>
-
-      <style>{`
-        @keyframes shimmer {
-            100% { transform: translateX(100%); }
-        }
-        .animate-shimmer {
-            animation: shimmer 1.5s infinite;
-        }
-      `}</style>
     </div>
   );
 };
-
-// --- NEW BEAUTIFUL CARD COMPONENT ---
-const FeatureCard = ({ icon: Icon, title, desc, color, iconColor }) => (
-  <div className="group relative rounded-[24px]">
-    {/* 1. Dynamic Glow Effect Behind Card */}
-    <div className={`absolute -inset-[1px] bg-gradient-to-br ${color} rounded-[24px] opacity-20 blur-sm group-hover:opacity-100 transition duration-500`}></div>
-    
-    {/* 2. Glass Container */}
-    <div className="relative h-full p-8 rounded-[23px] bg-slate-900/90 backdrop-blur-xl border border-white/10 group-hover:bg-slate-900/95 transition-all duration-300">
-      
-      {/* 3. Icon Container */}
-      <div className={`w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-6 shadow-[0_0_15px_rgba(255,255,255,0.05)] group-hover:scale-110 transition-transform duration-300 ${iconColor}`}>
-        <Icon className="w-6 h-6" />
-      </div>
-
-      <h3 className="text-xl font-bold text-white mb-3 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-slate-300 transition-all">
-        {title}
-      </h3>
-      
-      <p className="text-slate-400 leading-relaxed font-medium group-hover:text-slate-300 transition-colors">
-        {desc}
-      </p>
-
-      {/* 4. Decorative Top Right Shine */}
-      <div className="absolute top-0 right-0 p-6 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
-         <div className={`w-16 h-16 bg-gradient-to-br ${color} blur-[40px] rounded-full opacity-20`}></div>
-      </div>
-    </div>
-  </div>
-);
 
 export default LandingPage;
