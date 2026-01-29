@@ -37,8 +37,8 @@ const TeacherDashboard = () => {
     const segments = pathname.substring('/dashboard'.length).split('/');
     const pathSegment = segments[1];
     if (pathSegment === 'profile' && segments[2]) return 'publicProfile';
-    const validViews = ['lounge', 'studentManagement', 'classes', 'courses', 'analytics', 'profile', 'admin', 'elections'];
-    return validViews && validViews.includes(pathSegment) ? pathSegment : 'home';
+	const validViews = ['lounge', 'studentManagement', 'classes', 'courses', 'analytics', 'profile', 'admin', 'elections'];
+	return validViews.includes(pathSegment) ? pathSegment : 'home';
   }, []);
 
   const activeView = getActiveViewFromPath(location.pathname);
@@ -78,7 +78,7 @@ const TeacherDashboard = () => {
   const [categoryToEdit, setCategoryToEdit] = useState(null);
   const [classToEdit, setClassToEdit] = useState(null);
   const [subjectToActOn, setSubjectToActOn] = useState(null);
-  const [lessonsToProcessForPPT, setLessonsToProcessForPPT] = useState({});
+  const [lessonsToProcessForPPT, setLessonsToProcessForPPT] = useState({}); 
 
   // Chat State
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -115,6 +115,11 @@ const TeacherDashboard = () => {
   const [classOverviewModal, setClassOverviewModal] = useState({ isOpen: false, data: null });
   const [confirmArchiveModalState, setConfirmArchiveModalState] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} });
 
+  // 🔹 Custom Logout Handler for Teachers
+  const handleTeacherLogout = useCallback(() => {
+    logout('/login'); 
+  }, [logout]);
+
   // 6. Effects
   useEffect(() => {
     if (userProfile && messages.length === 0) {
@@ -131,8 +136,7 @@ const TeacherDashboard = () => {
   const archivedClasses = useMemo(() => classes.filter(c => c.isArchived), [classes]);
   const filteredLmsClasses = useMemo(() => {
     if (!importClassSearchTerm) return allLmsClasses;
-    // SAFEGUARD: Ensure c.name exists before lowercasing/including
-    return allLmsClasses.filter(c => c?.name && c.name.toLowerCase().includes(importClassSearchTerm.toLowerCase()));
+    return allLmsClasses.filter(c => c.name.toLowerCase().includes(importClassSearchTerm.toLowerCase()));
   }, [allLmsClasses, importClassSearchTerm]);
 
   // 8. Event Handlers
@@ -208,7 +212,7 @@ const TeacherDashboard = () => {
     toggleModal('deleteGeneric', true);
   }, []);
 
-  // --- Presentation Handlers (FIXED with safeguards) ---
+  // --- Presentation Handlers ---
   const handleConfirmBetaWarning = useCallback(async (neverShow, dataOverride = null) => {
     if (neverShow) localStorage.setItem('hidePresentationBetaWarning', 'true');
     toggleModal('betaWarning', false);
@@ -224,9 +228,7 @@ const TeacherDashboard = () => {
     }
   
     const { ids, data, units, subject } = sourceData;
-  
-    // Use the explicitly passed subject; fallback to activeSubject, else default object
-    const subjectToUse = subject || activeSubject || { title: 'General Knowledge', name: 'General Knowledge' };
+    const subjectToUse = subject || activeSubject;
 
     const success = await generatePreview(ids, data, subjectToUse, units);
     if (success) toggleModal('presentationPreview', true);
@@ -240,7 +242,6 @@ const TeacherDashboard = () => {
         subject: subjectOverride 
     };
 
-    // Store state for Modal scenario
     setLessonsToProcessForPPT(payload);
   
     const hideWarn = localStorage.getItem('hidePresentationBetaWarning');
@@ -280,11 +281,23 @@ const TeacherDashboard = () => {
   // Misc Handlers
   const handleUpdateProfile = async (data) => {
     try {
-        await firestoreService.updateUserProfile(user.uid, data);
+        // FIX: Ensure we have a valid ID. If 'user' is undefined (due to reload/race condition), fallback to userProfile.id
+        const uid = user?.uid || userProfile?.id;
+        
+        if (!uid) {
+            console.error("Critical Error: No user ID found for profile update.");
+            showToast('Unable to identify user. Please refresh.', 'error');
+            return;
+        }
+
+        await firestoreService.updateUserProfile(uid, data);
         await refreshUserProfile();
         showToast('Profile updated!', 'success');
         toggleModal('editProfile', false);
-    } catch (e) { showToast('Update failed.', 'error'); }
+    } catch (e) { 
+        console.error("Profile update error:", e);
+        showToast('Update failed.', 'error'); 
+    }
   };
 
   const handleUpdateLesson = useCallback((updatedLesson) => {
@@ -311,7 +324,7 @@ const TeacherDashboard = () => {
         userProfile={userProfile}
         loading={dataLoading || authLoading}
         error={error}
-        logout={logout}
+        logout={handleTeacherLogout} // 🔹 UPDATED: Uses custom logout
         showToast={showToast}
         
         // --- Navigation ---

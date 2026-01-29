@@ -335,7 +335,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
 
     const extractTextFromFile = async (fileToProcess) => {
         // --- DYNAMIC IMPORTS FOR PERFORMANCE ---
-        // These libraries are heavy. We only load them when the user actually starts processing.
         
         // 1. Handle PDF
         if (fileToProcess.type === 'application/pdf') {
@@ -354,9 +353,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                 let pageText = '';
 
                 for (const item of content.items) {
-                    // Skip empty items
                     if (!item.str || item.str.trim().length === 0) continue;
-
                     const currentY = item.transform ? item.transform[5] : -1; // Y-coordinate
                 
                     // DETECT NEW LINE:
@@ -365,10 +362,8 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                     } else {
                         pageText += (pageText.endsWith(' ') || item.str.startsWith(' ') ? '' : ' ') + item.str;
                     }
-                
                     lastY = currentY;
                 }
-                // Add double newline between pages
                 fullText += pageText + '\n\n';
             }
             return fullText;
@@ -392,20 +387,16 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
     // --- PROMPTS AND INSTRUCTIONS ---
 
     const getBasePromptContext = () => {
-    const languageAndGradeInstruction = `
-        **TARGET AUDIENCE (NON-NEGOTIABLE):**
-        - **Context:** Philippines K-12 Curriculum (DepEd MATATAG Standards).
-        - **Grade Level:** Grade ${gradeLevel}. Ensure content aligns with the specific learning competencies for this grade level in the Philippines.
-        - **Localization:** Use Filipino names (e.g., Juan, Maria), local currency (PHP/Pesos), and local examples (e.g., jeepneys, barangays) in examples.
-        - **Language:** The entire output MUST be written in **${language}**.
-    
-        ${language === 'English' ? `
-        - **CRITICAL LANGUAGE RULE:** Use standard English grammar and sentence structure at all times. Do NOT use Taglish. Only use Filipino words (like 'barangay' or 'kamusta') if they are proper nouns or specific cultural terms that have no direct English equivalent.` : ''}
+        // UPDATED: Removed Philippines/DepEd context context to focus on fidelity and neutrality
+        const languageAndGradeInstruction = `
+            **TARGET AUDIENCE & TONE:**
+            - **Grade Level:** Grade ${gradeLevel}. 
+            - **Language:** The entire output MUST be written in **${language}**.
+            - **Tone:** Academic, clear, objective, and faithful to the source material.
+            - **Fidelity:** Do not add external cultural context unless it exists in the source text.
+        `;
 
-        ${language === 'Filipino' ? `
-        - **CRITICAL FILIPINO LANGUAGE RULE:** Use formal, academic Filipino (Wikang Pambansa). Avoid colloquial "Taglish" unless explicitly framing it as informal dialogue.` : ''}
-    `;
-
+        // --- CATHOLIC PERSPECTIVE LOGIC (RESTORED) ---
         const selectedSubjectData = subjects.find(s => s.id === selectedSubject);
         const catholicSubjects = ["Christian Social Living 7-10", "Religious Education 11-12"];
         let perspectiveInstruction = '';
@@ -416,15 +407,15 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         }
 
         const standardsInstruction = `
-        **UNIT STANDARDS (NON-NEGOTIABLE CONTEXT):**
+        **UNIT STANDARDS:**
         - **Content Standard:** ${contentStandard || "Not provided."}
         - **Performance Standard:** ${performanceStandard || "Not provided."}
-        - **Learning Competencies (Master List):** ${learningCompetencies || "Not provided."}
+        - **Learning Competencies:** ${learningCompetencies || "Not provided."}
         `;
 
         return {
             languageAndGradeInstruction,
-            perspectiveInstruction,
+            perspectiveInstruction, 
             standardsInstruction,
         };
     };
@@ -433,7 +424,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         const { languageAndGradeInstruction, perspectiveInstruction, standardsInstruction } = baseContext;
         
         return `
-        You are an expert curriculum planner. Your *only* task is to read the provided source text and curriculum context, and then generate a *plan* (a JSON array of lessons).
+        You are an expert content synthesizer. Your *only* task is to read the provided source text and generate a *plan* (a JSON array of lessons) that mirrors the source content.
         
         ${languageAndGradeInstruction}
         ${perspectiveInstruction}
@@ -454,10 +445,6 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
 
         **WHEN TO CREATE MULTIPLE LESSONS (STRICT CRITERIA):**
         - Only create a second lesson object if the source text explicitly says "LESSON 2" or "CHAPTER 2" with a completely different subject matter.
-        - If the file is just a long explanation of one topic (e.g., "The Water Cycle"), it must remain **ONE** lesson.
-
-        **RULE FOR UNIT OVERVIEW:**
-        - Do NOT create a "Unit Overview" lesson unless the file is explicitly a Syllabus or Table of Contents. If it is standard reading material, skip the Unit Overview.
 
         **JSON OUTPUT FORMAT:**
         {
@@ -504,34 +491,25 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
         
         **CRITICAL TABLE HANDLING RULE:**
         - If you encounter text in the source that looks like a table (rows of data, unstructured lists), you MUST reconstruct it into a valid Markdown table.
-        - **Do not** list the raw data as a jumbled paragraph.
-        - **Look for patterns:** If you see "Term... Definition... Term... Definition...", format it as a 2-column table.
         `;
 
         const masterInstructions = `
-        **Persona and Tone:** Adopt the persona of a **passionate expert lecturer** who loves the subject.
-        - **Goal:** Your goal is to provide a **comprehensive and immersive** learning experience.
-        - **Tone:** Enthusiastic, articulate, and detailed. Avoid being dry or robotic.
+        **Persona and Tone:** Adopt the persona of a **Precise Content Synthesizer**.
+        - **Goal:** Your goal is to provide a **high-fidelity paraphrase** of the source material.
+        - **Tone:** Objective, clear, and comprehensive. 
         ${baseContext.perspectiveInstruction}
 
         **CRITICAL "INVISIBLE SOURCE" RULE (NON-NEGOTIABLE):**
         - **NO META-COMMENTARY:** You are strictly forbidden from using phrases like "The source text says," "According to the document," "The file mentions," or "As shown in the PDF."
-        - **Direct Authority:** Present the information as direct facts coming from YOU, the expert.
-        - **Bad Example:** "The source text states that mitochondria are the powerhouse of the cell."
-        - **Good Example:** "Mitochondria act as the powerhouse of the cell. Think of them like tiny generators..."
-
+        - **Direct Authority:** Present the information as direct facts.
+        
         **CRITICAL "UNPACKING" RULE:**
-        - **NEVER SUMMARIZE:** Your job is not to make the text shorter. Your job is to make it **clearer and richer**.
-        - **Explain the "Why":** Don't just list facts. Explain the mechanisms, reasons, and implications behind the facts found in the Source Text.
-        - **Narrative Structure:** Treat the lesson like a story. Connect concepts logically rather than just listing them.
+        - **NEVER SUMMARIZE TO CUT CONTENT:** Your job is not to make the text shorter. Your job is to make it **readable and organized**.
+        - **Explain the "Why":** Don't just list facts. Explain the mechanisms, reasons, and implications behind the facts *as found in the Source Text*.
 
         **CRITICAL FIDELITY & SUPPORT:**
         - **Source Anchor:** All core definitions and key points must come from the Source Text.
-        - **Reliable Expansion:** You are encouraged to use your internal knowledge to provide **context, analogies, and historical background** to make the Source Text come alive.
-        - **Fact Check:** Do not invent data. If adding an example, it must be a standard, verifiable academic example.
-
-        **CRITICAL INSTRUCTION FOR INTERACTIVITY:**
-        - Embed "Think About It" or "Real World Connection" callouts using Markdown blockquotes (\`>\`) to break up long sections of text without losing depth.
+        - **Fact Check:** Do not invent data. Do not add examples that are not in the source text unless strictly necessary for basic comprehension.
     `;
         return { styleRules, masterInstructions };
     };
@@ -583,8 +561,8 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
     
                 jsonFormat = `{
                   "page": {
-                    "title": "A Captivating Thematic Title",
-                    "content": "Engaging intro markdown...",
+                    "title": "Introduction",
+                    "content": "Intro markdown...",
                     "imagePrompt": "Detailed prompt for image generation...",
                     "figureLabel": "Figure 1: Overview of [Topic]"
                   }
@@ -636,31 +614,24 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
 			                - **EXCLUSIVE SCOPE:** Scan the Source Text *only* for information specifically related to "${currentTitle}".
 			                - **BOUNDARIES:** Do NOT re-define concepts from [${previousTitles}]. Do NOT jump ahead to [${nextTitles}].
 
-			                **CRITICAL RULE: THE "TWIN ENHANCED COPY" PROTOCOL (NON-NEGOTIABLE):**
-			                You are NOT a summarizer. You are a **CONTENT RESTORATION ENGINE**. You must follow this strict 2-Phase Hierarchy:
+			                **CRITICAL RULE: THE "TWIN MIRROR" PROTOCOL (NON-NEGOTIABLE):**
+			                You are NOT a creative writer. You are a **FIDELITY ENGINE**. 
 
-			                **PHASE 1: THE TWIN MIRROR (90% of Content - The Source Authority)**
+			                **ABSOLUTE REQUIREMENT (100% of Content)**
 			                - **Goal:** Create a **detail-rich, high-fidelity paraphrase** of the Source Text.
 			                - **NO CONDENSATION:** If the source text devotes 5 sentences to explaining a specific mechanism, you must also devote at least 5 sentences to it. Do NOT compress a paragraph into a bullet point.
 			                - **PRESERVE SPECIFICS:** You must capture every **date**, **name**, **number**, **step**, and **original example** found in the source text.
-			                    - *Example:* If the source mentions "The 1986 EDSA Revolution," you must discuss the 1986 EDSA Revolution. Do not swap it for a different event.
+			                    - *Example:* If the source mentions "The Battle of Hastings", discuss the Battle of Hastings. Do not swap it for a different battle.
 			                - **ENHANCEMENT:** Your only liberty is to improve the *flow* and *clarity* of the writing. Fix the grammar, make the tone engaging, but keep the **information density** exactly the same as the source.
+                            - **NO EXTERNAL CONTEXT:** Do not force connections to countries or cultures not mentioned in the source.
 
-			                **PHASE 2: THE SUPPLEMENTARY BRIDGE (10% of Content - Local Context)**
-			                - **Goal:** Make the content relatable *without* removing the original context.
-			                - **Placement:** This comes *only* after you have fully explained the concept using the Source Text's details.
-			                - **Method:** Use a "Supplementary Bridge" sentence:
-			                  - *"To visualize this in our local setting..."*
-			                  - *"A similar concept applies in the Philippines when..."*
-			                - **Constraint:** These are SIDE NOTES. They must never replace the main content.
-
-			                **CONTENT STRUCTURE & TONE:**
+			                **CONTENT STRUCTURE:**
 			                - **Deep Dive:** Start immediately with the specific details of "${currentTitle}".
 			                - **Academic Storytelling:** Write in full, rich paragraphs. Use bullet points *only* if the source text explicitly uses a list.
 			                - **Bold Key Terms:** When you hit a major term from the source, **bold it**, then ensure the surrounding text fully explains it as the source does.
                 
 			                **TONE:**
-			                - **Expert & Engaging:** Speak with the confidence of a professor, but the clarity of a storyteller.`;
+			                - **Expert & Objective:** Speak with the confidence of a professor and the neutrality of a textbook.`;
                 
 			                jsonFormat = `{
 			                      "page": {
@@ -683,7 +654,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                 break;
             
             case 'WrapUp':
-                taskInstruction = `Generate the "Wrap-Up" page. Motivational closure.`;
+                taskInstruction = `Generate the "Wrap-Up" page. Academic closure.`;
                 jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "Wrap-Up",\n    "content": "Closure..."\n  }\n}`;
                 break;
 
@@ -698,7 +669,7 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
                 break;
 
             case 'References':
-                taskInstruction = `Generate the "References" page. Academic-style reference list.`;
+                taskInstruction = `Generate the "References" page. Academic-style reference list based on the source text.`;
                 jsonFormat = `Your response MUST be *only* this JSON object:\n{\n  "page": {\n    "title": "References",\n    "content": "- Source 1..."\n  }\n}`;
                 break;
             
@@ -805,10 +776,12 @@ export default function AiLessonGenerator({ onClose, onBack, unitId, subjectId }
 
             let extractedText = await extractTextFromFile(file);
             if (!isMounted.current || signal.aborted) return;
+            // Clean up text
             extractedText = extractedText.replace(/₱/g, 'PHP ');
             
             // --- INCREASED TRUNCATION LIMIT FOR FULL CONTEXT ---
-            const sourceText = extractedText.substring(0, 10000); 
+            // Bumped to 50k to ensure we read the ENTIRE file for fidelity.
+            const sourceText = extractedText.substring(0, 50000); 
             
             // --- PHASE 2: PLANNING (5% -> 15%) ---
             setCurrentAction('Creating curriculum outline and lesson map...');

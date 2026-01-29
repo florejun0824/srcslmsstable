@@ -60,7 +60,8 @@ export const AuthProvider = ({ children }) => {
     []
   );
 
-  const performLogout = useCallback(() => {
+  // 🔹 MODIFIED: Accept redirectPath, defaulting to '/' (Landing Page)
+  const performLogout = useCallback((redirectPath = '/') => {
     console.log('Performing full logout.');
     setUser(null);
     localStorage.removeItem('loggedInUser');
@@ -69,7 +70,7 @@ export const AuthProvider = ({ children }) => {
     }
     currentSessionId.current = null;
     setIsSessionConflictModalOpen(false);
-    window.location.href = '/';
+    window.location.href = redirectPath; // ✅ Uses the passed path
   }, [user]);
 
   // 🔹 Restore logged in user from localStorage
@@ -269,8 +270,8 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  // 🔹 Logout
-  const logout = useCallback(async () => {
+  // 🔹 Logout - Modified to accept redirectPath
+  const logout = useCallback(async (redirectPath = '/') => {
     if (user && user.id) {
       try {
         const userDocRef = doc(db, 'users', user.id);
@@ -279,7 +280,7 @@ export const AuthProvider = ({ children }) => {
         console.error('Error clearing session ID from Firestore:', error);
       }
     }
-    performLogout();
+    performLogout(redirectPath); // ✅ Pass redirectPath to performLogout
   }, [user, performLogout]);
 
   // 🔹 Refresh user profile

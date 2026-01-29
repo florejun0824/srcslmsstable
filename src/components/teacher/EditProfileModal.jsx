@@ -2,7 +2,9 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 
-import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+// REMOVED: Firebase Storage imports
+// import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+
 import imageCompression from 'browser-image-compression';
 import { 
     IconX, 
@@ -141,7 +143,7 @@ const CustomSelect = ({ value, onChange, options, placeholder, themeStyles }) =>
             <button
                 type="button"
                 onClick={() => setIsOpen(prev => !prev)}
-                className={`w-full border rounded-xl px-4 py-2.5 flex justify-between items-center text-left cursor-pointer transition-all font-medium text-sm`}
+                className={`w-full border rounded-xl px-4 py-3 flex justify-between items-center text-left cursor-pointer transition-all font-medium text-sm hover:brightness-110`}
                 style={{ 
                     backgroundColor: themeStyles.inputBg, 
                     color: themeStyles.textColor,
@@ -161,11 +163,11 @@ const CustomSelect = ({ value, onChange, options, placeholder, themeStyles }) =>
             <AnimatePresence>
                 {isOpen && (
                     <motion.div
-                        initial={{ opacity: 0, y: 5, scale: 0.95 }}
+                        initial={{ opacity: 0, y: 5, scale: 0.98 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 5, scale: 0.95 }}
+                        exit={{ opacity: 0, y: 5, scale: 0.98 }}
                         transition={{ duration: 0.15 }}
-                        className="absolute z-50 top-full mt-2 w-full max-h-48 overflow-y-auto custom-scrollbar backdrop-blur-xl rounded-xl shadow-xl ring-1 ring-black/5 p-1.5 border"
+                        className="absolute z-[60] top-full mt-2 w-full max-h-56 overflow-y-auto custom-scrollbar backdrop-blur-2xl rounded-xl shadow-2xl ring-1 ring-white/10 p-1.5 border"
                         style={{ 
                             backgroundColor: themeStyles.modalBg,
                             borderColor: themeStyles.borderColor
@@ -174,11 +176,13 @@ const CustomSelect = ({ value, onChange, options, placeholder, themeStyles }) =>
                         {options.map(option => (
                             <button
                                 key={option.value}
-                                onClick={() => {
+                                onClick={(e) => {
+                                    e.preventDefault(); 
+                                    e.stopPropagation(); // BUG FIX: Prevents clicking elements behind
                                     onChange(option.value);
                                     setIsOpen(false);
                                 }}
-                                className={`w-full flex items-center justify-between p-2.5 rounded-lg text-sm font-medium transition-colors`}
+                                className={`w-full flex items-center justify-between p-2.5 rounded-lg text-sm font-medium transition-colors hover:bg-white/10`}
                                 style={{ 
                                     color: value === option.value ? themeStyles.accentText : themeStyles.textColor,
                                     backgroundColor: value === option.value ? themeStyles.innerPanelBg : 'transparent'
@@ -210,8 +214,8 @@ const EditProfileModal = ({
     const themeStyles = getThemeStyles(activeOverlay);
 
     // --- Styles ---
-    const labelStyle = `block text-xs font-bold mb-1.5 uppercase tracking-wide ml-1`;
-    const glassInput = `w-full border rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-medium text-sm`;
+    const labelStyle = `block text-xs font-bold mb-2 uppercase tracking-wide ml-1 opacity-70`;
+    const glassInput = `w-full border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-medium text-sm`;
 
     const baseButtonStyles = `relative font-semibold rounded-full transition-all duration-300 flex items-center justify-center gap-2 active:scale-95 tracking-wide shrink-0 select-none focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed`;
     const primaryButton = `${baseButtonStyles} px-6 py-3 text-sm text-white bg-gradient-to-b from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 shadow-lg shadow-blue-500/30 border-t border-white/20 w-full`;
@@ -234,9 +238,7 @@ const EditProfileModal = ({
     
     // --- Upload/Loading State ---
     const [isUploading, setIsUploading] = useState(false); 
-    const [uploadProgress, setUploadProgress] = useState(0); 
     const [isUploadingProfile, setIsUploadingProfile] = useState(false);
-    const [profileUploadProgress, setProfileUploadProgress] = useState(0);
     const [loading, setLoading] = useState(false); 
 
     // --- Draggable Cover Photo State ---
@@ -297,42 +299,70 @@ const EditProfileModal = ({
         document.addEventListener('mouseup', handleCoverDragEnd);
     };
 
-    // --- Upload Handlers ---
+    // --- Helper: Cloudinary Upload ---
+    const uploadToCloudinary = async (file) => {
+        const cloudName = "de2uhc6gl"; 
+        const uploadPreset = "teacher_posts"; 
+        const folder = "teacher_posts";
+
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("upload_preset", uploadPreset);
+        formData.append("folder", folder);
+
+        const response = await fetch(
+            `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, 
+            { method: "POST", body: formData }
+        );
+
+        if (!response.ok) throw new Error("Image upload failed");
+        const data = await response.json();
+        return data.secure_url;
+    };
+
+    // --- Upload Handlers (Modified for Cloudinary) ---
     const handleProfileFileChange = async (event) => {
         const file = event.target.files[0];
         if (!file) return;
+        
         setIsUploadingProfile(true);
-        setProfileUploadProgress(0);
         try {
+            // Compress
             const compressedFile = await imageCompression(file, { maxSizeMB: 0.5, maxWidthOrHeight: 800, useWebWorker: true });
-            const storage = getStorage();
-            const storageRef = ref(storage, `profile_photos/${userProfile.id}/${Date.now()}_${compressedFile.name}`);
-            const uploadTask = uploadBytesResumable(storageRef, compressedFile);
-            uploadTask.on('state_changed', 
-                (snapshot) => setProfileUploadProgress((snapshot.bytesTransferred / snapshot.totalBytes) * 100),
-                (error) => { console.error(error); alert("Upload failed."); setIsUploadingProfile(false); }, 
-                () => getDownloadURL(uploadTask.snapshot.ref).then((url) => { setPhotoURL(url); setIsUploadingProfile(false); setProfileUploadProgress(100); })
-            );
-        } catch (error) { console.error(error); setIsUploadingProfile(false); }
+            
+            // Upload
+            const url = await uploadToCloudinary(compressedFile);
+            
+            setPhotoURL(url);
+        } catch (error) { 
+            console.error(error); 
+            alert("Upload failed. Please try again."); 
+        } finally {
+            setIsUploadingProfile(false);
+        }
     };
 
     const handleFileChange = async (event) => {
         const file = event.target.files[0];
         if (!file) return;
+
         setIsUploading(true);
-        setUploadProgress(0);
         setCoverPhotoPosition('50% 50%');
+        
         try {
+            // Compress
             const compressedFile = await imageCompression(file, { maxSizeMB: 0.5, maxWidthOrHeight: 1920, useWebWorker: true });
-            const storage = getStorage();
-            const storageRef = ref(storage, `cover_photos/${userProfile.id}/${Date.now()}_${compressedFile.name}`);
-            const uploadTask = uploadBytesResumable(storageRef, compressedFile);
-            uploadTask.on('state_changed', 
-                (snapshot) => setUploadProgress((snapshot.bytesTransferred / snapshot.totalBytes) * 100),
-                (error) => { console.error(error); alert("Upload failed."); setIsUploading(false); }, 
-                () => getDownloadURL(uploadTask.snapshot.ref).then((url) => { setCoverPhotoURL(url); setIsUploading(false); setUploadProgress(100); })
-            );
-        } catch (error) { console.error(error); setIsUploading(false); }
+            
+            // Upload
+            const url = await uploadToCloudinary(compressedFile);
+            
+            setCoverPhotoURL(url);
+        } catch (error) { 
+            console.error(error); 
+            alert("Upload failed. Please try again."); 
+        } finally {
+            setIsUploading(false);
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -364,7 +394,7 @@ const EditProfileModal = ({
                         key="modal-container"
                         className="fixed inset-0 z-[100] flex items-center justify-center p-4"
                     >
-                        {/* Backdrop - Reduced blur */}
+                        {/* Backdrop */}
                         <motion.div 
                             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                             onClick={onClose}
@@ -385,7 +415,6 @@ const EditProfileModal = ({
                         >
                             {/* --- Header & Cover Photo --- */}
                             <div className="relative flex-shrink-0 group/cover">
-                                {/* Close Button */}
                                 <button onClick={onClose} className="absolute top-4 right-4 z-20 p-2 rounded-full bg-black/20 hover:bg-black/40 backdrop-blur-md text-white border border-white/20 shadow-sm transition-all">
                                     <IconX size={20} />
                                 </button>
@@ -415,36 +444,35 @@ const EditProfileModal = ({
                                             </div>
                                         )}
 
-                                        {/* Uploading Overlay */}
                                         {isUploading && (
                                             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm">
                                                 <IconLoader className="animate-spin text-white mb-2" />
-                                                <span className="text-white text-xs font-bold">{Math.round(uploadProgress)}%</span>
+                                                {/* Removed percentage text as generic fetch doesn't support it */}
+                                                <span className="text-white text-xs font-bold">Uploading...</span>
                                             </div>
                                         )}
                                     </div>
                                     
-                                    {/* Drag Hint Overlay */}
+                                    {/* Drag Hint */}
                                     {coverPhotoURL && !isUploading && (
                                         <div className={`absolute inset-0 pointer-events-none flex items-center justify-center bg-black/20 transition-opacity duration-300 ${isDraggingCover ? 'opacity-0' : 'opacity-0 group-hover/cover:opacity-100'}`}>
                                             <span className="text-white/80 text-xs font-bold uppercase tracking-widest drop-shadow-md">Drag to Reposition</span>
                                         </div>
                                     )}
 
-                                    {/* Cover Upload Button */}
                                     <label className="absolute bottom-3 right-3 p-2 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white cursor-pointer transition-all border border-white/20 shadow-lg">
                                         <IconUpload size={16} />
                                         <input type="file" className="sr-only" accept="image/*" onChange={handleFileChange} disabled={isUploading} />
                                     </label>
                                 </div>
 
-                                {/* Profile Photo Area (Overlapping) */}
-                                <div className="absolute -bottom-12 left-6">
+                                {/* Profile Photo Area */}
+                                {/* CLICK FIX: z-30 ensures this sits above the scrollable content container */}
+                                <div className="absolute -bottom-12 left-6 z-30">
                                     <div className="relative w-24 h-24 rounded-full p-1 bg-black/30 backdrop-blur-md ring-1 ring-white/20 shadow-2xl">
                                         <div className="w-full h-full rounded-full overflow-hidden bg-slate-800 relative">
                                             <UserInitialsAvatar user={{...userProfile, photoURL: photoURL}} size="full" className="w-full h-full text-3xl" effectsEnabled={false} />
                                             
-                                            {/* Profile Upload Overlay */}
                                             <label className="absolute inset-0 bg-black/30 hover:bg-black/50 transition-colors flex items-center justify-center cursor-pointer group">
                                                 <IconCamera className="text-white opacity-0 group-hover:opacity-100 transform scale-75 group-hover:scale-100 transition-all" />
                                                 <input type="file" className="sr-only" accept="image/*" onChange={handleProfileFileChange} disabled={isUploadingProfile} />
@@ -452,7 +480,7 @@ const EditProfileModal = ({
 
                                             {isUploadingProfile && (
                                                 <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-20">
-                                                    <span className="text-white text-xs font-bold">{Math.round(profileUploadProgress)}%</span>
+                                                    <IconLoader className="animate-spin text-white" />
                                                 </div>
                                             )}
                                         </div>
@@ -461,136 +489,137 @@ const EditProfileModal = ({
                             </div>
 
                             {/* --- Form Body --- */}
-                            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto custom-scrollbar pt-14 px-6 pb-6">
-                                <div className="space-y-6">
-                                    <div>
-                                        <h2 className={headingStyle + " text-2xl"} style={{ color: themeStyles.textColor }}>Edit Profile</h2>
-                                        <p className="text-sm opacity-60" style={{ color: themeStyles.textColor }}>Update your personal details.</p>
-                                    </div>
+                            <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+                                <div className="flex-1 overflow-y-auto custom-scrollbar pt-14 px-6 pb-6">
+                                    <div className="space-y-6">
+                                        <div>
+                                            <h2 className={headingStyle + " text-2xl"} style={{ color: themeStyles.textColor }}>Edit Profile</h2>
+                                            <p className="text-sm opacity-60" style={{ color: themeStyles.textColor }}>Update your personal details.</p>
+                                        </div>
 
-                                    {/* Inputs */}
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label htmlFor="firstName" className={labelStyle} style={{ color: themeStyles.textColor, opacity: 0.7 }}>First Name</label>
-                                            <input 
-                                                type="text" 
-                                                id="firstName" 
-                                                value={firstName} 
-                                                onChange={(e) => setFirstName(e.target.value)} 
-                                                className={glassInput}
-                                                style={{ backgroundColor: themeStyles.inputBg, color: themeStyles.textColor, borderColor: 'transparent' }}
-                                                required 
-                                            />
-                                        </div>
-                                        <div>
-                                            <label htmlFor="lastName" className={labelStyle} style={{ color: themeStyles.textColor, opacity: 0.7 }}>Last Name</label>
-                                            <input 
-                                                type="text" 
-                                                id="lastName" 
-                                                value={lastName} 
-                                                onChange={(e) => setLastName(e.target.value)} 
-                                                className={glassInput}
-                                                style={{ backgroundColor: themeStyles.inputBg, color: themeStyles.textColor, borderColor: 'transparent' }}
-                                                required 
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label className={labelStyle} style={{ color: themeStyles.textColor, opacity: 0.7 }}>Bio</label>
-                                        <div 
-                                            className="rounded-xl overflow-hidden border"
-                                            style={{ backgroundColor: themeStyles.inputBg, borderColor: 'transparent', color: themeStyles.textColor }}
-                                        >
-                                            <ReactQuill theme="snow" value={bio} onChange={setBio} modules={quillModules} placeholder="Tell us about yourself..." />
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-4">
-                                        <div>
-                                            <label htmlFor="work" className={labelStyle} style={{ color: themeStyles.textColor, opacity: 0.7 }}>Work</label>
-                                            <input 
-                                                type="text" 
-                                                id="work" 
-                                                value={work} 
-                                                onChange={(e) => setWork(e.target.value)} 
-                                                className={glassInput}
-                                                style={{ backgroundColor: themeStyles.inputBg, color: themeStyles.textColor, borderColor: 'transparent' }}
-                                                placeholder="Where do you work?" 
-                                            />
-                                        </div>
-                                        <div>
-                                            <label htmlFor="education" className={labelStyle} style={{ color: themeStyles.textColor, opacity: 0.7 }}>Education</label>
-                                            <input 
-                                                type="text" 
-                                                id="education" 
-                                                value={education} 
-                                                onChange={(e) => setEducation(e.target.value)} 
-                                                className={glassInput}
-                                                style={{ backgroundColor: themeStyles.inputBg, color: themeStyles.textColor, borderColor: 'transparent' }}
-                                                placeholder="Where did you study?" 
-                                            />
-                                        </div>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-2 gap-4">
                                             <div>
-                                                <label htmlFor="current_city" className={labelStyle} style={{ color: themeStyles.textColor, opacity: 0.7 }}>Current City</label>
+                                                <label htmlFor="firstName" className={labelStyle} style={{ color: themeStyles.textColor }}>First Name</label>
                                                 <input 
                                                     type="text" 
-                                                    id="current_city" 
-                                                    value={current_city} 
-                                                    onChange={(e) => setCurrentCity(e.target.value)} 
+                                                    id="firstName" 
+                                                    value={firstName} 
+                                                    onChange={(e) => setFirstName(e.target.value)} 
                                                     className={glassInput}
                                                     style={{ backgroundColor: themeStyles.inputBg, color: themeStyles.textColor, borderColor: 'transparent' }}
+                                                    required 
                                                 />
                                             </div>
                                             <div>
-                                                <label htmlFor="hometown" className={labelStyle} style={{ color: themeStyles.textColor, opacity: 0.7 }}>Hometown</label>
+                                                <label htmlFor="lastName" className={labelStyle} style={{ color: themeStyles.textColor }}>Last Name</label>
                                                 <input 
                                                     type="text" 
-                                                    id="hometown" 
-                                                    value={hometown} 
-                                                    onChange={(e) => setHometown(e.target.value)} 
+                                                    id="lastName" 
+                                                    value={lastName} 
+                                                    onChange={(e) => setLastName(e.target.value)} 
                                                     className={glassInput}
                                                     style={{ backgroundColor: themeStyles.inputBg, color: themeStyles.textColor, borderColor: 'transparent' }}
+                                                    required 
                                                 />
                                             </div>
                                         </div>
+
                                         <div>
-                                            <label htmlFor="mobile_phone" className={labelStyle} style={{ color: themeStyles.textColor, opacity: 0.7 }}>Mobile Phone</label>
-                                            <input 
-                                                type="tel" 
-                                                id="mobile_phone" 
-                                                value={mobile_phone} 
-                                                onChange={(e) => setMobilePhone(e.target.value)} 
-                                                className={glassInput}
-                                                style={{ backgroundColor: themeStyles.inputBg, color: themeStyles.textColor, borderColor: 'transparent' }}
-                                            />
-                                        </div>
-                                        
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                            <div>
-                                                <label className={labelStyle} style={{ color: themeStyles.textColor, opacity: 0.7 }}>Relationship Status</label>
-                                                <CustomSelect value={relationship_status} onChange={setRelationshipStatus} options={relationshipOptions} placeholder="Select status..." themeStyles={themeStyles} />
+                                            <label className={labelStyle} style={{ color: themeStyles.textColor }}>Bio</label>
+                                            <div 
+                                                className="rounded-xl overflow-hidden border"
+                                                style={{ backgroundColor: themeStyles.inputBg, borderColor: 'transparent', color: themeStyles.textColor }}
+                                            >
+                                                <ReactQuill theme="snow" value={bio} onChange={setBio} modules={quillModules} placeholder="Tell us about yourself..." />
                                             </div>
-                                            {(relationship_status === 'In a Relationship' || relationship_status === 'Married') && (
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label htmlFor="work" className={labelStyle} style={{ color: themeStyles.textColor }}>Work</label>
+                                                <input 
+                                                    type="text" 
+                                                    id="work" 
+                                                    value={work} 
+                                                    onChange={(e) => setWork(e.target.value)} 
+                                                    className={glassInput}
+                                                    style={{ backgroundColor: themeStyles.inputBg, color: themeStyles.textColor, borderColor: 'transparent' }}
+                                                    placeholder="Where do you work?" 
+                                                />
+                                            </div>
+                                            <div>
+                                                <label htmlFor="education" className={labelStyle} style={{ color: themeStyles.textColor }}>Education</label>
+                                                <input 
+                                                    type="text" 
+                                                    id="education" 
+                                                    value={education} 
+                                                    onChange={(e) => setEducation(e.target.value)} 
+                                                    className={glassInput}
+                                                    style={{ backgroundColor: themeStyles.inputBg, color: themeStyles.textColor, borderColor: 'transparent' }}
+                                                    placeholder="Where did you study?" 
+                                                />
+                                            </div>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                                 <div>
-                                                    <label htmlFor="partner" className={labelStyle} style={{ color: themeStyles.textColor, opacity: 0.7 }}>Partner's Name</label>
+                                                    <label htmlFor="current_city" className={labelStyle} style={{ color: themeStyles.textColor }}>Current City</label>
                                                     <input 
                                                         type="text" 
-                                                        id="partner" 
-                                                        value={relationship_partner} 
-                                                        onChange={(e) => setRelationshipPartner(e.target.value)} 
+                                                        id="current_city" 
+                                                        value={current_city} 
+                                                        onChange={(e) => setCurrentCity(e.target.value)} 
                                                         className={glassInput}
                                                         style={{ backgroundColor: themeStyles.inputBg, color: themeStyles.textColor, borderColor: 'transparent' }}
                                                     />
                                                 </div>
-                                            )}
+                                                <div>
+                                                    <label htmlFor="hometown" className={labelStyle} style={{ color: themeStyles.textColor }}>Hometown</label>
+                                                    <input 
+                                                        type="text" 
+                                                        id="hometown" 
+                                                        value={hometown} 
+                                                        onChange={(e) => setHometown(e.target.value)} 
+                                                        className={glassInput}
+                                                        style={{ backgroundColor: themeStyles.inputBg, color: themeStyles.textColor, borderColor: 'transparent' }}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label htmlFor="mobile_phone" className={labelStyle} style={{ color: themeStyles.textColor }}>Mobile Phone</label>
+                                                <input 
+                                                    type="tel" 
+                                                    id="mobile_phone" 
+                                                    value={mobile_phone} 
+                                                    onChange={(e) => setMobilePhone(e.target.value)} 
+                                                    className={glassInput}
+                                                    style={{ backgroundColor: themeStyles.inputBg, color: themeStyles.textColor, borderColor: 'transparent' }}
+                                                />
+                                            </div>
+                                            
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className={labelStyle} style={{ color: themeStyles.textColor }}>Relationship Status</label>
+                                                    <CustomSelect value={relationship_status} onChange={setRelationshipStatus} options={relationshipOptions} placeholder="Select status..." themeStyles={themeStyles} />
+                                                </div>
+                                                {(relationship_status === 'In a Relationship' || relationship_status === 'Married') && (
+                                                    <div>
+                                                        <label htmlFor="partner" className={labelStyle} style={{ color: themeStyles.textColor }}>Partner's Name</label>
+                                                        <input 
+                                                            type="text" 
+                                                            id="partner" 
+                                                            value={relationship_partner} 
+                                                            onChange={(e) => setRelationshipPartner(e.target.value)} 
+                                                            className={glassInput}
+                                                            style={{ backgroundColor: themeStyles.inputBg, color: themeStyles.textColor, borderColor: 'transparent' }}
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Footer Actions */}
-                                <div className="mt-8 space-y-3 pt-6 border-t" style={{ borderColor: themeStyles.borderColor }}>
+                                {/* Footer Actions - MOVED OUTSIDE SCROLLABLE AREA */}
+                                <div className="p-6 border-t bg-black/10 backdrop-blur-md space-y-3 shrink-0 z-20" style={{ borderColor: themeStyles.borderColor }}>
                                     <button type="submit" disabled={loading || isUploading || isUploadingProfile} className={primaryButton}>
                                         {loading ? (
                                             <>

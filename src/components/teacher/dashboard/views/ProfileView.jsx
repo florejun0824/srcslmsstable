@@ -15,7 +15,8 @@ import {
     IconEdit,
     IconFingerprint,
     IconPhoto,
-    IconTrash
+    IconTrash,
+    IconCamera // Added IconCamera
 } from '@tabler/icons-react';
 import { Switch, Dialog, Transition, RadioGroup } from '@headlessui/react';
 import { BiometricAuth } from '@aparajita/capacitor-biometric-auth';
@@ -34,7 +35,9 @@ import {
   onSnapshot,
   serverTimestamp,
   addDoc,
-  limit // Added limit for optimization
+  limit,
+  doc,       // Added
+  updateDoc  // Added
 } from 'firebase/firestore';
 
 // Post Components & Hook
@@ -417,6 +420,12 @@ const ProfileView = ({
     const [myPosts, setMyPosts] = useState([]); 
     const [isPostsLoading, setIsPostsLoading] = useState(true);
 
+    // --- Profile Photo Upload State & Refs ---
+    const [isUploadingProfile, setIsUploadingProfile] = useState(false);
+    const [isUploadingCover, setIsUploadingCover] = useState(false);
+    const profileInputRef = useRef(null);
+    const coverInputRef = useRef(null);
+
     const {
             sortedPosts,
             editingPostId,
@@ -506,6 +515,60 @@ const ProfileView = ({
         }
     }, [showToast]);
 
+    // --- Handle Cloudinary Upload for Profile/Cover ---
+    const handlePhotoUpload = async (e, type) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Reset input so same file can be selected again if needed
+        e.target.value = null;
+
+        const isProfile = type === 'profile';
+        const setLoading = isProfile ? setIsUploadingProfile : setIsUploadingCover;
+        const fieldName = isProfile ? 'photoURL' : 'coverPhotoURL';
+
+        setLoading(true);
+
+        try {
+            // 1. Compress Image
+            const compressedFile = await compressImage(file);
+
+            // 2. Upload to Cloudinary
+            const cloudName = "de2uhc6gl"; 
+            const uploadPreset = "teacher_posts"; // Using the same preset/folder as requested
+            const folder = "teacher_posts";
+
+            const formData = new FormData();
+            formData.append("file", compressedFile);
+            formData.append("upload_preset", uploadPreset);
+            formData.append("folder", folder);
+
+            const response = await fetch(
+                `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, 
+                { method: "POST", body: formData }
+            );
+
+            if (!response.ok) throw new Error("Image upload failed");
+            const data = await response.json();
+            const imageUrl = data.secure_url;
+
+            // 3. Update Firestore User Profile
+            // NOTE: Assuming collection is 'users'. If your app uses 'teachers', change 'users' to 'teachers' below.
+            const userRef = doc(db, 'users', userProfile.id);
+            await updateDoc(userRef, {
+                [fieldName]: imageUrl
+            });
+
+            showToast(`${isProfile ? 'Profile picture' : 'Cover photo'} updated!`, "success");
+
+        } catch (error) {
+            console.error("Upload failed:", error);
+            showToast("Failed to upload image. Please try again.", "error");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     // --- Handle Create Post (Multiple Images to Cloudinary) ---
     const handleCreatePost = useCallback(async (content, audience, imageFiles) => {
         if (!content.trim() && (!imageFiles || imageFiles.length === 0)) { 
@@ -587,18 +650,54 @@ const ProfileView = ({
     const closeAboutModal = useCallback(() => setIsAboutModalOpen(false), []);
     const openEditProfile = useCallback(() => setEditProfileModalOpen(true), []);
 
+    // Helper trigger functions for file inputs
+    const triggerProfileUpload = () => profileInputRef.current?.click();
+    const triggerCoverUpload = () => coverInputRef.current?.click();
+
     return (
         <>
+            {/* Hidden File Inputs */}
+            <input 
+                type="file" 
+                ref={profileInputRef} 
+                className="hidden" 
+                accept="image/*" 
+                onChange={(e) => handlePhotoUpload(e, 'profile')}
+            />
+            <input 
+                type="file" 
+                ref={coverInputRef} 
+                className="hidden" 
+                accept="image/*" 
+                onChange={(e) => handlePhotoUpload(e, 'cover')}
+            />
+
             <div className="max-w-7xl mx-auto w-full space-y-8 py-8 px-4 sm:px-6 font-sans">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                     
                     {/* Left Column (Profile Card) */}
                     <div className="lg:col-span-4 lg:sticky lg:top-24 space-y-6">
                         <div className={cardSurface} style={dynamicCardStyle}>
-                            <div className="relative h-48 w-full bg-slate-200 dark:bg-slate-700">
+                            
+                            {/* COVER PHOTO SECTION */}
+                            <div className="relative h-48 w-full bg-slate-200 dark:bg-slate-700 group">
+                                {isUploadingCover ? (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/30 z-20">
+                                        <Spinner size="md" className="text-white" />
+                                    </div>
+                                ) : (
+                                    <button 
+                                        onClick={triggerCoverUpload}
+                                        className="absolute top-4 right-4 z-20 p-2 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70 backdrop-blur-md"
+                                        title="Change Cover Photo"
+                                    >
+                                        <IconCamera size={18} />
+                                    </button>
+                                )}
+                                
                                 {userProfile?.coverPhotoURL && (
                                     <div
-                                        className="w-full h-full opacity-90"
+                                        className="w-full h-full opacity-90 transition-transform duration-700"
                                         style={{
                                             backgroundImage: `url(${userProfile.coverPhotoURL})`,
                                             backgroundSize: 'cover',
@@ -607,20 +706,36 @@ const ProfileView = ({
                                         }}
                                     />
                                 )}
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent pointer-events-none" />
                             </div>
 
                             <div className="relative px-6 pb-6">
                                 <div className="relative -mt-16 mb-3 flex justify-between items-end">
-                                    <div className="relative w-32 h-32 rounded-full p-1.5 bg-white/30 dark:bg-black/30 backdrop-blur-md shadow-2xl ring-1 ring-white/20">
-                                        <div className="w-full h-full rounded-full overflow-hidden bg-white dark:bg-slate-800">
-                                            {userProfile?.photoURL ? (
-                                                <img src={userProfile.photoURL} alt={userProfile?.firstName} className="w-full h-full object-cover" />
-                                            ) : (
-                                                <UserInitialsAvatar firstName={userProfile?.firstName} lastName={userProfile?.lastName} id={userProfile.id} size="full" />
-                                            )}
+                                    
+                                    {/* PROFILE PICTURE SECTION */}
+                                    <div className="relative w-32 h-32 group cursor-pointer" onClick={triggerProfileUpload}>
+                                        <div className="relative w-full h-full rounded-full p-1.5 bg-white/30 dark:bg-black/30 backdrop-blur-md shadow-2xl ring-1 ring-white/20">
+                                            <div className="w-full h-full rounded-full overflow-hidden bg-white dark:bg-slate-800 relative">
+                                                {isUploadingProfile && (
+                                                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-20">
+                                                        <Spinner size="sm" className="text-white" />
+                                                    </div>
+                                                )}
+                                                
+                                                {/* Overlay on Hover */}
+                                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                                    <IconCamera className="text-white" size={24} />
+                                                </div>
+
+                                                {userProfile?.photoURL ? (
+                                                    <img src={userProfile.photoURL} alt={userProfile?.firstName} className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <UserInitialsAvatar firstName={userProfile?.firstName} lastName={userProfile?.lastName} id={userProfile.id} size="full" />
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
+
                                     <button onClick={openEditProfile} className="mb-2 px-4 py-2 rounded-full bg-white/80 dark:bg-white/10 text-slate-700 dark:text-slate-200 text-xs font-bold uppercase tracking-wider backdrop-blur-md shadow-sm border border-white/20 hover:bg-white dark:hover:bg-white/20 transition-all flex items-center gap-2">
                                         <IconEdit size={14} /> Edit
                                     </button>
