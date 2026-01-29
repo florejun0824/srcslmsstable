@@ -112,11 +112,26 @@ const LoungeView = ({
   
   const theme = useMemo(() => getThemeStyles(activeOverlay), [activeOverlay]);
 
-  // PRE-FILTERING
+  // --- FILTERING LOGIC ---
   const userSchoolId = userProfile?.schoolId || 'srcs_main';
+  
   const displayPosts = sortedPosts?.filter(post => {
-      if (post.schoolId) return post.schoolId === userSchoolId;
-      return userSchoolId === 'srcs_main'; 
+      // 1. ALWAYS SHOW SYSTEM POSTS (Elections & Results)
+      // This ensures results appear even if School IDs don't perfectly match
+      if (post.type === 'system_countdown' || post.type === 'election_result') {
+          return true;
+      }
+
+      // 2. Standard School Filtering
+      const postSchoolId = post.schoolId || 'srcs_main'; 
+      const isMatch = postSchoolId === userSchoolId;
+
+      // DEBUG: Log if we are hiding a post unexpectedly
+      if (!isMatch && (post.authorId === 'system' || post.type?.includes('election'))) {
+         console.warn(`LoungeView: Hiding system post due to mismatch. User: ${userSchoolId}, Post: ${postSchoolId}`);
+      }
+
+      return isMatch;
   }) || [];
 
   return (
@@ -216,32 +231,16 @@ const LoungeView = ({
                         </p>
                         
                         {/* Call to Action (Pill) */}
-                        <button className={`
-                            flex items-center gap-2 px-8 py-4 rounded-full 
-                            ${theme.button}
-                            text-white text-sm font-bold tracking-wide
-                            hover:scale-105 transition-transform active:scale-95
-                        `}>
-                            <SparklesIcon className="w-4 h-4" /> 
-                            <span>Create First Post</span>
-                        </button>
+                        
                     </div>
                 </motion.div>
             ) : (
-                /* --- FEED ITEMS (MASONRY GRID) --- */
-                /* columns-1: Mobile (Stack)
-                   md:columns-2: Tablet (2 Cols)
-                   xl:columns-3: Desktop (3 Cols)
-                   gap-6: Spacing between columns
-                */
                 <div className="columns-1 md:columns-2 xl:columns-3 gap-6">
                     {displayPosts.map(post => {
                         const authorDetails = usersMap[post.authorId] || usersMap[post.teacherId];
                         const isPrivilegedUser = userProfile.role === 'teacher' || userProfile.role === 'admin';
 
                         return (
-                            // IMPORTANT: 'break-inside-avoid' prevents cards from being split across columns
-                            // 'mb-6' adds vertical spacing between items in the masonry layout
                             <motion.div key={post.id} variants={itemVariants} className="break-inside-avoid mb-6">
                                 <StudentPostCard
                                     post={post}

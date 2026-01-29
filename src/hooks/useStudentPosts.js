@@ -41,17 +41,25 @@ export const useStudentPosts = (posts, setPosts, userProfile, showToast) => {
         if (!Array.isArray(posts)) return [];
         
         const filteredPosts = posts.filter(post => {
+            // [CRITICAL FIX] ALWAYS SHOW SYSTEM POSTS
+            // This ensures Election Results & Countdowns are visible to ALL students
+            // regardless of minor School ID mismatches or system defaults.
+            if (post.type === 'system_countdown' || post.type === 'election_result') {
+                return true;
+            }
+
             // 1. If post has a schoolId, it MUST match the user's schoolId
             if (post.schoolId) {
                 return post.schoolId === userSchoolId;
             }
+            
             // 2. If post has NO schoolId (Legacy), it is only visible to 'srcs_main'
             return userSchoolId === 'srcs_main';
         });
 
         return filteredPosts.sort((a, b) => {
-            const dateA = a.createdAt?.toDate() || 0;
-            const dateB = b.createdAt?.toDate() || 0;
+            const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0);
+            const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
             return dateB - dateA; // Newest first
         });
     }, [posts, userSchoolId]);

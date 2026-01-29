@@ -1,3 +1,4 @@
+// googleSlidesService.js
 import { Capacitor } from '@capacitor/core';
 import { SocialLogin } from '@capgo/capacitor-social-login';
 
@@ -127,7 +128,11 @@ export const openTemplatePicker = async (multiSelect = false) => {
             
             // 1. Theme Store Logic: Show Grid for visuals
             view.setMode(window.google.picker.DocsViewMode.GRID);
-            view.setIncludeFolders(true); 
+            
+            // SAFEGUARD: Ensure method exists before calling
+            if (typeof view.setIncludeFolders === 'function') {
+                view.setIncludeFolders(true); 
+            }
 
             // 2. Folder Lock: If .env has a folder ID, force the picker to open there
             if (TEMPLATE_FOLDER_ID) {
@@ -188,14 +193,19 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
         await initializeAuth(); 
         await ensureValidToken();
         
+        // --- SAFEGUARD INPUTS ---
+        const safeSubjectName = (typeof subjectName === 'object' ? (subjectName?.title || subjectName?.name) : subjectName) || 'General Subject';
+        const safeUnitName = (typeof unitName === 'object' ? (unitName?.title || unitName?.name) : unitName) || 'General Unit';
+        const safeTitle = presentationTitle || 'New Presentation';
+
         // --- LOGIC STARTS HERE ---
-        const subjectFolderId = await findOrCreateFolder(subjectName);
-        const unitFolderId = await findOrCreateFolder(unitName, subjectFolderId);
+        const subjectFolderId = await findOrCreateFolder(safeSubjectName);
+        const unitFolderId = await findOrCreateFolder(safeUnitName, subjectFolderId);
 
         // The picker has granted us permission to this SPECIFIC templateId
         const copiedFile = await window.gapi.client.drive.files.copy({ 
             fileId: templateId, 
-            resource: { name: presentationTitle, parents: [unitFolderId] } 
+            resource: { name: safeTitle, parents: [unitFolderId] } 
         });
         
         const presentationId = copiedFile.result.id;
@@ -352,7 +362,10 @@ export const createPresentationFromData = async (slideData, presentationTitle, s
 
 // --- HELPERS ---
 const findOrCreateFolder = async (folderName, parentFolderId = 'root') => {
-    const escapedFolderName = folderName.replace(/'/g, "\\'");
+    // SAFEGUARD: handle undefined folderName or object passed as name
+    const safeName = (typeof folderName === 'string' ? folderName : 'Untitled Folder');
+    const escapedFolderName = safeName.replace(/'/g, "\\'");
+    
     const response = await window.gapi.client.drive.files.list({
         q: `mimeType='application/vnd.google-apps.folder' and name='${escapedFolderName}' and '${parentFolderId}' in parents and trashed=false`,
         fields: 'files(id, name)',
@@ -360,7 +373,7 @@ const findOrCreateFolder = async (folderName, parentFolderId = 'root') => {
     if (response.result.files && response.result.files.length > 0) {
         return response.result.files[0].id;
     } else {
-        const fileMetadata = { name: folderName, mimeType: 'application/vnd.google-apps.folder', parents: [parentFolderId] };
+        const fileMetadata = { name: safeName, mimeType: 'application/vnd.google-apps.folder', parents: [parentFolderId] };
         const folder = await window.gapi.client.drive.files.create({ resource: fileMetadata, fields: 'id' });
         return folder.result.id;
     }
@@ -368,11 +381,18 @@ const findOrCreateFolder = async (folderName, parentFolderId = 'root') => {
 
 const findShapeByTextTag = (pageElements, tag) => {
     if (!pageElements) return null;
-    const lowerCaseTag = tag.toLowerCase();
+    const lowerCaseTag = (tag || "").toLowerCase();
+    
     for (const el of pageElements) {
         if (el.shape?.text?.textElements) {
-            let fullText = el.shape.text.textElements.map(textEl => textEl.textRun?.content || "").join("");
-            if (fullText.toLowerCase().includes(lowerCaseTag)) return el;
+            // SAFEGUARD: Ensure we have a string before checking includes
+            let fullText = el.shape.text.textElements
+                .map(textEl => textEl.textRun?.content || "")
+                .join("");
+            
+            if (fullText && fullText.toLowerCase().includes(lowerCaseTag)) {
+                return el;
+            }
         }
     }
     return null;

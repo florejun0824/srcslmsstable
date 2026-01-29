@@ -1,13 +1,20 @@
-import React, { useState, useRef, memo } from 'react';
+// src/components/student/StudentPostCard.jsx
+import React, { useState, useEffect, useRef, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PencilIcon, TrashIcon, GlobeAltIcon, LockClosedIcon, BuildingLibraryIcon } from '@heroicons/react/24/solid';
+import { 
+  PencilIcon, 
+  TrashIcon, 
+  LockClosedIcon, 
+  BuildingLibraryIcon, 
+  ClockIcon 
+} from '@heroicons/react/24/solid';
 import { ChatBubbleLeftIcon, HandThumbUpIcon } from '@heroicons/react/24/outline';
 import UserInitialsAvatar from '../common/UserInitialsAvatar'; 
 import Linkify from 'react-linkify';
 import { Link } from 'react-router-dom';
 import { useTheme } from '../../contexts/ThemeContext'; 
 
-// --- Design Helpers ---
+// --- HELPER COMPONENTS & CONSTANTS ---
 
 const getThemeCardStyle = (activeOverlay) => {
     switch (activeOverlay) {
@@ -30,7 +37,6 @@ const getThemeCardStyle = (activeOverlay) => {
     }
 };
 
-// 3D "Pop" Emoji
 const EmojiBase = ({ symbol, className = "" }) => (
     <span 
         className={`inline-block transform transition-transform duration-200 ${className}`} 
@@ -52,6 +58,13 @@ const reactionIcons = {
   angry: { component: (props) => (<EmojiBase symbol="😡" {...props} />), label: 'Angry', color: 'text-orange-600' },
   care: { component: (props) => (<EmojiBase symbol="🤗" {...props} />), label: 'Care', color: 'text-pink-500' },
 };
+
+const SystemPostContent = ({ content }) => (
+    <div 
+        className="system-post-content prose dark:prose-invert max-w-none w-full"
+        dangerouslySetInnerHTML={{ __html: content }} 
+    />
+);
 
 const reactionTypes = ['like', 'love', 'haha', 'wow', 'sad', 'angry', 'care'];
 const POST_TRUNCATE_LENGTH = 300;
@@ -78,7 +91,71 @@ const LockedButtonsPlaceholder = () => (
     </div>
 );
 
-// --- Main Component ---
+// --- NEW LIVE COUNTDOWN COMPONENT ---
+const LiveCountdown = ({ targetTime }) => {
+    const [timeLeft, setTimeLeft] = useState('');
+    const [progress, setProgress] = useState(100);
+
+    useEffect(() => {
+        if (!targetTime) return;
+        
+        // Handle Firestore Timestamp or Date object
+        const target = targetTime.toDate ? targetTime.toDate() : new Date(targetTime);
+        const start = new Date(target.getTime() - 5 * 60 * 1000); // Assume 5 min duration for bar scaling
+
+        const interval = setInterval(() => {
+            const now = new Date();
+            const diff = target - now;
+
+            if (diff <= 0) {
+                setTimeLeft('REVEALING NOW...');
+                setProgress(0);
+                clearInterval(interval);
+                return;
+            }
+
+            const m = Math.floor((diff / 1000 / 60) % 60);
+            const s = Math.floor((diff / 1000) % 60);
+            setTimeLeft(`${m}:${s < 10 ? '0' : ''}${s}`);
+
+            // Calculate progress bar
+            const totalDuration = target - start;
+            const elapsed = now - start;
+            const pct = Math.max(0, 100 - (elapsed / totalDuration) * 100);
+            setProgress(pct);
+
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [targetTime]);
+
+    return (
+        <div className="p-8 text-center bg-gradient-to-br from-slate-900 to-slate-800 rounded-[24px] text-white relative overflow-hidden shadow-2xl border border-slate-700 w-full mb-6">
+            {/* Animated Pulse BG */}
+            <div className="absolute inset-0 bg-blue-500/10 animate-pulse"></div>
+            
+            <div className="relative z-10 flex flex-col items-center">
+                <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mb-4 backdrop-blur-md border border-white/10">
+                    <ClockIcon className="w-8 h-8 text-blue-400 animate-spin-slow" />
+                </div>
+                
+                <h3 className="text-blue-300 font-bold uppercase tracking-widest text-xs mb-2">Election Results</h3>
+                <h2 className="text-5xl font-black font-mono tracking-tighter mb-6 tabular-nums">{timeLeft || "00:00"}</h2>
+                
+                <div className="w-full bg-slate-700/50 h-3 rounded-full overflow-hidden backdrop-blur-sm max-w-md">
+                    <motion.div 
+                        className="h-full bg-gradient-to-r from-blue-500 to-cyan-400"
+                        animate={{ width: `${progress}%` }}
+                        transition={{ ease: "linear", duration: 1 }}
+                    />
+                </div>
+                <p className="mt-4 text-slate-400 text-sm font-medium">System is verifying ballots & calculating winners...</p>
+            </div>
+        </div>
+    );
+};
+
+// --- MAIN STUDENT POST CARD ---
 
 const StudentPostCard = ({
     post,
@@ -106,31 +183,30 @@ const StudentPostCard = ({
     const dynamicThemeStyle = getThemeCardStyle(activeOverlay);
     const isStandardTheme = activeOverlay === 'none';
 
+    // Post Data Handling
     const postReactions = post.reactions || {};
     const currentUserReaction = postReactions[userProfile.id];
     
-    // ✅ CRASH FIX: Robustly determine ID and Name (Legacy Support)
+    // Robustly determine ID and Name (Legacy Support)
     const postOwnerId = post.authorId || post.teacherId;
     const rawName = post.authorName || post.teacherName || 'Unknown Student';
     
-    // Check if current user is the author
     const isAuthor = userProfile.id === postOwnerId;
     const isTruncated = post.content && post.content.length > POST_TRUNCATE_LENGTH;
     const commentCount = post.commentsCount || 0;
 
-    // ✅ CRASH FIX: Handle name splitting safely
     const postAuthor = author || {
         id: postOwnerId,
         firstName: rawName.split(' ')[0] || 'Unknown',
         lastName: rawName.split(' ').slice(1).join(' ') || '',
-        photoURL: post.authorPhotoURL || post.teacherPhoto // Legacy photo field support
+        photoURL: post.authorPhotoURL || post.teacherPhoto 
     };
 
     const profileLink = isAuthor
         ? (userProfile.role === 'student' ? '/student/profile' : '/dashboard/profile')
         : (userProfile.role === 'student' ? `/student/profile/${postOwnerId}` : `/dashboard/profile/${postOwnerId}`);
     
-    // --- Handlers ---
+    // Handlers
     const openReactionPicker = () => {
         clearTimeout(pickerTimerRef.current);
         setIsReactionPickerOpen(true);
@@ -148,7 +224,6 @@ const StudentPostCard = ({
         clearTimeout(pickerTimerRef.current);
     };
 
-    // --- Logic: Stacked Reactions ---
     const formatReactionCount = () => {
         if (!postReactions || Object.keys(postReactions).length === 0) return <div className="h-5"></div>; 
 
@@ -194,6 +269,29 @@ const StudentPostCard = ({
         ? reactionIcons[currentUserReaction]
         : { component: HandThumbUpIcon, label: 'Like', color: 'text-slate-500 dark:text-slate-400' };
 
+    // --- CHECK FOR SYSTEM POSTS (COUNTDOWN OR RESULTS) ---
+    if (post.type === 'system_countdown') {
+        return (
+            <motion.div layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-6 w-full">
+                <LiveCountdown targetTime={post.targetTime} />
+            </motion.div>
+        );
+    }
+
+    if (post.type === 'election_result') {
+        return (
+            <motion.div
+                layout
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="mb-6 w-full rounded-[24px] overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
+            >
+                <SystemPostContent content={post.content} />
+            </motion.div>
+        );
+    }
+
+    // --- STANDARD POST CARD RENDER ---
     return (
         <motion.div
             layout
@@ -238,7 +336,6 @@ const StudentPostCard = ({
                             <span>{post.createdAt ? new Date(post.createdAt.toDate()).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Now'}</span>
                             <span className="w-0.5 h-0.5 rounded-full bg-slate-300 dark:bg-slate-600"></span>
                             
-                            {/* ✅ Updated Logic: Public = School Wide */}
                             {post.audience === 'Public' ? (
                                 <div className="flex items-center gap-1" title="Visible to School">
                                     <BuildingLibraryIcon className="w-3 h-3 opacity-80" />

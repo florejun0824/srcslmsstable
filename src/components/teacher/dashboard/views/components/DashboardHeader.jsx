@@ -1,5 +1,6 @@
+// src/components/teacher/dashboard/views/components/DashboardHeader.jsx
 import React, { lazy, Suspense, memo, useCallback, useState, useEffect, Fragment, useRef } from 'react';
-import { motion, useMotionValue, useTransform, useSpring, AnimatePresence } from 'framer-motion';
+import { motion, useMotionValue, useSpring, useTransform, AnimatePresence } from 'framer-motion';
 import { Dialog, Transition } from '@headlessui/react';
 import { 
     CalendarDays, Clock, ArrowUpRight, Sparkles, 
@@ -12,24 +13,61 @@ import CreateAnnouncement from '../../widgets/CreateAnnouncement';
 
 const AdminBannerEditModal = lazy(() => import('../../widgets/AdminBannerEditModal'));
 
-// --- MICRO-COMPONENTS ---
+// --- OPTIMIZATION 1: ISOLATED CLOCK ---
+// Only this tiny component re-renders every second, preventing the heavy 
+// banner graphics from being recalculated constantly.
+const TimeDisplay = memo(() => {
+    const [time, setTime] = useState(new Date());
 
+    useEffect(() => {
+        const timer = setInterval(() => setTime(new Date()), 1000); 
+        return () => clearInterval(timer);
+    }, []);
+
+    const timeString = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }).replace(' AM', '').replace(' PM', '');
+    const amPm = time.toLocaleTimeString([], { hour12: true }).slice(-2);
+    const dateString = time.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+
+    return (
+        <div className="flex flex-col">
+             <h2 className="text-5xl font-thin tracking-tighter text-slate-800 dark:text-white leading-[0.9]">
+                {timeString}
+                <span className="text-lg font-bold text-[var(--monet-accent)] ml-1">
+                    {amPm}
+                </span>
+             </h2>
+             <div className="flex items-center gap-2 mt-1">
+                <div className="h-[2px] w-6 bg-[var(--monet-accent)]" />
+                <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                    {dateString}
+                </span>
+             </div>
+        </div>
+    );
+});
+
+// --- OPTIMIZATION 2: GPU ACCELERATED GLOW ---
+// Instead of recalculating the gradient string (Paint), we move a div (Composite).
 const GlowSpot = ({ mouseX, mouseY }) => {
     return (
         <motion.div
             className="pointer-events-none absolute -inset-px opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-10"
             style={{
-                background: useTransform(
-                    [mouseX, mouseY],
-                    ([x, y]) => `radial-gradient(600px circle at ${x}px ${y}px, rgba(255,255,255,0.1), transparent 40%)`
-                )
+                x: mouseX,
+                y: mouseY,
+                translateX: '-50%', // Center the glow on the cursor
+                translateY: '-50%',
+                width: 800, // Large enough to cover movement
+                height: 800,
+                background: 'radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%)',
+                willChange: 'transform' // Tell browser to put this on its own GPU layer
             }}
         />
     );
 };
 
 // "The Gemini Beacon" - Mobile Icon
-const GeminiBeacon = ({ onClick }) => (
+const GeminiBeacon = memo(({ onClick }) => (
     <motion.button
         whileTap={{ scale: 0.9 }}
         onClick={onClick}
@@ -50,12 +88,11 @@ const GeminiBeacon = ({ onClick }) => (
             </svg>
         </div>
     </motion.button>
-);
+));
 
 const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeClasses, handleCreateAnnouncement }) => {
     const { bannerSettings, isBannerEditModalOpen, openBannerEditModal, closeBannerEditModal } = useBanner(showToast);
-    // Ensuring we pull the schedule correctly
-    const { currentActivity, loading: scheduleLoading } = useSchedule(showToast, userProfile?.schoolId || 'srcs_main');
+    const { currentActivity } = useSchedule(showToast, userProfile?.schoolId || 'srcs_main');
     
     // --- STATE & REFS ---
     const bannerRef = useRef(null);
@@ -63,16 +100,11 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
     const [greeting, setGreeting] = useState('');
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isMobileFeatureOpen, setIsMobileFeatureOpen] = useState(false);
-    const [time, setTime] = useState(new Date());
 
+    // Initial greeting set (no interval needed here anymore)
     useEffect(() => {
-        const updateGreeting = () => {
-            const h = new Date().getHours();
-            setGreeting(h < 12 ? 'Good Morning' : h < 18 ? 'Good Afternoon' : 'Good Evening');
-        };
-        updateGreeting();
-        const timer = setInterval(() => setTime(new Date()), 1000); 
-        return () => clearInterval(timer);
+        const h = new Date().getHours();
+        setGreeting(h < 12 ? 'Good Morning' : h < 18 ? 'Good Afternoon' : 'Good Evening');
     }, []);
 
     const handleBannerClick = useCallback((e) => { 
@@ -90,28 +122,35 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
         setIsCreateModalOpen(false);
     }, [handleCreateAnnouncement]);
 
-    // --- 3D LOGIC ---
+    // --- 3D LOGIC (Optimized) ---
+    // Using raw MotionValues instead of useSpring for X/Y if performance is critical, 
+    // but Spring is fine here since it only updates transform
     const x = useMotionValue(0);
     const y = useMotionValue(0);
-    const mouseX = useSpring(x, { stiffness: 500, damping: 100 });
-    const mouseY = useSpring(y, { stiffness: 500, damping: 100 });
+    const rotateX = useTransform(y, [-0.5, 0.5], [2, -2]);
+    const rotateY = useTransform(x, [-0.5, 0.5], [-2, 2]);
 
-    const handleMouseMove = (e) => {
+    // Separate MotionValues for the glow spot so it follows cursor exactly
+    const glowX = useMotionValue(0);
+    const glowY = useMotionValue(0);
+
+    const handleMouseMove = useCallback((e) => {
         const rect = e.currentTarget.getBoundingClientRect();
         const width = rect.width;
         const height = rect.height;
         const mouseXVal = e.clientX - rect.left;
         const mouseYVal = e.clientY - rect.top;
+        
+        // Tilt values
         x.set(mouseXVal / width - 0.5);
         y.set(mouseYVal / height - 0.5);
-        mouseX.set(mouseXVal);
-        mouseY.set(mouseYVal);
-    };
+        
+        // Glow values
+        glowX.set(mouseXVal);
+        glowY.set(mouseYVal);
+    }, [x, y, glowX, glowY]);
 
     const handleMouseLeave = () => { x.set(0); y.set(0); };
-
-    const rotateX = useTransform(y, [-0.5, 0.5], [2, -2]);
-    const rotateY = useTransform(x, [-0.5, 0.5], [-2, 2]);
 
     const hasBannerImage = bannerSettings.imageUrl && !imageError;
 
@@ -130,10 +169,10 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.5 }}
-                    // HEIGHT: h-[374px] Desktop
                     className="col-span-1 lg:col-span-7 lg:order-2 h-[280px] sm:h-[320px] lg:h-[374px] relative rounded-[2rem] sm:rounded-[3rem] overflow-hidden group cursor-pointer perspective-1000 shadow-xl sm:shadow-2xl dark:shadow-black/80 ring-1 ring-white/10"
                 >
-                    <GlowSpot mouseX={mouseX} mouseY={mouseY} />
+                    {/* OPTIMIZED GLOW */}
+                    <GlowSpot mouseX={glowX} mouseY={glowY} />
                     
                     {/* Background Image */}
                     <div className="absolute inset-0 bg-slate-900 transform transition-transform duration-700 group-hover:scale-105 pointer-events-none">
@@ -164,9 +203,7 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
                                     <Clock className="w-3 h-3 text-[var(--monet-accent)]" />
                                     <div className="h-3 w-[1px] bg-white/20" />
                                     <div className="flex items-center gap-2 text-[10px] font-bold text-white uppercase tracking-widest font-mono">
-                                        <span>{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                        <span className="opacity-50">|</span>
-                                        <span>{time.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' })}</span>
+                                        <TimeDisplayMobile /> 
                                     </div>
                                 </div>
                                 <div className="flex flex-col relative pl-4">
@@ -268,25 +305,25 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
                                     </motion.div>
 
                                     <div className="pointer-events-none absolute bottom-0 right-0 flex items-center gap-3">
-                                        <div className="flex items-center gap-2 px-3 py-1.5 bg-black/40 backdrop-blur-md rounded-full border border-white/10">
-                                             <div className="relative flex h-2 w-2">
-                                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                                  <span className="relative inline-flex rounded-full h-full w-full bg-emerald-500"></span>
+                                            <div className="flex items-center gap-2 px-3 py-1.5 bg-black/40 backdrop-blur-md rounded-full border border-white/10">
+                                                 <div className="relative flex h-2 w-2">
+                                                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                                      <span className="relative inline-flex rounded-full h-full w-full bg-emerald-500"></span>
+                                                 </div>
+                                                 <span className="text-[9px] font-bold text-white uppercase tracking-widest font-mono">Online</span>
                                             </div>
-                                            <span className="text-[9px] font-bold text-white uppercase tracking-widest font-mono">Online</span>
-                                        </div>
-                                        <div className="flex items-center gap-2 px-3 py-1.5 bg-black/40 backdrop-blur-md rounded-full border border-white/10">
-                                             <Layers className="w-3 h-3 text-[var(--monet-accent)]" />
-                                             <span className="text-[9px] font-bold text-white uppercase tracking-widest font-mono">SRCS Main</span>
-                                        </div>
-                                        {userProfile?.role === 'admin' && (
-                                            <button 
-                                                onClick={(e) => { e.stopPropagation(); openBannerEditModal(); }}
-                                                className="pointer-events-auto px-3 py-1.5 bg-black/40 backdrop-blur-md rounded-full border border-white/10 flex items-center gap-1.5 hover:bg-black/60 transition-colors cursor-pointer"
-                                            >
-                                                <Zap className="w-3 h-3 text-yellow-400" fill="currentColor" />
-                                            </button>
-                                        )}
+                                            <div className="flex items-center gap-2 px-3 py-1.5 bg-black/40 backdrop-blur-md rounded-full border border-white/10">
+                                                 <Layers className="w-3 h-3 text-[var(--monet-accent)]" />
+                                                 <span className="text-[9px] font-bold text-white uppercase tracking-widest font-mono">SRCS Main</span>
+                                            </div>
+                                            {userProfile?.role === 'admin' && (
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); openBannerEditModal(); }}
+                                                    className="pointer-events-auto px-3 py-1.5 bg-black/40 backdrop-blur-md rounded-full border border-white/10 flex items-center gap-1.5 hover:bg-black/60 transition-colors cursor-pointer"
+                                                >
+                                                    <Zap className="w-3 h-3 text-yellow-400" fill="currentColor" />
+                                                </button>
+                                            )}
                                     </div>
                                 </div>
                             )}
@@ -312,22 +349,9 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
                          </div>
                          
                          <div className="relative z-20 flex flex-col h-full justify-between">
-                            {/* Top: Visually Stunning Clock */}
+                            {/* Top: Visually Stunning Clock - ISOLATED */}
                             <div className="flex items-start justify-between w-full">
-                                <div className="flex flex-col">
-                                     <h2 className="text-5xl font-thin tracking-tighter text-slate-800 dark:text-white leading-[0.9]">
-                                        {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }).replace(' AM', '').replace(' PM', '')}
-                                        <span className="text-lg font-bold text-[var(--monet-accent)] ml-1">
-                                            {time.toLocaleTimeString([], { hour12: true }).slice(-2)}
-                                        </span>
-                                     </h2>
-                                     <div className="flex items-center gap-2 mt-1">
-                                        <div className="h-[2px] w-6 bg-[var(--monet-accent)]" />
-                                        <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                                            {time.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
-                                        </span>
-                                     </div>
-                                </div>
+                                <TimeDisplay /> {/* Replaced direct code with component */}
                                 <div className="p-2 rounded-full border border-slate-200 dark:border-white/10 bg-white/50 dark:bg-white/5 backdrop-blur-md">
                                     <Sparkles className="w-5 h-5 text-[var(--monet-accent)]" />
                                 </div>
@@ -462,5 +486,21 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
         </Fragment>
     );
 };
+
+// Simplified component for mobile clock to avoid re-renders there too
+const TimeDisplayMobile = memo(() => {
+    const [time, setTime] = useState(new Date());
+    useEffect(() => {
+        const timer = setInterval(() => setTime(new Date()), 1000); 
+        return () => clearInterval(timer);
+    }, []);
+    return (
+        <>
+            <span>{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+            <span className="opacity-50">|</span>
+            <span>{time.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' })}</span>
+        </>
+    )
+});
 
 export default memo(DashboardHeader);

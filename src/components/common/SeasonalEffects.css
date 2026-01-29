@@ -7,14 +7,18 @@
   color: #fff;
   font-size: 1.2em;
   font-family: sans-serif;
-  text-shadow: 0 0 5px rgba(255,255,255,0.8);
+  /* OPTIMIZATION: Removed text-shadow (Expensive to paint on move) */
+  /* text-shadow: 0 0 5px rgba(255,255,255,0.8); */
+  
   position: fixed;
-  top: -10vh; /* Start off screen */
+  top: -10vh;
   z-index: 1;
   user-select: none;
   cursor: default;
-  /* GPU Optimization: Use 3D transform to force hardware acceleration */
-  will-change: transform; 
+  
+  /* OPTIMIZATION: Hint that opacity changes too */
+  will-change: transform, opacity;
+  
   animation-name: snowflakes-fall-sway;
   animation-timing-function: linear;
   animation-iteration-count: infinite;
@@ -22,7 +26,6 @@
   pointer-events: none;
 }
 
-/* Merged Sway and Fall into one GPU-friendly animation */
 @keyframes snowflakes-fall-sway {
   0% { transform: translate3d(0, 0, 0); }
   25% { transform: translate3d(40px, 25vh, 0); }
@@ -51,10 +54,13 @@
   position: fixed;
   color: #ff4d6d;
   font-size: 1.5rem;
-  top: 110vh; /* Start below screen */
+  top: 110vh;
   z-index: 1;
   opacity: 0;
-  will-change: transform; /* Prepare GPU */
+  
+  /* OPTIMIZATION: Hint opacity */
+  will-change: transform, opacity;
+  
   animation: float-up-optimized 8s ease-in infinite;
   user-select: none;
   pointer-events: none;
@@ -81,10 +87,10 @@
   position: fixed;
   width: 10px;
   height: 10px;
-  top: -10vh; /* Start above screen */
+  top: -10vh;
   z-index: 1;
   opacity: 0.9;
-  will-change: transform;
+  will-change: transform, opacity;
   animation: confetti-fall-optimized 5s linear infinite;
   pointer-events: none;
 }
@@ -100,7 +106,6 @@
 
 .confetti:nth-child(1) { left: 5%; animation-delay: 0s; animation-duration: 4s; }
 .confetti:nth-child(2) { left: 15%; animation-delay: 1s; animation-duration: 5s; background-color: #10b981; }
-/* ... (Existing child definitions are fine to keep) ... */
 .confetti:nth-child(3) { left: 25%; animation-delay: 2.5s; animation-duration: 3.5s; }
 .confetti:nth-child(4) { left: 35%; animation-delay: 0.5s; animation-duration: 6s; }
 .confetti:nth-child(5) { left: 45%; animation-delay: 3s; animation-duration: 4.5s; }
@@ -114,7 +119,6 @@
 /* =========================================
    5. RAINY DAY (Fast Falling Lines)
    ========================================= */
-/* Optimized by default in your original code, kept as is */
 .raindrop {
   position: fixed;
   background-color: rgba(255, 255, 255, 0.3);
@@ -124,7 +128,7 @@
   z-index: 1;
   pointer-events: none;
   animation: rain-fall 0.7s linear infinite;
-  will-change: transform;
+  will-change: transform, opacity;
 }
 
 @keyframes rain-fall {
@@ -150,7 +154,6 @@
 /* =========================================
    6. CYBERPUNK (Neon Glitch Particles)
    ========================================= */
-/* Optimized by default in your original code, kept as is */
 .cyber-particle {
   position: fixed;
   width: 4px;
@@ -158,10 +161,16 @@
   background-color: #00ffea;
   z-index: 1;
   opacity: 0;
-  box-shadow: 0 0 8px #00ffea;
+  
+  /* OPTIMIZATION: Removed box-shadow (Major performance killer) */
+  /* box-shadow: 0 0 8px #00ffea; */
+  
+  /* Added a simple border instead if visibility is low, or just rely on color */
+  /* border: 1px solid rgba(255,255,255,0.2); */
+
   pointer-events: none;
   animation: cyber-rise 3s ease-in-out infinite;
-  will-change: transform;
+  will-change: transform, opacity;
 }
 
 @keyframes cyber-rise {
@@ -170,7 +179,10 @@
   100% { transform: translate3d(0, -10vh, 0) scaleY(1.5); opacity: 0; }
 }
 
-.cyber-particle:nth-child(odd) { background-color: #ff0099; box-shadow: 0 0 8px #ff0099; }
+.cyber-particle:nth-child(odd) { 
+    background-color: #ff0099; 
+    /* box-shadow: 0 0 8px #ff0099; REMOVED */
+}
 
 .cyber-particle:nth-child(1) { left: 10%; animation-delay: 0s; animation-duration: 4s; }
 .cyber-particle:nth-child(2) { left: 20%; animation-delay: 1.5s; animation-duration: 3s; }
@@ -182,7 +194,7 @@
 
 
 /* =========================================
-   7. SPRING (Falling Sakura Petals) - HEAVILY OPTIMIZED
+   7. SPRING (Falling Sakura Petals)
    ========================================= */
 .petal {
   position: fixed;
@@ -190,12 +202,11 @@
   width: 10px;
   height: 10px;
   border-radius: 10px 0px; 
-  top: -10vh; /* Start above screen */
+  top: -10vh;
   z-index: 1;
   pointer-events: none;
-  /* Key optimization: Use one animation for everything to avoid conflict */
   animation: petal-fall-sway 8s linear infinite; 
-  will-change: transform;
+  will-change: transform, opacity;
 }
 
 @keyframes petal-fall-sway {
@@ -222,7 +233,6 @@
 /* =========================================
    8. DEEP SPACE (Shooting Stars)
    ========================================= */
-/* Optimized by default in your original code, kept as is */
 .shooting-star {
   position: fixed;
   width: 150px;
@@ -233,7 +243,7 @@
   z-index: 1;
   pointer-events: none;
   animation: shoot 5s ease-in-out infinite;
-  will-change: transform;
+  will-change: transform, opacity;
 }
 
 @keyframes shoot {

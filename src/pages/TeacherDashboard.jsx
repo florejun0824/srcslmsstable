@@ -17,7 +17,7 @@ import { useStudentPosts } from '../hooks/useStudentPosts';
 import TeacherDashboardLayout from '../components/teacher/TeacherDashboardLayout';
 import GlobalAiSpinner from '../components/common/GlobalAiSpinner';
 import PublicProfilePage from './PublicProfilePage'; 
-import { ConfirmActionModal } from './AdminDashboard'; 
+import { ConfirmActionModal } from '../components/common/ConfirmActionModal'; 
 
 // --- Lazy Components ---
 const PresentationPreviewModal = lazy(() => import('../components/teacher/PresentationPreviewModal'));
@@ -37,8 +37,8 @@ const TeacherDashboard = () => {
     const segments = pathname.substring('/dashboard'.length).split('/');
     const pathSegment = segments[1];
     if (pathSegment === 'profile' && segments[2]) return 'publicProfile';
-    const validViews = ['lounge', 'studentManagement', 'classes', 'courses', 'analytics', 'profile', 'admin'];
-    return validViews.includes(pathSegment) ? pathSegment : 'home';
+    const validViews = ['lounge', 'studentManagement', 'classes', 'courses', 'analytics', 'profile', 'admin', 'elections'];
+    return validViews && validViews.includes(pathSegment) ? pathSegment : 'home';
   }, []);
 
   const activeView = getActiveViewFromPath(location.pathname);
@@ -78,7 +78,7 @@ const TeacherDashboard = () => {
   const [categoryToEdit, setCategoryToEdit] = useState(null);
   const [classToEdit, setClassToEdit] = useState(null);
   const [subjectToActOn, setSubjectToActOn] = useState(null);
-  const [lessonsToProcessForPPT, setLessonsToProcessForPPT] = useState({}); // FIXED: Initial state as object, not empty array
+  const [lessonsToProcessForPPT, setLessonsToProcessForPPT] = useState({});
 
   // Chat State
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -131,7 +131,8 @@ const TeacherDashboard = () => {
   const archivedClasses = useMemo(() => classes.filter(c => c.isArchived), [classes]);
   const filteredLmsClasses = useMemo(() => {
     if (!importClassSearchTerm) return allLmsClasses;
-    return allLmsClasses.filter(c => c.name.toLowerCase().includes(importClassSearchTerm.toLowerCase()));
+    // SAFEGUARD: Ensure c.name exists before lowercasing/including
+    return allLmsClasses.filter(c => c?.name && c.name.toLowerCase().includes(importClassSearchTerm.toLowerCase()));
   }, [allLmsClasses, importClassSearchTerm]);
 
   // 8. Event Handlers
@@ -207,9 +208,7 @@ const TeacherDashboard = () => {
     toggleModal('deleteGeneric', true);
   }, []);
 
-  // --- Presentation Handlers (FIXED) ---
-
-  // NOTE: dataOverride added to handle race condition when skipping modal
+  // --- Presentation Handlers (FIXED with safeguards) ---
   const handleConfirmBetaWarning = useCallback(async (neverShow, dataOverride = null) => {
     if (neverShow) localStorage.setItem('hidePresentationBetaWarning', 'true');
     toggleModal('betaWarning', false);
@@ -226,8 +225,8 @@ const TeacherDashboard = () => {
   
     const { ids, data, units, subject } = sourceData;
   
-    // Use the explicitly passed subject; fallback to parent state if needed
-    const subjectToUse = subject || activeSubject;
+    // Use the explicitly passed subject; fallback to activeSubject, else default object
+    const subjectToUse = subject || activeSubject || { title: 'General Knowledge', name: 'General Knowledge' };
 
     const success = await generatePreview(ids, data, subjectToUse, units);
     if (success) toggleModal('presentationPreview', true);
@@ -246,7 +245,6 @@ const TeacherDashboard = () => {
   
     const hideWarn = localStorage.getItem('hidePresentationBetaWarning');
     if (hideWarn === 'true') {
-        // FIXED: Pass payload directly to avoid reading stale state
         handleConfirmBetaWarning(false, payload);
     } else {
         toggleModal('betaWarning', true);

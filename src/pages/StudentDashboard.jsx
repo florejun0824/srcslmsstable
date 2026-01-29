@@ -29,6 +29,7 @@ import StudentViewLessonModal from '../components/student/StudentViewLessonModal
 import Spinner from '../components/common/Spinner';
 import PublicProfilePage from './PublicProfilePage'; 
 import { useStudentPosts } from '../hooks/useStudentPosts';
+import StudentElectionTab from '../components/student/StudentElectionTab'; // Ensure imported
 
 // Utility for debouncing real-time updates to prevent render trashing
 const debounce = (func, wait) => {
@@ -66,6 +67,7 @@ const StudentDashboard = () => {
       case 'lounge': return 'lounge';
       case 'lessons': return 'lessons';
       case 'quizzes': return 'quizzes';
+      case 'elections': return 'elections';
       case 'rewards': return 'rewards';
       case 'profile': return 'profile';
       default: return 'classes';
@@ -77,6 +79,7 @@ const StudentDashboard = () => {
   // --- STATE MANAGEMENT ---
   const [hasNewLessons, setHasNewLessons] = useState(false);
   const [hasNewQuizzes, setHasNewQuizzes] = useState(false);
+  const [hasActiveElections, setHasActiveElections] = useState(false); // [NEW] Election Notification State
   
   // UI State
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -92,7 +95,7 @@ const StudentDashboard = () => {
   const [lessons, setLessons] = useState([]);
   const [units, setUnits] = useState([]);
   
-  // Loading States (Consolidated mentally, kept separate for UI prop compatibility)
+  // Loading States
   const [isFetchingClasses, setIsFetchingClasses] = useState(true);
   const [isFetchingUnits, setIsFetchingUnits] = useState(true);
   const [isFetchingContent, setIsFetchingContent] = useState(true);
@@ -126,12 +129,17 @@ const StudentDashboard = () => {
       updateData.quizzesLastSeen = newTimestamp; 
       setUserProfile(prev => ({ ...prev, quizzesLastSeen: newTimestamp })); 
     }
+    // [NEW] Clear Election Notification
+    if (newView === 'elections' && hasActiveElections) {
+        // Optional: If you want to persist "last seen" for elections, you can add it here.
+        // For now, we just keep the dot active if there is an active election, 
+        // OR we can rely on userProfile.electionsLastSeen if implemented in backend.
+    }
 
     // Background DB update
     if (Object.keys(updateData).length > 0 && userProfile?.id) {
       try {
         const userRef = doc(db, 'users', userProfile.id);
-        // Fire and forget - don't await blocking navigation
         updateDoc(userRef, updateData).catch(err => console.error("Failed to update lastSeen:", err));
       } catch (err) {
         console.error("Failed to update lastSeen timestamp:", err);
@@ -146,8 +154,45 @@ const StudentDashboard = () => {
     setIsSidebarOpen(false); 
   };
 
+  // --- [NEW] ELECTION NOTIFICATION LISTENER ---
+  useEffect(() => {
+    if (!userProfile?.id) return;
+
+    // Listen only for ACTIVE elections to trigger the notification
+    const q = query(
+        collection(db, 'elections'), 
+        where('status', '==', 'active')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+        const activeElections = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        // Filter: Only show dot if the election applies to this student
+        const relevantElections = activeElections.filter(e => {
+            // 1. School Filter
+            if (e.schoolId && userProfile.schoolId && e.schoolId !== userProfile.schoolId) {
+                return false;
+            }
+            // 2. Grade Filter
+            if (e.targetType === 'grade') {
+                if (!userProfile.gradeLevel) return false; // Safety check
+                if (String(e.targetGrade) !== String(userProfile.gradeLevel)) {
+                    return false;
+                }
+            }
+            return true;
+        });
+
+        setHasActiveElections(relevantElections.length > 0);
+    }, (error) => {
+        console.error("Error checking active elections:", error);
+    });
+
+    return () => unsubscribe();
+  }, [userProfile?.schoolId, userProfile?.gradeLevel]);
+
+
   // --- PERMISSIONS / GAMIFICATION CHECK ---
-  // Kept client-side as requested. Wrapped in useCallback to stabilize the dependency.
   const checkAndApplyPermissions = useCallback(() => {
     if (!userProfile) return;
 
@@ -237,7 +282,6 @@ const StudentDashboard = () => {
   useEffect(() => {
     if (userProfile?.id) {
         setLoungeUsersMap(prev => {
-            // Only update if not already present to avoid re-renders
             if (prev[userProfile.id]) return prev;
             return { ...prev, [userProfile.id]: userProfile };
         });
@@ -271,9 +315,8 @@ const StudentDashboard = () => {
 
           const teacherIds = [...new Set(classesData.map(c => c.teacherId).filter(Boolean))];
           
-          // Batch fetch teacher details if needed
+          // Batch fetch teacher details
           if (teacherIds.length > 0) {
-            // Handling potential >10/30 limits by slicing if necessary, though user usually has few teachers
             const batch = teacherIds.slice(0, 30); 
             const teachersQuery = query(collection(db, 'users'), where(documentId(), 'in', batch));
             const teachersSnapshot = await getDocs(teachersQuery);
@@ -334,20 +377,10 @@ const StudentDashboard = () => {
     
     let allPosts = [];
     try {
-      // Map fetches to handle failures individually (Promise.allSettled pattern manual implementation)
       const postPromises = myClasses.map(c =>
         getDocs(query(collection(db, `classes/${c.id}/posts`)))
-          .then(snapshot => ({
-            status: 'fulfilled',
-            classId: c.id,
-            className: c.name,
-            snapshot
-          }))
-          .catch(error => ({
-            status: 'rejected',
-            classId: c.id,
-            error
-          }))
+          .then(snapshot => ({ status: 'fulfilled', classId: c.id, className: c.name, snapshot }))
+          .catch(error => ({ status: 'rejected', classId: c.id, error }))
       );
 
       const results = await Promise.all(postPromises);
@@ -362,7 +395,6 @@ const StudentDashboard = () => {
         res.snapshot.forEach(docSnap => {
           const post = { id: docSnap.id, ...docSnap.data(), className: res.className, classId: res.classId };
           
-          // Client-side filtering
           const targetAudience = post.targetAudience;
           const targetStudentIds = post.targetStudentIds || [];
           let isRecipient = false;
@@ -382,17 +414,15 @@ const StudentDashboard = () => {
     return allPosts;
   }, [authLoading, userProfile?.id, myClasses]);
 
-  // --- LOUNGE: FETCH USERS (OPTIMIZED) ---
+  // --- LOUNGE: FETCH USERS ---
   const fetchMissingLoungeUsers = useCallback(async (userIds) => {
     const uniqueIds = [...new Set(userIds.filter(id => !!id))];
     if (uniqueIds.length === 0) return;
 
-    // Filter out users we already know
     const usersToFetch = uniqueIds.filter(id => !loungeUsersMap[id]);
     if (usersToFetch.length === 0) return;
     
     try {
-        // Chunk requests to respect Firestore 'in' query limit (30)
         for (let i = 0; i < usersToFetch.length; i += 30) {
             const chunk = usersToFetch.slice(i, i + 30);
             const usersQuery = query(collection(db, 'users'), where(documentId(), 'in', chunk));
@@ -425,7 +455,6 @@ const StudentDashboard = () => {
       const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setLoungePosts(posts);
 
-      // Collect IDs to fetch profiles
       const userIdsToFetch = new Set();
       posts.forEach(post => {
         userIdsToFetch.add(post.authorId);
@@ -463,7 +492,6 @@ const StudentDashboard = () => {
       const allLessonsFromPosts = [];
       const allQuizzesFromPosts = [];
 
-      // Single pass processing
       for (const post of allPosts) {
         if (post.lessons && Array.isArray(post.lessons)) {
           post.lessons.forEach(lesson => {
@@ -493,13 +521,11 @@ const StudentDashboard = () => {
         }
       }
 
-      // Fetch Submissions for Quizzes
       const quizIds = allQuizzesFromPosts.map(q => q.id).filter(Boolean);
       const submissionsByQuizId = new Map();
       
       if (quizIds.length > 0) {
         const chunks = [];
-        // Batch query limits
         for (let i = 0; i < quizIds.length; i += 30) chunks.push(quizIds.slice(i, i + 30));
         
         const submissionPromises = chunks.map(chunk =>
@@ -519,7 +545,6 @@ const StudentDashboard = () => {
 
       const quizzesWithDetails = allQuizzesFromPosts.map(q => {
         const subs = submissionsByQuizId.get(q.id) || [];
-        // Filter submissions strictly for this post instance (in case reused)
         const relevantSubs = subs.filter(s => s.postId === q.postId);
         return { ...q, attemptsTaken: relevantSubs.length };
       });
@@ -575,7 +600,6 @@ const StudentDashboard = () => {
     const shouldAutoSync = ['lessons', 'quizzes', 'classes', 'lounge'].includes(view);
     if (!shouldAutoSync) return;
 
-    // Debounced refresh to prevent "stutter" if 5 classes update at once
     const debouncedRefresh = debounce(() => {
       if (fetchContentRef.current) fetchContentRef.current(true);
     }, 1000); 
@@ -584,7 +608,6 @@ const StudentDashboard = () => {
       const postsQuery = query(collection(db, `classes/${c.id}/posts`));
       
       const unsubscribe = onSnapshot(postsQuery, (snapshot) => {
-        // Only trigger if changes actually happened (avoid metadata changes)
         if (!snapshot.metadata.hasPendingWrites) {
             debouncedRefresh();
         }
@@ -678,7 +701,7 @@ const StudentDashboard = () => {
     return () => clearInterval(intervalId);
   }, [allQuizzes]);
 
-  // --- UP NEXT TASK (MEMOIZED) ---
+  // --- UP NEXT TASK ---
   const upNextTask = useMemo(() => {
       // 1. Priority: Overdue Quizzes
       if (quizzes.overdue && quizzes.overdue.length > 0) {
@@ -744,7 +767,6 @@ const StudentDashboard = () => {
               };
           }
       }
-      
       return null;
   }, [quizzes, lessons, userProfile]);
 
@@ -755,7 +777,6 @@ const StudentDashboard = () => {
       return;
     }
     try {
-      // Fetch fresh settings to prevent cheating or stale configs
       const postRef = doc(db, `classes/${quiz.classId}/posts`, quiz.postId);
       const postSnap = await getDoc(postRef);
       
@@ -829,7 +850,7 @@ const StudentDashboard = () => {
   // --- MAIN RENDER ---
   if (authLoading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-neumorphic-base dark:bg-neumorphic-base-dark">
+      <div className="flex h-screen items-center justify-center bg-slate-50 dark:bg-black">
         <Spinner />
       </div>
     );
@@ -858,9 +879,10 @@ const StudentDashboard = () => {
         setLessonToView={setLessonToView}
         quizzes={quizzes}
         handleTakeQuizClick={handleTakeQuizClick}
-		    fetchContent={() => fetchContent(false)} 
+        fetchContent={() => fetchContent(false)} 
         hasNewLessons={hasNewLessons}
         hasNewQuizzes={hasNewQuizzes}
+        hasActiveElections={hasActiveElections} // [NEW] Pass this prop
         upNextTask={upNextTask}
         // Lounge props
         isLoungeLoading={isLoungeLoading}
@@ -884,7 +906,7 @@ const StudentDashboard = () => {
         quiz={quizToTake}
         userProfile={userProfile}
         classId={quizToTake?.classId}
-		    postId={quizToTake?.postId}
+        postId={quizToTake?.postId}
         isTeacherView={userProfile?.role === 'teacher' || userProfile?.role ==='admin'}
       />
 

@@ -16,13 +16,11 @@ const THEME_SEEDS = {
 };
 
 // --- COLOR MATH HELPERS ---
-
 const hexToRgb = (hex) => {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
     return result ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) } : { r: 0, g: 0, b: 0 };
 };
 
-// Convert RGB to HSL
 const rgbToHsl = (r, g, b) => {
     r /= 255; g /= 255; b /= 255;
     const max = Math.max(r, g, b), min = Math.min(r, g, b);
@@ -43,7 +41,6 @@ const rgbToHsl = (r, g, b) => {
     return { h: h * 360, s: s * 100, l: l * 100 };
 };
 
-// Convert HSL back to RGB
 const hslToRgbString = (h, s, l) => {
     s /= 100; l /= 100;
     const k = n => (n + h / 30) % 12;
@@ -55,7 +52,6 @@ const hslToRgbString = (h, s, l) => {
     return `${r}, ${g}, ${b}`;
 };
 
-// Helper: Adjust Brightness for simple tints
 const adjustBrightness = ({ r, g, b }, percent) => {
     return {
         r: Math.min(255, Math.max(0, r + (255 * percent / 100))),
@@ -64,6 +60,7 @@ const adjustBrightness = ({ r, g, b }, percent) => {
     };
 };
 
+// Initial State Loaders
 const getInitialOverlay = () => {
   if (typeof window !== 'undefined') {
     const storedOverlay = localStorage.getItem('theme_overlay');
@@ -72,14 +69,30 @@ const getInitialOverlay = () => {
   return 'none';
 };
 
+const getInitialMode = () => {
+  if (typeof window !== 'undefined') {
+    const storedMode = localStorage.getItem('theme_mode');
+    if (storedMode) return storedMode;
+  }
+  return 'full'; // Default to full experience
+};
+
 export const ThemeProvider = ({ children }) => {
   const theme = 'dark'; 
   const [activeOverlay, setActiveOverlayState] = useState(getInitialOverlay);
+  const [themeMode, setThemeModeState] = useState(getInitialMode);
 
   const setActiveOverlay = (newOverlay) => {
     setActiveOverlayState(newOverlay);
     if (typeof window !== 'undefined') {
       localStorage.setItem('theme_overlay', newOverlay);
+    }
+  };
+
+  const setThemeMode = (newMode) => {
+    setThemeModeState(newMode);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('theme_mode', newMode);
     }
   };
 
@@ -96,20 +109,14 @@ export const ThemeProvider = ({ children }) => {
       const rgb = hexToRgb(seedHex);
       const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
 
-      // 1. Surface (Background Glass)
       const surfaceColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.70)`;
       const borderRgb = adjustBrightness(rgb, 30);
       const borderColor = `rgba(${borderRgb.r}, ${borderRgb.g}, ${borderRgb.b}, 0.25)`;
       const shadowColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.6)`;
 
-      // 2. PRIMARY ACCENT (MOODY & MATTE)
-      // Saturation: 40% (Low saturation creates a "Metallic/Matte" look)
-      // Lightness: 30% (Dark enough to blend, bright enough for white text)
+      // PRIMARY ACCENT
       const vibrantRgb = hslToRgbString(hsl.h, 40, 30); 
-      
-      // 3. DARK ACCENT (For Gradient Bottoms)
-      // Saturation: 50%
-      // Lightness: 10% (Near black, creates deep shadow)
+      // DARK ACCENT
       const deepRgb = hslToRgbString(hsl.h, 50, 10);
 
       const accentColor = `rgb(${vibrantRgb})`;
@@ -117,13 +124,11 @@ export const ThemeProvider = ({ children }) => {
 
       return {
           seedHex,
-          // Styles for Glass Headers
           glassStyle: {
               background: surfaceColor,
               borderColor: borderColor,
               boxShadow: `0 8px 32px -4px ${shadowColor}`,
           },
-          // CSS Variables for Global Usage
           variables: {
               '--monet-accent': accentColor,
               '--monet-accent-dark': deepAccentColor, 
@@ -137,6 +142,8 @@ export const ThemeProvider = ({ children }) => {
     theme,             
     activeOverlay,    
     setActiveOverlay,
+    themeMode,      // 'full' or 'lite'
+    setThemeMode,   // Function to update mode
     monetTheme,
   };
 

@@ -18,6 +18,7 @@ import {
     PlusCircleIcon,
     HomeIcon, 
     RectangleGroupIcon,
+	HandRaisedIcon,
     AcademicCapIcon
 } from '@heroicons/react/24/solid';
 import { IconPalette } from '@tabler/icons-react';
@@ -40,6 +41,7 @@ import ThemeToggle from '../components/common/ThemeToggle';
 
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
+import StudentElectionTab from '../components/student/StudentElectionTab';
 
 // --- CONSTANTS ---
 const SCHOOL_BRANDING = {
@@ -470,6 +472,8 @@ const StudentDashboardUI = ({
                 return <LoungeView isPostsLoading={isLoungeLoading} publicPosts={loungePosts} usersMap={loungeUsersMap} fetchPublicPosts={fetchLoungePosts} {...loungePostUtils} />;
             case 'lessons':
                 return <div className="relative pt-4">{allLessonsEmpty && !isFetching ? <EmptyState icon={BookOpenIcon} title="No Lessons" message="Check back soon!" actionText="Refresh" onActionClick={fetchContent} /> : <StudentLessonsTab lessons={lessons} units={units} setLessonToView={setLessonToView} isFetchingContent={isFetching} onRefreshLessons={fetchContent} />}</div>;
+			case 'elections':
+			                return <div className="pt-4"><StudentElectionTab /></div>;
             case 'quizzes':
                 return <div className="pt-4">{allQuizzesEmpty && !isFetching ? <EmptyState icon={ClipboardDocumentCheckIcon} title="No Quizzes" message="You're all caught up." /> : <StudentQuizzesTab quizzes={quizzes} units={units} handleTakeQuizClick={handleTakeQuizClick} isFetchingContent={isFetching} userProfile={userProfile} onRefresh={fetchContent} />}</div>;
             case 'rewards':
@@ -486,6 +490,7 @@ const StudentDashboardUI = ({
         { view: 'lounge', text: 'Lounge', icon: RocketLaunchIcon }, 
         { view: 'lessons', text: 'Lessons', icon: BookOpenIcon },
         { view: 'quizzes', text: 'Quizzes', icon: ClipboardDocumentCheckIcon },
+		{ view: 'elections', text: 'Elections', icon: HandRaisedIcon },
         { view: 'rewards', text: 'Rewards', icon: GiftIcon },
         { view: 'profile', text: 'Profile', icon: UserIcon }
     ], []);

@@ -88,25 +88,33 @@ const AnimatedRobot = ({ onClick }) => {
         }
     };
 
+    // --- PERFORMANCE FIX START ---
     const buttonStyle = {
         position: 'fixed',
         width: `${size}px`,
         height: `${size}px`,
-        left: `${position.x}px`,
-        top: `${position.y}px`,
-        // Force GPU layer for smoother rendering over scrolling content
-        transform: `translate3d(0, 0, 0)`, 
-        // Separate dragging visual logic from hardware acceleration
-        transition: isDragging ? 'none' : 'transform 0.2s ease, top 0.1s, left 0.1s', 
+        
+        // 1. Lock position to top-left 0 so transform handles everything
+        left: 0,
+        top: 0,
+
+        // 2. Use GPU Transform for movement (No Layout Reflow)
+        transform: `translate3d(${position.x}px, ${position.y}px, 0)`, 
+        
+        // 3. Animate only the transform property
+        transition: isDragging ? 'none' : 'transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)', 
+        
+        // 4. Hint browser to optimize for transform changes
+        willChange: 'transform',
+        
         zIndex: 999, 
         cursor: isDragging ? 'grabbing' : 'grab',
         background: 'transparent',
         border: 'none',
         padding: 0,
         outline: 'none',
-        // Hint to browser to optimize this element
-        willChange: 'top, left'
     };
+    // --- PERFORMANCE FIX END ---
 
     return (
         <button
