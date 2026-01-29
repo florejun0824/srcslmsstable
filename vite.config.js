@@ -82,7 +82,6 @@ export default defineConfig({
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage', 'firebase/functions'],
           'vendor-ui': ['@headlessui/react', '@heroicons/react', 'framer-motion'],
-          'vendor-3d': ['three', '@react-three/fiber', '@react-three/drei'],
           'vendor-utils': ['pdfjs-dist', 'xlsx', 'mammoth', 'jspdf', 'html2canvas']
         }
       }
