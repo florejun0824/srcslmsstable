@@ -2,15 +2,18 @@ export const config = {
   runtime: 'edge',
 };
 
-// 1. POOL OF OPENROUTER KEYS
+// 1. POOL OF OPENROUTER KEYS (Updated for Fallbacks 2-5)
 const getApiKeyPool = () => {
   const keys = new Set();
+  
+  // Primary Key
   if (process.env.OPENROUTER_API_KEY) keys.add(process.env.OPENROUTER_API_KEY);
   
-  // --- TEMPORARILY DISABLED (Uncomment when topped up) ---
-  // if (process.env.OPENROUTER_API_KEY_2) keys.add(process.env.OPENROUTER_API_KEY_2);
-  // if (process.env.OPENROUTER_API_KEY_3) keys.add(process.env.OPENROUTER_API_KEY_3);
-  // -------------------------------------------------------
+  // Fallback Keys
+  if (process.env.OPENROUTER_API_KEY_2) keys.add(process.env.OPENROUTER_API_KEY_2);
+  if (process.env.OPENROUTER_API_KEY_3) keys.add(process.env.OPENROUTER_API_KEY_3);
+  if (process.env.OPENROUTER_API_KEY_4) keys.add(process.env.OPENROUTER_API_KEY_4);
+  if (process.env.OPENROUTER_API_KEY_5) keys.add(process.env.OPENROUTER_API_KEY_5);
 
   return Array.from(keys).filter(k => k && k.length > 10);
 };
@@ -49,7 +52,7 @@ export default async function handler(req) {
     
     const body = JSON.parse(bodyText);
     
-    // Destructure inputs, including maxOutputTokens
+    // Destructure inputs
     const { prompt, imageUrl, model: requestedModel, maxOutputTokens } = body; 
 
     // 3. Validate Inputs
@@ -63,7 +66,9 @@ export default async function handler(req) {
     }
 
     // 4. Construct Messages & Select Model
-    // DEFAULT TO DEEPSEEK R1 CHIMERA
+    // Note: If you want "MiMo Flash" behavior, ensure the requestedModel passed from frontend 
+    // is "google/gemini-2.0-flash-001" or similar.
+    // Defaulting to DeepSeek R1 Chimera if no model provided.
     let selectedModel = requestedModel || "tngtech/deepseek-r1t2-chimera:free"; 
     let messages = [];
 

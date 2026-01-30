@@ -19,7 +19,8 @@ const isNative = Capacitor.isNativePlatform();
 const API_BASE = PROD_API_URL;
 
 // --- CONFIGURATION ---
-// TIER 1: OpenRouter (Primary) - Switched to DeepSeek R1 Chimera
+
+// TIER 1: OpenRouter (Reasoning/Complex) - DeepSeek R1
 const PRIMARY_CONFIGS = [
     { 
         service: 'openrouter', 
@@ -29,15 +30,33 @@ const PRIMARY_CONFIGS = [
     },
 ];
 
-// TIER 2: Google Gemini - RELIABLE BACKUP
-// Used if DeepSeek is down or rate-limited
-const GEMINI_MODEL = 'google/gemma-3-27b-it'; 
+// TIER 2: OpenRouter (Fast/Backup) - Gemini Flash
+// CRITICAL FIX: Added 'model' property here so it doesn't default back to DeepSeek
 const FALLBACK_CONFIGS = [
-    { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Backup 1' },
-    { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Backup 2' },
-    { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Backup 3' },
-    { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Backup 4' },
-    { service: 'gemini', model: GEMINI_MODEL, url: `${API_BASE}/api/gemini`, name: 'Gemini Backup 5' },
+  { 
+      service: 'openrouter', 
+      url: `${API_BASE}/api/openrouter`, 
+      name: 'Gemini Flash Backup 1', 
+      model: 'google/gemma-3-27b-it:free' 
+  },
+  { 
+      service: 'openrouter', 
+      url: `${API_BASE}/api/openrouter`, 
+      name: 'Gemini Flash Backup 2', 
+      model: 'google/gemma-3-27b-it:free' 
+  },
+  { 
+      service: 'openrouter', 
+      url: `${API_BASE}/api/openrouter`, 
+      name: 'Gemini Flash Backup 3', 
+      model: 'google/gemma-3-27b-it:free' 
+  },
+  { 
+      service: 'openrouter', 
+      url: `${API_BASE}/api/openrouter`, 
+      name: 'Gemini Flash Backup 4', 
+      model: 'google/gemma-3-27b-it:free' 
+  },
 ];
 
 let primaryIndex = 0;
@@ -101,7 +120,7 @@ const callProxyApiInternal = async (prompt, jsonMode = false, config, maxOutputT
                 prompt: prompt,
                 jsonMode: jsonMode,
                 maxOutputTokens: maxOutputTokens,
-                model: config.model // Sends the configured model to OpenRouter
+                model: config.model // Now this will correctly send 'google/gemini-2.0-flash-001' for fallbacks
             }),
         });
 
@@ -138,33 +157,37 @@ const callProxyApiInternal = async (prompt, jsonMode = false, config, maxOutputT
 }
 
 // --- TIERED LOAD BALANCER ---
-const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTokens = undefined) => {
+const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTokens = undefined, skipPrimary = false) => {
     const errors = {};
     
     // PHASE 1: Try Primary Tier (OpenRouter / DeepSeek)
-    const maxPrimaryAttempts = 3; 
+    // Only execute if NOT skipping primary
+    if (!skipPrimary) {
+        const maxPrimaryAttempts = 3; 
 
-    for (let i = 0; i < maxPrimaryAttempts; i++) {
-        const config = PRIMARY_CONFIGS[primaryIndex];
-        primaryIndex = (primaryIndex + 1) % PRIMARY_CONFIGS.length;
+        for (let i = 0; i < maxPrimaryAttempts; i++) {
+            const config = PRIMARY_CONFIGS[primaryIndex];
+            primaryIndex = (primaryIndex + 1) % PRIMARY_CONFIGS.length;
 
-        try {
-            console.log(`Using ${config.name} (Attempt ${i+1})...`); 
-            const response = await callProxyApiInternal(prompt, jsonMode, config, maxOutputTokens);
-            return response;
+            try {
+                console.log(`Using ${config.name} (Attempt ${i+1})...`); 
+                const response = await callProxyApiInternal(prompt, jsonMode, config, maxOutputTokens);
+                return response;
 
-        } catch (error) {
-            console.warn(`${config.name} failed (Attempt ${i+1}):`, error.message); 
-            errors[`${config.name}-${i}`] = error.message;
-            if ([429, 503, 500, 504].includes(error.status)) {
-                await delay(1000); 
+            } catch (error) {
+                console.warn(`${config.name} failed (Attempt ${i+1}):`, error.message); 
+                errors[`${config.name}-${i}`] = error.message;
+                if ([429, 503, 500, 504].includes(error.status)) {
+                    await delay(1000); 
+                }
             }
         }
+        console.warn("Primary AI tier failed (or exhausted). Switching to FALLBACK TIER.");
+    } else {
+        console.log("Skipping Primary Tier. Using Fallback Tier (Gemini Flash) directly.");
     }
 
-    console.warn("Primary AI tier failed. Switching to FALLBACK TIER (Gemini Backup).");
-
-    // PHASE 2: Try Fallback Tier (Direct/Proxy Gemini)
+    // PHASE 2: Try Fallback Tier (OpenRouter Gemini Flash)
     for (let i = 0; i < FALLBACK_CONFIGS.length; i++) {
         const config = FALLBACK_CONFIGS[fallbackIndex];
         fallbackIndex = (fallbackIndex + 1) % FALLBACK_CONFIGS.length;
@@ -196,7 +219,13 @@ export const callGeminiWithLimitCheck = async (prompt, options = {}) => {
     usageCache.lastChecked = Date.now();
 
     try {
-        const rawResponse = await callGeminiWithLoadBalancing(prompt, false, options.maxOutputTokens);
+        const rawResponse = await callGeminiWithLoadBalancing(
+            prompt, 
+            false, 
+            options.maxOutputTokens, 
+            options.skipPrimary
+        );
+        
         await updateDoc(doc(db, 'usage_trackers', 'ai_usage'), { callCount: increment(1) });
 
         let safeResponse = rawResponse ? String(rawResponse) : '';
@@ -214,10 +243,12 @@ export const callGeminiWithLimitCheck = async (prompt, options = {}) => {
 };
 
 export const callChatbotAi = async (prompt) => {
-    return await callGeminiWithLimitCheck(prompt);
+    // This now correctly uses Gemini Flash (via Fallback config) 
+    // instead of defaulting to DeepSeek, ensuring fast chat responses.
+    return await callGeminiWithLimitCheck(prompt, { skipPrimary: true });
 };
 
-// --- GRADING FUNCTION (Preserved) ---
+// --- GRADING FUNCTION ---
 export const gradeEssayWithAI = async (promptText, rubric, studentAnswer) => {
     const limitReached = await checkAiLimitReached();
     if (limitReached) throw new Error("LIMIT_REACHED");
