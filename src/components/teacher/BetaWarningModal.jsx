@@ -1,125 +1,233 @@
 // src/components/teacher/BetaWarningModal.jsx
 
-import React, { useState } from 'react';
-import { Dialog } from '@headlessui/react';
-import { SparklesIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import React, { useState, useEffect, Fragment } from 'react';
+import { Dialog, Transition } from '@headlessui/react';
+import { XMarkIcon } from '@heroicons/react/24/outline';
+import { PresentationChartBarIcon, SparklesIcon } from '@heroicons/react/24/solid';
 
 export default function BetaWarningModal({ isOpen, onClose, onConfirm, title }) {
     const [neverShowAgain, setNeverShowAgain] = useState(false);
+    const [activeColorIndex, setActiveColorIndex] = useState(0);
 
-    if (!isOpen) return null;
+    // Color Cycle Logic (Every 2 seconds)
+    useEffect(() => {
+        if (!isOpen) return;
+        const interval = setInterval(() => {
+            setActiveColorIndex((prev) => (prev + 1) % 4);
+        }, 2000);
+        return () => clearInterval(interval);
+    }, [isOpen]);
 
     const handleConfirm = () => {
-        if (onConfirm) {
-            onConfirm(neverShowAgain);
-        }
+        if (onConfirm) onConfirm(neverShowAgain);
     };
 
+    // Color Configurations for the Icon & Glows
+    const colors = [
+        { // 1. Cyan (Default)
+            text: 'text-cyan-50',
+            glow: 'bg-cyan-500/30',
+            shadow: 'drop-shadow-[0_0_25px_rgba(34,211,238,0.8)]',
+            ring: 'border-cyan-400/30'
+        },
+        { // 2. Indigo
+            text: 'text-indigo-50',
+            glow: 'bg-indigo-500/30',
+            shadow: 'drop-shadow-[0_0_25px_rgba(99,102,241,0.8)]',
+            ring: 'border-indigo-400/30'
+        },
+        { // 3. Fuchsia/Pink
+            text: 'text-fuchsia-50',
+            glow: 'bg-fuchsia-500/30',
+            shadow: 'drop-shadow-[0_0_25px_rgba(232,121,249,0.8)]',
+            ring: 'border-fuchsia-400/30'
+        },
+        { // 4. Teal/Emerald
+            text: 'text-teal-50',
+            glow: 'bg-teal-500/30',
+            shadow: 'drop-shadow-[0_0_25px_rgba(45,212,191,0.8)]',
+            ring: 'border-teal-400/30'
+        }
+    ];
+
+    const current = colors[activeColorIndex];
+
     return (
-        <Dialog
-            open={isOpen}
-            onClose={onClose}
-            className="fixed inset-0 z-[120] flex items-center justify-center p-4"
-        >
-            {/* Backdrop:
-               - Reduced blur (md instead of xl) per your request.
-               - Darker, more neutral overlay for focus.
-            */}
-            <div 
-                className="fixed inset-0 bg-slate-900/40 backdrop-blur-md transition-opacity" 
-                aria-hidden="true" 
-            />
-
-            {/* Panel Container:
-               - "macOS 26" Surface: High opacity white/dark background with subtle translucency.
-               - Border: Crisp 1px border for definition.
-               - Shadow: Large, soft shadow for lift (elevation).
-            */}
-            <Dialog.Panel className="relative w-full max-w-md transform overflow-hidden rounded-[24px] 
-                                   bg-white/95 dark:bg-[#1c1c1e]/95 
-                                   backdrop-blur-lg 
-                                   border border-white/20 dark:border-white/10
-                                   shadow-2xl shadow-black/20 
-                                   transition-all duration-300 ease-out">
+        <Transition appear show={isOpen} as={Fragment}>
+            <Dialog as="div" className="relative z-[120]" onClose={onClose}>
                 
-                <div className="p-8">
-                    {/* Icon Header */}
-                    <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl 
-                                  bg-gradient-to-tr from-amber-100 to-orange-50 
-                                  dark:from-amber-900/30 dark:to-orange-900/20 
-                                  shadow-inner border border-amber-100/50 dark:border-amber-500/20 mb-6">
-                        <ExclamationTriangleIcon className="h-8 w-8 text-amber-500 dark:text-amber-400" aria-hidden="true" />
-                    </div>
+                {/* 1. Backdrop */}
+                <Transition.Child
+                    as={Fragment}
+                    enter="ease-out duration-500"
+                    enterFrom="opacity-0 backdrop-blur-none"
+                    enterTo="opacity-100 backdrop-blur-md"
+                    leave="ease-in duration-300"
+                    leaveFrom="opacity-100 backdrop-blur-md"
+                    leaveTo="opacity-0 backdrop-blur-none"
+                >
+                    <div className="fixed inset-0 bg-[#050814]/70 transition-all" />
+                </Transition.Child>
 
-                    {/* Title & Description */}
-                    <div className="text-center">
-                        <Dialog.Title as="h3" className="text-xl font-bold leading-6 text-slate-900 dark:text-white tracking-tight">
-                            {title || "Experimental Feature"}
-                        </Dialog.Title>
-                        <div className="mt-3">
-                            <p className="text-[15px] leading-relaxed text-slate-500 dark:text-slate-400">
-                                This feature is currently in <strong>Beta</strong>. It uses advanced AI generation which may occasionally produce unexpected results.
-                                <br /><br />
-                                Please review all generated slides for accuracy before presenting.
-                            </p>
-                        </div>
-                    </div>
+                <div className="fixed inset-0 overflow-y-auto">
+                    <div className="flex min-h-full items-center justify-center p-4 text-center">
+                        
+                        <Transition.Child
+                            as={Fragment}
+                            enter="ease-out duration-500"
+                            enterFrom="opacity-0 scale-95 translate-y-8"
+                            enterTo="opacity-100 scale-100 translate-y-0"
+                            leave="ease-in duration-300"
+                            leaveFrom="opacity-100 scale-100 translate-y-0"
+                            leaveTo="opacity-0 scale-95 translate-y-8"
+                        >
+                            <Dialog.Panel className="relative w-full max-w-3xl transform overflow-hidden rounded-[32px] bg-white dark:bg-[#0f1014] shadow-2xl transition-all flex flex-col md:flex-row ring-1 ring-black/5 dark:ring-white/10">
+                                
+                                {/* -----------------------
+                                    LEFT PANE: DYNAMIC VISUALS
+                                ------------------------ */}
+                                <div className="relative w-full md:w-[45%] overflow-hidden bg-slate-900 md:h-auto h-64 flex items-center justify-center isolate">
+                                    
+                                    {/* A. User Image & Tint */}
+                                    <img 
+                                        src="/srcs.jpg" 
+                                        alt="" 
+                                        className="absolute inset-0 h-full w-full object-cover opacity-80"
+                                    />
+                                    <div className="absolute inset-0 bg-blue-900/60 mix-blend-multiply" />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-[#020617] via-blue-950/60 to-indigo-900/40" />
 
-                    {/* Checkbox: iOS/macOS Toggle Style */}
-                    <div className="mt-6 flex items-center justify-center">
-                        <label className="flex items-center space-x-3 cursor-pointer group">
-                            <div className={`w-5 h-5 rounded-[6px] border flex items-center justify-center transition-all duration-200 
-                                ${neverShowAgain 
-                                    ? 'bg-[#007AFF] border-[#007AFF]' 
-                                    : 'bg-slate-100 dark:bg-white/10 border-slate-300 dark:border-white/20 group-hover:border-[#007AFF]/50'
-                                }`}>
-                                {neverShowAgain && (
-                                    <svg className="w-3.5 h-3.5 text-white stroke-[3px]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                    </svg>
-                                )}
-                                <input 
-                                    type="checkbox" 
-                                    className="hidden" 
-                                    checked={neverShowAgain} 
-                                    onChange={(e) => setNeverShowAgain(e.target.checked)} 
-                                />
-                            </div>
-                            <span className="text-[13px] font-medium text-slate-600 dark:text-slate-300 select-none">
-                                Don't show this message again
-                            </span>
-                        </label>
+                                    {/* B. Cinematic Noise */}
+                                    <div className="absolute inset-0 opacity-20 mix-blend-overlay" 
+                                         style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }} 
+                                    />
+
+                                    {/* C. THE COLOR-CHANGING SONAR */}
+                                    <div className="relative z-10 flex items-center justify-center">
+                                        
+                                        {/* 1. Outer Ring Ripple (Follows current color) */}
+                                        <div 
+                                            className={`absolute w-24 h-24 rounded-full border opacity-0 animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite] transition-colors duration-1000 ${current.ring}`} 
+                                            style={{ animationDelay: '0.5s' }}
+                                        />
+                                        
+                                        {/* 2. Inner Ring Ripple */}
+                                        <div 
+                                            className="absolute w-24 h-24 rounded-full border border-white/20 opacity-0 animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite]" 
+                                            style={{ animationDelay: '0s' }}
+                                        />
+                                        
+                                        {/* 3. Core Color Glow (Breathing Effect + Color Cycle) */}
+                                        <div className={`absolute w-16 h-16 rounded-full blur-xl animate-[pulse_4s_ease-in-out_infinite] transition-colors duration-1000 ${current.glow}`} />
+                                        <div className={`absolute w-12 h-12 rounded-full blur-lg animate-pulse bg-white/10`} />
+
+                                        {/* 4. The Icon (Color Cycle) */}
+                                        <div className="relative z-20">
+                                            <PresentationChartBarIcon 
+                                                className={`h-16 w-16 transition-all duration-1000 ${current.text} ${current.shadow}`} 
+                                            />
+                                        </div>
+                                    </div>
+
+                                </div>
+
+                                {/* -----------------------
+                                    RIGHT PANE: CONTENT
+                                ------------------------ */}
+                                <div className="flex-1 p-8 md:p-10 text-left relative flex flex-col h-full bg-white dark:bg-[#0f1014]">
+                                    {/* Close Button */}
+                                    <button 
+                                        onClick={onClose}
+                                        className="absolute top-5 right-5 p-2 rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors z-20"
+                                    >
+                                        <XMarkIcon className="w-5 h-5" />
+                                    </button>
+
+                                    <div className="flex-1">
+                                        {/* Badge */}
+                                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 text-blue-600 dark:text-blue-300 text-[11px] font-bold uppercase tracking-wider mb-6">
+                                            <span className="relative flex h-2 w-2">
+                                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                                              <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                                            </span>
+                                            AI Presentation
+                                        </div>
+                                        
+                                        <Dialog.Title as="h3" className="text-2xl font-bold text-slate-900 dark:text-white mb-3">
+                                            {title || "Generating Slides"}
+                                        </Dialog.Title>
+                                        
+                                        <div className="prose prose-sm dark:prose-invert text-slate-600 dark:text-slate-400 leading-relaxed mb-6">
+                                            <p>
+                                                You're using our experimental AI engine to build this deck. The system is scanning for the best layouts and content for your topic.
+                                            </p>
+                                            <p className="font-medium text-slate-800 dark:text-blue-200">
+                                                Please review the generated slides before presenting.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Footer Section */}
+                                    <div className="space-y-6 mt-auto pt-6 border-t border-slate-100 dark:border-white/5">
+                                        {/* Checkbox */}
+                                        <label className="flex items-start gap-3 cursor-pointer group select-none">
+                                            <div className="relative flex items-center justify-center mt-0.5">
+                                                <input 
+                                                    type="checkbox" 
+                                                    className="peer appearance-none w-5 h-5 border-2 border-slate-300 dark:border-slate-600 rounded-[6px] 
+                                                             checked:bg-blue-600 checked:border-blue-600 
+                                                             dark:checked:bg-blue-600 dark:checked:border-blue-600
+                                                             transition-all"
+                                                    checked={neverShowAgain}
+                                                    onChange={(e) => setNeverShowAgain(e.target.checked)}
+                                                />
+                                                <svg className="absolute w-3 h-3 text-white opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none scale-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                                </svg>
+                                            </div>
+                                            <div className="text-sm">
+                                                <span className="font-medium text-slate-700 dark:text-slate-200 block group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">Don't show this again</span>
+                                                <span className="text-slate-400 text-xs">Preferences saved for this session.</span>
+                                            </div>
+                                        </label>
+
+                                        {/* Buttons */}
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={onClose}
+                                                className="px-4 py-3 rounded-xl text-sm font-semibold 
+                                                         text-slate-600 dark:text-slate-300 
+                                                         bg-slate-50 dark:bg-white/5 
+                                                         hover:bg-slate-100 dark:hover:bg-white/10 
+                                                         transition-colors"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={handleConfirm}
+                                                className="relative px-4 py-3 rounded-xl text-sm font-semibold text-white 
+                                                         bg-slate-900 dark:bg-blue-600 
+                                                         hover:bg-slate-800 dark:hover:bg-blue-500
+                                                         shadow-[0_4px_20px_-5px_rgba(37,99,235,0.4)]
+                                                         flex items-center justify-center gap-2 group overflow-hidden
+                                                         transition-all active:scale-[0.98]"
+                                            >
+                                                {/* Button Inner Shine */}
+                                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-150%] group-hover:translate-x-[150%] transition-transform duration-700 ease-in-out" />
+                                                
+                                                <span className="relative">Create Deck</span>
+                                                <SparklesIcon className="w-4 h-4 relative opacity-80" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </Dialog.Panel>
+                        </Transition.Child>
                     </div>
                 </div>
-
-                {/* Footer / Action Buttons */}
-                <div className="bg-slate-50/50 dark:bg-black/20 px-6 py-4 flex gap-3 border-t border-slate-100 dark:border-white/5">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="flex-1 px-4 py-2.5 rounded-[12px] text-[13px] font-semibold 
-                                 text-slate-700 dark:text-slate-200 
-                                 bg-white dark:bg-white/10 
-                                 border border-slate-200 dark:border-white/5
-                                 hover:bg-slate-50 dark:hover:bg-white/15 
-                                 active:scale-[0.98] transition-all duration-200 shadow-sm"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        type="button"
-                        onClick={handleConfirm}
-                        className="flex-1 px-4 py-2.5 rounded-[12px] text-[13px] font-semibold text-white 
-                                 bg-[#007AFF] hover:bg-[#0062CC] 
-                                 shadow-lg shadow-blue-500/25 
-                                 active:scale-[0.98] transition-all duration-200
-                                 flex items-center justify-center gap-2"
-                    >
-                        <span>Continue</span>
-                        <SparklesIcon className="w-4 h-4 opacity-80" />
-                    </button>
-                </div>
-            </Dialog.Panel>
-        </Dialog>
+            </Dialog>
+        </Transition>
     );
 }

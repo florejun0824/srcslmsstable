@@ -120,7 +120,6 @@ const LandingPage = () => {
       )}
 
       {/* --- MAIN LAYOUT --- */}
-      {/* Note: Removed 'scale' transform to fix position:fixed behavior */}
       <div className={`transition-opacity duration-700 ${isLaunching ? 'opacity-0' : 'opacity-100'}`}>
 
           {/* --- GLOBAL BACKGROUND (Visible to Both Panes) --- */}
@@ -133,7 +132,6 @@ const LandingPage = () => {
               backgroundRepeat: 'no-repeat'
             }}
           >
-            {/* Reduced opacity from 90% to 50% so the image is clearly visible */}
             <div className="absolute inset-0 bg-[#020617]/50 backdrop-blur-[2px]"></div>
             <div className="absolute inset-0 bg-gradient-to-tr from-[#020617] via-[#020617]/60 to-blue-900/10"></div>
           </div>
@@ -141,7 +139,6 @@ const LandingPage = () => {
           <div className="relative z-10 flex flex-col lg:flex-row min-h-screen">
             
             {/* --- LEFT WING (Fixed & Top Aligned) --- */}
-            {/* Added h-screen to ensure full height coverage */}
             <div className="
                 lg:fixed lg:top-0 lg:left-0 lg:h-screen lg:w-[45%] lg:z-20
                 flex flex-col justify-start p-8 lg:p-16 
@@ -201,7 +198,7 @@ const LandingPage = () => {
                     </div>
                 </div>
 
-                {/* 3. Footer (Pushed to bottom) */}
+                {/* 3. Footer (Updated with Routing) */}
                 <div className="mt-auto pt-12 border-t border-white/10 w-full">
                     <div className="flex gap-12 mb-8">
                         <StatBadge number="24/7" label="Access" />
@@ -209,8 +206,8 @@ const LandingPage = () => {
                         <StatBadge number="AI" label="Powered" />
                     </div>
                     <div className="flex gap-6 text-[10px] font-bold text-slate-300 uppercase tracking-wider">
-                        <Link to="#" className="hover:text-white transition-colors">Privacy</Link>
-                        <Link to="#" className="hover:text-white transition-colors">Terms</Link>
+                        <Link to="/privacy" className="hover:text-white hover:underline hover:decoration-dotted transition-all">Privacy Policy</Link>
+                        <Link to="/terms" className="hover:text-white hover:underline hover:decoration-dotted transition-all">Terms of Service</Link>
                         <span className="ml-auto opacity-70">© 2026 SRCS Digital</span>
                     </div>
                 </div>

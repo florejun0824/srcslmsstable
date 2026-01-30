@@ -7,7 +7,7 @@
   "redirects": [
     {
       "source": "/((?!api/.*|favicon.ico).*)",
-      "destination": "https://srcsdigital.dpdns.org/$1",
+      "destination": "https://srcsdigital.web.app/$1",
       "permanent": false
     }
   ],
