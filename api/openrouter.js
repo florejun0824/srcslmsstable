@@ -2,27 +2,31 @@ export const config = {
   runtime: 'edge',
 };
 
-// 1. POOL OF OPENROUTER KEYS (Updated for Fallbacks 2-5)
-const getApiKeyPool = () => {
-  const keys = new Set();
+// --- KEY MANAGEMENT: SEPARATE POOLS ---
+const getApiKey = (tier) => {
+  let keys = [];
+
+  if (tier === 'backup') {
+    // BACKUP POOL (Used by Chatbot & Fallbacks)
+    if (process.env.OPENROUTER_API_KEY_2) keys.push(process.env.OPENROUTER_API_KEY_2);
+    if (process.env.OPENROUTER_API_KEY_3) keys.push(process.env.OPENROUTER_API_KEY_3);
+    if (process.env.OPENROUTER_API_KEY_4) keys.push(process.env.OPENROUTER_API_KEY_4);
+    if (process.env.OPENROUTER_API_KEY_5) keys.push(process.env.OPENROUTER_API_KEY_5);
+    
+    // Safety: If no backups exist, fall back to Primary to prevent crashing
+    if (keys.length === 0 && process.env.OPENROUTER_API_KEY) {
+        keys.push(process.env.OPENROUTER_API_KEY);
+    }
+  } else {
+    // PRIMARY POOL (Default)
+    if (process.env.OPENROUTER_API_KEY) keys.push(process.env.OPENROUTER_API_KEY);
+  }
+
+  // Filter empty keys and pick one randomly
+  keys = keys.filter(k => k && k.length > 10);
   
-  // Primary Key
-  if (process.env.OPENROUTER_API_KEY) keys.add(process.env.OPENROUTER_API_KEY);
-  
-  // Fallback Keys
-  if (process.env.OPENROUTER_API_KEY_2) keys.add(process.env.OPENROUTER_API_KEY_2);
-  if (process.env.OPENROUTER_API_KEY_3) keys.add(process.env.OPENROUTER_API_KEY_3);
-  if (process.env.OPENROUTER_API_KEY_4) keys.add(process.env.OPENROUTER_API_KEY_4);
-  if (process.env.OPENROUTER_API_KEY_5) keys.add(process.env.OPENROUTER_API_KEY_5);
-
-  return Array.from(keys).filter(k => k && k.length > 10);
-};
-
-const API_KEYS = getApiKeyPool();
-
-const getRandomKey = () => {
-  if (API_KEYS.length === 0) return null;
-  return API_KEYS[Math.floor(Math.random() * API_KEYS.length)];
+  if (keys.length === 0) return null;
+  return keys[Math.floor(Math.random() * keys.length)];
 };
 
 export default async function handler(req) {
@@ -52,28 +56,26 @@ export default async function handler(req) {
     
     const body = JSON.parse(bodyText);
     
-    // Destructure inputs
-    const { prompt, imageUrl, model: requestedModel, maxOutputTokens } = body; 
+    // Destructure inputs including TIER
+    const { prompt, imageUrl, model: requestedModel, maxOutputTokens, tier } = body; 
 
     // 3. Validate Inputs
     if (!prompt || typeof prompt !== 'string') {
       return new Response(JSON.stringify({ error: "Missing or invalid 'prompt'" }), { status: 400, headers: corsHeaders });
     }
 
-    const apiKey = getRandomKey();
+    // SELECT KEY BASED ON TIER
+    const apiKey = getApiKey(tier); 
+    
     if (!apiKey) {
-      return new Response(JSON.stringify({ error: "Server Error: No OpenRouter API Keys configured." }), { status: 500, headers: corsHeaders });
+      return new Response(JSON.stringify({ error: `Server Error: No OpenRouter Keys found for tier: ${tier || 'primary'}` }), { status: 500, headers: corsHeaders });
     }
 
     // 4. Construct Messages & Select Model
-    // Note: If you want "MiMo Flash" behavior, ensure the requestedModel passed from frontend 
-    // is "google/gemini-2.0-flash-001" or similar.
-    // Defaulting to DeepSeek R1 Chimera if no model provided.
     let selectedModel = requestedModel || "tngtech/deepseek-r1t2-chimera:free"; 
     let messages = [];
 
     if (imageUrl) {
-      // DeepSeek R1 usually doesn't support Vision. Fallback to Gemini 2.0 Flash for images.
       console.log("Image detected: Switching to Gemini 2.0 Flash for Vision");
       selectedModel = "google/gemini-2.0-flash-exp:free";
       
@@ -87,7 +89,6 @@ export default async function handler(req) {
         }
       ];
     } else {
-      // Standard Text Path
       messages = [
         {
           role: "system",
@@ -113,9 +114,7 @@ export default async function handler(req) {
         model: selectedModel,
         messages: messages,
         stream: true,
-        // Pass the max tokens to ensure we get long lesson outputs (default to 8k if missing)
         max_tokens: maxOutputTokens || 8192,
-        // Optional: Include reasoning for models that support it natively
         include_reasoning: true 
       }),
     });

@@ -10,12 +10,7 @@ const sanitizeError = (text) => {
 };
 
 // --- ENVIRONMENT SETUP ---
-// Point strictly to your Vercel backend where the API folder lives
 const PROD_API_URL = "https://srcslms.vercel.app"; 
-
-const isNative = Capacitor.isNativePlatform();
-
-// Always use the Vercel URL, whether you are on Mobile or the new Firebase Site
 const API_BASE = PROD_API_URL;
 
 // --- CONFIGURATION ---
@@ -26,43 +21,47 @@ const PRIMARY_CONFIGS = [
         service: 'openrouter', 
         url: `${API_BASE}/api/openrouter`, 
         name: 'DeepSeek R1 Chimera (Primary)',
-        model: 'tngtech/deepseek-r1t2-chimera:free' 
+        model: 'tngtech/deepseek-r1t2-chimera:free',
+        tier: 'primary' // <--- Forces backend to use Key #1
     },
 ];
 
 // TIER 2: OpenRouter (Fast/Backup) - Gemini Flash
-// CRITICAL FIX: Added 'model' property here so it doesn't default back to DeepSeek
 const FALLBACK_CONFIGS = [
   { 
       service: 'openrouter', 
       url: `${API_BASE}/api/openrouter`, 
-      name: 'Gemini Flash Backup 1', 
-      model: 'google/gemma-3-27b-it:free' 
+      name: 'Hermes 3 Backup 1', 
+      model: 'google/gemma-3-27b-it:free', // Correct OpenRouter Model ID
+      tier: 'backup' // <--- Forces backend to use Keys #2-5
   },
   { 
       service: 'openrouter', 
       url: `${API_BASE}/api/openrouter`, 
-      name: 'Gemini Flash Backup 2', 
-      model: 'google/gemma-3-27b-it:free' 
+      name: 'Hermes 3 Backup 2', 
+      model: 'google/gemma-3-27b-it:free',
+      tier: 'backup'
   },
   { 
       service: 'openrouter', 
       url: `${API_BASE}/api/openrouter`, 
-      name: 'Gemini Flash Backup 3', 
-      model: 'google/gemma-3-27b-it:free' 
+      name: 'Hermes Backup 3', 
+      model: 'google/gemma-3-27b-it:free',
+      tier: 'backup'
   },
   { 
       service: 'openrouter', 
       url: `${API_BASE}/api/openrouter`, 
-      name: 'Gemini Flash Backup 4', 
-      model: 'google/gemma-3-27b-it:free' 
+      name: 'Meta LLama Backup 4', 
+      model: 'google/gemma-3-27b-it:free',
+      tier: 'backup'
   },
 ];
 
 let primaryIndex = 0;
 let fallbackIndex = 0;
 
-const FREE_API_CALL_LIMIT_PER_MONTH = 500000; // Effectively unlimited for now
+const FREE_API_CALL_LIMIT_PER_MONTH = 500000; 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 let usageCache = { callCount: 0, resetMonth: 0, lastChecked: 0 };
@@ -120,7 +119,8 @@ const callProxyApiInternal = async (prompt, jsonMode = false, config, maxOutputT
                 prompt: prompt,
                 jsonMode: jsonMode,
                 maxOutputTokens: maxOutputTokens,
-                model: config.model // Now this will correctly send 'google/gemini-2.0-flash-001' for fallbacks
+                model: config.model,
+                tier: config.tier // <--- Sends 'primary' or 'backup' to server logic
             }),
         });
 
@@ -161,7 +161,6 @@ const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTo
     const errors = {};
     
     // PHASE 1: Try Primary Tier (OpenRouter / DeepSeek)
-    // Only execute if NOT skipping primary
     if (!skipPrimary) {
         const maxPrimaryAttempts = 3; 
 
@@ -182,9 +181,9 @@ const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTo
                 }
             }
         }
-        console.warn("Primary AI tier failed (or exhausted). Switching to FALLBACK TIER.");
+        console.warn("Primary AI tier failed. Switching to FALLBACK TIER.");
     } else {
-        console.log("Skipping Primary Tier. Using Fallback Tier (Gemini Flash) directly.");
+        console.log("Skipping Primary Tier. Using Fallback Tier directly.");
     }
 
     // PHASE 2: Try Fallback Tier (OpenRouter Gemini Flash)
@@ -229,8 +228,6 @@ export const callGeminiWithLimitCheck = async (prompt, options = {}) => {
         await updateDoc(doc(db, 'usage_trackers', 'ai_usage'), { callCount: increment(1) });
 
         let safeResponse = rawResponse ? String(rawResponse) : '';
-        
-        // Final cleanup for JSON markdown wrappers
         safeResponse = safeResponse.replace(/^```json\s*|```$/g, '').trim();
 
         return safeResponse;
@@ -243,8 +240,7 @@ export const callGeminiWithLimitCheck = async (prompt, options = {}) => {
 };
 
 export const callChatbotAi = async (prompt) => {
-    // This now correctly uses Gemini Flash (via Fallback config) 
-    // instead of defaulting to DeepSeek, ensuring fast chat responses.
+    // This now sends 'tier: backup' -> Uses Keys 2-5 -> Uses Gemini Flash
     return await callGeminiWithLimitCheck(prompt, { skipPrimary: true });
 };
 
