@@ -1,49 +1,73 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
+// 1. ENABLE EDGE RUNTIME
 export const config = {
   runtime: 'edge', 
 };
 
-// 1. DYNAMIC API KEY POOLING
 const getApiKeyPool = () => {
   const keys = new Set();
-  const envKeys = [
-    process.env.GEMINI_API_KEY,
-    process.env.GEMINI_FALLBACK_API_KEY,
-    process.env.GEMINI_FALLBACK_API_KEY_2,
-    process.env.GEMINI_FALLBACK_API_KEY_3,
-    process.env.GEMINI_FALLBACK_API_KEY_4,
-    process.env.GEMINI_FALLBACK_API_KEY_5
-  ];
-  envKeys.forEach(k => { if (k && k.length > 10) keys.add(k); });
-  return Array.from(keys);
+  if (process.env.GEMINI_API_KEY) keys.add(process.env.GEMINI_API_KEY);
+  if (process.env.GEMINI_FALLBACK_API_KEY) keys.add(process.env.GEMINI_FALLBACK_API_KEY);
+  if (process.env.GEMINI_FALLBACK_API_KEY_2) keys.add(process.env.GEMINI_FALLBACK_API_KEY_2);
+  if (process.env.GEMINI_FALLBACK_API_KEY_3) keys.add(process.env.GEMINI_FALLBACK_API_KEY_3);
+  if (process.env.GEMINI_FALLBACK_API_KEY_4) keys.add(process.env.GEMINI_FALLBACK_API_KEY_4);
+  if (process.env.GEMINI_FALLBACK_API_KEY_5) keys.add(process.env.GEMINI_FALLBACK_API_KEY_5);
+  if (process.env.VITE_GEMINI_API_KEY) keys.add(process.env.VITE_GEMINI_API_KEY);
+  return Array.from(keys).filter(k => k && k.length > 10);
+};
+
+const API_KEYS = getApiKeyPool();
+
+const getRandomKey = () => {
+  if (API_KEYS.length === 0) return null;
+  return API_KEYS[Math.floor(Math.random() * API_KEYS.length)];
 };
 
 export default async function handler(req) {
   const corsHeaders = {
+    'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST,OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'GET,OPTIONS,PATCH,DELETE,POST,PUT',
+    'Access-Control-Allow-Headers': 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
   };
 
-  if (req.method === 'OPTIONS') return new Response(null, { status: 200, headers: corsHeaders });
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 200, headers: corsHeaders });
+  }
 
   try {
-    const { prompt, model: requestedModel } = await req.json();
-    const API_KEYS = getApiKeyPool();
-    const apiKey = API_KEYS[Math.floor(Math.random() * API_KEYS.length)];
+    const bodyText = await req.text();
+    if (!bodyText) return new Response(JSON.stringify({ error: "Empty body" }), { status: 400, headers: corsHeaders });
+    
+    const body = JSON.parse(bodyText);
+    
+    // Extract jsonMode so we can enforce JSON output for essay grading
+    const { prompt, model: requestedModel, jsonMode } = body;
 
-    if (!apiKey) throw new Error("No valid API Keys found.");
+    if (!prompt) {
+        return new Response(JSON.stringify({ error: "No prompt provided" }), { status: 400, headers: corsHeaders });
+    }
 
-    // 2. SMART MODEL SELECTION
-    // If no model is specified, default to Gemini 3 Pro (1,500 RPD) to save Flash quota.
-    // Use 'gemini-3-flash' only when explicitly requested for complex coding.
-    const activeModel = requestedModel || 'gemini-3-pro';
+    const apiKey = getRandomKey();
+    if (!apiKey) {
+      return new Response(JSON.stringify({ error: "Server Error: No valid API Keys found." }), { status: 500, headers: corsHeaders });
+    }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: activeModel });
+    
+    // Set up configuration. If jsonMode is true, strictly return JSON.
+    const generationConfig = {};
+    if (jsonMode) {
+      generationConfig.responseMimeType = "application/json";
+    }
 
-    // 3. OPTIMIZED STREAMING
+    // Default to Gemini 3 Pro
+    const model = genAI.getGenerativeModel({ 
+      model: requestedModel || 'gemini-3-pro-preview',
+      generationConfig 
+    });
+
     const result = await model.generateContentStream(prompt);
     
     const stream = new ReadableStream({
@@ -52,9 +76,12 @@ export default async function handler(req) {
             try {
                 for await (const chunk of result.stream) {
                     const chunkText = chunk.text();
-                    if (chunkText) controller.enqueue(encoder.encode(chunkText));
+                    if (chunkText) {
+                        controller.enqueue(encoder.encode(chunkText));
+                    }
                 }
             } catch (err) {
+                console.error("Stream Error:", err);
                 controller.error(err);
             } finally {
                 controller.close();
@@ -64,12 +91,21 @@ export default async function handler(req) {
 
     return new Response(stream, { 
         status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'text/plain; charset=utf-8' } 
+        headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'text/plain; charset=utf-8'
+        } 
     });
 
   } catch (error) {
+    console.error("Vercel Gemini Error:", error);
+    
+    // CRITICAL: Identify rate limit (429) errors so the frontend load balancer knows to switch to OpenRouter
+    const isRateLimit = error.status === 429 || error.message.toLowerCase().includes('quota') || error.message.toLowerCase().includes('429');
+    const statusCode = isRateLimit ? 429 : (error.status || 500);
+
     return new Response(JSON.stringify({ error: error.message }), { 
-        status: 500, 
+        status: statusCode, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
     });
   }
