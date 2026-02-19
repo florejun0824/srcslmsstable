@@ -20,8 +20,8 @@ const PRIMARY_CONFIGS = [
     { 
         service: 'openrouter', 
         url: `${API_BASE}/api/openrouter`, 
-        name: 'Hermes 3)',
-        model: 'openai/gpt-oss-120b:free',
+        name: 'Gemini 3 Pro)',
+        model: 'google/gemini-2.5-flash-lite',
         tier: 'primary' // <--- Forces backend to use Key #1
     },
 ];

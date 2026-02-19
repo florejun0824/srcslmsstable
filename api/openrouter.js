@@ -72,7 +72,7 @@ export default async function handler(req) {
     }
 
     // 4. Construct Messages & Select Model
-    let selectedModel = requestedModel || "openai/gpt-oss-120b:free"; 
+    let selectedModel = requestedModel || "google/gemini-2.5-flash-lite"; 
     let messages = [];
 
     if (imageUrl) {

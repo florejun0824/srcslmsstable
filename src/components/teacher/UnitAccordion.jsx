@@ -20,7 +20,9 @@ import {
     BookOpenIcon,
     ArrowLeftIcon,
     ClockIcon,
-    DocumentCheckIcon
+    DocumentCheckIcon,
+    WrenchScrewdriverIcon,
+    PresentationChartLineIcon
 } from '@heroicons/react/24/outline';
 import {
     FolderIcon as FolderSolid,
@@ -48,14 +50,16 @@ import { useToast } from '../../contexts/ToastContext';
 const MAT_STYLES = {
     // Containers
     cardUnit: "relative group overflow-hidden rounded-[24px] transition-all duration-300 hover:shadow-lg border border-transparent hover:border-black/5 dark:hover:border-white/10",
-    cardContent: "relative group overflow-hidden rounded-[20px] bg-[#F3F4EB] dark:bg-[#1E1E1E] border border-transparent hover:border-black/5 dark:hover:border-white/10 transition-all duration-200 hover:shadow-md",
     
-    // Header (Floating Island - Moved Closer to Top)
-    stickyHeader: "sticky top-0 z-40 -mt-2 md:-mt-4 mb-4 rounded-b-[24px] md:rounded-[24px] bg-[#F3F4EB]/95 dark:bg-[#1E1E1E]/95 backdrop-blur-xl border-b border-white/20 dark:border-white/5 shadow-sm transition-all duration-300",
+    // UPDATED: Card content now handles row-flex on mobile for compactness
+    cardContent: "relative group overflow-hidden rounded-[16px] md:rounded-[20px] bg-[#F3F4EB] dark:bg-[#1E1E1E] border border-transparent hover:border-black/5 dark:hover:border-white/10 transition-all duration-200 hover:shadow-md",
+    
+    // Header (Floating Island - Sticky Functionality Verified)
+    stickyHeader: "sticky top-0 z-40 -mt-2 md:-mt-4 mb-2 md:mb-4 rounded-b-[20px] md:rounded-[24px] bg-[#F3F4EB]/95 dark:bg-[#1E1E1E]/95 backdrop-blur-xl border-b border-white/20 dark:border-white/5 shadow-sm transition-all duration-300",
 
     // Typography
-    displayLarge: "text-2xl font-normal text-[#1B1C17] dark:text-[#E3E2E6]",
-    titleMedium: "text-base font-medium text-[#1B1C17] dark:text-[#E3E2E6]",
+    displayLarge: "text-lg md:text-2xl font-normal text-[#1B1C17] dark:text-[#E3E2E6]",
+    titleMedium: "text-sm md:text-base font-medium text-[#1B1C17] dark:text-[#E3E2E6]",
     bodySmall: "text-xs font-medium text-[#444746] dark:text-[#C4C7C5]",
     
     // Actions (Slim Profile)
@@ -67,7 +71,7 @@ const MAT_STYLES = {
     menuItem: "flex items-center w-full px-3 py-2.5 text-sm font-medium rounded-[12px] transition-colors text-[#1B1C17] dark:text-[#E3E2E6] hover:bg-[#1B1C17]/5 dark:hover:bg-[#E3E2E6]/10",
 
     // Section Headers
-    sectionHeader: "flex items-center gap-3 mb-4 px-1",
+    sectionHeader: "flex items-center gap-2 md:gap-3 mb-2 md:mb-4 px-1",
 };
 
 // --- LAZY RETRY HELPER ---
@@ -225,6 +229,49 @@ const AddContentButton = ({ onAddLesson, onAddQuiz, className }) => {
     );
 };
 
+// --- MOBILE TOOLS MENU (Merged PPT & Sort) ---
+const MobileToolsMenu = ({ onSortToggle, isReordering, renderPptButton, activeUnit }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [menuStyle, setMenuStyle] = useState({});
+    const buttonRef = useRef(null);
+
+    const handleToggle = (e) => {
+        e.stopPropagation();
+        const rect = buttonRef.current.getBoundingClientRect();
+        setMenuStyle({ top: `${rect.bottom + 8}px`, right: `${window.innerWidth - rect.right}px` });
+        setIsOpen(!isOpen);
+    };
+
+    return (
+        <>
+            <button ref={buttonRef} onClick={handleToggle} className={`${MAT_STYLES.btnFab} bg-[#E2E2D9] dark:bg-[#444746] text-[#1B1C17] dark:text-[#E3E2E6] !px-3 md:hidden`}>
+                <WrenchScrewdriverIcon className="w-4 h-4" />
+            </button>
+            {isOpen && (
+                <MenuPortal menuStyle={menuStyle} onClose={() => setIsOpen(false)}>
+                    <MenuItem 
+                        icon={ArrowsUpDownIcon} 
+                        text={isReordering ? 'Finish Sorting' : 'Reorder Items'} 
+                        onClick={() => onSortToggle(!isReordering)} 
+                    />
+                    {/* Render the Slide Picker Button inside the menu for compactness */}
+                    {renderPptButton && (
+                        <div className="border-t border-black/5 dark:border-white/5 p-2">
+                            <div className="flex items-center gap-3 px-3 py-2 rounded-[12px] hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                                <PresentationChartLineIcon className="w-4 h-4 text-gray-500" />
+                                <div className="flex-1" onClick={(e) => { e.stopPropagation(); setIsOpen(false); }}>
+                                    {renderPptButton(activeUnit)}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </MenuPortal>
+            )}
+        </>
+    );
+};
+
+
 // --- EXPORT TUTORIAL MODAL ---
 const ExportTutorialModal = ({ isOpen, onClose, onConfirm }) => {
     if (!isOpen) return null;
@@ -322,7 +369,7 @@ const SortableBookItem = memo(({ unit, onSelect, onAction, isReordering, index }
     );
 }, (prev, next) => prev.unit.id === next.unit.id && prev.unit.title === next.unit.title && prev.isReordering === next.isReordering && prev.index === next.index);
 
-// --- SORTABLE CONTENT ITEM (Clean List/Grid Style) ---
+// --- SORTABLE CONTENT ITEM (Compact Row on Mobile, Card on Desktop) ---
 const SortablePageItem = memo(({ item, isReordering, onAction, exportingLessonId, isAiGenerating, isPdfDisabled }) => {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
         id: item.id, data: { type: item.type, unitId: item.unitId }, disabled: !isReordering,
@@ -340,42 +387,42 @@ const SortablePageItem = memo(({ item, isReordering, onAction, exportingLessonId
 
     return (
         <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="h-full"> 
-            <div onClick={() => !isReordering && onAction('view', item)} className={`${MAT_STYLES.cardContent} p-4 h-full flex flex-col justify-between min-h-[140px] ${containerClass}`}>
+            <div onClick={() => !isReordering && onAction('view', item)} className={`${MAT_STYLES.cardContent} p-3 md:p-4 h-full flex flex-row md:flex-col justify-between items-center md:items-start md:min-h-[140px] gap-3 md:gap-0 ${containerClass}`}>
                 
-                {/* Top Row */}
-                <div className="flex justify-between items-start mb-3">
-                    <div className={`p-2 rounded-[12px] ${theme.iconBg} ${theme.iconColor}`}>
-                        <theme.icon className="w-5 h-5" />
-                    </div>
+                {/* Icon Container (Left on Mobile, Top on Desktop) */}
+                <div className={`p-2.5 md:p-2 rounded-[12px] flex-shrink-0 ${theme.iconBg} ${theme.iconColor} md:mb-3`}>
+                    <theme.icon className="w-5 h-5 md:w-5 md:h-5" />
+                </div>
+
+                {/* Content (Middle on Mobile, Bottom on Desktop) */}
+                <div className="flex-1 min-w-0 flex flex-col justify-center">
+                    <h4 className={`text-sm font-medium leading-snug ${MAT_STYLES.titleMedium} line-clamp-2 md:line-clamp-3 mb-0.5 md:mb-1`}>
+                        {item.title || 'Untitled'}
+                    </h4>
+                    <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wider truncate">
+                        {isLesson ? (item.contentType === 'teacherGuide' ? 'Unit Plan' : 'Module') : 'Assessment'}
+                    </span>
+                </div>
+
+                {/* Actions (Right on Mobile, Top Right on Desktop) */}
+                <div className="md:absolute md:top-4 md:right-4 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                     {!isReordering ? (
-                        <div onClick={(e) => e.stopPropagation()}>
-                            <ActionMenu>
-                                <MenuItem icon={PencilIcon} text="Edit" onClick={() => onAction('edit', item)} />
-                                {isLesson && (
-                                    <>
-                                        {!isPdfDisabled && (
-                                            <MenuItem icon={exportingLessonId === item.id ? CloudArrowUpIcon : DocumentTextIcon} text={exportingLessonId === item.id ? "Exporting..." : "Export as PDF"} onClick={() => onAction('exportPdf', item)} loading={exportingLessonId === item.id} />
-                                        )}
-                                        <MenuItem icon={exportingLessonId === item.id ? CloudArrowUpIcon : DocumentTextIcon} text={exportingLessonId === item.id ? "Exporting..." : "Export as .docx"} onClick={() => onAction('exportDocx', item)} loading={exportingLessonId === item.id} />
-                                    </>
-                                )}
-                                {isLesson && <MenuItem icon={SparklesIcon} text="AI Quiz" onClick={() => onAction('generateQuiz', item)} disabled={isAiGenerating} /> }
-                                <MenuItem icon={TrashIcon} text="Delete" onClick={() => onAction('delete', item)} />
-                            </ActionMenu>
-                        </div>
+                         <ActionMenu>
+                            <MenuItem icon={PencilIcon} text="Edit" onClick={() => onAction('edit', item)} />
+                            {isLesson && (
+                                <>
+                                    {!isPdfDisabled && (
+                                        <MenuItem icon={exportingLessonId === item.id ? CloudArrowUpIcon : DocumentTextIcon} text={exportingLessonId === item.id ? "Exporting..." : "Export as PDF"} onClick={() => onAction('exportPdf', item)} loading={exportingLessonId === item.id} />
+                                    )}
+                                    <MenuItem icon={exportingLessonId === item.id ? CloudArrowUpIcon : DocumentTextIcon} text={exportingLessonId === item.id ? "Exporting..." : "Export as .docx"} onClick={() => onAction('exportDocx', item)} loading={exportingLessonId === item.id} />
+                                </>
+                            )}
+                            {isLesson && <MenuItem icon={SparklesIcon} text="AI Quiz" onClick={() => onAction('generateQuiz', item)} disabled={isAiGenerating} /> }
+                            <MenuItem icon={TrashIcon} text="Delete" onClick={() => onAction('delete', item)} />
+                        </ActionMenu>
                     ) : (
                         <Bars3Icon className="w-5 h-5 text-gray-400" />
                     )}
-                </div>
-
-                {/* Content */}
-                <div>
-                    <h4 className={`text-sm font-medium leading-snug ${MAT_STYLES.titleMedium} line-clamp-3 mb-1`}>
-                        {item.title || 'Untitled'}
-                    </h4>
-                    <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">
-                        {isLesson ? (item.contentType === 'teacherGuide' ? 'Unit Plan' : 'Module') : 'Assessment'}
-                    </span>
                 </div>
             </div>
         </div>
@@ -538,24 +585,47 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                 {activeUnit ? (
                     // --- INSIDE A UNIT (CONTENT VIEW) ---
                     <div className="relative pb-20">
-                        {/* UPDATED HEADER: Positioned closer to top (-mt-4) */}
+                        {/* UPDATED HEADER: Compact & Merged Buttons on Mobile */}
                         <div className={MAT_STYLES.stickyHeader}>
-                            <div className="flex flex-col md:flex-row items-center justify-between p-4 gap-4">
-                                <div className="w-full">
-                                    <h2 className={`text-xl md:text-2xl font-normal ${MAT_STYLES.titleMedium} leading-tight truncate`}>{activeUnit.title}</h2>
-                                    <div className="flex items-center gap-3 mt-1 text-xs text-gray-500 font-medium">
-                                        <span className="flex items-center gap-1"><BookOpenIcon className="w-3.5 h-3.5" /> {lessons.length} Modules</span>
-                                        <span className="w-1 h-1 rounded-full bg-gray-300"></span>
-                                        <span className="flex items-center gap-1"><ClockIcon className="w-3.5 h-3.5" /> {quizzes.length} Quizzes</span>
+                            <div className="flex flex-col md:flex-row md:items-center justify-between p-3 md:p-4 gap-2 md:gap-4">
+                                
+                                {/* Title & Stats Area (Compact on Mobile) */}
+                                <div className="w-full flex justify-between items-start md:block">
+                                    <div className="flex-1 min-w-0 mr-2">
+                                        <h2 className={`text-lg md:text-2xl font-normal ${MAT_STYLES.titleMedium} leading-tight truncate`}>{activeUnit.title}</h2>
+                                        <div className="flex items-center gap-2 mt-0.5 md:mt-1 text-xs text-gray-500 font-medium">
+                                            <span className="flex items-center gap-1"><BookOpenIcon className="w-3.5 h-3.5" /> {lessons.length} Modules</span>
+                                            <span className="w-1 h-1 rounded-full bg-gray-300"></span>
+                                            <span className="flex items-center gap-1"><ClockIcon className="w-3.5 h-3.5" /> {quizzes.length} Quizzes</span>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Mobile Only: Tools Menu & Add (Merged Row) */}
+                                    <div className="flex md:hidden items-center gap-2">
+                                        {/* Mobile Tools Menu (Groups Sort, Slides, & secondary actions) */}
+                                        <MobileToolsMenu 
+                                            onSortToggle={setIsReordering} 
+                                            isReordering={isReordering}
+                                            renderPptButton={renderGeneratePptButton}
+                                            activeUnit={activeUnit}
+                                        />
+                                        
+                                        {/* Mobile Add Button */}
+                                        <AddContentButton 
+                                            className="!px-2.5"
+                                            onAddLesson={() => { setSelectedUnit(activeUnit); setAddLessonModalOpen(true); }} 
+                                            onAddQuiz={() => { setSelectedUnit(activeUnit); setAddQuizModalOpen(true); }}
+                                        />
                                     </div>
                                 </div>
 
-                                <div className="flex items-center gap-2 self-end md:self-auto w-full md:w-auto justify-end">
+                                {/* Desktop Actions Row (Hidden on Mobile) */}
+                                <div className="hidden md:flex items-center gap-2 self-end md:self-auto w-full md:w-auto justify-end">
                                     {renderGeneratePptButton && renderGeneratePptButton(activeUnit)}
                                     
                                     <button onClick={() => setIsReordering(!isReordering)} className={`${MAT_STYLES.btnFab} bg-[#E2E2D9] dark:bg-[#444746] text-[#1B1C17] dark:text-[#E3E2E6] !px-3`}>
                                         <ArrowsUpDownIcon className="w-4 h-4" />
-                                        <span className="hidden sm:inline">{isReordering ? 'Done' : 'Sort'}</span>
+                                        <span>{isReordering ? 'Done' : 'Sort'}</span>
                                     </button>
 
                                     <AddContentButton 
@@ -567,16 +637,16 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                         </div>
 
                         {/* Content Grid */}
-                        <div className="max-w-7xl mx-auto px-2">
+                        <div className="max-w-7xl mx-auto px-2 md:px-4">
                             {/* Modules Section */}
-                            <div className="mb-8">
+                            <div className="mb-6 md:mb-8">
                                 <div className={MAT_STYLES.sectionHeader}>
                                     <BookOpenIcon className="w-5 h-5 text-[#006A60] dark:text-[#80DCCC]" />
                                     <h3 className={MAT_STYLES.titleMedium}>Study Modules</h3>
                                 </div>
                                 {lessons.length > 0 ? (
                                     <SortableContext items={lessons.map(i => i.id)} strategy={rectSortingStrategy}>
-                                        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 md:gap-4">
                                             {lessons.map(item => (
                                                 <SortablePageItem 
                                                     key={item.id} item={item} isReordering={isReordering} onAction={handleAction} 
@@ -586,7 +656,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                                         </div>
                                     </SortableContext>
                                 ) : (
-                                    <div className="flex flex-col items-center justify-center p-12 border border-dashed border-black/10 dark:border-white/10 rounded-[24px]">
+                                    <div className="flex flex-col items-center justify-center p-8 md:p-12 border border-dashed border-black/10 dark:border-white/10 rounded-[24px]">
                                         <p className="text-sm font-medium text-gray-400">No modules yet</p>
                                     </div>
                                 )}
@@ -600,7 +670,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                                 </div>
                                 {quizzes.length > 0 ? (
                                     <SortableContext items={quizzes.map(i => i.id)} strategy={rectSortingStrategy}>
-                                        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 md:gap-4">
                                             {quizzes.map(item => (
                                                 <SortablePageItem 
                                                     key={item.id} item={item} isReordering={isReordering} onAction={handleAction} 
@@ -610,7 +680,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                                         </div>
                                     </SortableContext>
                                 ) : (
-                                    <div className="flex flex-col items-center justify-center p-12 border border-dashed border-black/10 dark:border-white/10 rounded-[24px]">
+                                    <div className="flex flex-col items-center justify-center p-8 md:p-12 border border-dashed border-black/10 dark:border-white/10 rounded-[24px]">
                                         <p className="text-sm font-medium text-gray-400">No quizzes yet</p>
                                     </div>
                                 )}
