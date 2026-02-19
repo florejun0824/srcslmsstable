@@ -38,7 +38,6 @@ import {
     PlayCircleIcon
 } from '@heroicons/react/24/solid';
 
-// --- CSS INJECTION (Updated with System Font) ---
 const GLOBAL_CSS = `
   .courses-system-font { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"; }
   .material-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -50,40 +49,30 @@ const GLOBAL_CSS = `
   @keyframes enter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 `;
 
-// --- MATERIAL YOU / ANDROID 14 DESIGN TOKENS ---
 const MATERIAL_STYLES = {
-    // Scaffold: TRANSPARENT GLASS (60% Opacity) + SYSTEM FONT
     bgScaffold: "courses-system-font bg-[#FDFCF4]/60 dark:bg-[#121212]/60 backdrop-blur-[60px] rounded-[32px] m-0 sm:m-4 border border-white/20 dark:border-white/5 shadow-2xl overflow-hidden", 
-    
-    // Surfaces
     bgSurface: "bg-[#F3F4EB]/80 dark:bg-[#1E1E1E]/80 backdrop-blur-md",
     bgSurfaceVariant: "bg-[#E2E2D9]/80 dark:bg-[#444746]/80 backdrop-blur-md",
-    
-    // Navigation Pill
     navPill: "bg-[#E2E2D9]/40 dark:bg-[#444746]/40 backdrop-blur-xl border border-white/40 dark:border-white/10 rounded-full px-4 py-2 flex items-center gap-2 shadow-sm",
-
-    // Typography
     textOnSurface: "text-[#1B1C17] dark:text-[#E3E2E6]",
     textVariant: "text-[#444746] dark:text-[#C4C7C5]",
-    
-    // Buttons (Slimmer Profile)
     btnFilled: "flex items-center justify-center gap-2 px-4 py-2 rounded-full font-bold text-xs transition-all duration-200 active:scale-95 shadow-sm hover:shadow-md",
     btnTonal: "flex items-center justify-center gap-2 px-5 py-2.5 rounded-full font-medium text-sm transition-all duration-200 active:scale-95 bg-[#C3E7DD] dark:bg-[#334B4F] text-[#002022] dark:text-[#CCE8E0] hover:brightness-95",
     btnIcon: "p-3 rounded-full hover:bg-[#1B1C17]/10 dark:hover:bg-[#E3E2E6]/10 active:scale-90 transition-all text-[#444746] dark:text-[#C4C7C5]",
-    
-    // Inputs
     searchBar: "w-full pl-12 pr-4 py-3 rounded-full bg-[#E2E2D9]/50 dark:bg-[#444746]/50 text-[#1B1C17] dark:text-[#E3E2E6] placeholder-[#444746] focus:outline-none focus:ring-2 focus:ring-[#006A60]/50 transition-all backdrop-blur-md"
 };
 
-// --- HELPER: School Branding ---
 const SCHOOL_BRANDING = {
-    'srcs_main': { name: 'SRCS Digital', logo: '/logo.png' },
+    'srcs_main': { logo: '/logo.png' },
+    'hras_sipalay': { logo: '/logos/hra.png' },
+    'kcc_kabankalan': { logo: '/logos/kcc.png' },
+    'icad_dancalan': { logo: '/logos/ica.png' },
+    'mchs_magballo': { logo: '/logos/mchs.png' },
+    'ichs_ilog': { logo: '/logos/ichs.png' }
 };
+
 const getSchoolLogo = (schoolId) => SCHOOL_BRANDING[schoolId]?.logo || '/logo.png';
 
-// --- COMPONENTS ---
-
-// 1. SKELETON LOADER
 const SkeletonGrid = memo(() => (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-6 animate-pulse">
         {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
@@ -92,7 +81,6 @@ const SkeletonGrid = memo(() => (
     </div>
 ));
 
-// 2. SCOPE SWITCHER
 const ContentScopeSwitcher = memo(({ activeGroup, onSwitch }) => {
     const isLearner = activeGroup === 'learner';
     return (
@@ -107,7 +95,6 @@ const ContentScopeSwitcher = memo(({ activeGroup, onSwitch }) => {
     );
 });
 
-// 3. BREADCRUMBS
 const Breadcrumbs = ({ contentGroup, categoryName, subjectTitle, unitTitle, subjectId }) => (
     <nav className={`${MATERIAL_STYLES.navPill} inline-flex items-center gap-1 max-w-full overflow-x-auto material-scrollbar`}>
         <Link to="/dashboard/courses" className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
@@ -150,7 +137,6 @@ const Breadcrumbs = ({ contentGroup, categoryName, subjectTitle, unitTitle, subj
     </nav>
 );
 
-// --- LEVEL 3: SUBJECT DETAIL (Clean View) ---
 const SubjectDetail = memo((props) => {
     const {
         courses, handleOpenEditSubject, setShareContentModalOpen,
@@ -163,7 +149,6 @@ const SubjectDetail = memo((props) => {
     const { contentGroup, categoryName, subjectId, unitId } = useParams();
     const navigate = useNavigate();
     
-    // State
     const [units, setUnits] = useState([]);
     const [allLessonsForSubject, setAllLessonsForSubject] = useState([]);
     const [loadingUnits, setLoadingUnits] = useState(true);
@@ -174,6 +159,13 @@ const SubjectDetail = memo((props) => {
 
     const activeSubject = useMemo(() => courses?.find(c => c.id === subjectId), [courses, subjectId]);
     const prevActiveSubjectIdRef = useRef();
+
+    const pickerLessons = useMemo(() => {
+        if (!activeUnitForPicker || !allLessonsForSubject) return [];
+        return allLessonsForSubject
+            .filter(l => l.unitId === activeUnitForPicker.id)
+            .sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' }));
+    }, [allLessonsForSubject, activeUnitForPicker]);
 
     useEffect(() => {
         if (activeSubject && activeSubject.id !== prevActiveSubjectIdRef.current) {
@@ -220,16 +212,14 @@ const SubjectDetail = memo((props) => {
 
     return (
         <div className={`flex flex-col h-full min-h-[calc(100vh-6rem)] ${MATERIAL_STYLES.bgScaffold}`}>
-            {/* Toolbar */}
             <header className="flex-none px-6 py-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 z-20 border-b border-black/5 dark:border-white/5">
                 <div className="flex flex-col gap-2 w-full">
-                    {/* BREADCRUMBS ONLY */}
                     <Breadcrumbs 
                         contentGroup={contentGroup} 
                         categoryName={categoryName} 
                         subjectTitle={activeSubject.title}
                         unitTitle={activeUnit?.title}
-                        subjectId={subjectId} // PASSED ID FOR CLICKABLE LINK
+                        subjectId={subjectId} 
                     />
                 </div>
 
@@ -255,7 +245,6 @@ const SubjectDetail = memo((props) => {
                 </div>
             </header>
 
-            {/* Content Area */}
             <main className="flex-1 overflow-y-auto material-scrollbar p-3 md:p-6">
                 <div className="max-w-6xl mx-auto">
                      <UnitAccordion
@@ -283,58 +272,133 @@ const SubjectDetail = memo((props) => {
                 </div>
             </main>
 
-            {/* Slides Picker */}
-            {showLessonPicker && activeUnitForPicker && (
-                <div className="fixed inset-0 z-[5000] flex items-end sm:items-center justify-center p-0 sm:p-4">
-                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity" onClick={() => setShowLessonPicker(false)} />
-                    <div className={`relative w-full sm:max-w-2xl ${MATERIAL_STYLES.bgSurface} sm:rounded-[28px] rounded-t-[28px] shadow-2xl flex flex-col max-h-[85vh] animate-enter overflow-hidden`}>
-                         <div className="w-full flex justify-center pt-4 pb-2 sm:hidden"><div className="w-12 h-1.5 rounded-full bg-gray-400/40"></div></div>
-                        <div className="flex-none px-6 py-4 flex items-center justify-between border-b border-black/5 dark:border-white/5">
-                            <div>
-                                <h2 className={`text-xl font-normal ${MATERIAL_STYLES.textOnSurface}`}>Create Slides</h2>
-                                <p className={`text-sm ${MATERIAL_STYLES.textVariant}`}>From: {activeUnitForPicker.title}</p>
-                            </div>
-                            <button onClick={() => setShowLessonPicker(false)} className={MATERIAL_STYLES.btnIcon}>
-                                <XMarkIcon className="w-6 h-6"/>
-                            </button>
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-4 material-scrollbar">
-                             {allLessonsForSubject.filter(l => l.unitId === activeUnitForPicker.id).length === 0 ? (
-                                <div className="h-full flex flex-col items-center justify-center opacity-40 py-10">
-                                    <BookOpenIcon className="w-12 h-12 mb-3" />
-                                    <p className="font-medium">No lessons available</p>
-                                </div>
-                             ) : (
-                                <div className="grid grid-cols-1 gap-2">
-                                    {allLessonsForSubject.filter(l => l.unitId === activeUnitForPicker.id).map(lesson => {
-                                        const isSelected = selectedLessons.has(lesson.id);
-                                        return (
-                                            <div key={lesson.id} onClick={() => setSelectedLessons(prev => { const n = new Set(prev); n.has(lesson.id)?n.delete(lesson.id):n.add(lesson.id); return n; })} 
-                                                 className={`flex items-center justify-between p-4 rounded-[16px] cursor-pointer transition-all duration-200 border ${isSelected ? 'bg-[#C3E7DD] dark:bg-[#334B4F] border-transparent' : 'bg-[#E2E2D9]/30 dark:bg-[#444746]/30 border-transparent hover:bg-[#E2E2D9]'}`}>
-                                                <span className={`font-medium text-sm ${isSelected ? 'text-[#002022] dark:text-[#CCE8E0]' : MATERIAL_STYLES.textOnSurface}`}>{lesson.title}</span>
-                                                <div className={`w-6 h-6 rounded-full flex items-center justify-center ${isSelected ? 'bg-[#006A60] text-white' : 'border-2 border-gray-400'}`}>
-                                                    {isSelected && <CheckCircleIcon className="w-4 h-4" />}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                             )}
-                        </div>
-                        <div className={`flex-none p-4 flex justify-end gap-3 ${MATERIAL_STYLES.bgSurfaceVariant}`}>
-                            <button onClick={() => setShowLessonPicker(false)} className="px-6 py-2 rounded-full text-sm font-bold text-[#006A60] hover:bg-[#006A60]/10">Cancel</button>
-                            <button onClick={() => { setShowLessonPicker(false); handleGeneratePresentationClick(); }} disabled={selectedLessons.size === 0} className={`${MATERIAL_STYLES.btnFilled} bg-[#006A60] text-white`}>
-                                <SparklesIcon className="w-5 h-5" /> Generate
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+						{/* Stunning Material You Slides Picker */}
+						{showLessonPicker && activeUnitForPicker && (
+						    <div className="fixed inset-0 z-[5000] flex items-end sm:items-center justify-center p-0 sm:p-4">
+						        {/* Scrim (Backdrop) with deeper blur */}
+						        <div 
+						            className="absolute inset-0 bg-black/40 backdrop-blur-md transition-opacity duration-500" 
+						            onClick={() => setShowLessonPicker(false)} 
+						        />
+        
+						        {/* Modal Container */}
+						        <div className={`relative w-full sm:max-w-xl ${MATERIAL_STYLES.bgSurface} sm:rounded-[32px] rounded-t-[32px] shadow-2xl flex flex-col max-h-[80vh] animate-enter overflow-hidden border border-white/10`}>
+            
+						            {/* Mobile Drag Handle */}
+						            <div className="w-full flex justify-center pt-3 pb-1 sm:hidden">
+						                <div className="w-10 h-1.5 rounded-full bg-gray-500/20"></div>
+						            </div>
+            
+						            {/* Header: Centered & Sophisticated */}
+						            <div className="flex-none px-8 pt-6 pb-4 flex items-center justify-between">
+						                <div>
+						                    <h2 className={`text-2xl font-medium tracking-tight ${MATERIAL_STYLES.textOnSurface}`}>
+						                        Select Lessons
+						                    </h2>
+						                    <p className={`text-sm mt-0.5 opacity-70 ${MATERIAL_STYLES.textVariant}`}>
+						                        {activeUnitForPicker.title}
+						                    </p>
+						                </div>
+						                <button 
+						                    onClick={() => setShowLessonPicker(false)} 
+						                    className="p-2.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-all active:scale-90"
+						                >
+						                    <XMarkIcon className="w-6 h-6 opacity-60"/>
+						                </button>
+						            </div>
+            
+						            {/* List Body */}
+						            <div className="flex-1 overflow-y-auto px-6 py-2 material-scrollbar">
+						                {(() => {
+						                    const lessons = allLessonsForSubject
+						                        .filter(l => l.unitId === activeUnitForPicker.id)
+						                        .sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }));
+
+						                    if (lessons.length === 0) {
+						                        return (
+						                            <div className="h-40 flex flex-col items-center justify-center opacity-40">
+						                                <BookOpenIcon className="w-10 h-10 mb-2" />
+						                                <p className="text-sm">No lessons found in this unit</p>
+						                            </div>
+						                        );
+						                    }
+
+						                    return (
+						                        <div className="space-y-2 pb-6">
+						                            {lessons.map(lesson => {
+						                                const isSelected = selectedLessons.has(lesson.id);
+						                                return (
+						                                    <div 
+						                                        key={lesson.id} 
+						                                        onClick={() => setSelectedLessons(prev => { 
+						                                            const n = new Set(prev); 
+						                                            n.has(lesson.id) ? n.delete(lesson.id) : n.add(lesson.id); 
+						                                            return n; 
+						                                        })} 
+						                                        className={`group relative flex items-center gap-4 p-4 rounded-[24px] cursor-pointer transition-all duration-300 ${
+						                                            isSelected 
+						                                                ? 'bg-[#C3E7DD] dark:bg-[#334B4F] shadow-sm' 
+						                                                : 'bg-[#E2E2D9]/30 dark:bg-[#444746]/20 hover:bg-[#E2E2D9]/60 dark:hover:bg-[#444746]/40'
+						                                        }`}
+						                                    >
+						                                        {/* Selection Indicator (MD3 Radio-style check) */}
+						                                        <div className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${
+						                                            isSelected 
+						                                                ? 'bg-[#006A60] border-[#006A60] scale-110' 
+						                                                : 'border-gray-400 group-hover:border-gray-600'
+						                                        }`}>
+						                                            {isSelected && <CheckCircleIcon className="w-4 h-4 text-white animate-in zoom-in duration-300" />}
+						                                        </div>
+
+						                                        <span className={`flex-1 font-medium text-[15px] transition-colors ${
+						                                            isSelected 
+						                                                ? 'text-[#002022] dark:text-[#CCE8E0]' 
+						                                                : MATERIAL_STYLES.textOnSurface
+						                                        }`}>
+						                                            {lesson.title}
+						                                        </span>
+						                                    </div>
+						                                );
+						                            })}
+						                        </div>
+						                    );
+						                })()}
+						            </div>
+            
+						            {/* Sticky Footer: Glassmorphism effect */}
+						            <div className={`flex-none p-6 flex items-center justify-between gap-4 border-t border-black/5 dark:border-white/5 bg-white/50 dark:bg-black/20 backdrop-blur-lg`}>
+						                <p className="text-xs font-bold uppercase tracking-widest opacity-50 px-2">
+						                    {selectedLessons.size} Selected
+						                </p>
+                
+						                <div className="flex gap-2">
+						                    <button 
+						                        onClick={() => setShowLessonPicker(false)} 
+						                        className="px-6 py-2.5 rounded-full text-sm font-semibold text-[#006A60] hover:bg-[#006A60]/10 transition-colors"
+						                    >
+						                        Cancel
+						                    </button>
+						                    <button 
+						                        onClick={() => { setShowLessonPicker(false); handleGeneratePresentationClick(); }} 
+						                        disabled={selectedLessons.size === 0} 
+						                        className={`flex items-center gap-2 px-8 py-2.5 rounded-full text-sm font-bold shadow-lg transition-all active:scale-95 ${
+						                            selectedLessons.size === 0 
+						                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none' 
+						                                : 'bg-[#006A60] text-white hover:shadow-[#006A60]/20 hover:bg-[#005a52]'
+						                        }`}
+						                    >
+						                        <SparklesIcon className="w-4 h-4" />
+						                        Generate
+						                    </button>
+						                </div>
+						            </div>
+						        </div>
+						    </div>
+						)}
         </div>
     );
 });
 
-// --- LEVEL 2: SUBJECT LIST (With Natural Sorting) ---
 const SubjectList = memo((props) => {
     const { courses, handleInitiateDelete, onAddSubjectClick, setActiveSubject, handleCategoryClick, loading, userProfile, handleOpenEditSubject } = props;
     const { contentGroup, categoryName } = useParams();
@@ -353,14 +417,12 @@ const SubjectList = memo((props) => {
             c.category === decodedCategoryName &&
             (c.schoolId === 'global' || !c.schoolId || c.schoolId === userSchoolId) &&
             c.title.toLowerCase().includes(lowerSearch)
-        ).sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' })); // UPDATED SORT
+        ).sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' })); 
     }, [courses, decodedCategoryName, searchTerm, userProfile?.schoolId]);
 
-    // Updated Visual Logic
     const getMaterialTheme = (title) => {
         const t = title.toLowerCase();
         
-        // English & Filipino
         if (t.includes('english') || t.includes('filipino')) return { 
             bg: "bg-[#FFD8E4] dark:bg-[#633B48]", 
             onBg: "text-[#31111D] dark:text-[#FFD8E4]", 
@@ -368,7 +430,6 @@ const SubjectList = memo((props) => {
             surface: "bg-[#FFF8F8] dark:bg-[#201A1B]"
         };
 
-        // Math
         if (t.includes('math')) return { 
             bg: "bg-[#FFD8E4] dark:bg-[#633B48]", 
             onBg: "text-[#31111D] dark:text-[#FFD8E4]", 
@@ -376,7 +437,6 @@ const SubjectList = memo((props) => {
             surface: "bg-[#FFF8F8] dark:bg-[#201A1B]"
         };
 
-        // Science
         if (t.includes('science')) return { 
             bg: "bg-[#C3E7DD] dark:bg-[#334B4F]", 
             onBg: "text-[#002022] dark:text-[#CCE8E0]", 
@@ -384,7 +444,6 @@ const SubjectList = memo((props) => {
             surface: "bg-[#F4FBF9] dark:bg-[#191C1C]"
         };
 
-        // MAPEH
         if (t.includes('mapeh') || t.includes('music') || t.includes('art') || t.includes('pe')) return { 
             bg: "bg-[#E8DEF8] dark:bg-[#4A4458]", 
             onBg: "text-[#1D192B] dark:text-[#E8DEF8]", 
@@ -392,7 +451,6 @@ const SubjectList = memo((props) => {
             surface: "bg-[#FFFBFE] dark:bg-[#1C1B1F]"
         };
 
-        // CSL / Values
         if (t.includes('csl') || t.includes('religious') || t.includes('values') || t.includes('esp')) return { 
             bg: "bg-[#F2DDA5] dark:bg-[#58440C]", 
             onBg: "text-[#261900] dark:text-[#F2DDA5]", 
@@ -400,7 +458,6 @@ const SubjectList = memo((props) => {
             surface: "bg-[#FFFDF6] dark:bg-[#1E1C16]"
         };
 
-        // Araling Panlipunan
         if (t.includes('araling') || t.includes('history') || t.includes('social') || t.includes('ap')) return { 
             bg: "bg-[#D0E4FF] dark:bg-[#284777]", 
             onBg: "text-[#001D36] dark:text-[#D0E4FF]", 
@@ -408,7 +465,6 @@ const SubjectList = memo((props) => {
             surface: "bg-[#FDFBFF] dark:bg-[#1A1C1E]"
         };
 
-        // Tech / CS
         if (t.includes('tech') || t.includes('computer')) return { 
             bg: "bg-[#E0E0FF] dark:bg-[#46464F]", 
             onBg: "text-[#1B1B1F] dark:text-[#E0E0FF]", 
@@ -416,7 +472,6 @@ const SubjectList = memo((props) => {
             surface: "bg-[#FDFBFF] dark:bg-[#1A1A1E]"
         };
 
-        // Default
         return { 
             bg: "bg-[#E2E2D9] dark:bg-[#444746]", 
             onBg: "text-[#1B1C17] dark:text-[#E3E2E6]", 
@@ -427,7 +482,6 @@ const SubjectList = memo((props) => {
 
     return (
         <div className={`flex flex-col h-full min-h-[calc(100vh-6rem)] ${MATERIAL_STYLES.bgScaffold}`}>
-            {/* Toolbar */}
             <header className="flex-none px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4 z-20 border-b border-black/5 dark:border-white/5">
                 <div className="flex flex-col gap-2 w-full md:w-auto">
                     <Breadcrumbs contentGroup={contentGroup} categoryName={categoryName} />
@@ -448,7 +502,6 @@ const SubjectList = memo((props) => {
                 </div>
             </header>
 
-            {/* CARD GRID */}
             <div className="flex-1 overflow-y-auto material-scrollbar p-6">
                 {loading ? <SkeletonGrid /> : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -460,21 +513,18 @@ const SubjectList = memo((props) => {
                                     to={course.id} 
                                     className={`group relative flex flex-col justify-between p-4 h-56 rounded-[24px] overflow-hidden transition-all duration-300 hover:shadow-lg hover:scale-[1.01] ${surface} border border-transparent hover:border-black/5`}
                                 >
-                                    {/* 1. Header Pill */}
                                     <div className={`w-full p-4 rounded-[20px] ${bg} ${onBg} flex items-center justify-between mb-4`}>
                                         <div className="p-2 rounded-full bg-white/30 dark:bg-black/20 backdrop-blur-md shadow-sm">
                                             <Icon className="w-6 h-6" />
                                         </div>
                                     </div>
 
-                                    {/* 2. Body Title */}
                                     <div className="px-2 mb-auto">
                                         <h3 className={`text-xl font-normal leading-tight ${MATERIAL_STYLES.textOnSurface} line-clamp-2`}>
                                             {course.title}
                                         </h3>
                                     </div>
 
-                                    {/* 3. Action Chips */}
                                     <div className="flex items-center justify-between mt-auto pt-2 border-t border-black/5 dark:border-white/5">
                                         <div className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider ${bg} ${onBg} bg-opacity-30 flex items-center gap-1`}>
                                             Open <ArrowUturnLeftIcon className="w-3 h-3 rotate-180" />
@@ -498,7 +548,6 @@ const SubjectList = memo((props) => {
                                         </div>
                                     </div>
                                     
-                                    {/* Ripple Overlay */}
                                     <div className="absolute inset-0 rounded-[24px] pointer-events-none group-active:bg-black/5 transition-colors" />
                                 </Link>
                             );
@@ -510,7 +559,6 @@ const SubjectList = memo((props) => {
     );
 });
 
-// --- LEVEL 1: CATEGORY LIST (Material Chips) ---
 const CategoryList = memo((props) => {
     const { courseCategories, courses, setCreateCategoryModalOpen, handleEditCategory, handleInitiateDelete, handleCategoryClick, setActiveSubject, loading, userProfile } = props;
     const { contentGroup } = useParams();
@@ -538,7 +586,6 @@ const CategoryList = memo((props) => {
 
     return (
         <div className={`flex flex-col h-full min-h-[calc(100vh-6rem)] ${MATERIAL_STYLES.bgScaffold}`}>
-             {/* Toolbar */}
              <header className="flex-none px-6 py-4 flex items-center justify-between gap-4 z-20 border-b border-black/5 dark:border-white/5">
                 <div className="flex items-center gap-4">
                     <button onClick={() => navigate("/dashboard/courses")} className={MATERIAL_STYLES.btnIcon}>
@@ -559,7 +606,6 @@ const CategoryList = memo((props) => {
                 </div>
             </header>
 
-            {/* Grid */}
             <div className="flex-1 overflow-y-auto material-scrollbar p-6">
                 {loading ? <SkeletonGrid /> : (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
@@ -604,7 +650,6 @@ const CategoryList = memo((props) => {
     );
 });
 
-// --- LEVEL 0: CONTENT GROUP SELECTOR ---
 const ContentGroupSelector = memo((props) => {
     const { userProfile } = props;
     useEffect(() => { props.setActiveSubject(null); props.handleBackToCategoryList(); }, []);
@@ -613,7 +658,6 @@ const ContentGroupSelector = memo((props) => {
 
     const SelectionCard = ({ to, title, subtitle, theme, icon: Icon }) => (
         <Link to={to} className={`group relative overflow-hidden rounded-[32px] p-8 h-80 flex flex-col justify-between transition-all duration-300 hover:scale-[1.01] hover:shadow-xl ${theme.bg} ${theme.text}`}>
-            {/* Soft Blob */}
             <div className="absolute -right-10 -bottom-10 w-48 h-48 rounded-full bg-white/20 blur-3xl group-hover:scale-150 transition-transform duration-700"></div>
             
             <div className="relative z-10">
@@ -659,7 +703,6 @@ const ContentGroupSelector = memo((props) => {
     );
 });
 
-// --- MAIN ROUTER ---
 const CoursesView = memo((props) => {
     useEffect(() => {
         const styleId = 'courses-view-material-styles';
