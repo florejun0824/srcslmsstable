@@ -38,10 +38,22 @@ import {
     PlayCircleIcon
 } from '@heroicons/react/24/solid';
 
+// --- CSS INJECTION (Updated with System Font) ---
+const GLOBAL_CSS = `
+  .courses-system-font { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"; }
+  .material-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+  .material-scrollbar::-webkit-scrollbar-track { background: transparent; }
+  .material-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(0, 0, 0, 0.1); border-radius: 10px; }
+  .dark .material-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(255, 255, 255, 0.1); }
+  
+  .animate-enter { animation: enter 0.4s cubic-bezier(0.2, 0.0, 0, 1.0); }
+  @keyframes enter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+`;
+
 // --- MATERIAL YOU / ANDROID 14 DESIGN TOKENS ---
 const MATERIAL_STYLES = {
-    // Scaffold: TRANSPARENT GLASS (60% Opacity)
-    bgScaffold: "bg-[#FDFCF4]/60 dark:bg-[#121212]/60 backdrop-blur-[60px] rounded-[32px] m-0 sm:m-4 border border-white/20 dark:border-white/5 shadow-2xl overflow-hidden", 
+    // Scaffold: TRANSPARENT GLASS (60% Opacity) + SYSTEM FONT
+    bgScaffold: "courses-system-font bg-[#FDFCF4]/60 dark:bg-[#121212]/60 backdrop-blur-[60px] rounded-[32px] m-0 sm:m-4 border border-white/20 dark:border-white/5 shadow-2xl overflow-hidden", 
     
     // Surfaces
     bgSurface: "bg-[#F3F4EB]/80 dark:bg-[#1E1E1E]/80 backdrop-blur-md",
@@ -54,7 +66,7 @@ const MATERIAL_STYLES = {
     textOnSurface: "text-[#1B1C17] dark:text-[#E3E2E6]",
     textVariant: "text-[#444746] dark:text-[#C4C7C5]",
     
-    // Buttons (UPDATED: SLIMMER PROFILE)
+    // Buttons (Slimmer Profile)
     btnFilled: "flex items-center justify-center gap-2 px-4 py-2 rounded-full font-bold text-xs transition-all duration-200 active:scale-95 shadow-sm hover:shadow-md",
     btnTonal: "flex items-center justify-center gap-2 px-5 py-2.5 rounded-full font-medium text-sm transition-all duration-200 active:scale-95 bg-[#C3E7DD] dark:bg-[#334B4F] text-[#002022] dark:text-[#CCE8E0] hover:brightness-95",
     btnIcon: "p-3 rounded-full hover:bg-[#1B1C17]/10 dark:hover:bg-[#E3E2E6]/10 active:scale-90 transition-all text-[#444746] dark:text-[#C4C7C5]",
@@ -62,17 +74,6 @@ const MATERIAL_STYLES = {
     // Inputs
     searchBar: "w-full pl-12 pr-4 py-3 rounded-full bg-[#E2E2D9]/50 dark:bg-[#444746]/50 text-[#1B1C17] dark:text-[#E3E2E6] placeholder-[#444746] focus:outline-none focus:ring-2 focus:ring-[#006A60]/50 transition-all backdrop-blur-md"
 };
-
-// --- CSS INJECTION ---
-const GLOBAL_CSS = `
-  .material-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
-  .material-scrollbar::-webkit-scrollbar-track { background: transparent; }
-  .material-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(0, 0, 0, 0.1); border-radius: 10px; }
-  .dark .material-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(255, 255, 255, 0.1); }
-  
-  .animate-enter { animation: enter 0.4s cubic-bezier(0.2, 0.0, 0, 1.0); }
-  @keyframes enter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-`;
 
 // --- HELPER: School Branding ---
 const SCHOOL_BRANDING = {
@@ -106,7 +107,7 @@ const ContentScopeSwitcher = memo(({ activeGroup, onSwitch }) => {
     );
 });
 
-// 3. BREADCRUMBS (UPDATED: Clickable Subject Name)
+// 3. BREADCRUMBS
 const Breadcrumbs = ({ contentGroup, categoryName, subjectTitle, unitTitle, subjectId }) => (
     <nav className={`${MATERIAL_STYLES.navPill} inline-flex items-center gap-1 max-w-full overflow-x-auto material-scrollbar`}>
         <Link to="/dashboard/courses" className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
@@ -255,7 +256,7 @@ const SubjectDetail = memo((props) => {
             </header>
 
             {/* Content Area */}
-            <main className="flex-1 overflow-y-auto material-scrollbar p-6">
+            <main className="flex-1 overflow-y-auto material-scrollbar p-3 md:p-6">
                 <div className="max-w-6xl mx-auto">
                      <UnitAccordion
                         subject={activeSubject}
@@ -333,7 +334,7 @@ const SubjectDetail = memo((props) => {
     );
 });
 
-// --- LEVEL 2: SUBJECT LIST (Updated Icons & Colors & RESTORED BUTTONS) ---
+// --- LEVEL 2: SUBJECT LIST (With Natural Sorting) ---
 const SubjectList = memo((props) => {
     const { courses, handleInitiateDelete, onAddSubjectClick, setActiveSubject, handleCategoryClick, loading, userProfile, handleOpenEditSubject } = props;
     const { contentGroup, categoryName } = useParams();
@@ -347,62 +348,63 @@ const SubjectList = memo((props) => {
         if (!courses) return [];
         const userSchoolId = userProfile?.schoolId || 'srcs_main';
         const lowerSearch = searchTerm.toLowerCase();
+        
         return courses.filter(c => 
             c.category === decodedCategoryName &&
             (c.schoolId === 'global' || !c.schoolId || c.schoolId === userSchoolId) &&
             c.title.toLowerCase().includes(lowerSearch)
-        ).sort((a, b) => a.title.localeCompare(b.title));
+        ).sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' })); // UPDATED SORT
     }, [courses, decodedCategoryName, searchTerm, userProfile?.schoolId]);
 
     // Updated Visual Logic
     const getMaterialTheme = (title) => {
         const t = title.toLowerCase();
         
-        // English & Filipino: Pencil / Writing
+        // English & Filipino
         if (t.includes('english') || t.includes('filipino')) return { 
             bg: "bg-[#FFD8E4] dark:bg-[#633B48]", 
             onBg: "text-[#31111D] dark:text-[#FFD8E4]", 
-            icon: PencilIcon, // or BookOpenIcon
+            icon: PencilIcon, 
             surface: "bg-[#FFF8F8] dark:bg-[#201A1B]"
         };
 
-        // Math: Calculator
+        // Math
         if (t.includes('math')) return { 
-            bg: "bg-[#FFD8E4] dark:bg-[#633B48]", // Red/Pink tone
+            bg: "bg-[#FFD8E4] dark:bg-[#633B48]", 
             onBg: "text-[#31111D] dark:text-[#FFD8E4]", 
             icon: CalculatorIcon,
             surface: "bg-[#FFF8F8] dark:bg-[#201A1B]"
         };
 
-        // Science: Lab Equipment
+        // Science
         if (t.includes('science')) return { 
-            bg: "bg-[#C3E7DD] dark:bg-[#334B4F]", // Green/Teal tone
+            bg: "bg-[#C3E7DD] dark:bg-[#334B4F]", 
             onBg: "text-[#002022] dark:text-[#CCE8E0]", 
             icon: BeakerIcon,
             surface: "bg-[#F4FBF9] dark:bg-[#191C1C]"
         };
 
-        // MAPEH: Music/Arts
+        // MAPEH
         if (t.includes('mapeh') || t.includes('music') || t.includes('art') || t.includes('pe')) return { 
-            bg: "bg-[#E8DEF8] dark:bg-[#4A4458]", // Purple tone
+            bg: "bg-[#E8DEF8] dark:bg-[#4A4458]", 
             onBg: "text-[#1D192B] dark:text-[#E8DEF8]", 
             icon: MusicalNoteIcon,
             surface: "bg-[#FFFBFE] dark:bg-[#1C1B1F]"
         };
 
-        // CSL / Values / Religious Ed: Good Values (Heart)
+        // CSL / Values
         if (t.includes('csl') || t.includes('religious') || t.includes('values') || t.includes('esp')) return { 
-            bg: "bg-[#F2DDA5] dark:bg-[#58440C]", // Yellow/Gold tone
+            bg: "bg-[#F2DDA5] dark:bg-[#58440C]", 
             onBg: "text-[#261900] dark:text-[#F2DDA5]", 
             icon: HeartIcon,
             surface: "bg-[#FFFDF6] dark:bg-[#1E1C16]"
         };
 
-        // Araling Panlipunan: History/Geography
+        // Araling Panlipunan
         if (t.includes('araling') || t.includes('history') || t.includes('social') || t.includes('ap')) return { 
-            bg: "bg-[#D0E4FF] dark:bg-[#284777]", // Blue tone
+            bg: "bg-[#D0E4FF] dark:bg-[#284777]", 
             onBg: "text-[#001D36] dark:text-[#D0E4FF]", 
-            icon: GlobeAsiaAustraliaIcon, // Globe
+            icon: GlobeAsiaAustraliaIcon, 
             surface: "bg-[#FDFBFF] dark:bg-[#1A1C1E]"
         };
 
@@ -472,7 +474,7 @@ const SubjectList = memo((props) => {
                                         </h3>
                                     </div>
 
-                                    {/* 3. Action Chips (RESTORED EDIT/DELETE) */}
+                                    {/* 3. Action Chips */}
                                     <div className="flex items-center justify-between mt-auto pt-2 border-t border-black/5 dark:border-white/5">
                                         <div className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider ${bg} ${onBg} bg-opacity-30 flex items-center gap-1`}>
                                             Open <ArrowUturnLeftIcon className="w-3 h-3 rotate-180" />

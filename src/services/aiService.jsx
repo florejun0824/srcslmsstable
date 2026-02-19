@@ -21,7 +21,7 @@ const PRIMARY_CONFIGS = [
         service: 'openrouter', 
         url: `${API_BASE}/api/openrouter`, 
         name: 'Hermes 3)',
-        model: 'nousresearch/hermes-3-llama-3.1-405b:free',
+        model: 'openai/gpt-oss-120b:free',
         tier: 'primary' // <--- Forces backend to use Key #1
     },
 ];

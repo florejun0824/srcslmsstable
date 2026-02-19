@@ -50,15 +50,15 @@ const MAT_STYLES = {
     cardUnit: "relative group overflow-hidden rounded-[24px] transition-all duration-300 hover:shadow-lg border border-transparent hover:border-black/5 dark:hover:border-white/10",
     cardContent: "relative group overflow-hidden rounded-[20px] bg-[#F3F4EB] dark:bg-[#1E1E1E] border border-transparent hover:border-black/5 dark:hover:border-white/10 transition-all duration-200 hover:shadow-md",
     
-    // Header (Floating Island)
-    stickyHeader: "sticky top-2 z-40 mx-2 md:mx-0 mb-6 rounded-[24px] bg-[#F3F4EB]/90 dark:bg-[#1E1E1E]/90 backdrop-blur-xl border border-white/20 dark:border-white/5 shadow-sm transition-all duration-300",
+    // Header (Floating Island - Moved Closer to Top)
+    stickyHeader: "sticky top-0 z-40 -mt-2 md:-mt-4 mb-4 rounded-b-[24px] md:rounded-[24px] bg-[#F3F4EB]/95 dark:bg-[#1E1E1E]/95 backdrop-blur-xl border-b border-white/20 dark:border-white/5 shadow-sm transition-all duration-300",
 
     // Typography
     displayLarge: "text-2xl font-normal text-[#1B1C17] dark:text-[#E3E2E6]",
     titleMedium: "text-base font-medium text-[#1B1C17] dark:text-[#E3E2E6]",
     bodySmall: "text-xs font-medium text-[#444746] dark:text-[#C4C7C5]",
     
-    // Actions (UPDATED: SLIMMER PROFILE)
+    // Actions (Slim Profile)
     btnIcon: "p-2 rounded-full hover:bg-[#1B1C17]/10 dark:hover:bg-[#E3E2E6]/10 active:scale-90 transition-all text-[#444746] dark:text-[#C4C7C5]",
     btnFab: "flex items-center justify-center gap-2 px-3 py-2 rounded-[14px] font-bold text-xs transition-all duration-200 shadow-sm hover:shadow-md active:scale-95",
     
@@ -257,7 +257,7 @@ const ExportTutorialModal = ({ isOpen, onClose, onConfirm }) => {
     );
 };
 
-// --- SORTABLE UNIT ITEM (Card Style) ---
+// --- SORTABLE UNIT ITEM (Card Style - Compact on Mobile) ---
 const SortableBookItem = memo(({ unit, onSelect, onAction, isReordering, index }) => {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: unit.id, data: { type: 'unit' }, disabled: !isReordering });
     const style = { transform: CSS.Translate.toString(transform), transition, touchAction: 'none' };
@@ -279,16 +279,16 @@ const SortableBookItem = memo(({ unit, onSelect, onAction, isReordering, index }
 
     return (
         <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="h-full">
-            <div onClick={() => !isReordering && onSelect(unit)} className={`${MAT_STYLES.cardUnit} ${theme.bg} aspect-[4/3] flex flex-col p-5 ${containerClass}`}>
+            <div onClick={() => !isReordering && onSelect(unit)} className={`${MAT_STYLES.cardUnit} ${theme.bg} aspect-[4/3] flex flex-col p-3 md:p-5 ${containerClass}`}>
                 
                 {/* Header: Icon & Action */}
                 <div className="flex justify-between items-start mb-auto">
-                    <div className="p-2.5 rounded-[14px] bg-white/40 dark:bg-black/20 backdrop-blur-sm">
-                        <FolderSolid className={`w-6 h-6 ${theme.text}`} />
+                    <div className="p-1.5 md:p-2.5 rounded-[10px] md:rounded-[14px] bg-white/40 dark:bg-black/20 backdrop-blur-sm">
+                        <FolderSolid className={`w-4 h-4 md:w-6 md:h-6 ${theme.text}`} />
                     </div>
                     {!isReordering && (
                         <div onClick={(e) => e.stopPropagation()}>
-                            <ActionMenu triggerClass={`p-2 rounded-full hover:bg-black/10 transition-colors ${theme.text}`}>
+                            <ActionMenu triggerClass={`p-1.5 md:p-2 rounded-full hover:bg-black/10 transition-colors ${theme.text}`}>
                                 <MenuItem icon={PencilIcon} text="Edit Unit" onClick={(e) => { e.stopPropagation(); onAction('edit', unit); }} />
                                 <MenuItem icon={TrashIcon} text="Delete Unit" onClick={(e) => { e.stopPropagation(); onAction('delete', unit); }} />
                             </ActionMenu>
@@ -297,13 +297,13 @@ const SortableBookItem = memo(({ unit, onSelect, onAction, isReordering, index }
                 </div>
 
                 {/* Body: Title */}
-                <div className="mb-4">
-                    <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">Unit {index + 1}</span>
-                    <h3 className={`text-xl font-normal leading-tight line-clamp-2 mt-1 ${theme.text}`}>{unit.title}</h3>
+                <div className="mb-2 md:mb-4">
+                    <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest opacity-60">Unit {index + 1}</span>
+                    <h3 className={`text-sm md:text-xl font-normal leading-tight line-clamp-2 mt-0.5 md:mt-1 ${theme.text}`}>{unit.title}</h3>
                 </div>
 
                 {/* Footer: Open Badge */}
-                <div className="mt-auto">
+                <div className="mt-auto hidden sm:block">
                     <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/30 dark:bg-black/10 text-[11px] font-bold uppercase tracking-wide backdrop-blur-sm">
                         <span>Open</span>
                         <ArrowLeftIcon className="w-3 h-3 rotate-180" />
@@ -538,11 +538,11 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                 {activeUnit ? (
                     // --- INSIDE A UNIT (CONTENT VIEW) ---
                     <div className="relative pb-20">
-                        {/* UPDATED HEADER: Slimmer Buttons */}
+                        {/* UPDATED HEADER: Positioned closer to top (-mt-4) */}
                         <div className={MAT_STYLES.stickyHeader}>
                             <div className="flex flex-col md:flex-row items-center justify-between p-4 gap-4">
                                 <div className="w-full">
-                                    <h2 className={`text-2xl font-normal ${MAT_STYLES.titleMedium} leading-tight truncate`}>{activeUnit.title}</h2>
+                                    <h2 className={`text-xl md:text-2xl font-normal ${MAT_STYLES.titleMedium} leading-tight truncate`}>{activeUnit.title}</h2>
                                     <div className="flex items-center gap-3 mt-1 text-xs text-gray-500 font-medium">
                                         <span className="flex items-center gap-1"><BookOpenIcon className="w-3.5 h-3.5" /> {lessons.length} Modules</span>
                                         <span className="w-1 h-1 rounded-full bg-gray-300"></span>
@@ -631,7 +631,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 
                         {units.length > 0 ? (
                             <SortableContext items={units.map(u => u.id)} strategy={rectSortingStrategy}>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
                                     {units.map((unit, idx) => (
                                         <SortableBookItem key={unit.id} unit={unit} index={idx} onSelect={onSetActiveUnit} onAction={handleAction} isReordering={isReordering} />
                                     ))}

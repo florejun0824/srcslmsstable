@@ -72,7 +72,7 @@ export default async function handler(req) {
     }
 
     // 4. Construct Messages & Select Model
-    let selectedModel = requestedModel || "nousresearch/hermes-3-llama-3.1-405b:free"; 
+    let selectedModel = requestedModel || "openai/gpt-oss-120b:free"; 
     let messages = [];
 
     if (imageUrl) {
