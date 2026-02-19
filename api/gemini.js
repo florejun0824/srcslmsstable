@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// 1. ENABLE EDGE RUNTIME
+// 1. ENABLE EDGE RUNTIME (Critical for streaming)
 export const config = {
   runtime: 'edge', 
 };
@@ -41,9 +41,7 @@ export default async function handler(req) {
     if (!bodyText) return new Response(JSON.stringify({ error: "Empty body" }), { status: 400, headers: corsHeaders });
     
     const body = JSON.parse(bodyText);
-    
-    // Extract jsonMode so we can enforce JSON output for essay grading
-    const { prompt, model: requestedModel, jsonMode } = body;
+    const { prompt, model: requestedModel } = body;
 
     if (!prompt) {
         return new Response(JSON.stringify({ error: "No prompt provided" }), { status: 400, headers: corsHeaders });
@@ -55,21 +53,13 @@ export default async function handler(req) {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    
-    // Set up configuration. If jsonMode is true, strictly return JSON.
-    const generationConfig = {};
-    if (jsonMode) {
-      generationConfig.responseMimeType = "application/json";
-    }
+    const model = genAI.getGenerativeModel({ model: requestedModel || 'gemma-3-27b-it' });
 
-    // Default to Gemini 3 Pro
-    const model = genAI.getGenerativeModel({ 
-      model: requestedModel || 'gemini-3-pro-preview',
-      generationConfig 
-    });
-
+    // --- STREAMING LOGIC START ---
+    // Instead of waiting for full response, we stream it chunk by chunk.
     const result = await model.generateContentStream(prompt);
     
+    // Create a ReadableStream to pipe the data to the client immediately
     const stream = new ReadableStream({
         async start(controller) {
             const encoder = new TextEncoder();
@@ -93,19 +83,15 @@ export default async function handler(req) {
         status: 200, 
         headers: { 
             ...corsHeaders, 
-            'Content-Type': 'text/plain; charset=utf-8'
+            'Content-Type': 'text/plain; charset=utf-8' // Return raw text, not JSON
         } 
     });
+    // --- STREAMING LOGIC END ---
 
   } catch (error) {
     console.error("Vercel Gemini Error:", error);
-    
-    // CRITICAL: Identify rate limit (429) errors so the frontend load balancer knows to switch to OpenRouter
-    const isRateLimit = error.status === 429 || error.message.toLowerCase().includes('quota') || error.message.toLowerCase().includes('429');
-    const statusCode = isRateLimit ? 429 : (error.status || 500);
-
     return new Response(JSON.stringify({ error: error.message }), { 
-        status: statusCode, 
+        status: 500, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
     });
   }

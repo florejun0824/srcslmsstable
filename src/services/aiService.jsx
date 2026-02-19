@@ -15,43 +15,49 @@ const API_BASE = PROD_API_URL;
 
 // --- CONFIGURATION ---
 
-// TIER 1: Vercel Edge Function - Google AI Studio (Tries your direct keys first)
+// TIER 1: OpenRouter (Reasoning/Complex) - DeepSeek R1
 const PRIMARY_CONFIGS = [
     { 
-        service: 'gemini-direct', 
-        url: `${API_BASE}/api/gemini`, 
-        name: 'Gemini 3 Pro Direct',
-        model: 'gemini-3-pro-preview', 
-        tier: 'primary' 
+        service: 'openrouter', 
+        url: `${API_BASE}/api/openrouter`, 
+        name: 'Gemini 3 Pro)',
+        model: 'google/gemini-2.5-flash-lite',
+        tier: 'primary' // <--- Forces backend to use Key #1
     },
 ];
 
-// TIER 2: OpenRouter Backups (Loops through these in order if Tier 1 fails)
+// TIER 2: OpenRouter (Fast/Backup) - Gemini Flash
 const FALLBACK_CONFIGS = [
   { 
-      // 1st Backup: It will immediately switch here if your Google API is rate-limited
-      service: 'openrouter', 
-      url: `${API_BASE}/api/openrouter`, 
-      name: 'Gemini 3 Pro OpenRouter Backup', 
-      model: 'google/gemini-2.5-flash-lite', // OpenRouter's specific model ID
-      tier: 'backup' 
-  },
-  { 
-      // 2nd Backup: If OpenRouter's Gemini also fails, it falls back to free models
       service: 'openrouter', 
       url: `${API_BASE}/api/openrouter`, 
       name: 'Hermes 3 Backup 1', 
-      model: 'openai/gpt-oss-120b:free',
-      tier: 'backup' 
+      model: 'openai/gpt-oss-120b:free', // Correct OpenRouter Model ID
+      tier: 'backup' // <--- Forces backend to use Keys #2-5
   },
   { 
       service: 'openrouter', 
       url: `${API_BASE}/api/openrouter`, 
-      name: 'Meta LLama Backup 2', 
+      name: 'Hermes 3 Backup 2', 
+      model: 'openai/gpt-oss-120b:free',
+      tier: 'backup'
+  },
+  { 
+      service: 'openrouter', 
+      url: `${API_BASE}/api/openrouter`, 
+      name: 'Hermes Backup 3', 
+      model: 'openai/gpt-oss-120b:free',
+      tier: 'backup'
+  },
+  { 
+      service: 'openrouter', 
+      url: `${API_BASE}/api/openrouter`, 
+      name: 'Meta LLama Backup 4', 
       model: 'openai/gpt-oss-120b:free',
       tier: 'backup'
   },
 ];
+
 let primaryIndex = 0;
 let fallbackIndex = 0;
 
