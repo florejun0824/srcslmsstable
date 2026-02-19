@@ -6,120 +6,65 @@ import CreateUlpModal from './CreateUlpModal';
 import CreateAtgModal from './CreateAtgModal';
 import CreateExamAndTosModal from './CreateExamAndTosModal';
 import {
-    SparklesIcon,
-    XMarkIcon,
-    ArrowRightIcon,
     DocumentTextIcon,
     AcademicCapIcon,
     ChartBarIcon,
     CpuChipIcon,
-    MoonIcon
+    SparklesIcon,
+    ChevronRightIcon
 } from '@heroicons/react/24/solid';
 
-// --- MOONLIGHT OS STYLES ---
-const MOONLIGHT_STYLES = `
-    @keyframes moon-float {
-        0%, 100% { transform: translateY(0px); }
-        50% { transform: translateY(-6px); }
-    }
-    @keyframes star-twinkle {
-        0%, 100% { opacity: 0.3; transform: scale(1); }
-        50% { opacity: 1; transform: scale(1.2); }
-    }
-    @keyframes beam-scan {
-        0% { background-position: -200% 0; }
-        100% { background-position: 200% 0; }
-    }
+// --- MACOS UI HELPERS ---
 
-    .moon-bg {
-        background: radial-gradient(circle at 50% 0%, #1e293b 0%, #020617 100%);
-    }
-    
-    .moon-card {
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        box-shadow: 0 4px 24px -1px rgba(0, 0, 0, 0.2);
-        backdrop-filter: blur(12px); 
-        -webkit-backdrop-filter: blur(12px);
-    }
+const MacTrafficLights = ({ onClose }) => (
+    <div className="flex gap-2 group">
+        {/* Close (Red) */}
+        <button 
+            onClick={onClose}
+            className="w-3 h-3 rounded-full bg-[#FF5F57] border border-[#E0443E] flex items-center justify-center hover:brightness-90 transition-all"
+        >
+            <span className="opacity-0 group-hover:opacity-100 text-[8px] font-bold text-[#4c0b0b]">✕</span>
+        </button>
+        {/* Minimize (Yellow) - Visual only for this context */}
+        <div className="w-3 h-3 rounded-full bg-[#FEBC2E] border border-[#D89E24] flex items-center justify-center">
+            <span className="opacity-0 group-hover:opacity-100 text-[8px] font-bold text-[#4c3e0b]">-</span>
+        </div>
+        {/* Expand (Green) - Visual only for this context */}
+        <div className="w-3 h-3 rounded-full bg-[#28C840] border border-[#1AAB29] flex items-center justify-center">
+            <span className="opacity-0 group-hover:opacity-100 text-[8px] font-bold text-[#0b4c14]">＋</span>
+        </div>
+    </div>
+);
 
-    /* The "Moonlight" Rim Light Effect */
-    .moon-card:hover {
-        background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%);
-        border-color: rgba(255, 255, 255, 0.3);
-        box-shadow: 0 0 30px rgba(148, 163, 184, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.2);
-        transform: translateY(-2px);
-    }
-    
-    .moon-text-glow {
-        text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
-    }
-    
-    .moon-beam {
-        position: absolute;
-        top: 0; left: 0; right: 0; height: 1px;
-        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent);
-        opacity: 0.3;
-    }
-`;
+const MacAppIcon = ({ icon: Icon, gradient }) => (
+    <div className={`w-12 h-12 rounded-[14px] shadow-md flex items-center justify-center text-white ${gradient} ring-1 ring-black/5`}>
+        <Icon className="w-6 h-6 drop-shadow-sm" />
+    </div>
+);
 
-// --- MOONLIGHT CARD COMPONENT ---
-const MoonlightCard = ({ title, description, icon: Icon, onClick, badge, index }) => {
+const MacListItem = ({ title, description, icon, gradient, onClick, delay }) => {
     return (
         <button
             onClick={onClick}
-            style={{ animationDelay: `${index * 100}ms` }}
-            className={`
-                group relative w-full h-full flex flex-col p-6 text-left
-                rounded-[24px] transition-all duration-500 ease-out
-                moon-card overflow-hidden
-                animate-in fade-in slide-in-from-bottom-8 fill-mode-backwards
-            `}
+            style={{ animationDelay: `${delay}ms` }}
+            className="group w-full flex items-center gap-4 p-4 rounded-xl transition-all duration-200 
+                       hover:bg-white/50 dark:hover:bg-white/10 active:scale-[0.98]
+                       border border-transparent hover:border-black/5 dark:hover:border-white/10
+                       animate-in slide-in-from-bottom-2 fade-in fill-mode-backwards"
         >
-            {/* Top Beam Light */}
-            <div className="moon-beam group-hover:opacity-100 transition-opacity duration-500" />
-
-            {/* Header */}
-            <div className="relative z-10 flex justify-between items-start w-full mb-6">
-                <div className={`
-                    w-12 h-12 rounded-2xl flex items-center justify-center
-                    bg-white/5 border border-white/10 
-                    text-indigo-200 shadow-[0_0_15px_rgba(99,102,241,0.15)]
-                    group-hover:text-white group-hover:shadow-[0_0_25px_rgba(99,102,241,0.4)]
-                    transition-all duration-500 group-hover:scale-110
-                `}>
-                    <Icon className="w-6 h-6" />
-                </div>
-                
-                {badge && (
-                    <span className={`
-                        px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest
-                        bg-indigo-500/10 border border-indigo-400/20 text-indigo-300
-                        shadow-lg
-                    `}>
-                        {badge}
-                    </span>
-                )}
-            </div>
-
-            {/* Content */}
-            <div className="relative z-10 flex-1">
-                <h3 className="text-xl font-medium tracking-wide text-white mb-2 group-hover:moon-text-glow transition-all">
+            <MacAppIcon icon={icon} gradient={gradient} />
+            
+            <div className="flex-1 text-left">
+                <h3 className="text-base font-semibold text-gray-900 dark:text-white tracking-tight">
                     {title}
                 </h3>
-                <p className="text-sm font-light text-slate-400 leading-relaxed group-hover:text-slate-200 transition-colors">
+                <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-1">
                     {description}
                 </p>
             </div>
 
-            {/* Action Footer */}
-            <div className="relative z-10 mt-8 flex items-center justify-between border-t border-white/5 pt-4">
-                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 group-hover:text-indigo-300 transition-colors">
-                    Initialize
-                </span>
-                <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-indigo-500/20 transition-colors">
-                    <ArrowRightIcon className="w-3 h-3 text-slate-400 group-hover:text-white transition-colors" />
-                </div>
+            <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100/50 dark:bg-gray-700/50 text-gray-400 group-hover:text-blue-500 group-hover:bg-blue-500/10 transition-colors">
+                <ChevronRightIcon className="w-4 h-4" />
             </div>
         </button>
     );
@@ -127,17 +72,12 @@ const MoonlightCard = ({ title, description, icon: Icon, onClick, badge, index }
 
 export default function AiGenerationHub({ isOpen, onClose, unitId, subjectId }) {
     const [activeGenerator, setActiveGenerator] = useState(null);
+    const { darkMode } = useTheme();
 
-    // Lock Scroll & Inject Styles
+    // Lock Scroll
     useEffect(() => {
         if (isOpen) {
             document.body.style.overflow = 'hidden';
-            if (!document.getElementById('moonlight-styles')) {
-                const style = document.createElement('style');
-                style.id = 'moonlight-styles';
-                style.innerHTML = MOONLIGHT_STYLES;
-                document.head.appendChild(style);
-            }
         } else {
             document.body.style.overflow = 'unset';
         }
@@ -146,38 +86,50 @@ export default function AiGenerationHub({ isOpen, onClose, unitId, subjectId }) 
 
     const generatorOptions = [
         {
+            id: 'lesson',
             title: "Lesson Guide",
             description: "Craft detailed lesson plans tailored to curriculum standards.",
             icon: DocumentTextIcon,
+            gradient: "bg-gradient-to-br from-blue-400 to-blue-600",
             action: () => setActiveGenerator('lesson'),
-            badge: "Essentials",
         },
         {
+            id: 'ulp',
             title: "Unit Learning Plan",
             description: "Structure comprehensive Unit Learning Plans (ULP) effortlessly.",
             icon: ChartBarIcon,
+            gradient: "bg-gradient-to-br from-purple-400 to-indigo-600",
             action: () => setActiveGenerator('ulp'),
-            badge: "Structure",
         },
         {
-            title: "Adaptive Teaching Guide",
-            description: "Generate non-linear teaching guides for diverse learners.",
+            id: 'atg',
+            title: "Adaptive Teaching",
+            description: "Generate non-linear guides for diverse learners.",
             icon: CpuChipIcon,
+            gradient: "bg-gradient-to-br from-emerald-400 to-teal-600",
             action: () => setActiveGenerator('atg'),
         },
         {
+            id: 'exam',
             title: "Exam & TOS",
             description: "Synthesize balanced assessments and specification tables.",
             icon: AcademicCapIcon,
+            gradient: "bg-gradient-to-br from-orange-400 to-pink-600",
             action: () => setActiveGenerator('exam'),
-            badge: "New",
         }
     ];
 
     if (!isOpen) return null;
 
+    // Helper to close internal modal and return to hub (or close everything)
+    const handleCloseChild = () => {
+        setActiveGenerator(null);
+        // Optional: If you want closing the child to close the hub entirely, call onClose() here instead.
+        // currently, it returns to the Hub menu.
+    };
+
     const renderActiveModal = () => {
-        const commonProps = { isOpen: true, onClose: () => setActiveGenerator(null), unitId, subjectId };
+        const commonProps = { isOpen: true, onClose: handleCloseChild, unitId, subjectId };
         switch (activeGenerator) {
             case 'lesson': return <CreateLearningGuideModal {...commonProps} />;
             case 'ulp': return <CreateUlpModal {...commonProps} />;
@@ -189,80 +141,85 @@ export default function AiGenerationHub({ isOpen, onClose, unitId, subjectId }) 
 
     return (
         <>
+            {/* LOGIC: 
+               We only render the Hub Window if activeGenerator is NULL.
+               This ensures the Hub is physically removed from the DOM when a tool is selected,
+               guaranteeing it never covers the new modal.
+            */}
             {!activeGenerator && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                     
-                    {/* --- BACKGROUND (Night Sky) --- */}
+                    {/* Backdrop - macOS style uses a subtle dark overlay */}
                     <div 
-                        className="fixed inset-0 bg-[#020617]/90 backdrop-blur-sm transition-opacity duration-500"
+                        className="fixed inset-0 bg-black/20 backdrop-blur-[2px] transition-opacity duration-300"
                         onClick={onClose}
                     />
 
-                    {/* --- MAIN CONTAINER (The Monolith) --- */}
-                    <div className={`
-                        relative w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden
-                        rounded-[32px] shadow-2xl ring-1 ring-white/10
-                        moon-bg animate-in zoom-in-95 duration-500 ease-out
-                    `}>
+                    {/* macOS Window Container */}
+                    <div className="
+                        relative w-full max-w-2xl overflow-hidden
+                        bg-white/80 dark:bg-[#1e1e1e]/80 
+                        backdrop-blur-2xl saturate-150
+                        rounded-2xl shadow-2xl ring-1 ring-black/10 dark:ring-white/10
+                        animate-in zoom-in-95 duration-200 ease-out
+                        flex flex-col max-h-[85vh]
+                    ">
                         
-                        {/* Decorative: Ambient Glow */}
-                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-indigo-500/10 blur-[100px] pointer-events-none rounded-full" />
-
-                        {/* --- HEADER --- */}
-                        <div className="relative z-10 flex-shrink-0 px-8 pt-10 pb-6 flex items-start justify-between">
-                            <div>
-                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest mb-4 bg-white/5 border border-white/10 text-indigo-200 shadow-[0_0_15px_rgba(99,102,241,0.1)]">
-                                    <MoonIcon className="w-3 h-3 text-indigo-300" />
-                                    <span>Moonlight OS</span>
-                                </div>
-                                <h2 className="text-4xl sm:text-5xl font-light tracking-tight text-white mb-2">
-                                    Creation <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400">Hub.</span>
-                                </h2>
-                                <p className="text-sm sm:text-base font-light text-slate-400 max-w-md">
-                                    Select an intelligence module to begin generating content.
-                                </p>
+                        {/* Window Title Bar (Draggable Area visual) */}
+                        <div className="relative z-10 flex items-center justify-between px-4 py-3 border-b border-gray-200/50 dark:border-white/10 bg-gray-50/50 dark:bg-white/5">
+                            <MacTrafficLights onClose={onClose} />
+                            <div className="absolute left-0 right-0 text-center pointer-events-none">
+                                <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 tracking-wide">
+                                    Creation Studio
+                                </span>
                             </div>
-                            
-                            <button 
-                                onClick={onClose}
-                                className="group p-3 rounded-full bg-white/5 hover:bg-white/10 transition-colors border border-white/5"
-                            >
-                                <XMarkIcon className="w-6 h-6 text-slate-400 group-hover:text-white transition-colors" />
-                            </button>
+                            <div className="w-10" /> {/* Spacer for centering */}
                         </div>
 
-                        {/* --- CONTENT GRID --- */}
-                        <div className="relative z-10 flex-1 overflow-y-auto px-8 pb-12 custom-scrollbar">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Content Area */}
+                        <div className="p-6 md:p-8 overflow-y-auto custom-scrollbar">
+                            
+                            {/* Header Text */}
+                            <div className="text-center mb-8">
+                                <div className="inline-flex items-center justify-center w-16 h-16 mb-4 rounded-[22px] bg-gradient-to-b from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 shadow-inner">
+                                    <SparklesIcon className="w-8 h-8 text-gray-400 dark:text-gray-200" />
+                                </div>
+                                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                                    What would you like to create?
+                                </h2>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">
+                                    Select an AI module to generate content for your curriculum.
+                                </p>
+                            </div>
+
+                            {/* Grid of Tools */}
+                            <div className="grid grid-cols-1 gap-3">
                                 {generatorOptions.map((option, idx) => (
-                                    <div key={option.title} className="h-[240px]">
-                                        <MoonlightCard
-                                            index={idx}
-                                            title={option.title}
-                                            description={option.description}
-                                            icon={option.icon}
-                                            onClick={option.action}
-                                            badge={option.badge}
-                                        />
-                                    </div>
+                                    <MacListItem 
+                                        key={option.id}
+                                        {...option}
+                                        delay={idx * 50}
+                                        onClick={option.action}
+                                    />
                                 ))}
                             </div>
                         </div>
 
-                        {/* --- FOOTER STATUS --- */}
-                        <div className="relative z-10 py-4 text-center border-t border-white/5 bg-[#020617]/50 backdrop-blur-md">
-                            <div className="flex items-center justify-center gap-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" />
-                                <span className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
-                                    AI Core Online
-                                </span>
-                            </div>
+                        {/* Status Bar / Footer */}
+                        <div className="px-4 py-2 border-t border-gray-200/50 dark:border-white/10 bg-gray-50/30 dark:bg-white/5 flex justify-between items-center">
+                            <span className="text-[10px] text-gray-400 font-medium">
+                                AI Model: Gemini 3.0 Pro
+                            </span>
+                            <span className="text-[10px] text-gray-400">
+                                v2.4.0
+                            </span>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Nested Active Generator */}
+            {/* Active Modal Container */}
+            {/* Since the Hub above is hidden when this is true, this modal takes full focus */}
             {activeGenerator && (
                 <div className="relative z-[200]">
                     {renderActiveModal()}

@@ -116,21 +116,24 @@ const prompt = `
 
             STRICT BEHAVIORAL CONSTRAINTS:
             1. Output ONLY valid JSON starting with '{' and ending with '}'.
-            2. NO MARKDOWN formatting (Do NOT use **bold** or *italics* inside the JSON values).
+            2. NO MARKDOWN formatting.
             3. **NO META-REFERENCES** (e.g., "According to the text").
-            4. **PRESERVE SPECIFICS:** Do NOT genericize specific names, places, or events.
+            4. **PRESERVE SPECIFICS:** Do NOT genericize specific names, places, or events. If the text says "Juan bought 5 apples", do NOT write "A student bought fruit". Keep "Juan" and "5 apples".
 
             ROLE:
             You are an **Expert devoted Catholic Elementary School Teacher**. You value **Concrete Examples over Abstract Theory**.
 
-            **1. SLIDE BODY FORMATTING (CRITICAL FOR LISTS):**
-            - **SCENARIO CHECK:** If the text contains a story/scenario, focus the body on that story.
-            - **LIST/ENUMERATION RULE:** - IF the content contains a list, steps, characteristics, or multiple items:
-              - **YOU MUST** format it as a vertical list using explicit newlines (\\n).
-              - **DO NOT** write it as a single paragraph.
-              - **Structure:** "Introductory sentence:\\n1. First Item\\n2. Second Item\\n3. Third Item"
-              - **Alternative:** "Here are the key points:\\n• Point One\\n• Point Two"
-            - **PARAGRAPH RULE:** Only use a standard paragraph if there are NO lists or steps. Max 60 words.
+**1. SLIDE BODY (The "What" - Natural & Engaging):**
+            - **PRIORITY RULE:** Check if the text contains a **SCENARIO**, **STORY**, or **SPECIFIC EXAMPLE**.
+              - **IF YES:** The slide body MUST focus on that scenario. Do not just summarize the lesson; tell the specific part of the story.
+              - **IF NO:** Only then can you start with the core concept/definition.
+              - **STRICT PROHIBITION:** **DO NOT INVENT A SCENARIO.** If the input text does not have a story (e.g., "Juan" or "Maria"), do NOT create one. Stick to the facts provided.
+            - **FORMAT:** Use a **Natural Paragraph** structure. 
+            - **Rule:** Only use bullet points if you are listing 3 or more distinct steps or items. Otherwise, use flowing sentences.
+            - **Constraint:** **MAXIMUM 70 WORDS** per slide body (slightly relaxed for scenarios).
+            - **Tone:** Narrative and educational. 
+            - **Example (Scenario-Based):**
+              "Rather than just guessing, Maria decided to test the water temperature herself. She dipped her finger into the glass and realized it was too hot for the yeast. This specific action—testing before acting—saved her experiment from failing."
 
             **2. TALKING POINTS (The "Script" - Relatable & Filipino):**
             - **Target Audience:** A 10-year-old student.
@@ -141,7 +144,7 @@ const prompt = `
             **3. CONTENT TYPE DETECTION & FORMATTING RULES:**
             
             * **TYPE A: GENERAL LESSON:**
-                - Follow the "Slide Body" rules above. **Prioritize Scenarios and Lists.**
+                - Follow the "Slide Body" rules above. **Prioritize Scenarios.**
                 - **Continuation:** If the topic exists in Memory but this text has a NEW SCENARIO, generate a slide! Use Title: "{Topic}: {Scenario Name}" (e.g., "Matter: The Ice Cube Experiment").
 
             * **TYPE C: ASSESSMENT / QUIZ (STRICT TRIGGER):**
@@ -164,14 +167,14 @@ const prompt = `
                 - **CONDITION:** ONLY if "IS FINAL BATCH" is "true" (${isLastBatch}). Only generate if you see explicit headers: "References", or "Reference".
 				- **Rule:** Copy in Verbatim the list of the References that was used.
 
-            **REQUIRED JSON SCHEMA (EXAMPLE WITH LIST):**
+            **REQUIRED JSON SCHEMA:**
             {
               "slides": [
                 {
-                  "title": "Three States of Matter",
-                  "body": "Matter exists in three distinct forms:\\n1. Solid - holds its shape\\n2. Liquid - takes shape of container\\n3. Gas - fills the container",
+                  "title": "Deliberation: The Process",
+                  "body": "Deliberation is the systematic exploration of all possible choices. We identify every option available to us and carefully weigh the advantages and disadvantages. This critical step ensures we verify our facts before making a firm commitment.",
                   "notes": { 
-                    "talkingPoints": "Imagine holding a stone (Solid), drinking water (Liquid), and blowing air into a balloon (Gas). These are the three forms we see every day.", 
+                    "talkingPoints": "Let's imagine you are planning a surprise party for your Lola. You don't just buy the first cake you see! You check the price, you ask if she likes chocolate or ube, and you check if the shop delivers. That detailed checking? That is Deliberation.", 
                     "slideTiming": "3 mins" 
                   }
                 }
@@ -298,7 +301,6 @@ const prompt = `
             if (typeof slide.body === 'string') {
                 bodyText = slide.body;
             } else if (Array.isArray(slide.body)) {
-                // Join array strings with explicit newlines
                 bodyText = slide.body.join('\n');
             } else if (slide.body) {
                 bodyText = String(slide.body);
@@ -306,16 +308,10 @@ const prompt = `
 
             let titleText = slide.title ? String(slide.title) : `Slide ${index + 1}`;
 
-            // Ensure we trim lines but keep the newlines for bullet points
-            const formattedBody = bodyText
-                .split('\n')
-                .map(line => line.trim())
-                .join('\n');
-
             return { 
                 ...slide, 
                 title: titleText,
-                body: formattedBody, 
+                body: bodyText.split('\n').map(line => line.trim()).join('\n'), 
                 // Format notes (handles both strings from editor and objects from AI)
                 notes: formatNotesToString(slide.notes) 
             };

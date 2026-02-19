@@ -3,8 +3,6 @@ import React, { useState, useEffect, useRef, useMemo, Suspense, lazy, memo, useC
 import { createPortal } from 'react-dom';
 import { db } from '../../services/firebase';
 import { collection, query, where, onSnapshot, writeBatch, doc } from 'firebase/firestore';
-import { useTheme } from '../../contexts/ThemeContext';
-// Note: We removed heavy exports from here
 import {
     PlusIcon,
     TrashIcon,
@@ -13,18 +11,20 @@ import {
     DocumentTextIcon,
     ClipboardDocumentListIcon,
     Bars3Icon,
-    RectangleStackIcon,
-    QueueListIcon,
     ArrowsUpDownIcon,
     EllipsisVerticalIcon,
     CloudArrowUpIcon,
-    ChevronRightIcon,
-    FolderIcon,
     XMarkIcon,       
     PlayCircleIcon,
     AcademicCapIcon,
     BookOpenIcon,
-    ClockIcon
+    ArrowLeftIcon,
+    ClockIcon,
+    DocumentCheckIcon
+} from '@heroicons/react/24/outline';
+import {
+    FolderIcon as FolderSolid,
+    DocumentTextIcon as DocumentTextSolid
 } from '@heroicons/react/24/solid';
 import {
     DndContext,
@@ -39,53 +39,41 @@ import {
     SortableContext,
     sortableKeyboardCoordinates,
     useSortable,
-    verticalListSortingStrategy,
+    rectSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useToast } from '../../contexts/ToastContext';
 
-// --- STYLES ---
-const performanceStyles = {
-    touchAction: 'pan-y', 
-    backfaceVisibility: 'hidden', 
-};
+// --- MATERIAL YOU STYLES ---
+const MAT_STYLES = {
+    // Containers
+    cardUnit: "relative group overflow-hidden rounded-[24px] transition-all duration-300 hover:shadow-lg border border-transparent hover:border-black/5 dark:hover:border-white/10",
+    cardContent: "relative group overflow-hidden rounded-[20px] bg-[#F3F4EB] dark:bg-[#1E1E1E] border border-transparent hover:border-black/5 dark:hover:border-white/10 transition-all duration-200 hover:shadow-md",
+    
+    // Header (Floating Island)
+    stickyHeader: "sticky top-2 z-40 mx-2 md:mx-0 mb-6 rounded-[24px] bg-[#F3F4EB]/90 dark:bg-[#1E1E1E]/90 backdrop-blur-xl border border-white/20 dark:border-white/5 shadow-sm transition-all duration-300",
 
-// --- ONE UI 8.0 BUTTON STYLES ---
-const oneUiBtnBase = `
-    relative font-bold rounded-full transition-all duration-200 
-    disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 
-    active:scale-95 tracking-wide text-xs
-`;
+    // Typography
+    displayLarge: "text-2xl font-normal text-[#1B1C17] dark:text-[#E3E2E6]",
+    titleMedium: "text-base font-medium text-[#1B1C17] dark:text-[#E3E2E6]",
+    bodySmall: "text-xs font-medium text-[#444746] dark:text-[#C4C7C5]",
+    
+    // Actions (UPDATED: SLIMMER PROFILE)
+    btnIcon: "p-2 rounded-full hover:bg-[#1B1C17]/10 dark:hover:bg-[#E3E2E6]/10 active:scale-90 transition-all text-[#444746] dark:text-[#C4C7C5]",
+    btnFab: "flex items-center justify-center gap-2 px-3 py-2 rounded-[14px] font-bold text-xs transition-all duration-200 shadow-sm hover:shadow-md active:scale-95",
+    
+    // Menus
+    menuContainer: "fixed z-[9999] bg-[#F3F4EB] dark:bg-[#1E1E1E] rounded-[16px] shadow-xl ring-1 ring-black/5 p-1 animate-in fade-in zoom-in-95 duration-200 min-w-[200px] flex flex-col gap-0.5",
+    menuItem: "flex items-center w-full px-3 py-2.5 text-sm font-medium rounded-[12px] transition-colors text-[#1B1C17] dark:text-[#E3E2E6] hover:bg-[#1B1C17]/5 dark:hover:bg-[#E3E2E6]/10",
 
-const getStyles = (monet) => {
-    if (monet) {
-        const btnPrimaryClass = monet.btnPrimary || monet.buttonPrimary || 'bg-blue-600 text-white';
-        const btnTonalClass = monet.btnTonal || monet.buttonSecondary || 'bg-slate-100 text-slate-900';
-        
-        return {
-            primaryButton: `${oneUiBtnBase} ${btnPrimaryClass} px-4 py-2 shadow-sm border border-transparent`,
-            secondaryButton: `${oneUiBtnBase} ${btnTonalClass} px-3 py-2 border border-transparent`, 
-            iconButton: `p-2 rounded-full aspect-square ${btnTonalClass} bg-transparent hover:bg-black/5 dark:hover:bg-white/10 transition-colors`,
-            contentItem: `bg-white dark:bg-[#1E212B] border-transparent shadow-[0_1px_4px_rgba(0,0,0,0.02)]`, 
-            iconBox: monet.iconBg
-        };
-    }
-    return {
-        primaryButton: `${oneUiBtnBase} bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 px-4 py-2 shadow-sm`,
-        secondaryButton: `${oneUiBtnBase} bg-slate-100 dark:bg-[#2C2C2E] text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-[#3A3A3C] px-3 py-2`,
-        iconButton: `p-2 rounded-full aspect-square text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-[#2C2C2E] transition-colors`,
-        contentItem: `bg-white dark:bg-[#1E212B] border border-slate-100 dark:border-[#2C2C2E] shadow-sm`,
-        iconBox: `bg-slate-100 text-slate-600 dark:bg-[#2C2C2E] dark:text-slate-300`
-    };
+    // Section Headers
+    sectionHeader: "flex items-center gap-3 mb-4 px-1",
 };
 
 // --- LAZY RETRY HELPER ---
 const lazyWithRetry = (componentImport) =>
   lazy(async () => {
-    const pageHasAlreadyBeenForceRefreshed = JSON.parse(
-      window.sessionStorage.getItem('page-has-been-force-refreshed') || 'false'
-    );
-
+    const pageHasAlreadyBeenForceRefreshed = JSON.parse( window.sessionStorage.getItem('page-has-been-force-refreshed') || 'false');
     try {
       const component = await componentImport();
       window.sessionStorage.setItem('page-has-been-force-refreshed', 'false');
@@ -112,20 +100,18 @@ const AiGenerationHub = lazyWithRetry(() => import('./AiGenerationHub'));
 
 // --- COMPONENTS ---
 const ContentListSkeleton = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-pulse">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-pulse">
         {[1,2,3,4].map(i => (
-            <div key={i} className="h-28 rounded-[22px] bg-slate-100 dark:bg-[#1C1C1E] border border-slate-200 dark:border-[#2C2C2E]" />
+            <div key={i} className="aspect-[4/3] rounded-[22px] bg-black/5 dark:bg-white/5" />
         ))}
     </div>
 );
 
-const MenuPortal = ({ children, menuStyle, onClose, monet }) => {
+const MenuPortal = ({ children, menuStyle, onClose }) => {
     const menuRef = useRef(null);
     useEffect(() => {
         const handler = (e) => {
-            if (menuRef.current && !menuRef.current.contains(e.target)) {
-                onClose();
-            }
+            if (menuRef.current && !menuRef.current.contains(e.target)) onClose();
         };
         window.addEventListener('mousedown', handler);
         window.addEventListener('scroll', onClose, true);
@@ -135,12 +121,8 @@ const MenuPortal = ({ children, menuStyle, onClose, monet }) => {
         };
     }, [onClose]);
 
-    const containerClass = monet 
-        ? `fixed z-[9999] bg-white dark:bg-[#252525] rounded-[24px] shadow-2xl ring-1 ring-black/5 p-2 animate-in fade-in zoom-in-95 duration-200 flex flex-col gap-1 min-w-[200px]` 
-        : `fixed z-[9999] bg-white dark:bg-[#252525] rounded-[24px] shadow-2xl ring-1 ring-black/5 p-2 animate-in fade-in zoom-in-95 duration-200 flex flex-col gap-1 min-w-[200px] border border-slate-100 dark:border-[#2C2C2E]`;
-
     return createPortal(
-        <div ref={menuRef} style={menuStyle} className={containerClass}>
+        <div ref={menuRef} style={menuStyle} className={MAT_STYLES.menuContainer}>
             {children}
         </div>,
         document.body
@@ -149,17 +131,14 @@ const MenuPortal = ({ children, menuStyle, onClose, monet }) => {
 
 const MenuContext = React.createContext(() => {});
 
-const ActionMenu = ({ children, monet, styles }) => {
+const ActionMenu = ({ children, triggerClass }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [menuStyle, setMenuStyle] = useState({});
     const iconRef = useRef(null);
 
     const handleToggle = (e) => {
         e.stopPropagation();
-        if (isOpen) {
-            setIsOpen(false);
-            return;
-        }
+        if (isOpen) { setIsOpen(false); return; }
         const rect = iconRef.current.getBoundingClientRect();
         const screenHeight = window.innerHeight;
         const spaceBelow = screenHeight - rect.bottom;
@@ -186,11 +165,11 @@ const ActionMenu = ({ children, monet, styles }) => {
 
     return (
         <>
-            <div ref={iconRef} onClick={handleToggle} className={`${styles.iconButton} relative z-20 cursor-pointer rounded-full`}>
+            <div ref={iconRef} onClick={handleToggle} className={`${triggerClass || MAT_STYLES.btnIcon} relative z-20 cursor-pointer`}>
                 <EllipsisVerticalIcon className="h-5 w-5" />
             </div>
             {isOpen && (
-                <MenuPortal menuStyle={menuStyle} onClose={closeMenu} monet={monet}>
+                <MenuPortal menuStyle={menuStyle} onClose={closeMenu}>
                     <MenuContext.Provider value={closeMenu}>{children}</MenuContext.Provider>
                 </MenuPortal>
             )}
@@ -198,31 +177,24 @@ const ActionMenu = ({ children, monet, styles }) => {
     );
 };
 
-const MenuItem = ({ icon: Icon, text, onClick, disabled, loading, monet }) => {
+const MenuItem = ({ icon: Icon, text, onClick, disabled, loading }) => {
     const closeMenu = React.useContext(MenuContext);
     const handleClick = (e) => {
         if (disabled || loading) return;
         if (onClick) onClick(e);
         if (closeMenu) closeMenu();
     };
-    
-    const activeClass = monet 
-        ? `hover:${monet.btnTonal || 'bg-slate-100'}` 
-        : `hover:bg-slate-100 dark:hover:bg-[#3A3A3C]`;
 
     return (
-        <button 
-            onClick={handleClick} 
-            disabled={disabled || loading} 
-            className={`flex items-center w-full px-4 py-3 text-sm font-bold rounded-[18px] transition-colors text-slate-700 dark:text-slate-200 ${activeClass}`}
-        >
-            <Icon className={`h-5 w-5 mr-3 ${loading ? 'animate-spin text-blue-500' : (monet ? '' : 'text-slate-400')}`} />
+        <button onClick={handleClick} disabled={disabled || loading} className={`${MAT_STYLES.menuItem} ${disabled ? 'opacity-50' : ''}`}>
+            <Icon className={`h-4 w-4 mr-3 ${loading ? 'animate-spin text-[#006A60]' : 'opacity-70'}`} />
             {text}
         </button>
     );
 };
 
-const AddContentButton = ({ onAddLesson, onAddQuiz, monet, styles, className }) => {
+// --- ADD BUTTON (FAB Style) ---
+const AddContentButton = ({ onAddLesson, onAddQuiz, className }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [menuStyle, setMenuStyle] = useState({});
     const buttonRef = useRef(null);
@@ -230,10 +202,7 @@ const AddContentButton = ({ onAddLesson, onAddQuiz, monet, styles, className }) 
     const handleToggle = (e) => {
         e.stopPropagation();
         const rect = buttonRef.current.getBoundingClientRect();
-        setMenuStyle({
-            top: `${rect.bottom + 8}px`,
-            right: `${window.innerWidth - rect.right}px`
-        });
+        setMenuStyle({ top: `${rect.bottom + 8}px`, right: `${window.innerWidth - rect.right}px` });
         setIsOpen(!isOpen);
     };
 
@@ -242,189 +211,180 @@ const AddContentButton = ({ onAddLesson, onAddQuiz, monet, styles, className }) 
 
     return (
         <>
-            <button ref={buttonRef} onClick={handleToggle} className={`${styles.primaryButton} ${className || ''}`}>
-                <PlusIcon className="w-4 h-4" />
+            <button ref={buttonRef} onClick={handleToggle} className={`${MAT_STYLES.btnFab} bg-[#006A60] text-white hover:bg-[#005048] ${className || ''}`}>
+                <PlusIcon className="w-5 h-5" />
                 <span className="hidden md:inline">Add Content</span>
-                <span className="md:hidden">Add</span>
             </button>
             {isOpen && (
-                <MenuPortal menuStyle={menuStyle} onClose={() => setIsOpen(false)} monet={monet}>
-                    <MenuItem icon={DocumentTextIcon} text="Add Lesson" onClick={handleAddLesson} monet={monet} />
-                    <MenuItem icon={ClipboardDocumentListIcon} text="Add Quiz" onClick={handleAddQuiz} monet={monet} />
+                <MenuPortal menuStyle={menuStyle} onClose={() => setIsOpen(false)}>
+                    <MenuItem icon={DocumentTextIcon} text="Add Module" onClick={handleAddLesson} />
+                    <MenuItem icon={ClipboardDocumentListIcon} text="Add Quiz" onClick={handleAddQuiz} />
                 </MenuPortal>
             )}
         </>
     );
 };
 
-const ExportTutorialModal = ({ isOpen, onClose, onConfirm, monet }) => {
+// --- EXPORT TUTORIAL MODAL ---
+const ExportTutorialModal = ({ isOpen, onClose, onConfirm }) => {
     if (!isOpen) return null;
     return createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className={` w-full max-w-2xl rounded-[28px] shadow-2xl overflow-hidden flex flex-col ${monet ? 'bg-[#1E212B] border border-white/10' : 'bg-white dark:bg-[#1E212B]'} `}>
-                <div className="p-5 border-b border-gray-100 dark:border-white/10 flex justify-between items-center">
-                    <h3 className={`text-xl font-black flex items-center gap-3 ${monet ? 'text-white' : 'text-gray-900 dark:text-white'}`}>
-                        <PlayCircleIcon className="w-7 h-7 text-blue-500" />
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className={`w-full max-w-2xl rounded-[28px] shadow-2xl overflow-hidden flex flex-col bg-[#F3F4EB] dark:bg-[#1E1E1E]`}>
+                <div className="p-6 flex justify-between items-center border-b border-black/5 dark:border-white/5">
+                    <h3 className={`text-xl font-normal flex items-center gap-3 ${MAT_STYLES.titleMedium}`}>
+                        <PlayCircleIcon className="w-6 h-6 text-[#006A60]" />
                         Fixing Table Layouts
                     </h3>
-                    <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-white/10 transition-colors">
-                        <XMarkIcon className={`w-6 h-6 ${monet ? 'text-white/60' : 'text-gray-500'}`} />
+                    <button onClick={onClose} className={MAT_STYLES.btnIcon}>
+                        <XMarkIcon className="w-6 h-6" />
                     </button>
                 </div>
                 <div className="p-6 overflow-y-auto max-h-[70vh]">
-                    <div className="mb-4">
-                        <p className={`text-sm mb-4 font-medium leading-relaxed ${monet ? 'text-white/80' : 'text-gray-600 dark:text-gray-300'}`}>
-                            Large tables in ULP/ATG documents may look cut off in Microsoft Word. <br/>
-                            <strong>Please watch this quick fix (10s)</strong> to enable "Repeat Header Rows".
-                        </p>
-                        <div className="relative w-full rounded-[20px] overflow-hidden bg-black aspect-video shadow-lg mb-6 ring-1 ring-white/10">
-                            <video src="/table tutorial.mp4" className="w-full h-full object-contain" controls autoPlay muted loop >
-                                Your browser does not support the video tag.
-                            </video>
-                        </div>
-                        <div className={`text-xs p-4 rounded-[18px] border ${monet ? 'bg-blue-500/10 border-blue-500/30 text-blue-200' : 'bg-blue-50 text-blue-800 border-blue-100 dark:bg-blue-900/20 dark:text-blue-200 dark:border-blue-800'}`}>
-                            <strong>Tip:</strong> In Word, Select Table Row → Layout → Properties → Row → Check "Repeat as header row at the top of each page".
-                        </div>
+                    <div className="relative w-full rounded-[20px] overflow-hidden bg-black aspect-video shadow-lg mb-6">
+                        <video src="/table tutorial.mp4" className="w-full h-full object-contain" controls autoPlay muted loop />
+                    </div>
+                    <div className="p-4 rounded-[16px] bg-[#C3E7DD] dark:bg-[#334B4F] text-[#002022] dark:text-[#CCE8E0] text-sm">
+                        <strong>Tip:</strong> In Word, Select Table Row → Layout → Properties → Row → Check "Repeat as header row".
                     </div>
                 </div>
-                <div className="p-5 border-t border-gray-100 dark:border-white/10 flex justify-end gap-3 bg-gray-50/50 dark:bg-white/5">
-                    <button onClick={onClose} className="px-6 py-3 text-sm font-bold text-gray-600 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white transition-colors">
-                        Cancel
-                    </button>
-                    <button onClick={onConfirm} className={` px-6 py-3 text-sm font-bold rounded-full shadow-lg hover:shadow-xl active:scale-95 transition-all ${monet ? monet.buttonPrimary : 'bg-blue-600 text-white hover:bg-blue-500'} `}>
-                        I Understand, Download
-                    </button>
+                <div className="p-5 flex justify-end gap-3 bg-[#E2E2D9]/30 dark:bg-[#444746]/30">
+                    <button onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-[#444746] dark:text-[#C4C7C5] hover:bg-black/5 rounded-full">Cancel</button>
+                    <button onClick={onConfirm} className={`${MAT_STYLES.btnFab} bg-[#006A60] text-white`}>I Understand, Download</button>
                 </div>
             </div>
-        </div>,
-        document.body
+        </div>, document.body
     );
 };
 
-const SortableUnitListRow = memo(({ unit, onSelect, onAction, isReordering, index, monet, styles }) => {
+// --- SORTABLE UNIT ITEM (Card Style) ---
+const SortableBookItem = memo(({ unit, onSelect, onAction, isReordering, index }) => {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: unit.id, data: { type: 'unit' }, disabled: !isReordering });
-    const style = { transform: CSS.Translate.toString(transform), transition };
-    const rowClasses = isReordering ? "opacity-60 grayscale scale-[0.98] border-dashed border-2 border-slate-300 dark:border-slate-600 bg-transparent" : `bg-white dark:bg-[#1E212B] shadow-[0_1px_4px_rgba(0,0,0,0.02)] hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 border border-transparent`;
-    const iconBoxStyle = monet ? `${monet.iconBg} rounded-[18px]` : `bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-[18px]`;
+    const style = { transform: CSS.Translate.toString(transform), transition, touchAction: 'none' };
+    
+    // Dynamic Tonal Colors based on Index
+    const getTheme = (idx) => {
+        const themes = [
+            { bg: "bg-[#D0E4FF] dark:bg-[#284777]", text: "text-[#001D36] dark:text-[#D0E4FF]" }, // Blue
+            { bg: "bg-[#C3E7DD] dark:bg-[#334B4F]", text: "text-[#002022] dark:text-[#CCE8E0]" }, // Teal
+            { bg: "bg-[#FFD8E4] dark:bg-[#633B48]", text: "text-[#31111D] dark:text-[#FFD8E4]" }, // Pink
+            { bg: "bg-[#E8DEF8] dark:bg-[#4A4458]", text: "text-[#1D192B] dark:text-[#E8DEF8]" }, // Purple
+            { bg: "bg-[#F2DDA5] dark:bg-[#58440C]", text: "text-[#261900] dark:text-[#F2DDA5]" }, // Yellow
+        ];
+        return themes[idx % themes.length];
+    };
+    
+    const theme = getTheme(index);
+    const containerClass = isReordering ? "opacity-60 scale-[0.98] cursor-grab active:cursor-grabbing" : "cursor-pointer";
 
     return (
-        <div ref={setNodeRef} style={{...style, ...performanceStyles}} {...attributes} className="mb-2">
-            <div onClick={() => !isReordering && onSelect(unit)} className={`relative w-full rounded-[22px] p-1.5 ${rowClasses} ${!isReordering ? 'cursor-pointer' : ''}`}>
-                <div className="relative flex items-center p-2.5 gap-3.5">
-                    {isReordering && ( <div {...listeners} className="p-2 cursor-grab active:cursor-grabbing hover:bg-black/5 rounded-lg touch-none"> <ArrowsUpDownIcon className="h-5 w-5 text-slate-400" /> </div> )}
-                    <div className={`relative h-12 w-12 flex-shrink-0 flex items-center justify-center ${iconBoxStyle}`}>
-                        <FolderIcon className="h-6 w-6" />
-                        <div className="absolute -bottom-1 -right-1 bg-white dark:bg-[#2C2C2E] text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-sm border border-slate-100 dark:border-[#3A3A3C] text-slate-600 dark:text-slate-300">#{index + 1}</div>
+        <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="h-full">
+            <div onClick={() => !isReordering && onSelect(unit)} className={`${MAT_STYLES.cardUnit} ${theme.bg} aspect-[4/3] flex flex-col p-5 ${containerClass}`}>
+                
+                {/* Header: Icon & Action */}
+                <div className="flex justify-between items-start mb-auto">
+                    <div className="p-2.5 rounded-[14px] bg-white/40 dark:bg-black/20 backdrop-blur-sm">
+                        <FolderSolid className={`w-6 h-6 ${theme.text}`} />
                     </div>
-                    <div className="flex-grow min-w-0 flex flex-col justify-center">
-                        <div className="flex items-center gap-2 mb-0.5"> <span className={`text-[9px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-[#2C2C2E] text-slate-500 dark:text-slate-400`}> Unit </span> </div>
-                        <h3 className={`text-base font-bold tracking-tight leading-tight truncate text-slate-900 dark:text-white`}> {unit.title} </h3>
-                    </div>
-                    {!isReordering && ( <div className="flex items-center gap-1 z-10 pr-1"> <div onClick={(e) => e.stopPropagation()}> <ActionMenu monet={monet} styles={styles}> <MenuItem icon={PencilIcon} text="Edit Unit" onClick={(e) => { e.stopPropagation(); onAction('edit', unit); }} monet={monet} /> <MenuItem icon={ArrowsUpDownIcon} text="Reorder" onClick={(e) => { e.stopPropagation(); onAction('reorder', unit); }} monet={monet} /> <MenuItem icon={TrashIcon} text="Delete Unit" onClick={(e) => { e.stopPropagation(); onAction('delete', unit); }} monet={monet} /> </ActionMenu> </div> <div className="hidden md:flex h-8 w-8 rounded-full items-center justify-center hover:bg-slate-100 dark:hover:bg-[#2C2C2E] text-slate-400 transition-colors"> <ChevronRightIcon className="w-4 h-4 stroke-2" /> </div> </div> )}
+                    {!isReordering && (
+                        <div onClick={(e) => e.stopPropagation()}>
+                            <ActionMenu triggerClass={`p-2 rounded-full hover:bg-black/10 transition-colors ${theme.text}`}>
+                                <MenuItem icon={PencilIcon} text="Edit Unit" onClick={(e) => { e.stopPropagation(); onAction('edit', unit); }} />
+                                <MenuItem icon={TrashIcon} text="Delete Unit" onClick={(e) => { e.stopPropagation(); onAction('delete', unit); }} />
+                            </ActionMenu>
+                        </div>
+                    )}
                 </div>
+
+                {/* Body: Title */}
+                <div className="mb-4">
+                    <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">Unit {index + 1}</span>
+                    <h3 className={`text-xl font-normal leading-tight line-clamp-2 mt-1 ${theme.text}`}>{unit.title}</h3>
+                </div>
+
+                {/* Footer: Open Badge */}
+                <div className="mt-auto">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/30 dark:bg-black/10 text-[11px] font-bold uppercase tracking-wide backdrop-blur-sm">
+                        <span>Open</span>
+                        <ArrowLeftIcon className="w-3 h-3 rotate-180" />
+                    </div>
+                </div>
+
+                {isReordering && (
+                    <div className="absolute inset-0 z-20 bg-black/10 flex items-center justify-center rounded-[24px]">
+                        <div className="bg-white rounded-full p-2 shadow-sm">
+                            <ArrowsUpDownIcon className="w-6 h-6 text-black" />
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
-}, (prev, next) => prev.unit.id === next.unit.id && prev.unit.title === next.unit.title && prev.isReordering === next.isReordering && prev.index === next.index && prev.monet === next.monet);
+}, (prev, next) => prev.unit.id === next.unit.id && prev.unit.title === next.unit.title && prev.isReordering === next.isReordering && prev.index === next.index);
 
-const SortableContentItem = memo(({ item, isReordering, onAction, exportingLessonId, isAiGenerating, monet, styles, isPdfDisabled }) => {
+// --- SORTABLE CONTENT ITEM (Clean List/Grid Style) ---
+const SortablePageItem = memo(({ item, isReordering, onAction, exportingLessonId, isAiGenerating, isPdfDisabled }) => {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
         id: item.id, data: { type: item.type, unitId: item.unitId }, disabled: !isReordering,
     });
     
-    const style = { transform: CSS.Translate.toString(transform), transition };
+    const style = { transform: CSS.Translate.toString(transform), transition, touchAction: 'none' };
     const isLesson = item.type === 'lesson';
-    const isULP = item.contentType === 'teacherGuide';
     
-    const Icon = isLesson ? BookOpenIcon : ClipboardDocumentListIcon;
-    const typeLabel = isLesson ? (isULP ? "Unit Plan" : "Module") : "Assessment";
-    
-    // Aesthetic Logic: Left vs Right Specific styling
-    let containerClass = `
-        relative group w-full flex flex-row items-center p-4 
-        bg-white dark:bg-[#1E212B] 
-        rounded-[20px] overflow-hidden 
-        border transition-all duration-300 ease-out
-    `;
-    
-    if (!isReordering) {
-        containerClass += ` border-gray-100 dark:border-[#2C2C2E] hover:-translate-y-1 hover:shadow-lg hover:shadow-black/5 cursor-pointer dark:hover:bg-[#252836]`;
-    } else {
-        containerClass += ` opacity-80 scale-[0.98] border-dashed border-2 border-slate-300 dark:border-slate-600`;
-    }
+    // Theme logic
+    const theme = isLesson 
+        ? { icon: DocumentTextSolid, iconBg: "bg-[#D0E4FF] dark:bg-[#284777]", iconColor: "text-[#001D36] dark:text-[#D0E4FF]" }
+        : { icon: DocumentCheckIcon, iconBg: "bg-[#FFD8E4] dark:bg-[#633B48]", iconColor: "text-[#31111D] dark:text-[#FFD8E4]" };
 
-    // Icon Box Styling (Distinct colors for columns)
-    let iconBoxClass = "";
-    let badgeClass = "";
-    let titleClass = "text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400";
-    
-    if (monet) {
-        iconBoxClass = `${monet.iconBg} text-white/90`;
-        badgeClass = `${monet.iconBg} bg-opacity-10 text-current`;
-    } else {
-        if (isLesson) {
-            // Blue/Indigo Theme for Lessons
-            iconBoxClass = "bg-gradient-to-br from-blue-50 to-indigo-50 text-blue-600 dark:from-blue-900/30 dark:to-indigo-900/30 dark:text-blue-400";
-            badgeClass = "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300";
-        } else {
-            // Purple/Pink Theme for Quizzes
-            iconBoxClass = "bg-gradient-to-br from-fuchsia-50 to-purple-50 text-purple-600 dark:from-fuchsia-900/30 dark:to-purple-900/30 dark:text-purple-400";
-            badgeClass = "bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-300";
-            titleClass = "text-slate-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400";
-        }
-    }
+    const containerClass = isReordering ? "opacity-60 scale-[0.98] cursor-grab active:cursor-grabbing" : "cursor-pointer";
 
     return (
-        <div ref={setNodeRef} style={{...style, ...performanceStyles}} {...attributes} className="h-full"> 
-            <div onClick={() => !isReordering && onAction('view', item)} className={containerClass}>
-				
-				{isReordering && (
-				    <button {...listeners} className="p-2 mr-2 rounded-xl text-slate-400 hover:bg-black/5 cursor-grab active:cursor-grabbing touch-none">
-				        <Bars3Icon className="w-5 h-5" />
-				    </button>
-				)}
-
-                <div className={`h-12 w-12 flex-shrink-0 rounded-[16px] flex items-center justify-center mr-4 shadow-sm ${iconBoxClass}`}>
-                    <Icon className="h-6 w-6" />
+        <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="h-full"> 
+            <div onClick={() => !isReordering && onAction('view', item)} className={`${MAT_STYLES.cardContent} p-4 h-full flex flex-col justify-between min-h-[140px] ${containerClass}`}>
+                
+                {/* Top Row */}
+                <div className="flex justify-between items-start mb-3">
+                    <div className={`p-2 rounded-[12px] ${theme.iconBg} ${theme.iconColor}`}>
+                        <theme.icon className="w-5 h-5" />
+                    </div>
+                    {!isReordering ? (
+                        <div onClick={(e) => e.stopPropagation()}>
+                            <ActionMenu>
+                                <MenuItem icon={PencilIcon} text="Edit" onClick={() => onAction('edit', item)} />
+                                {isLesson && (
+                                    <>
+                                        {!isPdfDisabled && (
+                                            <MenuItem icon={exportingLessonId === item.id ? CloudArrowUpIcon : DocumentTextIcon} text={exportingLessonId === item.id ? "Exporting..." : "Export as PDF"} onClick={() => onAction('exportPdf', item)} loading={exportingLessonId === item.id} />
+                                        )}
+                                        <MenuItem icon={exportingLessonId === item.id ? CloudArrowUpIcon : DocumentTextIcon} text={exportingLessonId === item.id ? "Exporting..." : "Export as .docx"} onClick={() => onAction('exportDocx', item)} loading={exportingLessonId === item.id} />
+                                    </>
+                                )}
+                                {isLesson && <MenuItem icon={SparklesIcon} text="AI Quiz" onClick={() => onAction('generateQuiz', item)} disabled={isAiGenerating} /> }
+                                <MenuItem icon={TrashIcon} text="Delete" onClick={() => onAction('delete', item)} />
+                            </ActionMenu>
+                        </div>
+                    ) : (
+                        <Bars3Icon className="w-5 h-5 text-gray-400" />
+                    )}
                 </div>
 
-                <div className="flex-grow min-w-0 pr-2 flex flex-col justify-center gap-0.5">
-                    <div className="flex items-center gap-2">
-                        <span className={`text-[9px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-md ${badgeClass}`}>
-                            {typeLabel}
-                        </span>
-                        {/* Optional: Add item count or score indicator here */}
-                    </div>
-                    <h4 className={`font-bold text-[14px] leading-snug truncate transition-colors ${titleClass}`}>
+                {/* Content */}
+                <div>
+                    <h4 className={`text-sm font-medium leading-snug ${MAT_STYLES.titleMedium} line-clamp-3 mb-1`}>
                         {item.title || 'Untitled'}
                     </h4>
-                </div>
-
-                <div className={`flex-shrink-0 pl-2 transition-opacity duration-200 ${isReordering ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-                    <div onClick={(e) => e.stopPropagation()}>
-                        <ActionMenu monet={monet} styles={styles}>
-                            <MenuItem icon={PencilIcon} text="Edit" onClick={() => onAction('edit', item)} monet={monet} />
-                            {isLesson && (
-                                <>
-                                    {!isPdfDisabled && (
-                                        <MenuItem icon={exportingLessonId === item.id ? CloudArrowUpIcon : DocumentTextIcon} text={exportingLessonId === item.id ? "Exporting..." : "Export as PDF"} onClick={() => onAction('exportPdf', item)} loading={exportingLessonId === item.id} monet={monet} />
-                                    )}
-                                    <MenuItem icon={exportingLessonId === item.id ? CloudArrowUpIcon : DocumentTextIcon} text={exportingLessonId === item.id ? "Exporting..." : "Export as .docx"} onClick={() => onAction('exportDocx', item)} loading={exportingLessonId === item.id} monet={monet} />
-                                </>
-                            )}
-                            {isLesson && <MenuItem icon={SparklesIcon} text="AI Quiz" onClick={() => onAction('generateQuiz', item)} disabled={isAiGenerating} monet={monet} /> }
-                            <MenuItem icon={TrashIcon} text="Delete" onClick={() => onAction('delete', item)} monet={monet} />
-                        </ActionMenu>
-                    </div>
+                    <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">
+                        {isLesson ? (item.contentType === 'teacherGuide' ? 'Unit Plan' : 'Module') : 'Assessment'}
+                    </span>
                 </div>
             </div>
         </div>
     );
-}, (prev, next) => prev.item.id === next.item.id && prev.item.title === next.item.title && prev.isReordering === next.isReordering && prev.exportingLessonId === next.exportingLessonId && prev.monet === next.monet);
+}, (prev, next) => prev.item.id === next.item.id && prev.item.title === next.item.title && prev.isReordering === next.isReordering && prev.exportingLessonId === next.exportingLessonId);
 
 
 // --- MAIN COMPONENT ---
-export default function UnitAccordion({ subject, onInitiateDelete, userProfile, isAiGenerating, setIsAiGenerating, activeUnit, onSetActiveUnit, selectedLessons, onLessonSelect, renderGeneratePptButton, onUpdateLesson, currentUserRole, monet }) {
+export default function UnitAccordion({ subject, onInitiateDelete, userProfile, isAiGenerating, setIsAiGenerating, activeUnit, onSetActiveUnit, selectedLessons, onLessonSelect, renderGeneratePptButton, onUpdateLesson, currentUserRole }) {
     const [units, setUnits] = useState([]);
     const [allLessons, setAllLessons] = useState([]);
     const [allQuizzes, setAllQuizzes] = useState([]);
@@ -433,10 +393,6 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
     
     const [tutorialModalOpen, setTutorialModalOpen] = useState(false);
     const [itemToExport, setItemToExport] = useState(null);
-
-    // Optimized Styles
-    const styles = useMemo(() => getStyles(monet), [monet]);
-    const { activeOverlay } = useTheme();
     const isExportingRef = useRef(false);
 
     // Modals
@@ -471,10 +427,9 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
         return isMath && isTargetGrade;
     }, [subject]);
 
+    // Data Fetching
     useEffect(() => { 
         if (!subject?.id) { setUnits([]); return; } 
-        // [FIX] REMOVED THE LINE THAT FORCED UNIT RESET AND CAUSED REDIRECT LOOPS
-        
         const q = query(collection(db, 'units'), where('subjectId', '==', subject.id)); 
         const unsubscribe = onSnapshot(q, (snapshot) => { 
             const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })); 
@@ -486,13 +441,10 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
 
     useEffect(() => { 
         if (!subject?.id) { setAllLessons([]); setAllQuizzes([]); return; } 
-        
         const lq = query(collection(db, 'lessons'), where('subjectId', '==', subject.id)); 
         const qq = query(collection(db, 'quizzes'), where('subjectId', '==', subject.id)); 
-        
         const unL = onSnapshot(lq, s => setAllLessons(s.docs.map(d => ({ id: d.id, ...d.data() })))); 
         const unQ = onSnapshot(qq, s => setAllQuizzes(s.docs.map(d => ({ id: d.id, ...d.data() })))); 
-        
         return () => { unL(); unQ(); }; 
     }, [subject?.id]);
 
@@ -500,108 +452,56 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
         if (isExportingRef.current) return;
         isExportingRef.current = true;
         setExportingLessonId(lesson.id);
-
         try {
-            // Lazy load the logic
             const { generateDocx } = await import('../../services/exportService');
             await generateDocx(lesson, subject, showToast);
-        } catch (error) {
-            console.error("Export Error:", error);
-            showToast("Failed to create Word document.", "error");
-        } finally {
-            isExportingRef.current = false;
-            setExportingLessonId(null);
-        }
+        } catch (error) { showToast("Failed to create Word document.", "error"); } 
+        finally { isExportingRef.current = false; setExportingLessonId(null); }
     };
 
     const handleExportLessonPdf = async (lesson) => {
         if (exportingLessonId) return;
         setExportingLessonId(lesson.id);
-
         try {
-            // Lazy load the logic
             const { generatePdf } = await import('../../services/exportService');
             await generatePdf(lesson, subject, showToast);
-        } catch (e) {
-            console.error("PDF Export Error:", e);
-            showToast("PDF Error: " + (e.message || e), "error");
-        }
+        } catch (e) { showToast("PDF Error: " + (e.message || e), "error"); }
         setExportingLessonId(null);
     };
 
     const handleConfirmExport = () => { 
         setTutorialModalOpen(false); 
-        if (itemToExport) { 
-            handleExportDocx(itemToExport); 
-            setItemToExport(null); 
-        } 
+        if (itemToExport) { handleExportDocx(itemToExport); setItemToExport(null); } 
     };
 
     const handleAction = useCallback((type, item) => {
         switch(type) {
             case 'select': onSetActiveUnit(item); break;
-            case 'edit': 
-                if(item.type) { 
-                    item.type === 'lesson' ? (setSelectedLesson(item), setEditLessonModalOpen(true)) : (setSelectedQuiz(item), setEditQuizModalOpen(true)); 
-                } else { 
-                    setSelectedUnit(item); 
-                    setEditUnitModalOpen(true); 
-                } 
-                break;
-            case 'delete': 
-                if(item.type) onInitiateDelete(item.type, item.id, item.title, item.subjectId); 
-                else onInitiateDelete('unit', item.id, item.title, item.subjectId); 
-                break;
-            case 'view': 
-                item.type === 'lesson' ? (setSelectedLesson(item), setViewLessonModalOpen(true)) : (setSelectedQuiz(item), setViewQuizModalOpen(true)); 
-                break;
-            case 'ai': 
-                setUnitForAi(item); 
-                setIsAiHubOpen(true); 
-                break;
-            case 'reorder': 
-                setIsReordering(true); 
-                break;
-            case 'generateQuiz': 
-                setLessonForAiQuiz(item); 
-                setAiQuizModalOpen(true); 
-                break;
-            case 'exportPdf': 
-                handleExportLessonPdf(item); 
-                break;
+            case 'edit': item.type === 'lesson' ? (setSelectedLesson(item), setEditLessonModalOpen(true)) : (setSelectedQuiz(item), setEditQuizModalOpen(true)); break;
+            case 'delete': if(item.type) onInitiateDelete(item.type, item.id, item.title, item.subjectId); else onInitiateDelete('unit', item.id, item.title, item.subjectId); break;
+            case 'view': item.type === 'lesson' ? (setSelectedLesson(item), setViewLessonModalOpen(true)) : (setSelectedQuiz(item), setViewQuizModalOpen(true)); break;
+            case 'ai': setUnitForAi(item); setIsAiHubOpen(true); break;
+            case 'reorder': setIsReordering(true); break;
+            case 'generateQuiz': setLessonForAiQuiz(item); setAiQuizModalOpen(true); break;
+            case 'exportPdf': handleExportLessonPdf(item); break;
             case 'exportDocx': 
                 const isSpecialDoc = item.contentType === 'teacherGuide' || item.contentType === 'teacherAtg'; 
-                if (isSpecialDoc) { 
-                    setItemToExport(item); 
-                    setTutorialModalOpen(true); 
-                } else { 
-                    handleExportDocx(item); 
-                } 
+                if (isSpecialDoc) { setItemToExport(item); setTutorialModalOpen(true); } else { handleExportDocx(item); } 
                 break;
         }
     }, [onSetActiveUnit, onInitiateDelete]);
 
     const { lessons, quizzes } = useMemo(() => {
         if (!activeUnit) return { lessons: [], quizzes: [] };
-        
-        const unitLessons = allLessons
-            .filter(l => l.unitId === activeUnit.id)
-            .map(l => ({...l, type: 'lesson'}))
-            .sort((a,b) => (a.order??0) - (b.order??0));
-            
-        const unitQuizzes = allQuizzes
-            .filter(q => q.unitId === activeUnit.id)
-            .map(q => ({...q, type: 'quiz'}))
-            .sort((a,b) => (a.order??0) - (b.order??0));
-            
+        const unitLessons = allLessons.filter(l => l.unitId === activeUnit.id).map(l => ({...l, type: 'lesson'})).sort((a,b) => (a.order??0) - (b.order??0));
+        const unitQuizzes = allQuizzes.filter(q => q.unitId === activeUnit.id).map(q => ({...q, type: 'quiz'})).sort((a,b) => (a.order??0) - (b.order??0));
         return { lessons: unitLessons, quizzes: unitQuizzes };
     }, [activeUnit, allLessons, allQuizzes]);
 
     const handleDragEnd = async (e) => {
         const { active, over } = e;
         if (!over || active.id === over.id) return;
-
-        // Case 1: Reordering Units
+        
         if (active.data.current.type === 'unit') {
             const oldIdx = units.findIndex(u => u.id === active.id);
             const newIdx = units.findIndex(u => u.id === over.id);
@@ -612,211 +512,147 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
             await batch.commit();
             return;
         }
+        if (active.data.current.type === 'lesson' || active.data.current.type === 'quiz') {
+            const isLesson = active.data.current.type === 'lesson';
+            const items = isLesson ? lessons : quizzes;
+            const setItems = isLesson ? setAllLessons : setAllQuizzes;
+            const collectionName = isLesson ? 'lessons' : 'quizzes';
 
-        // Case 2: Reordering Lessons
-        if (active.data.current.type === 'lesson' && over.data.current.type === 'lesson') {
-            const oldIdx = lessons.findIndex(i => i.id === active.id);
-            const newIdx = lessons.findIndex(i => i.id === over.id);
-            const reordered = arrayMove(lessons, oldIdx, newIdx);
-            
-            // Optimistic Update
-            setAllLessons(prev => {
-                const others = prev.filter(l => l.unitId !== activeUnit.id);
+            const oldIdx = items.findIndex(i => i.id === active.id);
+            const newIdx = items.findIndex(i => i.id === over.id);
+            const reordered = arrayMove(items, oldIdx, newIdx);
+
+            setItems(prev => {
+                const others = prev.filter(x => x.unitId !== activeUnit.id);
                 return [...others, ...reordered];
             });
-
             const batch = writeBatch(db);
-            reordered.forEach((item, index) => {
-                 batch.update(doc(db, 'lessons', item.id), { order: index });
-            });
+            reordered.forEach((item, index) => { batch.update(doc(db, collectionName, item.id), { order: index }); });
             await batch.commit();
-            return;
         }
-        
-        // Case 3: Reordering Quizzes
-        if (active.data.current.type === 'quiz' && over.data.current.type === 'quiz') {
-            const oldIdx = quizzes.findIndex(i => i.id === active.id);
-            const newIdx = quizzes.findIndex(i => i.id === over.id);
-            const reordered = arrayMove(quizzes, oldIdx, newIdx);
-            
-            // Optimistic Update
-            setAllQuizzes(prev => {
-                const others = prev.filter(q => q.unitId !== activeUnit.id);
-                return [...others, ...reordered];
-            });
-
-            const batch = writeBatch(db);
-            reordered.forEach((item, index) => {
-                 batch.update(doc(db, 'quizzes', item.id), { order: index });
-            });
-            await batch.commit();
-            return;
-        }
-    };
-
-    const getHeaderClasses = () => {
-        if (monet) {
-            return `${monet.cardBg || 'bg-white dark:bg-[#1C1C1E]'} border-b border-slate-100 dark:border-[#2C2C2E] z-40`;
-        }
-        return 'bg-white dark:bg-[#1C1C1E] border-b border-slate-200 dark:border-[#2C2C2E] z-40';
     };
 
     return (
-        <>
+        <div className="animate-in fade-in duration-300">
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 {activeUnit ? (
-                    <div className="relative min-h-[500px]">
-                        <div className={`sticky top-0 -mx-4 px-4 md:px-6 py-4 mb-2 flex items-center justify-between gap-4 animate-in slide-in-from-top-2 ${getHeaderClasses()}`}>
-                            <div className="flex items-center gap-4 min-w-0 flex-1">
-                                <button onClick={() => onSetActiveUnit(null)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-[#2C2C2E] transition-colors border border-transparent hover:border-slate-200 dark:hover:border-[#3A3A3C]">
-                                    <ChevronRightIcon className="w-5 h-5 rotate-180 text-slate-500" />
-                                </button>
-                                <div className="min-w-0">
-                                    <h2 className={`text-xl font-black tracking-tight leading-none truncate text-slate-900 dark:text-white`}>
-                                        {activeUnit.title}
-                                    </h2>
-                                    <p className={`text-xs font-bold truncate mt-1 text-slate-500 dark:text-slate-400`}>
-                                        {lessons.length + quizzes.length} Items
-                                    </p>
+                    // --- INSIDE A UNIT (CONTENT VIEW) ---
+                    <div className="relative pb-20">
+                        {/* UPDATED HEADER: Slimmer Buttons */}
+                        <div className={MAT_STYLES.stickyHeader}>
+                            <div className="flex flex-col md:flex-row items-center justify-between p-4 gap-4">
+                                <div className="w-full">
+                                    <h2 className={`text-2xl font-normal ${MAT_STYLES.titleMedium} leading-tight truncate`}>{activeUnit.title}</h2>
+                                    <div className="flex items-center gap-3 mt-1 text-xs text-gray-500 font-medium">
+                                        <span className="flex items-center gap-1"><BookOpenIcon className="w-3.5 h-3.5" /> {lessons.length} Modules</span>
+                                        <span className="w-1 h-1 rounded-full bg-gray-300"></span>
+                                        <span className="flex items-center gap-1"><ClockIcon className="w-3.5 h-3.5" /> {quizzes.length} Quizzes</span>
+                                    </div>
                                 </div>
-                            </div>
-                            
-                            <div className="flex-shrink-0 flex items-center gap-2">
-                                {renderGeneratePptButton && renderGeneratePptButton(activeUnit)}
-                                <button onClick={() => setIsReordering(!isReordering)} className={`${styles.secondaryButton} !px-4 !py-2 text-xs`}>
-                                    <ArrowsUpDownIcon className="w-4 h-4" />
-                                    <span className={isReordering ? "inline" : "hidden md:inline"}>{isReordering ? 'Done' : 'Sort'}</span>
-                                </button>
-                                <AddContentButton 
-                                    onAddLesson={() => { setSelectedUnit(activeUnit); setAddLessonModalOpen(true); }} 
-                                    onAddQuiz={() => { setSelectedUnit(activeUnit); setAddQuizModalOpen(true); }}
-                                    monet={monet}
-                                    styles={styles}
-                                    className="!px-4 !py-2 text-xs"
-                                />
+
+                                <div className="flex items-center gap-2 self-end md:self-auto w-full md:w-auto justify-end">
+                                    {renderGeneratePptButton && renderGeneratePptButton(activeUnit)}
+                                    
+                                    <button onClick={() => setIsReordering(!isReordering)} className={`${MAT_STYLES.btnFab} bg-[#E2E2D9] dark:bg-[#444746] text-[#1B1C17] dark:text-[#E3E2E6] !px-3`}>
+                                        <ArrowsUpDownIcon className="w-4 h-4" />
+                                        <span className="hidden sm:inline">{isReordering ? 'Done' : 'Sort'}</span>
+                                    </button>
+
+                                    <AddContentButton 
+                                        onAddLesson={() => { setSelectedUnit(activeUnit); setAddLessonModalOpen(true); }} 
+                                        onAddQuiz={() => { setSelectedUnit(activeUnit); setAddQuizModalOpen(true); }}
+                                    />
+                                </div>
                             </div>
                         </div>
 
-                        {/* --- SPLIT LAYOUT: LESSONS LEFT | QUIZZES RIGHT --- */}
-                        <div className="pb-20 w-full px-4 mx-auto pt-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                
-                                {/* LEFT COLUMN: LESSONS */}
-                                <div className="flex flex-col gap-4">
-                                    <div className="sticky top-20 z-10 py-2 bg-slate-50/95 dark:bg-[#121212]/95 backdrop-blur-sm -mx-2 px-2 rounded-xl flex items-center justify-between">
-                                        <h3 className="text-sm font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                                            <BookOpenIcon className="w-4 h-4" />
-                                            Learning Materials
-                                        </h3>
-                                        <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
-                                            {lessons.length}
-                                        </span>
-                                    </div>
-
-                                    {lessons.length > 0 ? (
-                                        <SortableContext items={lessons.map(i => i.id)} strategy={verticalListSortingStrategy}>
-                                            <div className="flex flex-col gap-3">
-                                                {lessons.map(item => (
-                                                    <SortableContentItem 
-                                                        key={item.id} 
-                                                        item={item} 
-                                                        isReordering={isReordering} 
-                                                        onAction={handleAction} 
-                                                        exportingLessonId={exportingLessonId} 
-                                                        isAiGenerating={isAiGenerating} 
-                                                        monet={monet} 
-                                                        styles={styles}
-                                                        isPdfDisabled={isPdfRestricted}
-                                                    />
-                                                ))}
-                                            </div>
-                                        </SortableContext>
-                                    ) : (
-                                        <div className="border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-8 flex flex-col items-center justify-center text-center opacity-70">
-                                            <BookOpenIcon className="w-10 h-10 text-slate-300 dark:text-slate-600 mb-3" />
-                                            <p className="text-sm font-semibold text-slate-500">No Lessons Yet</p>
-                                        </div>
-                                    )}
+                        {/* Content Grid */}
+                        <div className="max-w-7xl mx-auto px-2">
+                            {/* Modules Section */}
+                            <div className="mb-8">
+                                <div className={MAT_STYLES.sectionHeader}>
+                                    <BookOpenIcon className="w-5 h-5 text-[#006A60] dark:text-[#80DCCC]" />
+                                    <h3 className={MAT_STYLES.titleMedium}>Study Modules</h3>
                                 </div>
-
-                                {/* RIGHT COLUMN: QUIZZES */}
-                                <div className="flex flex-col gap-4">
-                                    <div className="sticky top-20 z-10 py-2 bg-slate-50/95 dark:bg-[#121212]/95 backdrop-blur-sm -mx-2 px-2 rounded-xl flex items-center justify-between">
-                                        <h3 className="text-sm font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                                            <ClipboardDocumentListIcon className="w-4 h-4" />
-                                            Assessments
-                                        </h3>
-                                        <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-fuchsia-100 dark:bg-fuchsia-900/30 text-fuchsia-700 dark:text-fuchsia-400">
-                                            {quizzes.length}
-                                        </span>
-                                    </div>
-
-                                    {quizzes.length > 0 ? (
-                                        <SortableContext items={quizzes.map(i => i.id)} strategy={verticalListSortingStrategy}>
-                                            <div className="flex flex-col gap-3">
-                                                {quizzes.map(item => (
-                                                    <SortableContentItem 
-                                                        key={item.id} 
-                                                        item={item} 
-                                                        isReordering={isReordering} 
-                                                        onAction={handleAction} 
-                                                        exportingLessonId={exportingLessonId} 
-                                                        isAiGenerating={isAiGenerating} 
-                                                        monet={monet} 
-                                                        styles={styles}
-                                                        isPdfDisabled={isPdfRestricted}
-                                                    />
-                                                ))}
-                                            </div>
-                                        </SortableContext>
-                                    ) : (
-                                        <div className="border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-8 flex flex-col items-center justify-center text-center opacity-70">
-                                            <ClipboardDocumentListIcon className="w-10 h-10 text-slate-300 dark:text-slate-600 mb-3" />
-                                            <p className="text-sm font-semibold text-slate-500">No Quizzes Yet</p>
+                                {lessons.length > 0 ? (
+                                    <SortableContext items={lessons.map(i => i.id)} strategy={rectSortingStrategy}>
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                                            {lessons.map(item => (
+                                                <SortablePageItem 
+                                                    key={item.id} item={item} isReordering={isReordering} onAction={handleAction} 
+                                                    exportingLessonId={exportingLessonId} isAiGenerating={isAiGenerating} isPdfDisabled={isPdfRestricted}
+                                                />
+                                            ))}
                                         </div>
-                                    )}
-                                </div>
+                                    </SortableContext>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center p-12 border border-dashed border-black/10 dark:border-white/10 rounded-[24px]">
+                                        <p className="text-sm font-medium text-gray-400">No modules yet</p>
+                                    </div>
+                                )}
+                            </div>
 
+                            {/* Quizzes Section */}
+                            <div>
+                                <div className={MAT_STYLES.sectionHeader}>
+                                    <AcademicCapIcon className="w-5 h-5 text-[#984061] dark:text-[#FFD8E4]" />
+                                    <h3 className={MAT_STYLES.titleMedium}>Assessments</h3>
+                                </div>
+                                {quizzes.length > 0 ? (
+                                    <SortableContext items={quizzes.map(i => i.id)} strategy={rectSortingStrategy}>
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                                            {quizzes.map(item => (
+                                                <SortablePageItem 
+                                                    key={item.id} item={item} isReordering={isReordering} onAction={handleAction} 
+                                                    exportingLessonId={exportingLessonId} isAiGenerating={isAiGenerating} isPdfDisabled={isPdfRestricted}
+                                                />
+                                            ))}
+                                        </div>
+                                    </SortableContext>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center p-12 border border-dashed border-black/10 dark:border-white/10 rounded-[24px]">
+                                        <p className="text-sm font-medium text-gray-400">No quizzes yet</p>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
                 ) : (
-                    <div className="relative max-w-5xl mx-auto px-4">
+                    // --- UNIT LIST VIEW (Cards) ---
+                    <div className="max-w-7xl mx-auto pb-20">
                         {units.length > 0 && (
-                            <div className="flex justify-end mb-4 px-2">
-                                <button 
-                                    onClick={() => setIsReordering(!isReordering)} 
-                                    className={`${styles.secondaryButton} !px-5 !py-2.5 text-sm`}
-                                >
-                                    {isReordering ? (<span className="text-blue-600 font-bold">Done Sorting</span>) : (<><ArrowsUpDownIcon className="w-4 h-4" /> Reorder Units</>)}
+                            <div className="flex justify-end mb-6">
+                                <button onClick={() => setIsReordering(!isReordering)} className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold ${isReordering ? 'bg-[#C3E7DD] text-[#002022]' : 'text-[#444746] hover:bg-black/5'}`}>
+                                    <ArrowsUpDownIcon className="w-4 h-4" />
+                                    {isReordering ? 'Finish Sorting' : 'Sort Units'}
                                 </button>
                             </div>
                         )}
 
                         {units.length > 0 ? (
-                            <div className="flex flex-col gap-4 pb-20">
-                                <SortableContext items={units.map(u => u.id)} strategy={verticalListSortingStrategy}>
+                            <SortableContext items={units.map(u => u.id)} strategy={rectSortingStrategy}>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                                     {units.map((unit, idx) => (
-                                        <SortableUnitListRow key={unit.id} unit={unit} index={idx} onSelect={onSetActiveUnit} onAction={handleAction} isReordering={isReordering} monet={monet} styles={styles} />
+                                        <SortableBookItem key={unit.id} unit={unit} index={idx} onSelect={onSetActiveUnit} onAction={handleAction} isReordering={isReordering} />
                                     ))}
-                                </SortableContext>
-                            </div>
+                                </div>
+                            </SortableContext>
                         ) : (
                             <div className="flex flex-col items-center justify-center py-32 opacity-60">
-                                <QueueListIcon className={`w-24 h-24 mb-6 text-slate-200 dark:text-slate-700`} />
-                                <h3 className={`text-2xl font-bold text-slate-400 dark:text-slate-500`}>No Units Created</h3>
-                                <p className="text-sm text-slate-400 mt-2">Tap the + button to create your first unit.</p>
+                                <BookOpenIcon className="w-24 h-24 text-gray-300 mb-4" />
+                                <h3 className="text-xl font-medium text-gray-400">No Units Yet</h3>
+                                <p className="text-sm text-gray-400 mt-2">Add a unit to get started</p>
                             </div>
                         )}
                     </div>
                 )}
             </DndContext>
 
+            {/* --- MODALS --- */}
             <ExportTutorialModal 
                 isOpen={tutorialModalOpen} 
                 onClose={() => { setTutorialModalOpen(false); setItemToExport(null); }}
                 onConfirm={handleConfirmExport}
-                monet={monet}
             />
 
             <Suspense fallback={<ContentListSkeleton />}>
@@ -830,6 +666,6 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                 {viewQuizModalOpen && <ViewQuizModal isOpen={viewQuizModalOpen} onClose={() => setViewQuizModalOpen(false)} quiz={selectedQuiz} userProfile={userProfile} isTeacherView={true} />}
                 {aiQuizModalOpen && <AiQuizModal isOpen={aiQuizModalOpen} onClose={() => setAiQuizModalOpen(false)} unitId={lessonForAiQuiz?.id} subjectId={lessonForAiQuiz?.subjectId} lesson={lessonForAiQuiz} />}
             </Suspense>
-        </>
+        </div>
     );
 }

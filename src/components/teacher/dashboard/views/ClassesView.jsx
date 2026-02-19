@@ -1,5 +1,5 @@
 // src/components/teacher/dashboard/views/ClassesView.jsx
-import React, { useMemo, memo, useCallback } from 'react';
+import React, { useMemo, memo, useCallback, forwardRef } from 'react';
 import {
     PlusCircleIcon, AcademicCapIcon, UserGroupIcon, ClipboardDocumentListIcon, ShieldCheckIcon,
     ClipboardIcon, PencilSquareIcon, ArchiveBoxIcon, TrashIcon, SquaresPlusIcon,
@@ -57,9 +57,9 @@ const AURORA_THEMES = [
     },
 ];
 
-// --- 1. SKELETON (Updated sizes) ---
-const SkeletonClassCard = memo(() => (
-    <div className="relative bg-white dark:bg-[#18181b] rounded-[32px] border border-slate-100 dark:border-white/5 p-4 sm:p-5 h-[190px] sm:h-[220px] flex flex-col justify-between overflow-hidden shadow-sm">
+// --- 1. SKELETON (Updated sizes & added forwardRef) ---
+const SkeletonClassCard = memo(forwardRef((props, ref) => (
+    <div ref={ref} className="relative bg-white dark:bg-[#18181b] rounded-[32px] border border-slate-100 dark:border-white/5 p-4 sm:p-5 h-[190px] sm:h-[220px] flex flex-col justify-between overflow-hidden shadow-sm">
         <div className="flex gap-4 items-start animate-pulse">
             <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-[20px] bg-slate-100 dark:bg-white/5" />
             <div className="flex-1 space-y-2.5 pt-1">
@@ -72,10 +72,10 @@ const SkeletonClassCard = memo(() => (
              <div className="flex-1 bg-slate-100 dark:bg-white/5 rounded-[20px]" />
         </div>
     </div>
-));
+)));
 
-// --- 2. ENHANCED CLASS CARD ---
-const ClassCard = memo(({ 
+// --- 2. ENHANCED CLASS CARD (Added forwardRef) ---
+const ClassCard = memo(forwardRef(({ 
     c, 
     theme, 
     isHoveringActions, 
@@ -87,7 +87,7 @@ const ClassCard = memo(({
     onStartOnline, 
     onEndOnline, 
     showToast 
-}) => {
+}, ref) => {
     const meetLink = c.meetLink || null;
     const hasValidLink = meetLink && meetLink.startsWith("https://meet.google.com/");
     const isLive = c.videoConference?.isLive || false;
@@ -111,6 +111,7 @@ const ClassCard = memo(({
 
     return (
         <motion.div
+            ref={ref}
             layout
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
@@ -290,7 +291,7 @@ const ClassCard = memo(({
             </div>
         </motion.div>
     );
-});
+}));
 
 // --- MAIN VIEW COMPONENT ---
 const ClassesView = ({

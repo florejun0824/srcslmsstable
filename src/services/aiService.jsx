@@ -20,8 +20,8 @@ const PRIMARY_CONFIGS = [
     { 
         service: 'openrouter', 
         url: `${API_BASE}/api/openrouter`, 
-        name: 'DeepSeek R1 Chimera (Primary)',
-        model: 'tngtech/deepseek-r1t2-chimera:free',
+        name: 'Hermes 3)',
+        model: 'nousresearch/hermes-3-llama-3.1-405b:free',
         tier: 'primary' // <--- Forces backend to use Key #1
     },
 ];
@@ -32,28 +32,28 @@ const FALLBACK_CONFIGS = [
       service: 'openrouter', 
       url: `${API_BASE}/api/openrouter`, 
       name: 'Hermes 3 Backup 1', 
-      model: 'google/gemma-3-27b-it:free', // Correct OpenRouter Model ID
+      model: 'openai/gpt-oss-120b:free', // Correct OpenRouter Model ID
       tier: 'backup' // <--- Forces backend to use Keys #2-5
   },
   { 
       service: 'openrouter', 
       url: `${API_BASE}/api/openrouter`, 
       name: 'Hermes 3 Backup 2', 
-      model: 'google/gemma-3-27b-it:free',
+      model: 'openai/gpt-oss-120b:free',
       tier: 'backup'
   },
   { 
       service: 'openrouter', 
       url: `${API_BASE}/api/openrouter`, 
       name: 'Hermes Backup 3', 
-      model: 'google/gemma-3-27b-it:free',
+      model: 'openai/gpt-oss-120b:free',
       tier: 'backup'
   },
   { 
       service: 'openrouter', 
       url: `${API_BASE}/api/openrouter`, 
       name: 'Meta LLama Backup 4', 
-      model: 'google/gemma-3-27b-it:free',
+      model: 'openai/gpt-oss-120b:free',
       tier: 'backup'
   },
 ];
