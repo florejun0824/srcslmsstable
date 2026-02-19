@@ -1,48 +1,50 @@
-SRCS LMS v10.3: A New Era of Speed, Beauty, and Intelligence
+SRCS LMS v10.4: A New Era of Speed, Beauty, and Intelligence
 
-We aren't just updating your Learning Management System; we are reimagining how you teach and learn. Version 10.3 represents our biggest leap forward yet—a seamless blend of raw performance, stunning visuals, and next-generation AI that anticipates your needs.
+We aren't just updating your Learning Management System; we are reimagining how you teach and learn. Version 10.3 represents our biggest leap forward yet—a seamless blend of raw performance, stunning "Neo-Glass" visuals, and next-generation AI that doesn't just assist, but anticipates.
 
-⚡ Uncompromised Performance
-Fluidity on Any Device. We believe access to education shouldn't depend on your hardware. We’ve completely re-engineered our core, stripping away heavy 3D rendering engines and complex animations that slowed you down. The result? An interface that feels instantaneous and buttery smooth, whether you're on a high-end desktop or a budget mobile device.
+🧠 Intelligence Unleashed: Powered by Gemini 3 Pro
+We have upgraded the "brain" of our ecosystem. By integrating Gemini 3 Pro, the world's most advanced multimodal reasoning model, your digital teaching assistant has achieved a generational leap in IQ.
 
-🎨 Your Workspace, Your Rules
-Introducing Adaptive Themes: Full & Lite. Why choose between aesthetics and performance when you can have both?
+Deep Pedagogical Reasoning: Unlike standard models, Gemini 3 Pro performs complex, multi-step reasoning. It understands the nuances of curriculum alignment, creating exams, quizzes, and lesson plans with unprecedented academic rigor.
 
-Full Immersion: Dive into the complete "Neo-Glass" experience with dynamic particles, blurs, and cinematic motion.
+Multimodal Mastery: The AI now "sees" and "hears" like a teacher. Upload a complex diagram, a handwritten essay, or a research paper with nested tables—Gemini 3 Pro will analyze and grade it with expert-level precision.
 
-Lite Mode: Need maximum speed and battery life? Switch to Lite Mode for a crisp, distraction-free interface that flies.
+Automated Document Architect: From generating complex LaTeX math code to building structured research reports, the system now handles the "heavy lifting" of document creation so you can focus on teaching.
 
-🧠 AI That Actually Thinks
-Powered by Deepseek R1T2 Chimera. Your digital teaching assistant just got a massive IQ boost. With the integration of the Deepseek R1T2 Chimera model, the LMS now understands context deeper and faster than ever before.
+🎨 The "Neo-Glass" Visual Revolution
+Experience the new standard of educational design. We’ve introduced a complete visual overhaul centered on Neo-Glass—a design language that combines depth, clarity, and fluid motion.
 
-Smarter Content: Exams, quizzes, and lesson plans are now generated with unprecedented accuracy and curriculum alignment.
+Full Immersion Mode: Dive into a cinematic entry experience featuring animated mesh gradients, "liquid" input fields, and dynamic particles that respond to your movements.
 
-Visual Imagination: Don’t just tell them—show them. Our new AI Image Generation automatically creates stunning visuals to accompany your lessons, bringing complex concepts to life instantly.
+Adaptive Performance (Full vs. Lite): Choose your experience. Full Mode delivers the complete "Neo-Glass" aesthetic, while the new Lite Mode strips away heavy effects for a crisp, distraction-free interface that maximizes speed on any device.
 
-🗳️ Empowering Student Voices
-The Election Command Center. Student leadership starts here. We’ve introduced a robust Election Module that makes organizing student government or grade-level elections effortless. Manage candidates, cast secure votes, and watch real-time results roll in—democracy, digitized.
+Monet Dynamic Theming: The entire LMS now adapts to your personality. Dynamic theming ensures your workspace is as unique as your teaching style.
 
-🛠️ Tools for the Modern Educator
-Presentation Architect: Stop fighting with formatting. Our Automated Slide Generator now features a Design Picker, letting you match the visual style of your slides to your subject matter in a single click.
+⚡ Re-Engineered for Fluidity
+We believe education should be instantaneous. We’ve stripped away legacy rendering engines, replacing them with hardware-accelerated transitions. Whether you're on a high-end desktop or a budget mobile device, the interface feels buttery smooth and remarkably responsive.
 
-Ironclad Security: We’ve fortified our data protocols to banking-grade standards. Your data—and your students' privacy—has never been safer.
+🗳️ Student Voices & Election Command Center
+Student leadership starts here. Our new Election Module makes organizing grade-level or school-wide elections effortless. Manage candidates, cast secure votes, and watch real-time results roll in—democracy, digitized.
 
+🛠️ Professional Tools for Modern Educators
+Presentation Architect: Our Automated Slide Generator now features a Design Picker, letting you match the visual style of your slides to your subject matter in a single click.
 
-This isn't just an update; it’s a promise of a smoother, faster, and more stunning way to teach and learn. Welcome to the new standard.
+Ironclad Security: We’ve fortified our data protocols to banking-grade standards, ensuring your research and student data remain private and secure.
 
 🚀 How to Access
 📱 For Mobile Users:
 
-Install: Download the new 10.3 RC build.
+Install: Download the new 10.4 RC build.
 
-Authorize: Sign in using your standard faculty credentials (if asked).
+Authorize: Sign in using your standard faculty credentials.
 
 Note: If a 'Play Protect' prompt appears, select 'More Details' → 'Install Anyway'.
 
 💻 For Desktop Users:
-Access the LMS directly from your browser for a full-screen management experience: 👉 https://srcsdigital.dpdns.org/
+Access the full management experience directly from your browser:
+👉 https://srcsdigital.dpdns.org/
 
-For Dito Users:
+📡 For Dito/Alternative Users:
 https://srcsdigital.web.app/
 
-Thank you for helping us build the future of Learning Management Systems!
+Thank you for helping us build the future of Learning Management Systems at San Ramon Catholic School!

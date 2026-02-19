@@ -1,5 +1,5 @@
 // src/components/teacher/UnitAccordion.jsx
-import React, { useState, useEffect, useRef, useMemo, Suspense, lazy, memo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo, Suspense, lazy, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { db } from '../../services/firebase';
 import { collection, query, where, onSnapshot, writeBatch, doc } from 'firebase/firestore';
@@ -506,22 +506,31 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
         finally { isExportingRef.current = false; setExportingLessonId(null); }
     };
 
-    const handleExportLessonPdf = async (lesson) => {
-        if (exportingLessonId) return;
-        setExportingLessonId(lesson.id);
-        try {
-            const { generatePdf } = await import('../../services/exportService');
-            await generatePdf(lesson, subject, showToast);
-        } catch (e) { showToast("PDF Error: " + (e.message || e), "error"); }
-        setExportingLessonId(null);
-    };
+	const handleExportLessonPdf = async (lesson) => {
+	    // Check the ref to ensure exports don't overlap
+	    if (isExportingRef.current) return;
+	    isExportingRef.current = true;
+	    setExportingLessonId(lesson.id);
+    
+	    try {
+	        const { generatePdf } = await import('../../services/exportService');
+	        await generatePdf(lesson, subject, showToast);
+	    } catch (e) { 
+	        showToast("PDF Error: " + (e.message || e), "error"); 
+	    } finally {
+	        // Ensure state ALWAYS resets, no matter what happens in try/catch
+	        isExportingRef.current = false;
+	        setExportingLessonId(null);
+	    }
+	};
 
     const handleConfirmExport = () => { 
         setTutorialModalOpen(false); 
         if (itemToExport) { handleExportDocx(itemToExport); setItemToExport(null); } 
     };
 
-    const handleAction = useCallback((type, item) => {
+    // --- UPDATED: Removed useCallback wrapper and dependency array ---
+    const handleAction = (type, item) => {
         switch(type) {
             case 'select': onSetActiveUnit(item); break;
             case 'edit': item.type === 'lesson' ? (setSelectedLesson(item), setEditLessonModalOpen(true)) : (setSelectedQuiz(item), setEditQuizModalOpen(true)); break;
@@ -536,7 +545,7 @@ export default function UnitAccordion({ subject, onInitiateDelete, userProfile, 
                 if (isSpecialDoc) { setItemToExport(item); setTutorialModalOpen(true); } else { handleExportDocx(item); } 
                 break;
         }
-    }, [onSetActiveUnit, onInitiateDelete]);
+    };
 
     const { lessons, quizzes } = useMemo(() => {
         if (!activeUnit) return { lessons: [], quizzes: [] };

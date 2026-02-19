@@ -56,21 +56,27 @@ const processLatex = (text) => {
         .replace(/\$(.*?)\$/g, latexToImg);    
 };
 
+// UPDATED: Added reject handler to prevent infinite Promise hangs if image parsing fails
 const getImageDimensions = (base64) => {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
         const i = new Image();
         i.onload = () => resolve({ w: i.naturalWidth, h: i.naturalHeight });
+        i.onerror = () => reject(new Error("Failed to load image to calculate dimensions."));
         i.src = base64;
     });
 };
 
+// UPDATED: Added HTTP status check and reader.onerror to prevent infinite Promise hangs
 const fetchImageAsBase64 = async (url) => {
   if (!url) return null;
   const res = await fetch(url);
+  if (!res.ok) throw new Error(`Failed to fetch image: ${res.status} ${res.statusText}`);
+  
   const blob = await res.blob();
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onloadend = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("Failed to read image blob."));
     reader.readAsDataURL(blob);
   });
 };
