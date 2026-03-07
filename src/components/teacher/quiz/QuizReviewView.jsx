@@ -4,10 +4,6 @@ import ContentRenderer from '../ContentRenderer';
 import { ClockIcon as ClockOutlineIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { CheckCircleIcon, XCircleIcon, InformationCircleIcon, PencilSquareIcon, ExclamationTriangleIcon } from '@heroicons/react/24/solid';
 
-/**
- * macOS 26 Design Overhaul
- * Features: Ultra-Glassmorphism, Vivid Blurs, System Fonts, Adaptive Dark Mode
- */
 export default function QuizReviewView() {
     const {
         submissionToReview,
@@ -18,42 +14,37 @@ export default function QuizReviewView() {
 
     const answersToReview = submissionToReview?.answers || [];
 
-    // --- Shared Component Styles ---
-    const GlassContainer = ({ children, className = "" }) => (
-        <div className={`relative overflow-hidden p-6 sm:p-8 rounded-[32px] 
-            bg-white/60 dark:bg-black/40 
-            backdrop-blur-2xl 
-            border border-white/40 dark:border-white/10 
-            shadow-2xl shadow-black/5 dark:shadow-black/50 
-            transition-all duration-500 ease-out flex flex-col max-h-[85vh] ${className}`}>
+    // --- Material You Shared Components ---
+    const MaterialContainer = ({ children, className = "" }) => (
+        <div className={`relative overflow-hidden p-0 sm:p-8 rounded-none sm:rounded-[36px] 
+            bg-[#F8F9FA] dark:bg-[#131314] 
+            transition-all duration-500 ease-[cubic-bezier(0.2,0,0,1)] flex flex-col max-h-[100dvh] h-[100dvh] sm:h-auto sm:max-h-[85vh] ${className}`}>
             {children}
         </div>
     );
 
-    const SecondaryGlassButton = ({ onClick, children }) => (
-        <button onClick={onClick} className="group flex items-center justify-center gap-2 w-full px-5 py-3.5 rounded-full 
-            bg-white/40 hover:bg-white/60 dark:bg-white/5 dark:hover:bg-white/10
-            border border-white/50 dark:border-white/5
-            text-gray-700 dark:text-gray-200 font-semibold text-lg tracking-tight
-            backdrop-blur-sm transition-all duration-200 active:scale-[0.98] shadow-sm">
-            <ArrowLeftIcon className="h-5 w-5 opacity-60 group-hover:-translate-x-1 transition-transform" />
+    const MaterialTonalButton = ({ onClick, children }) => (
+        <button onClick={onClick} className="group flex items-center justify-center gap-2 w-full px-5 py-4 rounded-[28px] 
+            bg-[#E1E6EB] hover:bg-[#D1D8E0] dark:bg-[#3B3E42] dark:hover:bg-[#4A4E53]
+            text-[#1A1C1E] dark:text-[#E3E2E6] font-bold text-[15px] sm:text-[16px] tracking-tight
+            transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)] active:scale-[0.98]">
+            <ArrowLeftIcon className="h-5 w-5 opacity-80 group-hover:-translate-x-1 transition-transform" />
             {children}
         </button>
     );
 
     if (answersToReview.length === 0 || !submissionToReview) {
          return (
-            <GlassContainer>
-                <div className="flex flex-col items-center justify-center h-64 text-gray-500 dark:text-gray-400">
-                    <ExclamationTriangleIcon className="h-12 w-12 mb-3 opacity-50" />
-                    <p className="font-medium">No submission data available.</p>
-                    <button onClick={() => setShowReview(false)} className="mt-4 text-blue-500 font-bold hover:underline">Go Back</button>
+            <MaterialContainer>
+                <div className="flex flex-col items-center justify-center h-full sm:h-72 text-[#74777F] dark:text-[#8E9099]">
+                    <ExclamationTriangleIcon className="h-12 w-12 mb-4 opacity-50" />
+                    <p className="font-medium text-[15px]">No submission data available.</p>
+                    <button onClick={() => setShowReview(false)} className="mt-6 px-6 py-2.5 rounded-full bg-[#D3E3FD] dark:bg-[#004A77] text-[#001C38] dark:text-[#D3E3FD] font-bold text-[14px]">Go Back</button>
                 </div>
-            </GlassContainer>
+            </MaterialContainer>
          );
     }
 
-    // Calculate numbering based on points
     const reviewNumbering = (() => {
         let currentItemNumber = 1; const starts = []; let totalPoints = 0;
         answersToReview.forEach(answer => {
@@ -72,36 +63,35 @@ export default function QuizReviewView() {
     };
 
     return (
-        <GlassContainer>
-            {/* --- Header Section (Sticky) --- */}
-            <div className="flex-shrink-0 mb-6 text-center border-b border-gray-200/50 dark:border-white/10 pb-4">
-                <h3 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white tracking-tight mb-1">
+        <MaterialContainer>
+            {/* Header Section */}
+            <div className="flex-shrink-0 pt-6 sm:pt-0 px-6 sm:px-0 mb-4 sm:mb-6 text-center border-b border-[#E1E6EB] dark:border-[#44474A] pb-5">
+                <h3 className="text-[22px] sm:text-3xl font-bold text-[#1A1C1E] dark:text-[#E3E2E6] tracking-tight mb-1">
                     Attempt Review
                 </h3>
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-widest">
+                <p className="text-[12px] font-bold text-[#74777F] dark:text-[#8E9099] uppercase tracking-widest">
                     Attempt #{submissionToReview.attemptNumber}
                 </p>
                 
-                {/* Score Pill */}
-                <div className="mt-3 inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gray-100 dark:bg-white/10 border border-gray-200 dark:border-white/5">
-                    <span className="font-bold text-gray-900 dark:text-white">
-                        {submissionToReview.score ?? 0} <span className="text-gray-400 font-normal">/ {reviewNumbering.totalPoints}</span>
+                <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#F0F4F8] dark:bg-[#1E1E1E]">
+                    <span className="font-bold text-[15px] text-[#1A1C1E] dark:text-[#E3E2E6]">
+                        {submissionToReview.score ?? 0} <span className="text-[#74777F] dark:text-[#8E9099] font-normal">/ {reviewNumbering.totalPoints}</span>
                     </span>
                     {submissionToReview.status === 'pending_ai_grading' && (
-                        <span className="flex items-center gap-1 text-xs font-bold text-blue-500">
-                            <ClockOutlineIcon className="h-3 w-3"/> AI Grading...
+                        <span className="flex items-center gap-1.5 text-[12px] font-bold text-[#005AC1] dark:text-[#A8C7FA] ml-2">
+                            <ClockOutlineIcon className="h-3.5 w-3.5"/> AI GRADING
                         </span>
                     )}
                     {submissionToReview.status === 'pending_review' && (
-                        <span className="flex items-center gap-1 text-xs font-bold text-orange-500">
-                            <PencilSquareIcon className="h-3 w-3"/> Teacher Review
+                        <span className="flex items-center gap-1.5 text-[12px] font-bold text-[#8C4A00] dark:text-[#FFB77A] ml-2">
+                            <PencilSquareIcon className="h-3.5 w-3.5"/> IN REVIEW
                         </span>
                     )}
                 </div>
             </div>
 
-            {/* --- Scrollable List --- */}
-            <div className="flex-1 overflow-y-auto pr-1 -mr-2 space-y-4 custom-scrollbar pb-4">
+            {/* Scrollable List */}
+            <div className="flex-1 overflow-y-auto px-4 sm:px-1 space-y-3 sm:space-y-4 custom-scrollbar pb-8">
                 {answersToReview.map((answer, index) => {
                     const startNum = reviewNumbering.starts[index];
                     const pointsValue = Number(answer.points) || 1;
@@ -109,132 +99,134 @@ export default function QuizReviewView() {
                     const numLabel = pointsValue <= 1 ? `Item ${startNum}` : `Items ${startNum}-${endNum}`;
                     const itemScore = answer.score ?? 0;
 
-                    // Determine Card Style based on Status
-                    let cardStyle = "bg-white/40 dark:bg-white/5 border-white/50 dark:border-white/5"; // Default Neutral
-                    let statusIcon = <InformationCircleIcon className="h-5 w-5 text-gray-400" />;
-                    let statusColorText = "text-gray-500";
+                    // Material Tonal Mappings
+                    let cardStyle = "bg-[#F0F4F8] dark:bg-[#1E1E1E] text-[#1A1C1E] dark:text-[#E3E2E6]"; 
+                    let statusIcon = <InformationCircleIcon className="h-5 w-5 text-[#74777F] dark:text-[#8E9099]" />;
+                    let statusColorText = "text-[#74777F] dark:text-[#8E9099]";
+                    let innerTonalStyle = "bg-white/50 dark:bg-black/20"; // Used for inner cards to create subtle depth
 
                     if (answer.status === 'pending_ai_grading') {
-                        cardStyle = "bg-blue-500/5 border-blue-500/20 dark:bg-blue-500/10";
-                        statusIcon = <ClockOutlineIcon className="h-5 w-5 text-blue-500" />;
-                        statusColorText = "text-blue-600 dark:text-blue-400";
+                        cardStyle = "bg-[#D3E3FD] dark:bg-[#004A77] text-[#001C38] dark:text-[#D3E3FD]";
+                        statusIcon = <ClockOutlineIcon className="h-5 w-5 opacity-80" />;
+                        statusColorText = "text-[#001C38] dark:text-[#D3E3FD]";
                     } else if (answer.status === 'grading_failed' || answer.status === 'pending_review') {
-                        cardStyle = "bg-orange-500/5 border-orange-500/20 dark:bg-orange-500/10";
-                        statusIcon = <PencilSquareIcon className="h-5 w-5 text-orange-500" />;
-                        statusColorText = "text-orange-600 dark:text-orange-400";
+                        cardStyle = "bg-[#FFDCC1] dark:bg-[#4D2700] text-[#2E1500] dark:text-[#FFB77A]";
+                        statusIcon = <PencilSquareIcon className="h-5 w-5 opacity-80" />;
+                        statusColorText = "text-[#2E1500] dark:text-[#FFB77A]";
                     } else if (answer.status === 'graded') {
                          if (itemScore === answer.points) { 
-                             cardStyle = "bg-green-500/5 border-green-500/20 dark:bg-green-500/10"; 
-                             statusIcon = <CheckCircleIcon className="h-5 w-5 text-green-500" />; 
-                             statusColorText = "text-green-600 dark:text-green-400";
+                             cardStyle = "bg-[#E8F5E9] dark:bg-[#0D3020] text-[#1B5E20] dark:text-[#A5D6A7]"; 
+                             statusIcon = <CheckCircleIcon className="h-5 w-5 opacity-90" />; 
+                             statusColorText = "text-[#1B5E20] dark:text-[#A5D6A7]";
                          }
                          else if (itemScore > 0) { 
-                             cardStyle = "bg-yellow-500/5 border-yellow-500/20 dark:bg-yellow-500/10"; 
-                             statusIcon = <CheckCircleIcon className="h-5 w-5 text-yellow-500" />; 
-                             statusColorText = "text-yellow-600 dark:text-yellow-400";
+                             cardStyle = "bg-[#FFF8E1] dark:bg-[#4D4000] text-[#5C4D00] dark:text-[#FFE082]"; 
+                             statusIcon = <CheckCircleIcon className="h-5 w-5 opacity-90" />; 
+                             statusColorText = "text-[#5C4D00] dark:text-[#FFE082]";
                          }
                          else { 
-                             cardStyle = "bg-red-500/5 border-red-500/20 dark:bg-red-500/10"; 
-                             statusIcon = <XCircleIcon className="h-5 w-5 text-red-500" />; 
-                             statusColorText = "text-red-600 dark:text-red-400";
+                             cardStyle = "bg-[#FFDAD6] dark:bg-[#410002] text-[#410002] dark:text-[#FFB4AB]"; 
+                             statusIcon = <XCircleIcon className="h-5 w-5 opacity-90" />; 
+                             statusColorText = "text-[#410002] dark:text-[#FFB4AB]";
                          }
                     }
 
                     return (
-                        <div key={index} className={`p-5 rounded-2xl backdrop-blur-sm border shadow-sm ${cardStyle} transition-all hover:scale-[1.01]`}>
+                        <div key={index} className={`p-4 sm:p-6 rounded-[28px] sm:rounded-[32px] transition-colors ${cardStyle}`}>
                             
-                            {/* Card Header */}
                             <div className="flex justify-between items-start mb-3">
-                                <span className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                                <span className="text-[11px] font-bold uppercase tracking-widest opacity-70">
                                     {numLabel}
                                 </span>
-                                <span className={`text-xs font-bold ${statusColorText}`}>
+                                <span className={`text-[12px] font-bold opacity-90 ${statusColorText}`}>
                                     {answer.status === 'graded' || answer.status === 'pending_review' ? `${itemScore} / ` : ''}{answer.points} pts
                                 </span>
                             </div>
 
-                            {/* Question */}
-                            <div className="flex gap-3 mb-4">
+                            <div className="flex gap-3 mb-4 sm:mb-5">
                                 <div className="flex-shrink-0 mt-0.5">{statusIcon}</div>
-                                <div className="font-semibold text-gray-900 dark:text-white text-base leading-relaxed">
+                                <div className="font-semibold text-[14px] sm:text-[16px] leading-relaxed opacity-90">
                                     <ContentRenderer text={answer.questionText || "Question text missing"} />
                                 </div>
                             </div>
 
-                            {/* Answer Section */}
-                            <div className="pl-8 space-y-3">
-                                {/* Essay Type */}
+                            <div className="pl-0 sm:pl-8 space-y-3">
                                 {answer.questionType === 'essay' ? (
                                     <>
-                                        <div className="p-3 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5 text-gray-700 dark:text-gray-300 italic text-sm">
-                                            <p className='not-italic font-bold text-xs text-gray-500 dark:text-gray-400 mb-1 uppercase'>Your Answer</p>
+                                        <div className={`p-4 rounded-[24px] ${innerTonalStyle} text-[14px] leading-relaxed opacity-90`}>
+                                            <p className='font-bold text-[11px] uppercase tracking-widest opacity-70 mb-2'>Your Answer</p>
                                             <ContentRenderer text={answer.selectedAnswer || "(No answer provided)"} />
                                         </div>
                                         
-                                        {/* AI Feedback Box */}
                                         {answer.status === 'graded' && answer.aiGradingResult && (
-                                            <div className="mt-2 p-3 rounded-xl bg-green-100/50 dark:bg-green-900/20 border border-green-200 dark:border-green-500/20 text-sm">
-                                                <div className="flex justify-between items-center mb-2">
-                                                    <span className="font-bold text-green-800 dark:text-green-300">AI Assessment</span>
-                                                    <span className="text-xs font-bold bg-green-200 dark:bg-green-800 text-green-800 dark:text-green-200 px-2 py-0.5 rounded-md">
-                                                        {itemScore}/{answer.points}
+                                            <div className={`mt-3 p-4 sm:p-5 rounded-[24px] ${innerTonalStyle} text-[14px]`}>
+                                                <div className="flex justify-between items-center mb-4">
+                                                    <span className="font-bold opacity-90">AI Assessment</span>
+                                                    <span className="text-[12px] font-bold bg-white/30 dark:bg-black/30 px-3 py-1.5 rounded-full">
+                                                        {itemScore}/{answer.points} pts
                                                     </span>
                                                 </div>
                                                 {(answer.aiGradingResult.scores || []).map((crit, idx) => (
-                                                     <div key={idx} className="mb-2 last:mb-0">
-                                                        <p className="font-semibold text-green-900 dark:text-green-100 text-xs">{crit.criteria} <span className="font-normal opacity-75">({crit.pointsAwarded}pts)</span></p>
-                                                        <p className="text-xs text-green-800/80 dark:text-green-200/70">{crit.justification}</p>
+                                                     <div key={idx} className="mb-3 last:mb-0">
+                                                        <p className="font-semibold text-[14px] opacity-90">{crit.criteria} <span className="font-normal opacity-70 text-[12px]">({crit.pointsAwarded}pts)</span></p>
+                                                        <p className="text-[13px] opacity-80 mt-0.5 leading-snug">{crit.justification}</p>
                                                     </div>
                                                 ))}
-                                                <div className="mt-2 pt-2 border-t border-green-200 dark:border-green-500/20">
-                                                    <p className="text-xs text-green-900 dark:text-green-100 italic">"{answer.aiGradingResult.overallFeedback}"</p>
+                                                <div className="mt-4 pt-4 border-t border-black/5 dark:border-white/5">
+                                                    <p className="text-[14px] italic font-medium opacity-90">"{answer.aiGradingResult.overallFeedback}"</p>
                                                 </div>
                                             </div>
                                         )}
                                     </>
-                                /* Matching Type */
                                 ) : answer.questionType === 'matching-type' ? (
-                                    <div className="space-y-2">
+                                    <div className="space-y-2 mt-2">
                                         {(answer.prompts || []).map(p => {
                                             const isPairCorrect = p.userAnswerId === p.correctAnswerId;
+                                            // Explicitly color the inner matching pairs using Tonal specs
+                                            const pairBg = isPairCorrect 
+                                                ? 'bg-[#C8E6C9]/60 dark:bg-[#1B5E20]/40 text-[#1B5E20] dark:text-[#A5D6A7]' 
+                                                : 'bg-[#FFDAD6]/60 dark:bg-[#93000A]/40 text-[#410002] dark:text-[#FFB4AB]';
+                                                
                                             return (
-                                                <div key={p.id} className={`flex items-center justify-between p-2 rounded-lg border ${isPairCorrect ? 'bg-green-50/50 border-green-100 dark:bg-green-900/10 dark:border-green-900/30' : 'bg-red-50/50 border-red-100 dark:bg-red-900/10 dark:border-red-900/30'}`}>
-                                                    <div className="flex items-center gap-2 overflow-hidden">
-                                                        {isPairCorrect ? <CheckCircleIcon className="h-4 w-4 text-green-500 flex-shrink-0"/> : <XCircleIcon className="h-4 w-4 text-red-500 flex-shrink-0"/>}
-                                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">{p.text}</span>
+                                                <div key={p.id} className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-4 rounded-[20px] ${pairBg}`}>
+                                                    <div className="flex items-start sm:items-center gap-3 overflow-hidden">
+                                                        {isPairCorrect ? <CheckCircleIcon className="h-5 w-5 flex-shrink-0 mt-0.5 sm:mt-0 opacity-90"/> : <XCircleIcon className="h-5 w-5 flex-shrink-0 mt-0.5 sm:mt-0 opacity-90"/>}
+                                                        <span className="text-[14px] font-medium opacity-90">{p.text}</span>
                                                     </div>
-                                                    <div className="flex flex-col items-end text-xs">
-                                                        <span className="font-bold text-gray-900 dark:text-white">{p.userAnswerText}</span>
-                                                        {!isPairCorrect && <span className="text-green-600 dark:text-green-400">Correct: {p.correctAnswerText}</span>}
+                                                    <div className="flex flex-col sm:items-end pl-8 sm:pl-0 text-[13px] sm:text-[14px]">
+                                                        <span className="font-bold">{p.userAnswerText || '(No answer)'}</span>
+                                                        {!isPairCorrect && <span className="font-medium mt-1 opacity-80">Correct: {p.correctAnswerText}</span>}
                                                     </div>
                                                 </div>
                                             );
                                         })}
                                     </div>
-                                /* Standard Types (MC, TF, ID) */
                                 ) : (
-                                    <div className="space-y-2">
-                                        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                                            <div className="flex-1 p-2 rounded-lg bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
-                                                <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-0.5">Your Answer</p>
-                                                <p className="font-semibold text-gray-800 dark:text-gray-100">{displayBoolean(String(answer.selectedAnswer ?? ''))}</p>
+                                    <div className="space-y-3">
+                                        <div className="flex flex-col sm:flex-row gap-3">
+                                            <div className={`flex-1 p-4 rounded-[24px] ${innerTonalStyle}`}>
+                                                <p className="text-[11px] font-bold opacity-70 uppercase tracking-widest mb-1.5">Your Answer</p>
+                                                <p className="font-semibold text-[14px] sm:text-[15px] opacity-90">{displayBoolean(String(answer.selectedAnswer ?? ''))}</p>
                                             </div>
                                             {(answer.status === 'graded' || answer.status === 'pending_review') && !answer.isCorrect && (
-                                                <div className="flex-1 p-2 rounded-lg bg-green-100/50 dark:bg-green-900/10 border border-green-200 dark:border-green-500/20">
-                                                    <p className="text-xs font-bold text-green-600 dark:text-green-400 uppercase mb-0.5">Correct Answer</p>
-                                                    <p className="font-semibold text-green-900 dark:text-green-100">{displayBoolean(String(answer.correctAnswer ?? ''))}</p>
+                                                <div className="flex-1 p-4 rounded-[24px] bg-[#E8F5E9]/80 dark:bg-[#0D3020]/80 text-[#1B5E20] dark:text-[#A5D6A7]">
+                                                    <p className="text-[11px] font-bold uppercase tracking-widest mb-1.5 opacity-80">Correct Answer</p>
+                                                    <p className="font-semibold text-[14px] sm:text-[15px]">{displayBoolean(String(answer.correctAnswer ?? ''))}</p>
                                                 </div>
                                             )}
                                         </div>
                                     </div>
                                 )}
 
-                                {/* Explanation Dropdown */}
                                 {(answer.status === 'graded' || answer.status === 'pending_review') && answer.explanation && (
-                                    <div className="mt-3 p-3 rounded-xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-500/20 flex gap-2 text-sm text-gray-600 dark:text-gray-300">
-                                        <InformationCircleIcon className="h-5 w-5 text-blue-500 flex-shrink-0" />
+                                    <div className={`mt-4 p-4 rounded-[24px] ${innerTonalStyle} flex flex-col sm:flex-row gap-3 text-[13px] sm:text-[14px] opacity-90`}>
+                                        <div className="flex items-center gap-2 sm:hidden">
+                                            <InformationCircleIcon className="h-5 w-5 opacity-80" />
+                                            <span className="font-bold">Explanation</span>
+                                        </div>
+                                        <InformationCircleIcon className="hidden sm:block h-6 w-6 flex-shrink-0 opacity-80" />
                                         <div>
-                                            <span className="font-bold text-blue-700 dark:text-blue-300 block mb-1">Explanation</span>
+                                            <span className="hidden sm:block font-bold mb-1">Explanation</span>
                                             <ContentRenderer text={answer.explanation}/>
                                         </div>
                                     </div>
@@ -245,17 +237,17 @@ export default function QuizReviewView() {
                 })}
             </div>
 
-            {/* --- Footer (Sticky) --- */}
-            <div className="flex-shrink-0 pt-6 mt-2 border-t border-gray-200/50 dark:border-white/10">
-                <SecondaryGlassButton 
+            {/* Footer with Mobile Safe Area Padding */}
+            <div className="flex-shrink-0 p-4 sm:p-0 sm:pt-6 sm:mt-2 bg-[#F8F9FA] dark:bg-[#131314] z-10 w-full border-t border-[#E1E6EB] dark:border-[#44474A] sm:border-none">
+                <MaterialTonalButton 
                     onClick={() => {
                         setShowReview(false);
                         setSubmissionToReview(null);
                     }} 
                 >
                     Back to Results
-                </SecondaryGlassButton>
+                </MaterialTonalButton>
             </div>
-        </GlassContainer>
+        </MaterialContainer>
     );
 }

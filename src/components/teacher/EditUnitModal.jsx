@@ -95,7 +95,7 @@ export default function EditUnitModal({ isOpen, onClose, unit }) {
             <div className="relative group">
                 {/* Bloom behind icon */}
                 <div className="absolute inset-0 bg-indigo-500 rounded-2xl blur-xl opacity-20 group-hover:opacity-40 transition-opacity duration-500"></div>
-                <div className="relative h-16 w-16 rounded-[1.2rem] bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/30 ring-1 ring-white/20">
+                <div className="relative h-16 w-16 rounded-[1.2rem] bg-gradient-to-br from-indigo-500 to-sky-600 flex items-center justify-center shadow-lg shadow-indigo-500/30 ring-1 ring-white/20">
                     <RectangleStackIcon className="h-8 w-8 text-white drop-shadow-sm" />
                 </div>
             </div>
@@ -159,8 +159,8 @@ export default function EditUnitModal({ isOpen, onClose, unit }) {
               disabled={loading}
               className="relative inline-flex justify-center rounded-full px-4 py-3.5 text-sm font-bold 
                          text-white 
-                         bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600
-                         hover:from-indigo-500 hover:via-violet-500 hover:to-purple-500
+                         bg-gradient-to-r from-indigo-600 via-sky-600 to-indigo-600
+                         hover:from-indigo-500 hover:via-sky-500 hover:to-indigo-500
                          shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 
                          border border-white/20 
                          transition-all duration-300 active:scale-[0.98] 

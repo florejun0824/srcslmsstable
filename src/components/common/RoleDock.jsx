@@ -11,9 +11,9 @@ import React from 'react';
 const RoleDock = ({ role, title, Icon, isSelected, onSelect, accentColor }) => {
   // Define gradient mappings for accents
   const gradientMap = {
-    blue: 'from-blue-400 via-indigo-500 to-purple-500 dark:from-blue-500 dark:via-indigo-600 dark:to-purple-600',
+    blue: 'from-blue-400 via-indigo-500 to-indigo-500 dark:from-blue-500 dark:via-indigo-600 dark:to-indigo-600',
     teal: 'from-teal-400 via-emerald-500 to-cyan-500 dark:from-teal-500 dark:via-emerald-600 dark:to-cyan-600',
-    purple: 'from-purple-400 via-pink-500 to-fuchsia-500 dark:from-purple-500 dark:via-pink-600 dark:to-fuchsia-600',
+    purple: 'from-indigo-400 via-pink-500 to-fuchsia-500 dark:from-indigo-500 dark:via-pink-600 dark:to-fuchsia-600',
   };
 
   const glowGradient = gradientMap[accentColor] || gradientMap.blue;

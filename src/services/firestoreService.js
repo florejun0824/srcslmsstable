@@ -153,7 +153,7 @@ export const getUsersPaginated = async (schoolId, lastVisibleDoc = null, pageSiz
     let q = query(
       usersRef,
       where("schoolId", "==", targetSchool),
-      orderBy("lastName"), 
+      orderBy("lastName"),
       limit(pageSize)
     );
 
@@ -169,7 +169,7 @@ export const getUsersPaginated = async (schoolId, lastVisibleDoc = null, pageSiz
     }
 
     const snapshot = await getDocs(q);
-    
+
     return {
       users: snapshot.docs.map(d => ({ id: d.id, ...d.data() })),
       lastDoc: snapshot.docs[snapshot.docs.length - 1] || null
@@ -197,13 +197,13 @@ export const getAllUsers = async (schoolId) => {
   try {
     const targetSchool = schoolId || DEFAULT_SCHOOL_ID;
     const usersRef = collection(db, 'users');
-    
+
     // 1. If we are the MAIN SCHOOL, fetch ALL users first
     if (targetSchool === DEFAULT_SCHOOL_ID) {
       const snapshot = await getDocs(usersRef);
       return snapshot.docs
         .map(d => ({ id: d.id, ...d.data() }))
-        .filter(user => 
+        .filter(user =>
           user.schoolId === DEFAULT_SCHOOL_ID || !user.schoolId
         );
     }
@@ -252,7 +252,7 @@ export const addMultipleUsers = async (users) => {
   try {
     const batch = writeBatch(db);
     const usersCollectionRef = collection(db, "users");
-    
+
     users.forEach((user) => {
       const newUserRef = doc(usersCollectionRef);
       // Attach schoolId to every user in the batch
@@ -527,7 +527,7 @@ export const joinClassWithCode = async (classCode, studentProfile) => {
         `Join failed: Your grade (${studentProfile.gradeLevel}) does not match the class's grade (${classData.gradeLevel}).`
       );
     }
-    
+
     if (classData.studentIds && classData.studentIds.includes(studentProfile.id)) {
       throw new Error("You are already enrolled in this class.");
     }
@@ -552,8 +552,7 @@ export const joinClassWithCode = async (classCode, studentProfile) => {
 export const updateClassArchiveStatus = async (classId, isArchived) => {
   try {
     return updateDoc(doc(db, "classes", classId), { isArchived });
-  } catch (err)
- {
+  } catch (err) {
     console.error(`❌ updateClassArchiveStatus failed for classId=${classId}`, err);
     throw err;
   }
@@ -573,14 +572,14 @@ export const getAllClasses = async (schoolId) => {
   try {
     const targetSchool = schoolId || DEFAULT_SCHOOL_ID;
     const classesRef = collection(db, 'classes');
-    
+
     // Filter by school AND ensure not archived
     const q = query(
-      classesRef, 
+      classesRef,
       where("isArchived", "!=", true),
       where("schoolId", "==", targetSchool)
     );
-    
+
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   } catch (err) {
@@ -594,9 +593,9 @@ export const addStudentsToClass = async (classId, studentIds, studentObjects) =>
     if (!classId || !studentIds || !studentObjects) {
       throw new Error("classId, studentIds, and studentObjects are required.");
     }
-    
+
     const classRef = doc(db, "classes", classId);
-    
+
     const studentsForUnion = studentObjects.map(s => ({
       id: s.id,
       firstName: s.firstName,
@@ -675,14 +674,187 @@ export const updateUserRole = async (userId, newRole) => {
 };
 
 // ==============================
+// 🔹 PARENT PORTAL HELPERS
+// ==============================
+
+/**
+ * Generates a unique 6-character parent link code for a student.
+ * Stores it on the student's user document.
+ */
+export const generateParentLinkCode = async (studentId) => {
+  try {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No ambiguous chars (0/O, 1/I)
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+
+    const studentRef = doc(db, 'users', studentId);
+    await updateDoc(studentRef, { parentLinkCode: code });
+    return code;
+  } catch (err) {
+    console.error(`❌ generateParentLinkCode failed for studentId=${studentId}`, err);
+    throw err;
+  }
+};
+
+/**
+ * Links a parent to a student using the student's parent link code.
+ * Adds the student's ID to the parent's childStudentIds array.
+ */
+export const linkParentWithCode = async (parentId, linkCode) => {
+  try {
+    if (!linkCode || !parentId) {
+      throw new Error("Parent ID and link code are required.");
+    }
+
+    const upperCode = linkCode.toUpperCase().trim();
+
+    // 1. Find the student with this code
+    const q = query(collection(db, 'users'), where('parentLinkCode', '==', upperCode));
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+      throw new Error("Invalid link code. Please check the code and try again.");
+    }
+
+    const studentDoc = snapshot.docs[0];
+    const studentId = studentDoc.id;
+    const studentData = studentDoc.data();
+
+    // 2. Prevent duplicate linking
+    const parentRef = doc(db, 'users', parentId);
+    const parentSnap = await getDoc(parentRef);
+    if (!parentSnap.exists()) throw new Error("Parent account not found.");
+
+    const parentData = parentSnap.data();
+    const existingChildren = parentData.childStudentIds || [];
+
+    if (existingChildren.includes(studentId)) {
+      throw new Error("This student is already linked to your account.");
+    }
+
+    // 3. School validation
+    const parentSchool = parentData.schoolId || DEFAULT_SCHOOL_ID;
+    const studentSchool = studentData.schoolId || DEFAULT_SCHOOL_ID;
+    if (parentSchool !== studentSchool) {
+      throw new Error("Cannot link to a student from a different school.");
+    }
+
+    // 4. Link them
+    await updateDoc(parentRef, {
+      childStudentIds: arrayUnion(studentId)
+    });
+
+    return {
+      success: true,
+      studentName: `${studentData.firstName || ''} ${studentData.lastName || ''}`.trim(),
+      studentId
+    };
+  } catch (err) {
+    console.error(`❌ linkParentWithCode failed`, err);
+    throw err;
+  }
+};
+
+/**
+ * Fetches all quiz submissions for a student, organized by class.
+ */
+export const getStudentGrades = async (studentId) => {
+  try {
+    const q = query(
+      collection(db, 'quizSubmissions'),
+      where('studentId', '==', studentId)
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (err) {
+    console.error(`❌ getStudentGrades failed for studentId=${studentId}`, err);
+    throw err;
+  }
+};
+
+/**
+ * Fetches recent activity for a student (classes, completed lessons from user doc).
+ */
+export const getStudentActivity = async (studentId) => {
+  try {
+    // 1. Get the student profile for completedLessons
+    const studentSnap = await getDoc(doc(db, 'users', studentId));
+    if (!studentSnap.exists()) throw new Error("Student not found.");
+    const studentData = studentSnap.data();
+
+    // 2. Get classes the student is enrolled in
+    const classesQuery = query(
+      collection(db, 'classes'),
+      where('studentIds', 'array-contains', studentId)
+    );
+    const classesSnap = await getDocs(classesQuery);
+    const classes = classesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    // 2.5 Get all assigned lessons and quizzes from class posts
+    let totalAssignedLessons = 0;
+    let totalAssignedQuizzes = 0;
+
+    for (const classItem of classes) {
+      const postsQuery = query(collection(db, `classes/${classItem.id}/posts`));
+      const postsSnap = await getDocs(postsQuery);
+
+      postsSnap.forEach(postDoc => {
+        const post = postDoc.data();
+
+        let isRecipient = false;
+        if (post.targetAudience === 'specific') {
+          isRecipient = (post.targetStudentIds || []).includes(studentId);
+        } else {
+          isRecipient = true; // 'Global' or undefined
+        }
+
+        if (isRecipient) {
+          if (post.lessons && Array.isArray(post.lessons)) {
+            totalAssignedLessons += post.lessons.length;
+          }
+          if (post.quizzes && Array.isArray(post.quizzes)) {
+            totalAssignedQuizzes += post.quizzes.length;
+          }
+        }
+      });
+    }
+
+    // 3. Get quiz submissions
+    const subsQuery = query(
+      collection(db, 'quizSubmissions'),
+      where('studentId', '==', studentId)
+    );
+    const subsSnap = await getDocs(subsQuery);
+    const submissions = subsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    return {
+      completedLessons: studentData.completedLessons || [],
+      classes,
+      quizSubmissions: submissions,
+      totalAssignedLessons,
+      totalAssignedQuizzes,
+      xp: studentData.xp || 0,
+      level: studentData.level || 1,
+      gradeLevel: studentData.gradeLevel || '',
+      lastLogin: studentData.lastLogin || null,
+    };
+  } catch (err) {
+    console.error(`❌ getStudentActivity failed for studentId=${studentId}`, err);
+    throw err;
+  }
+};
+
+// ==============================
 // 🔹 DEFAULT EXPORT
 // ==============================
 const firestoreService = {
   getAllSubjects,
   getUserProfile,
   getAllUsers,
-  getUsersPaginated, // <-- EXPORTED NEW FUNCTION
-  fixOrphanUsers,    // <-- EXPORTED NEW HELPER
+  getUsersPaginated,
+  fixOrphanUsers,
   addUser,
   deleteUser,
   addMultipleUsers,
@@ -703,8 +875,8 @@ const firestoreService = {
   joinClassWithCode,
   updateClassArchiveStatus,
   deleteClass,
-  getAllClasses, 
-  addStudentsToClass, 
+  getAllClasses,
+  addStudentsToClass,
 
   updateAnnouncement,
   deleteAnnouncement,
@@ -714,7 +886,13 @@ const firestoreService = {
   updateUserRole,
 
   syncOfflineSubmissions,
-  submitQuizAnswers
+  submitQuizAnswers,
+
+  // Parent Portal
+  generateParentLinkCode,
+  linkParentWithCode,
+  getStudentGrades,
+  getStudentActivity
 };
 
 export default firestoreService;

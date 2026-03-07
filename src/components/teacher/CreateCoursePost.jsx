@@ -44,7 +44,7 @@ const CreateCoursePost = ({ teacherId, onCourseCreated, courseCategories = [] })
         // MODIFIED: Padding is now responsive (p-4 on small screens, p-6 on larger)
         <div className="bg-white/70 backdrop-blur-md border border-white/30 rounded-2xl shadow-lg p-4 sm:p-6 h-full">
             <div className="flex items-center mb-4">
-                <BookOpenIcon className="text-purple-600 mr-3 h-6 w-6" />
+                <BookOpenIcon className="text-indigo-600 mr-3 h-6 w-6" />
                 <span className="font-semibold text-lg text-gray-800">Create New Subject</span>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">

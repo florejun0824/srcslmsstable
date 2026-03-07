@@ -2,42 +2,46 @@ import React from 'react';
 import { LockClosedIcon, ShieldExclamationIcon } from '@heroicons/react/24/solid';
 
 /**
- * macOS 26 Design Overhaul
- * Features: Ultra-Glassmorphism, Vivid Blurs, System Fonts, Adaptive Dark Mode
+ * Android 17 Material You Design Overhaul
+ * Features: Tonal Surfaces, Deep Radii, High-Contrast Text, Expressive Error Colors
  */
 export default function QuizLockedView() {
     return (
-        <div className="relative overflow-hidden p-8 sm:p-12 rounded-[32px] 
-            bg-gray-100/60 dark:bg-gray-900/40 
-            backdrop-blur-3xl 
-            border border-white/40 dark:border-white/10 
-            shadow-2xl shadow-black/5 dark:shadow-black/50 
-            text-center flex flex-col items-center justify-center min-h-[400px]">
+        <div className="relative overflow-hidden p-8 sm:p-12 rounded-none sm:rounded-[36px] 
+            bg-[#F8F9FA] dark:bg-[#131314] 
+            text-center flex flex-col items-center justify-center min-h-[500px] h-full sm:h-auto
+            transition-all duration-500 ease-[cubic-bezier(0.2,0,0,1)]">
 
-            {/* Icon Container */}
-            <div className="relative mb-8">
-                <div className="absolute inset-0 bg-red-500/10 blur-2xl rounded-full transform scale-150"></div>
-                <div className="relative h-24 w-24 flex items-center justify-center rounded-full 
-                    bg-gradient-to-br from-gray-50/80 to-gray-200/50 dark:from-white/10 dark:to-white/5
-                    border border-white/50 dark:border-white/10 shadow-inner backdrop-blur-md">
-                    <LockClosedIcon className="h-10 w-10 text-gray-700 dark:text-gray-300" />
-                    <div className="absolute -bottom-1 -right-1 bg-red-500 text-white p-1.5 rounded-full shadow-sm border-2 border-white dark:border-gray-800">
-                        <ShieldExclamationIcon className="h-5 w-5" />
-                    </div>
+            {/* Icon Container (Material You Error Tonal Palette) */}
+            <div className="relative mb-10 flex items-center justify-center animate-in zoom-in-90 duration-500 ease-[cubic-bezier(0.2,0,0,1)]">
+                {/* Main Tonal Circle */}
+                <div className="h-28 w-28 sm:h-32 sm:w-32 flex items-center justify-center rounded-full 
+                    bg-[#FFDAD6] dark:bg-[#93000A] transition-colors duration-500">
+                    <LockClosedIcon className="h-14 w-14 sm:h-16 sm:w-16 text-[#410002] dark:text-[#FFDAD6]" />
+                </div>
+                
+                {/* Overlapping Error Badge */}
+                <div className="absolute -bottom-2 -right-2 bg-[#BA1A1A] dark:bg-[#FFB4AB] text-white dark:text-[#410002] p-2.5 rounded-full border-4 border-[#F8F9FA] dark:border-[#131314] transition-colors duration-500 shadow-sm">
+                    <ShieldExclamationIcon className="h-6 w-6 sm:h-7 sm:w-7" />
                 </div>
             </div>
 
             {/* Text Content */}
-            <h3 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight mb-2">
+            <h3 className="text-[28px] sm:text-[34px] font-bold text-[#1A1C1E] dark:text-[#E3E2E6] tracking-tight mb-4 animate-in slide-in-from-bottom-2 duration-500">
                 Access Locked
             </h3>
             
-            <div className="space-y-1">
-                <p className="text-lg text-gray-600 dark:text-gray-300 font-medium">
-                    This quiz has been locked due to security warnings.
-                </p>
-                <p className="text-base text-gray-400 dark:text-gray-500">
-                    Please contact your teacher to unlock this assessment.
+            <div className="space-y-4 max-w-sm mx-auto w-full animate-in slide-in-from-bottom-4 duration-700">
+                {/* Highlighted Warning Pill */}
+                <div className="p-4 sm:p-5 rounded-[28px] bg-[#FFDAD6]/60 dark:bg-[#93000A]/40 transition-colors">
+                    <p className="text-[15px] sm:text-[16px] text-[#410002] dark:text-[#FFB4AB] font-semibold leading-relaxed">
+                        This quiz has been locked due to security warnings.
+                    </p>
+                </div>
+
+                {/* Subtext */}
+                <p className="text-[14px] sm:text-[15px] text-[#74777F] dark:text-[#8E9099] font-medium leading-relaxed px-4">
+                    Please contact your teacher to request an unlock.
                 </p>
             </div>
         </div>

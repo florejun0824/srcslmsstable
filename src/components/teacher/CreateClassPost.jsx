@@ -52,7 +52,7 @@ const CreateClassPost = ({ teacherId, onClassCreated }) => {
                 <button 
                     type="submit" 
                     disabled={isSubmitting}
-                    className="w-full mt-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-bold py-2 px-6 rounded-lg hover:shadow-lg hover:-translate-y-0.5 transform transition-all duration-200 shadow disabled:opacity-50"
+                    className="w-full mt-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold py-2 px-6 rounded-lg hover:shadow-lg hover:-translate-y-0.5 transform transition-all duration-200 shadow disabled:opacity-50"
                 >
                     {isSubmitting ? 'Creating...' : 'Create Class'}
                 </button>

@@ -17,21 +17,21 @@ import {
     Sparkles
 } from 'lucide-react';
 
-// --- MOONLIGHT OS: AESTHETIC ENGINE (OPTIMIZED) ---
+// --- LIGHT MODE AESTHETIC ---
 
 const modalBase = `
     relative w-full max-w-2xl flex flex-col overflow-hidden
-    bg-[#0f111a] rounded-[32px] shadow-2xl 
-    border border-white/10 ring-1 ring-white/5
+    bg-white rounded-[32px] shadow-2xl 
+    border border-slate-200/60 ring-1 ring-black/5
     max-h-[85dvh]
 `;
 
 const inputContainer = "relative group mb-5";
 const inputStyle = `
-    w-full bg-[#0a0c14] border border-white/5 rounded-xl
-    pl-12 pr-4 pt-6 pb-2.5 text-white font-medium
-    shadow-inner
-    focus:outline-none focus:border-indigo-500/50 focus:bg-[#0f121e] 
+    w-full bg-slate-50 border border-slate-200/60 rounded-xl
+    pl-12 pr-4 pt-6 pb-2.5 text-slate-800 font-medium
+    
+    focus:outline-none focus:border-indigo-400 focus:bg-white 
     focus:shadow-[0_0_20px_rgba(99,102,241,0.1)]
     transition-all duration-300 ease-out text-[14px] tracking-wide
     peer resize-none placeholder-transparent
@@ -40,19 +40,19 @@ const inputStyle = `
 const labelStyle = `
     absolute left-12 top-4 text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] pointer-events-none transition-all duration-300
     peer-placeholder-shown:top-[18px] peer-placeholder-shown:text-[13px] peer-placeholder-shown:text-slate-600 peer-placeholder-shown:normal-case peer-placeholder-shown:tracking-normal
-    peer-focus:top-2 peer-focus:text-[9px] peer-focus:text-indigo-400 peer-focus:uppercase peer-focus:tracking-[0.2em]
+    peer-focus:top-2 peer-focus:text-[9px] peer-focus:text-indigo-600 peer-focus:uppercase peer-focus:tracking-[0.2em]
 `;
 
 const iconStyle = `
     absolute top-[20px] left-4 text-slate-600 
     transition-all duration-300 
-    group-focus-within:text-indigo-400 group-focus-within:scale-110 
+    group-focus-within:text-indigo-600 group-focus-within:scale-110 
 `;
 
 const primaryButtonStyles = `
     flex-[2] py-3.5 rounded-xl font-bold text-xs text-white uppercase tracking-[0.15em]
-    bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-600 background-animate
-    shadow-lg hover:shadow-indigo-500/25
+    bg-gradient-to-r from-indigo-600 via-sky-600 to-indigo-600 background-animate
+    shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30
     border border-white/10 transition-all active:scale-[0.98]
     flex items-center justify-center gap-2 relative overflow-hidden group
 `;
@@ -128,7 +128,7 @@ const ScheduleModal = ({ isOpen, onClose, userRole, scheduleActivities, onAddAct
                         This removes the heavy GPU blur calculation during animation. */}
                     <motion.div 
                         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-[#000]/80 transition-opacity duration-300"
+                        className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm transition-opacity duration-300"
                         onClick={onClose}
                     />
 
@@ -146,19 +146,19 @@ const ScheduleModal = ({ isOpen, onClose, userRole, scheduleActivities, onAddAct
                         <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 blur-[80px] pointer-events-none rounded-full" />
                         
                         {/* --- HEADER --- */}
-                        <div className="relative flex-none px-6 py-5 border-b border-white/5 z-20 flex justify-between items-center bg-[#0f111a]">
+                        <div className="relative flex-none px-6 py-5 border-b border-white/5 z-20 flex justify-between items-center bg-white">
                             <div>
                                 <div className="flex items-center gap-2 mb-1">
                                     <Sparkles size={12} className="text-indigo-400" />
                                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">System Events</span>
                                 </div>
-                                <h2 className="text-2xl font-bold text-white tracking-tight">
-                                    Schedule <span className="text-indigo-400">Manager</span>
+                                <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
+                                    Schedule <span className="text-indigo-600">Manager</span>
                                 </h2>
                             </div>
                             <button 
                                 onClick={onClose} 
-                                className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                                className="p-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition-colors"
                             >
                                 <X size={18} />
                             </button>
@@ -167,9 +167,9 @@ const ScheduleModal = ({ isOpen, onClose, userRole, scheduleActivities, onAddAct
                         {/* --- TABS --- */}
                         {isAdmin && (
                             <div className="relative flex-none px-6 pt-6 pb-2 z-10">
-                                <div className="p-1 bg-[#0a0c14] border border-white/5 rounded-xl flex relative">
+                                <div className="p-1 bg-slate-100 border border-slate-200/60 rounded-xl flex relative">
                                     <motion.div 
-                                        className="absolute top-1 bottom-1 bg-[#1e2230] border border-white/5 rounded-[10px] shadow-sm"
+                                        className="absolute top-1 bottom-1 bg-white border border-slate-200/60 rounded-[10px] shadow-sm shadow-sm"
                                         initial={false}
                                         animate={{ 
                                             left: activeTab === 'view' ? '4px' : '50%', 
@@ -186,7 +186,7 @@ const ScheduleModal = ({ isOpen, onClose, userRole, scheduleActivities, onAddAct
                                                 if (tab.id === 'view' && editingActivity) handleCancelEdit();
                                                 else if (tab.id === 'add' && !editingActivity) clearForm();
                                             }}
-                                            className={`relative z-10 flex-1 py-2.5 text-[11px] font-bold uppercase tracking-wider transition-colors duration-200 ${activeTab === tab.id ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                                            className={`relative z-10 flex-1 py-2.5 text-[11px] font-bold uppercase tracking-wider transition-colors duration-200 ${activeTab === tab.id ? 'text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}
                                         >
                                             {tab.label}
                                         </button>
@@ -216,20 +216,20 @@ const ScheduleModal = ({ isOpen, onClose, userRole, scheduleActivities, onAddAct
                                                         initial={{ opacity: 0, y: 10 }}
                                                         animate={{ opacity: 1, y: 0 }}
                                                         transition={{ delay: idx * 0.03 }}
-                                                        className="group relative flex gap-5 p-4 rounded-2xl bg-[#151926] border border-white/5 hover:border-indigo-500/30 transition-all duration-200 hover:shadow-lg hover:shadow-black/20"
+                                                        className="group relative flex gap-5 p-4 rounded-2xl bg-white border border-slate-200/60 hover:border-indigo-300 transition-all duration-200 hover:shadow-lg hover:shadow-slate-200/60"
                                                     >
                                                         {/* Date Block */}
-                                                        <div className="flex-shrink-0 w-14 h-14 rounded-xl flex flex-col items-center justify-center bg-[#0a0c14] border border-white/5 group-hover:bg-indigo-500/10 group-hover:border-indigo-500/20 transition-colors">
+                                                        <div className="flex-shrink-0 w-14 h-14 rounded-xl flex flex-col items-center justify-center bg-indigo-50 border border-indigo-200/50 group-hover:bg-indigo-100 group-hover:border-indigo-300 transition-colors">
                                                             <span className="text-[10px] font-bold uppercase text-indigo-400 tracking-wider">
                                                                 {new Date(activity.startDate).toLocaleString('default', { month: 'short' })}
                                                             </span>
-                                                            <span className="text-xl font-bold text-white leading-none mt-0.5">
+                                                            <span className="text-xl font-bold text-slate-800 leading-none mt-0.5">
                                                                 {new Date(activity.startDate).getDate()}
                                                             </span>
                                                         </div>
 
                                                         <div className="flex-1 min-w-0 py-0.5">
-                                                            <h4 className="text-sm font-bold text-white mb-1.5 truncate pr-2">
+                                                            <h4 className="text-sm font-bold text-slate-800 mb-1.5 truncate pr-2">
                                                                 {activity.title}
                                                             </h4>
                                                             
@@ -240,7 +240,7 @@ const ScheduleModal = ({ isOpen, onClose, userRole, scheduleActivities, onAddAct
                                                                 </span>
                                                                 <div className="w-1 h-1 rounded-full bg-slate-600" />
                                                                 <span className="flex items-center gap-1.5">
-                                                                    <User size={12} className="text-violet-400" />
+                                                                    <User size={12} className="text-sky-400" />
                                                                     {activity.inCharge}
                                                                 </span>
                                                             </div>
@@ -255,10 +255,10 @@ const ScheduleModal = ({ isOpen, onClose, userRole, scheduleActivities, onAddAct
                                                         {/* Actions */}
                                                         {isAdmin && (
                                                             <div className="flex flex-col gap-2 justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                                                <button onClick={() => handleEditClick(activity)} className="p-2 bg-[#0a0c14] hover:bg-indigo-500/20 rounded-lg text-slate-400 hover:text-indigo-300 border border-white/5 hover:border-indigo-500/30 transition-all">
+                                                                <button onClick={() => handleEditClick(activity)} className="p-2 bg-slate-50 hover:bg-indigo-50 rounded-lg text-slate-500 hover:text-indigo-600 border border-slate-200 hover:border-indigo-300 transition-all">
                                                                     <Edit2 size={13} />
                                                                 </button>
-                                                                <button onClick={() => onDeleteActivity(activity.id)} className="p-2 bg-[#0a0c14] hover:bg-red-500/20 rounded-lg text-slate-400 hover:text-red-400 border border-white/5 hover:border-red-500/30 transition-all">
+                                                                <button onClick={() => onDeleteActivity(activity.id)} className="p-2 bg-slate-50 hover:bg-red-50 rounded-lg text-slate-500 hover:text-red-500 border border-slate-200 hover:border-red-200 transition-all">
                                                                     <Trash2 size={13} />
                                                                 </button>
                                                             </div>
@@ -303,7 +303,7 @@ const ScheduleModal = ({ isOpen, onClose, userRole, scheduleActivities, onAddAct
                                                 <button 
                                                     type="button" 
                                                     onClick={handleCancelEdit} 
-                                                    className="flex-1 py-3.5 rounded-xl font-bold text-xs text-slate-400 uppercase tracking-widest hover:bg-white/5 border border-transparent hover:border-white/10 transition-all"
+                                                    className="flex-1 py-3.5 rounded-xl font-bold text-xs text-slate-600 uppercase tracking-widest hover:bg-slate-100 border border-transparent hover:border-slate-200 transition-all"
                                                 >
                                                     Cancel
                                                 </button>

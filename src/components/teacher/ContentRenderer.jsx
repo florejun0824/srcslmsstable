@@ -1,6 +1,6 @@
 // src/components/teacher/ContentRenderer.js
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
@@ -8,7 +8,7 @@ import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import 'katex/dist/katex.min.css';
-import mermaid from 'mermaid';
+// mermaid is now dynamically imported inside MermaidRenderer to save ~15MB
 import { ChevronDownIcon } from '@heroicons/react/24/solid';
 
 // --- CSS OVERRIDES: FIX INDEX.CSS CONFLICTS ---
@@ -59,64 +59,64 @@ const katexDarkFix = `
 
 // --- HELPER: Google Drive Image Fixer (Ported from EditLessonModal) ---
 const convertGoogleDriveLink = (url) => {
-    if (!url) return '';
-    // Check for standard "view" link: /file/d/FILE_ID/view
-    const driveMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-    if (driveMatch && driveMatch[1]) {
-        return `https://drive.google.com/uc?export=view&id=${driveMatch[1]}`;
-    }
-    return url;
+  if (!url) return '';
+  // Check for standard "view" link: /file/d/FILE_ID/view
+  const driveMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (driveMatch && driveMatch[1]) {
+    return `https://drive.google.com/uc?export=view&id=${driveMatch[1]}`;
+  }
+  return url;
 };
 
 // --- NEW HELPER: The "Healer" (Fixes Broken Table Rows) ---
 const healBrokenMarkdown = (text) => {
-    if (!text) return '';
-    
-    // 1. Split into lines
-    const rawLines = text.split(/\r?\n/);
-    const healedLines = [];
-    let insideTable = false;
+  if (!text) return '';
 
-    // Helper to detect if a line looks like a table separator (e.g., |---|)
-    const isSeparator = (str) => /^\|?[\s-:]+\|[\s-:]+\|?$/.test(str.trim());
+  // 1. Split into lines
+  const rawLines = text.split(/\r?\n/);
+  const healedLines = [];
+  let insideTable = false;
 
-    for (let i = 0; i < rawLines.length; i++) {
-        let line = rawLines[i].trim();
-        
-        // A. Detect Table Start (Look ahead for separator)
-        if (!insideTable && rawLines[i + 1] && isSeparator(rawLines[i + 1])) {
-            insideTable = true;
-        }
+  // Helper to detect if a line looks like a table separator (e.g., |---|)
+  const isSeparator = (str) => /^\|?[\s-:]+\|[\s-:]+\|?$/.test(str.trim());
 
-        // B. Handle Table Logic
-        if (insideTable) {
-            // If empty line, table is likely over
-            if (line === '') {
-                insideTable = false;
-                healedLines.push(line);
-                continue;
-            }
+  for (let i = 0; i < rawLines.length; i++) {
+    let line = rawLines[i].trim();
 
-            // If line starts with '|', it's a valid new row. Keep it.
-            if (line.startsWith('|')) {
-                healedLines.push(line);
-            } 
-            // If line DOES NOT start with '|', it is a broken wrap. Merge it up!
-            else {
-                if (healedLines.length > 0) {
-                    // Append this text to the end of the previous line
-                    // We add a space to prevent words mashing together
-                    healedLines[healedLines.length - 1] += ' ' + line;
-                }
-            }
-        } 
-        // C. Normal Text (Not in a table)
-        else {
-            healedLines.push(line);
-        }
+    // A. Detect Table Start (Look ahead for separator)
+    if (!insideTable && rawLines[i + 1] && isSeparator(rawLines[i + 1])) {
+      insideTable = true;
     }
 
-    return healedLines.join('\n');
+    // B. Handle Table Logic
+    if (insideTable) {
+      // If empty line, table is likely over
+      if (line === '') {
+        insideTable = false;
+        healedLines.push(line);
+        continue;
+      }
+
+      // If line starts with '|', it's a valid new row. Keep it.
+      if (line.startsWith('|')) {
+        healedLines.push(line);
+      }
+      // If line DOES NOT start with '|', it is a broken wrap. Merge it up!
+      else {
+        if (healedLines.length > 0) {
+          // Append this text to the end of the previous line
+          // We add a space to prevent words mashing together
+          healedLines[healedLines.length - 1] += ' ' + line;
+        }
+      }
+    }
+    // C. Normal Text (Not in a table)
+    else {
+      healedLines.push(line);
+    }
+  }
+
+  return healedLines.join('\n');
 };
 
 // --- SVG cleaner ---
@@ -171,12 +171,12 @@ const removeDuplicateLines = (text) => {
 const normalizeLatex = (text) => {
   if (!text) return '';
   let normalized = text;
-  
+
   // --- FIXES ---
   normalized = normalized.replace(/\\text{\\char`\\₱}/g, '₱');
   normalized = normalized.replace(/\\₱/g, '₱');
   normalized = normalized.replace(/\\degree/g, '°');
-  normalized = normalized.replace(/\^\\circ/g, '°'); 
+  normalized = normalized.replace(/\^\\\circ/g, '°');
 
   // --- SYMBOL FALLBACKS ---
   normalized = normalized.replace(/\\ne /g, '≠ ');
@@ -203,21 +203,39 @@ const getNodeText = (node) => {
   return '';
 };
 
-// ✅ Mermaid Renderer Component
+// ✅ Mermaid Renderer Component — LAZY LOADS mermaid only when needed
 const MermaidRenderer = ({ code }) => {
   const ref = useRef(null);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
-    if (ref.current) {
+    let cancelled = false;
+
+    const renderMermaid = async () => {
+      if (!ref.current) return;
       try {
+        const mermaid = (await import('mermaid')).default;
+        if (cancelled) return;
         mermaid.initialize({ startOnLoad: false });
         mermaid.contentLoaded();
         mermaid.init(undefined, ref.current);
       } catch (e) {
         console.error('Mermaid render failed:', e);
+        if (!cancelled) setError(true);
       }
-    }
+    };
+
+    renderMermaid();
+    return () => { cancelled = true; };
   }, [code]);
+
+  if (error) {
+    return (
+      <div className="overflow-x-auto flex justify-center my-4">
+        <pre className="text-sm text-gray-500">{code}</pre>
+      </div>
+    );
+  }
 
   return (
     <div className="overflow-x-auto flex justify-center my-4">
@@ -234,24 +252,24 @@ export default function ContentRenderer({ htmlContent, text }) {
   // --- Diagram renderer logic ---
   if (text && typeof text === 'object' && text.diagram_prompt) {
     if (text.generatedImageUrl) {
-        // Apply drive converter to raw diagram URLs too if needed
-        const processedUrl = convertGoogleDriveLink(text.generatedImageUrl);
-        return (
-            <div className="diagram-renderer flex flex-col items-center my-4">
-            <img
-                src={processedUrl}
-                alt="Generated diagram"
-                className="max-w-full rounded shadow"
-            />
-            {Array.isArray(text.labels) && text.labels.length > 0 && (
-                <ul className="mt-2 text-sm text-gray-600 dark:text-gray-400 list-disc list-inside">
-                {text.labels.map((label, idx) => (
-                    <li key={idx}>{label}</li>
-                ))}
-                </ul>
-            )}
-            </div>
-        );
+      // Apply drive converter to raw diagram URLs too if needed
+      const processedUrl = convertGoogleDriveLink(text.generatedImageUrl);
+      return (
+        <div className="diagram-renderer flex flex-col items-center my-4">
+          <img
+            src={processedUrl}
+            alt="Generated diagram"
+            className="max-w-full rounded shadow"
+          />
+          {Array.isArray(text.labels) && text.labels.length > 0 && (
+            <ul className="mt-2 text-sm text-gray-600 dark:text-gray-400 list-disc list-inside">
+              {text.labels.map((label, idx) => (
+                <li key={idx}>{label}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      );
     } else {
       return (
         <div className="diagram-placeholder flex flex-col items-center justify-center border border-dashed border-gray-400 rounded-lg p-6 text-gray-500 my-4">
@@ -285,7 +303,7 @@ export default function ContentRenderer({ htmlContent, text }) {
 
     // --- APPLY THE HEALER FIRST ---
     processedText = healBrokenMarkdown(processedText);
-    
+
     // ✅ FIX: Replace non-breaking spaces
     processedText = processedText.replace(/\u00A0/g, ' ');
 
@@ -294,15 +312,15 @@ export default function ContentRenderer({ htmlContent, text }) {
       /```(html)?\s*(<svg[\s\S]*?<\/svg>)\s*```/gi,
       '$2'
     );
-    
+
     // ✅ Find SVG code prefixed with html
     processedText = processedText.replace(
-        /(?:^|\n)html\s*\n(<svg[\s\S]*?<\/svg>)/gi,
-        (match, svgContent) => {
-            let cleanedSvg = svgContent.replace(/\\"/g, '"');
-            cleanedSvg = cleanedSvg.split('\n').map(line => line.trim()).join('\n');
-            return cleanedSvg;
-        }
+      /(?:^|\n)html\s*\n(<svg[\s\S]*?<\/svg>)/gi,
+      (match, svgContent) => {
+        let cleanedSvg = svgContent.replace(/\\"/g, '"');
+        cleanedSvg = cleanedSvg.split('\n').map(line => line.trim()).join('\n');
+        return cleanedSvg;
+      }
     );
 
     // ✅ Handle Mermaid code blocks
@@ -358,7 +376,7 @@ export default function ContentRenderer({ htmlContent, text }) {
     return (
       <div className="content-renderer prose max-w-full dark:prose-invert">
         <style>{katexDarkFix}</style>
-        
+
         <ReactMarkdown
           children={processedText}
           remarkPlugins={[remarkGfm, remarkMath, remarkBreaks]}
@@ -386,11 +404,11 @@ export default function ContentRenderer({ htmlContent, text }) {
             img: ({ node, src, ...props }) => {
               const processedSrc = convertGoogleDriveLink(src);
               return (
-                <img 
-                    src={processedSrc} 
-                    {...props} 
-                    alt={props.alt || ""} 
-                    className="max-w-full rounded-lg shadow-sm" 
+                <img
+                  src={processedSrc}
+                  {...props}
+                  alt={props.alt || ""}
+                  className="max-w-full rounded-lg shadow-sm"
                 />
               );
             },
@@ -409,8 +427,8 @@ export default function ContentRenderer({ htmlContent, text }) {
               const summaryChild = props.children[0];
               const contentChildren = props.children.slice(1);
               return (
-                <details 
-                  className="my-4 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-lg group overflow-hidden" 
+                <details
+                  className="my-4 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-2xl shadow-neumorphic dark:shadow-lg group overflow-hidden"
                   {...props}
                 >
                   {summaryChild}
@@ -423,11 +441,11 @@ export default function ContentRenderer({ htmlContent, text }) {
               );
             },
             summary: ({ node, ...props }) => (
-              <summary 
+              <summary
                 className="flex items-center justify-between p-4 cursor-pointer select-none list-none font-semibold text-gray-800 dark:text-slate-100 transition-all active:shadow-neumorphic-inset active:dark:shadow-neumorphic-inset-dark"
                 {...props}
               >
-                {props.children} 
+                {props.children}
                 <ChevronDownIcon className="w-5 h-5 text-gray-500 dark:text-slate-400 transition-transform duration-200 group-open:rotate-180" />
               </summary>
             ),

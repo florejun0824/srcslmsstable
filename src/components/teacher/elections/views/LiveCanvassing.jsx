@@ -1,15 +1,20 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
-import { 
-  CaretLeft, 
-  SealCheck, 
-  ChartBar, 
-  Table,
-  Circle,
-  TrendUp
+import {
+    CaretLeft,
+    SealCheck,
+    ChartBar,
+    Table,
+    Circle,
+    TrendUp,
+    Printer
 } from '@phosphor-icons/react';
 import { electionService } from '../../../../services/electionService';
 import { useTheme } from '../../../../contexts/ThemeContext';
+import { getDoc, doc } from 'firebase/firestore';
+import { db } from '../../../../services/firebase';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
 
 // --- UTILS ---
 const getInitials = (name) => name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
@@ -18,7 +23,7 @@ const stringToColor = (str) => {
     const colors = [
         'bg-blue-600 text-white',
         'bg-emerald-600 text-white',
-        'bg-violet-600 text-white',
+        'bg-indigo-600 text-white',
         'bg-amber-600 text-white',
         'bg-rose-600 text-white',
         'bg-cyan-600 text-white',
@@ -31,257 +36,606 @@ const stringToColor = (str) => {
 };
 
 const LiveCanvassing = ({ election, onBack }) => {
-  const [results, setResults] = useState(election.results || {});
-  const { monetTheme } = useTheme();
+    const [results, setResults] = useState(election.results || {});
+    const [totalVotesCast, setTotalVotesCast] = useState(election.totalVotes || 0);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const { monetTheme } = useTheme();
 
-  useEffect(() => {
-    if (election.status === 'completed' && election.results) {
-        setResults(election.results);
-        return;
-    }
-    const unsub = electionService.getLiveResults(election.id, (allVotes) => {
-      const tally = {};
-      election.positions.forEach(pos => {
-        tally[pos.title] = {};
-        pos.candidates.forEach(cand => tally[pos.title][cand.name] = 0);
-      });
-      allVotes.forEach(voteMap => {
-        Object.entries(voteMap).forEach(([posTitle, candidateName]) => {
-            if (tally[posTitle]?.[candidateName] !== undefined) tally[posTitle][candidateName]++;
+    useEffect(() => {
+        if (!election?.id) return;
+        const unsub = electionService.getLiveResults(election.id, (data) => {
+            setResults(data.tally);
+            setTotalVotesCast(data.totalVotes);
         });
-      });
-      setResults(tally);
-    });
-    return () => unsub();
-  }, [election]);
+        return () => unsub();
+    }, [election]);
 
-  const totalVotesCast = useMemo(() => {
-    if (!election.positions.length) return 0;
-    const firstPos = election.positions[0].title;
-    const posResults = results[firstPos] || {};
-    return Object.values(posResults).reduce((a, b) => a + b, 0);
-  }, [results, election]);
 
-  return (
-    // CHANGE 1: Removed 'bg-slate-50 dark:bg-[#0B0C10]' and 'min-h-screen'
-    // This removes the "black border" by making the container transparent
-    <div 
-        className="w-full font-sans text-slate-900 dark:text-slate-100"
-        style={monetTheme.variables} 
-    >
-       
-       {/* CHANGE 2: Kept the rounded card, but now it floats over the dashboard background */}
-       <div className="max-w-7xl mx-auto bg-white dark:bg-[#15161C] rounded-[32px] shadow-xl overflow-hidden min-h-[85vh] border border-slate-200 dark:border-white/5 relative">
-          
-          <div className="absolute top-0 left-0 right-0 h-2 bg-[var(--monet-primary)] opacity-80" />
+    // --- REPORT GENERATOR ---
+    const generateReport = async () => {
+        setIsGenerating(true);
+        // Color palette for candidate avatars
+        const avatarColors = ['#2563eb', '#7c3aed', '#0891b2', '#059669', '#d97706', '#dc2626', '#db2777', '#4f46e5'];
 
-          {/* --- HEADER --- */}
-          <header className="sticky top-0 z-40 bg-white/90 dark:bg-[#15161C]/90 backdrop-blur-md border-b border-slate-100 dark:border-white/5 px-6 py-5">
-              <div className="flex items-center justify-between">
-                 <div className="flex items-center gap-5">
-                    <button 
-                      onClick={onBack} 
-                      className="group flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-[var(--monet-primary)] transition-colors"
-                    >
-                       <div className="w-10 h-10 rounded-xl border border-slate-200 dark:border-white/10 flex items-center justify-center group-hover:bg-[var(--monet-primary)] group-hover:text-white group-hover:border-[var(--monet-primary)] transition-all">
-                          <CaretLeft weight="bold" size={18} />
-                       </div>
-                       <div className="hidden sm:flex flex-col items-start">
-                           <span className="uppercase tracking-wider text-[10px] opacity-60">Back to</span>
-                           <span className="leading-none">Elections</span>
-                       </div>
-                    </button>
-                    
-                    <div className="h-10 w-px bg-slate-200 dark:bg-white/10 mx-2" />
+        try {
+            // 1. Fetch Tie-Breaker data if it exists
+            let tbData = null;
+            if (election.tieBreakerId) {
+                const tbSnap = await getDoc(doc(db, 'elections', election.tieBreakerId));
+                if (tbSnap.exists()) tbData = tbSnap.data();
+            }
 
-                    <div>
-                       <h1 className="text-xl font-black uppercase tracking-tight leading-none text-slate-900 dark:text-white">
-                          Official Canvassing
-                       </h1>
-                       <p className="text-xs font-bold text-[var(--monet-primary)] mt-1 uppercase tracking-widest flex items-center gap-2">
-                          <SealCheck weight="fill" />
-                          {election.title}
-                       </p>
-                    </div>
-                 </div>
+            // 1.5 Fetch Parent data if this IS a tie-breaker election
+            let parentData = null;
+            if (election.isTieBreaker && election.parentElectionId) {
+                const parentSnap = await getDoc(doc(db, 'elections', election.parentElectionId));
+                if (parentSnap.exists()) parentData = parentSnap.data();
+            }
 
-                 <div className="flex items-center gap-6">
-                     <div className="flex flex-col items-end">
-                        <div className="flex items-center gap-2 bg-slate-100 dark:bg-white/5 px-3 py-1.5 rounded-full border border-slate-200 dark:border-white/5">
-                            <div className={`w-2 h-2 rounded-full ${election.status === 'completed' ? 'bg-slate-500' : 'bg-red-500 animate-pulse'}`} />
-                            <span className={`text-xs font-bold uppercase tracking-widest ${election.status === 'completed' ? 'text-slate-500' : 'text-red-500'}`}>
-                                {election.status === 'completed' ? 'Finalized' : 'Live Tally'}
-                            </span>
+            const baseElection = parentData ? parentData : election;
+            const baseResults = parentData ? (parentData.results || parentData.tally || parentData.liveResults || {}) : results;
+            const actualTbData = parentData ? election : tbData;
+
+            // 2. Helper to build a position's HTML table
+            const buildPositionTable = (posTitle, candidates, tallyData, titlePrefix = '') => {
+                const posResults = tallyData[posTitle] || {};
+                const totalPosVotes = Object.values(posResults).reduce((a, b) => a + b, 0);
+                const sorted = candidates
+                    .map(c => ({ name: c.name, votes: posResults[c.name] || 0 }))
+                    .sort((a, b) => b.votes - a.votes);
+
+                const rows = sorted.map((c, i) => {
+                    const pct = totalPosVotes === 0 ? 0 : ((c.votes / totalPosVotes) * 100);
+                    const pctStr = pct.toFixed(1);
+                    const isWinner = i === 0 && c.votes > 0 && (!actualTbData || !baseElection.tiedPositions?.includes(posTitle) || titlePrefix.includes('Round 2'));
+                    const avatarBg = isWinner ? 'linear-gradient(135deg,#f59e0b,#d97706)' : avatarColors[(i) % avatarColors.length];
+
+                    return `<tr style="${isWinner ? 'background:linear-gradient(90deg,#fffbeb,#ffffff);' : ''}">
+                        <td style="padding:14px 16px;border-bottom:1px solid #f1f5f9;text-align:center;width:44px;">
+                            ${isWinner
+                            ? '<div style="width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-weight:800;font-size:11px;display:flex;align-items:center;justify-content:center;margin:0 auto;box-shadow:0 2px 6px rgba(217,119,6,0.3);">★</div>'
+                            : `<span style="color:#cbd5e1;font-weight:700;font-size:12px;">${i + 1}</span>`
+                        }
+                        </td>
+                        <td style="padding:14px 16px;border-bottom:1px solid #f1f5f9;">
+                            <div style="display:flex;align-items:center;gap:10px;">
+                                <div style="width:34px;height:34px;border-radius:10px;background:${typeof avatarBg === 'string' && avatarBg.startsWith('linear') ? avatarBg : avatarBg};color:#fff;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;${isWinner ? 'box-shadow:0 2px 8px rgba(245,158,11,0.25);' : ''}">${c.name.charAt(0).toUpperCase()}</div>
+                                <div>
+                                    <div style="font-weight:${isWinner ? '700' : '500'};color:#0f172a;font-size:13px;line-height:1.3;">${c.name}</div>
+                                    ${isWinner ? '<div style="font-size:9px;font-weight:700;color:#d97706;text-transform:uppercase;letter-spacing:1.5px;margin-top:2px;">🏆 Elected</div>' : ''}
+                                </div>
+                            </div>
+                        </td>
+                        <td style="padding:14px 16px;border-bottom:1px solid #f1f5f9;text-align:center;width:70px;">
+                            <div style="font-family:'SF Mono','Menlo',Consolas,monospace;font-weight:700;font-size:15px;color:${isWinner ? '#b45309' : '#0f172a'};">${c.votes}</div>
+                        </td>
+                        <td style="padding:14px 16px;border-bottom:1px solid #f1f5f9;width:200px;">
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <div style="flex:1;height:8px;background:#f1f5f9;border-radius:99px;overflow:hidden;">
+                                    <div style="width:${pctStr}%;height:100%;border-radius:99px;background:${isWinner ? 'linear-gradient(90deg,#f59e0b,#fbbf24)' : 'linear-gradient(90deg,#3b82f6,#60a5fa)'};"></div>
+                                </div>
+                                <span style="font-family:'SF Mono','Menlo',Consolas,monospace;font-size:11px;font-weight:700;color:${isWinner ? '#b45309' : '#64748b'};min-width:40px;text-align:right;">${pctStr}%</span>
+                            </div>
+                        </td>
+                    </tr>`;
+                }).join('');
+
+                return `
+                    <div style="margin-bottom:32px;page-break-inside:avoid;">
+                        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #0f172a;">
+                            <h3 style="font-size:15px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#0f172a;margin:0;flex:1;">${titlePrefix} ${posTitle}</h3>
+                            <div style="font-size:10px;font-weight:700;color:#64748b;background:#f1f5f9;padding:4px 14px;border-radius:99px;">${totalPosVotes} votes</div>
                         </div>
-                     </div>
-                 </div>
-              </div>
-          </header>
+                        <table style="width:100%;border-collapse:collapse;font-size:13px;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;">
+                            <thead>
+                                <tr style="background:linear-gradient(90deg,#f8fafc,#f1f5f9);">
+                                    <th style="padding:11px 16px;text-align:center;font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#94a3b8;font-weight:700;border-bottom:2px solid #e2e8f0;width:44px;">Rank</th>
+                                    <th style="padding:11px 16px;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#94a3b8;font-weight:700;border-bottom:2px solid #e2e8f0;">Candidate</th>
+                                    <th style="padding:11px 16px;text-align:center;font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#94a3b8;font-weight:700;border-bottom:2px solid #e2e8f0;width:70px;">Votes</th>
+                                    <th style="padding:11px 16px;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#94a3b8;font-weight:700;border-bottom:2px solid #e2e8f0;width:200px;">Vote Share</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>`;
+            };
 
-          {/* --- CONTENT --- */}
-          <main className="px-4 md:px-8 py-8 space-y-8">
-              
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                 <MetricCard 
-                    label="Total Returns" 
-                    value={totalVotesCast.toLocaleString()} 
-                    icon={Table} 
-                 />
-                 <MetricCard 
-                    label="Positions" 
-                    value={election.positions.length} 
-                    icon={ChartBar} 
-                 />
-                 <div className="col-span-2 bg-[var(--monet-primary)]/5 border border-[var(--monet-primary)]/20 p-4 rounded-2xl flex items-center justify-between relative overflow-hidden group">
-                     <div className="relative z-10">
-                        <div className="text-[10px] font-bold uppercase tracking-widest text-[var(--monet-primary)] mb-1 opacity-80">Target Electorate</div>
-                        <div className="text-sm font-bold text-slate-800 dark:text-white">
-                            {election.targetType === 'grade' ? `Grade ${election.targetGrade} Students` : 'Entire Student Body'}
+            // 3. Build position sections
+            let positionSections = '';
+            baseElection.positions.forEach(pos => {
+                const isTiedPosition = baseElection.tiedPositions?.includes(pos.title);
+                const prefix1 = (isTiedPosition && actualTbData) ? 'Round 1: ' : '';
+                positionSections += buildPositionTable(pos.title, pos.candidates, baseResults, prefix1);
+
+                // If this position was tied and we have actualTbData, show Round 2
+                if (actualTbData && isTiedPosition) {
+                    const tbPos = actualTbData.positions.find(p => p.title === pos.title);
+                    if (tbPos) {
+                        const tbTally = actualTbData.tally || actualTbData.results || actualTbData.liveResults || {};
+                        positionSections += buildPositionTable(pos.title, tbPos.candidates, tbTally, '⚡ Round 2 (Tie-Breaker): ');
+                    }
+                }
+            });
+
+            // --- Winners summary ---
+            const winnersList = baseElection.positions.map(pos => {
+                let posResults = baseResults[pos.title] || {};
+                let isTiedPosition = false;
+
+                if (actualTbData && baseElection.tiedPositions?.includes(pos.title)) {
+                    // Use tie-breaker results for this position
+                    isTiedPosition = true;
+                    posResults = actualTbData.tally?.[pos.title] || actualTbData.results?.[pos.title] || actualTbData.liveResults?.[pos.title] || {};
+                }
+
+                const sorted = pos.candidates
+                    .map(c => ({ name: c.name, votes: posResults[c.name] || 0 }))
+                    .sort((a, b) => b.votes - a.votes);
+                const winner = sorted[0];
+
+                return winner && winner.votes > 0 ? {
+                    position: pos.title,
+                    name: winner.name,
+                    votes: winner.votes,
+                    isTieBreaker: isTiedPosition
+                } : null;
+            }).filter(Boolean);
+
+            const winnersSection = winnersList.length > 0 ? `
+            <div style="margin-bottom:36px;page-break-inside:avoid;">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+                    <div style="font-size:22px;">🏆</div>
+                    <h2 style="font-size:16px;font-weight:800;color:#0f172a;margin:0;">Proclaimed Winners</h2>
+                </div>
+                <div style="background:linear-gradient(135deg,#fffbeb 0%,#fef3c7 50%,#fff7ed 100%);border:1px solid #fde68a;border-radius:16px;padding:20px 24px;display:flex;flex-wrap:wrap;gap:12px;">
+                    ${winnersList.map(w => `
+                        <div style="flex:1;min-width:170px;background:#ffffff;border-radius:12px;padding:16px 18px;border:1px solid #fde68a;box-shadow:0 2px 8px rgba(0,0,0,0.03);">
+                            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                                <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#92400e;margin-bottom:6px;">${w.position}</div>
+                                ${w.isTieBreaker ? `<div style="font-size:8px;font-weight:800;color:#d97706;background:#fef3c7;padding:3px 8px;border-radius:99px;border:1px solid #fde68a;">⚡ TIE-BREAKER</div>` : ''}
+                            </div>
+                            <div style="font-size:17px;font-weight:800;color:#0f172a;line-height:1.2;">${w.name}</div>
+                            <div style="display:flex;align-items:center;gap:4px;margin-top:4px;">
+                                <div style="width:16px;height:16px;border-radius:50%;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;font-size:8px;">✓</div>
+                                <span style="font-family:'SF Mono','Menlo',Consolas,monospace;font-size:11px;color:#92400e;font-weight:600;">${w.votes} votes</span>
+                            </div>
                         </div>
-                     </div>
-                     <SealCheck size={48} weight="duotone" className="text-[var(--monet-primary)] opacity-20 absolute -right-4 -bottom-4 rotate-12 group-hover:scale-110 transition-transform" />
-                 </div>
-              </div>
+                    `).join('')}
+                </div>
+            </div>
+        ` : '';
 
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 pb-12">
-                 {election.positions.map((pos) => {
-                    const posResults = results[pos.title] || {};
-                    const totalVotes = Object.values(posResults).reduce((a, b) => a + b, 0);
-                    const candidates = pos.candidates.sort((a, b) => (posResults[b.name] || 0) - (posResults[a.name] || 0));
+            const targetLabel = election.targetType === 'grade' ? `Grade ${election.targetGrade} Students` : 'Entire Student Body';
+            const reportDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+            const reportTime = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            const startDate = election.startDate ? new Date(election.startDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A';
+            const endDate = election.endDate ? new Date(election.endDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A';
 
-                    return (
-                       <OfficialTallyCard 
-                          key={pos.id} 
-                          title={pos.title} 
-                          candidates={candidates} 
-                          posResults={posResults} 
-                          totalVotes={totalVotes}
-                       />
-                    );
-                 })}
-              </div>
+            const html = `<!DOCTYPE html>
+<html><head><title>Election Report — ${election.title}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+    @page { margin: 16mm; size: A4; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', -apple-system, system-ui, sans-serif; color: #1e293b; line-height: 1.6; background: #fff; }
+    @media print { .no-print { display: none !important; } }
+    @media screen {
+        body { padding: 40px; background: #f1f5f9; }
+        .report-container { max-width: 800px; margin: 0 auto; background: #fff; border-radius: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.04), 0 12px 48px rgba(0,0,0,0.06); padding: 0; overflow: hidden; }
+    }
+</style>
+</head><body>
+<div class="report-container">
 
-          </main>
-       </div>
+    <!-- ===== HEADER ===== -->
+    <div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 60%,#334155 100%);padding:40px 44px 36px;position:relative;overflow:hidden;">
+        <div style="position:absolute;top:0;right:0;width:220px;height:220px;background:linear-gradient(135deg,rgba(59,130,246,0.12),transparent);border-radius:0 0 0 220px;"></div>
+        <div style="position:absolute;bottom:-2px;left:0;right:0;height:4px;background:linear-gradient(90deg,#3b82f6,#06b6d4,#8b5cf6);"></div>
+        <div style="position:relative;z-index:1;">
+            <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:4px;color:#64748b;margin-bottom:12px;">Official Election Report</div>
+            <h1 style="font-size:30px;font-weight:900;color:#ffffff;letter-spacing:-0.5px;margin-bottom:6px;">${election.title}</h1>
+            <div style="font-size:13px;color:#94a3b8;font-weight:500;">${election.organization}</div>
+            <div style="margin-top:18px;display:flex;gap:8px;flex-wrap:wrap;">
+                <span style="display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:99px;font-size:10px;font-weight:700;${election.status === 'completed' ? 'background:rgba(34,197,94,0.15);color:#4ade80;' : 'background:rgba(251,146,60,0.15);color:#fb923c;'}">${election.status === 'completed' ? '● Finalized' : '● In Progress'}</span>
+                <span style="display:inline-flex;align-items:center;padding:5px 14px;border-radius:99px;font-size:10px;font-weight:600;background:rgba(255,255,255,0.08);color:#cbd5e1;">${targetLabel}</span>
+            </div>
+        </div>
     </div>
-  );
+
+    <!-- ===== BODY ===== -->
+    <div style="padding:32px 44px 44px;">
+
+    <!-- Stats Row -->
+    <div style="display:flex;gap:12px;margin-bottom:28px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:120px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:1px solid #bae6fd;border-radius:14px;padding:20px;text-align:center;">
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:2px;color:#0284c7;font-weight:700;margin-bottom:8px;">Total Ballots</div>
+            <div style="font-family:'SF Mono','Menlo',Consolas,monospace;font-size:34px;font-weight:900;color:#0c4a6e;letter-spacing:-1px;">${baseElection.totalVotes || totalVotesCast}</div>
+        </div>
+        <div style="flex:1;min-width:120px;background:linear-gradient(135deg,#f5f3ff,#ede9fe);border:1px solid #c4b5fd;border-radius:14px;padding:20px;text-align:center;">
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:2px;color:#7c3aed;font-weight:700;margin-bottom:8px;">Positions</div>
+            <div style="font-family:'SF Mono','Menlo',Consolas,monospace;font-size:34px;font-weight:900;color:#3b0764;letter-spacing:-1px;">${baseElection.positions.length}</div>
+        </div>
+        <div style="flex:1;min-width:120px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1px solid #86efac;border-radius:14px;padding:20px;text-align:center;">
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:2px;color:#059669;font-weight:700;margin-bottom:8px;">Candidates</div>
+            <div style="font-family:'SF Mono','Menlo',Consolas,monospace;font-size:34px;font-weight:900;color:#064e3b;letter-spacing:-1px;">${baseElection.positions.reduce((sum, p) => sum + p.candidates.length, 0)}</div>
+        </div>
+    </div>
+
+    <!-- Date Cards -->
+    <div style="display:flex;gap:12px;margin-bottom:36px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:200px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:14px;padding:16px 20px;display:flex;align-items:center;gap:14px;">
+            <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#16a34a,#22c55e);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 3px 10px rgba(22,163,74,0.2);"><span style="font-size:18px;filter:grayscale(0);">🟢</span></div>
+            <div>
+                <div style="font-size:9px;text-transform:uppercase;letter-spacing:2px;color:#15803d;font-weight:700;">Voting Opened</div>
+                <div style="font-size:13px;font-weight:700;color:#0f172a;margin-top:2px;">${startDate}</div>
+            </div>
+        </div>
+        <div style="flex:1;min-width:200px;background:#fef2f2;border:1px solid #fecaca;border-radius:14px;padding:16px 20px;display:flex;align-items:center;gap:14px;">
+            <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#dc2626,#ef4444);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 3px 10px rgba(220,38,38,0.2);"><span style="font-size:18px;filter:grayscale(0);">🔴</span></div>
+            <div>
+                <div style="font-size:9px;text-transform:uppercase;letter-spacing:2px;color:#b91c1c;font-weight:700;">Voting Closed</div>
+                <div style="font-size:13px;font-weight:700;color:#0f172a;margin-top:2px;">${endDate}</div>
+            </div>
+        </div>
+    </div>
+
+    ${winnersSection}
+
+    <!-- Detailed Results -->
+    <div style="margin-bottom:32px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:24px;">
+            <div style="font-size:20px;">📊</div>
+            <h2 style="font-size:17px;font-weight:800;color:#0f172a;margin:0;">Detailed Results by Position</h2>
+        </div>
+        ${positionSections}
+    </div>
+
+    <!-- Certification -->
+    <div style="margin-top:44px;page-break-inside:avoid;border:2px solid #e2e8f0;border-radius:16px;padding:30px 32px;">
+        <h3 style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:#0f172a;margin-bottom:8px;">Certification</h3>
+        <p style="font-size:12px;color:#64748b;margin-bottom:28px;line-height:1.7;">We, the undersigned, do hereby certify that the above results are a true and accurate record of the official canvassing conducted for <strong style="color:#0f172a;">${election.title}</strong> under <strong style="color:#0f172a;">${election.organization}</strong>.</p>
+        <div style="display:flex;gap:36px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:200px;">
+                <div style="border-bottom:2px solid #0f172a;margin-bottom:8px;padding-bottom:44px;"></div>
+                <div style="font-size:11px;font-weight:700;color:#0f172a;">Election Committee Chair</div>
+                <div style="font-size:9px;color:#94a3b8;margin-top:2px;">Signature over printed name</div>
+            </div>
+            <div style="flex:1;min-width:200px;">
+                <div style="border-bottom:2px solid #0f172a;margin-bottom:8px;padding-bottom:44px;"></div>
+                <div style="font-size:11px;font-weight:700;color:#0f172a;">Adviser / Administrator</div>
+                <div style="font-size:9px;color:#94a3b8;margin-top:2px;">Signature over printed name</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div style="margin-top:36px;padding-top:20px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;">
+        <div>
+            <div style="font-size:11px;font-weight:700;color:#0f172a;">SRCS Digital Ecosystem</div>
+            <div style="font-size:10px;color:#94a3b8;margin-top:2px;">This document was electronically generated. Unauthorized alteration is prohibited.</div>
+        </div>
+        <div style="text-align:right;">
+            <div style="font-family:'SF Mono','Menlo',Consolas,monospace;font-size:11px;font-weight:600;color:#0f172a;">${reportDate}</div>
+            <div style="font-family:'SF Mono','Menlo',Consolas,monospace;font-size:10px;color:#94a3b8;">${reportTime}</div>
+        </div>
+    </div>
+
+    <div style="margin-top:16px;padding:12px 18px;background:linear-gradient(90deg,#f8fafc,#f1f5f9);border-radius:10px;border:1px solid #e2e8f0;">
+        <p style="font-size:9px;color:#94a3b8;margin:0;text-align:center;letter-spacing:0.5px;">CONFIDENTIAL — This election report is intended solely for authorized personnel of ${election.organization}. Redistribution or modification without permission is strictly prohibited.</p>
+    </div>
+
+    </div>
+</div>
+</body></html>`;
+
+            // --- Direct PDF export via html2pdf.js ---
+// --- Direct PDF export via html2pdf.js ---
+            const loadHtml2Pdf = () => {
+                return new Promise((resolve, reject) => {
+                    if (window.html2pdf) return resolve(window.html2pdf);
+                    const script = document.createElement('script');
+                    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js';
+                    script.onload = () => resolve(window.html2pdf);
+                    script.onerror = () => reject(new Error('Failed to load html2pdf'));
+                    document.head.appendChild(script);
+                });
+            };
+
+            // Execution logic (No need to wrap this in another exportPdf function)
+            const filename = `${election.title.replace(/[^a-zA-Z0-9]/g, '_')}_Report.pdf`;
+            
+            // Load html2pdf dynamically
+            const html2pdfLib = await loadHtml2Pdf();
+
+            // Configure PDF output settings
+            const opt = {
+                margin: 10,
+                filename: filename,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true, logging: false },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            // Check if the app is running as a compiled APK (Android/iOS)
+            const isNative = Capacitor.isNativePlatform();
+
+            if (isNative) {
+                // 📱 NATIVE (APK): Generate base64 and save directly to device storage
+                const pdfBase64 = await html2pdfLib().set(opt).from(html).outputPdf('datauristring');
+                
+                // Strip the data URI prefix (e.g., "data:application/pdf;base64,")
+                const base64Data = pdfBase64.split(',')[1];
+
+                // Write the file to the Android Documents folder
+                await Filesystem.writeFile({
+                    path: filename,
+                    data: base64Data,
+                    directory: Directory.Documents
+                });
+
+                alert(`Official report successfully saved to your Documents folder as ${filename}`);
+            } else {
+                // 💻 DESKTOP/WEB: Trigger standard browser download
+                await html2pdfLib().set(opt).from(html).save();
+            }
+
+        } catch (err) {
+            console.error('Failed to generate or save PDF:', err);
+            alert("An error occurred while saving the election report.");
+        } finally {
+            setIsGenerating(false);
+        }
+    }; // <-- THIS closes the generateReport function properly!
+
+    return (
+        <div
+            className="w-full font-sans text-slate-900"
+            style={monetTheme.variables}
+        >
+            {/* M3 Container */}
+            <div className="max-w-7xl mx-auto bg-white rounded-none lg:rounded-[28px] shadow-md lg:shadow-xl overflow-hidden min-h-[85vh] border-0 lg:border border-slate-200/50 relative">
+
+                {/* === M3 TOP APP BAR === */}
+                <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100 px-4 md:px-6 py-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 md:gap-4">
+                            <button
+                                onClick={onBack}
+                                className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-slate-100 text-slate-500 transition-colors"
+                            >
+                                <CaretLeft weight="bold" size={20} />
+                            </button>
+
+                            <div>
+                                <h1 className="text-lg md:text-xl font-semibold text-slate-900 tracking-tight leading-tight">
+                                    Official Canvassing
+                                </h1>
+                                <p className="text-xs font-medium text-blue-600 mt-0.5 flex items-center gap-1.5">
+                                    <SealCheck weight="fill" size={14} />
+                                    {election.title}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 md:gap-3">
+                            {/* Generate Report Button - only after finalization */}
+                            {election.status === 'completed' && (
+                                <button
+                                    onClick={generateReport}
+                                    disabled={isGenerating}
+                                    className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-full text-white text-xs font-semibold shadow-md transition-all
+                                    ${isGenerating
+                                            ? 'bg-blue-600/70 cursor-wait'
+                                            : 'bg-blue-600 hover:shadow-lg active:scale-[0.97]'
+                                        }`}
+                                >
+                                    {isGenerating ? (
+                                        <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                        </svg>
+                                    ) : (
+                                        <Printer weight="fill" size={16} />
+                                    )}
+                                    <span className="hidden sm:inline">{isGenerating ? 'Preparing...' : 'Generate Report'}</span>
+                                </button>
+                            )}
+
+                            {/* M3 Status Chip */}
+                            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-semibold
+                         ${election.status === 'completed'
+                                    ? 'bg-emerald-50 border-emerald-200 text-emerald-600'
+                                    : 'bg-rose-50 border-rose-100 text-rose-600'
+                                }`}
+                            >
+                                <div className={`w-2 h-2 rounded-full ${election.status === 'completed' ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'}`} />
+                                <span className="uppercase tracking-wider">
+                                    {election.status === 'completed' ? 'Finalized' : 'Live'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </header>
+
+                {/* === CONTENT === */}
+                <main className="px-4 md:px-6 lg:px-8 py-6 md:py-8 space-y-6 md:space-y-8">
+
+                    {/* M3 Metric Cards */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                        <MetricCard label="Total Returns" value={totalVotesCast.toLocaleString()} icon={Table} colorTheme="emerald" />
+                        <MetricCard label="Positions" value={election.positions.length} icon={ChartBar} colorTheme="purple" />
+                        <div className="col-span-2 bg-amber-50 border border-amber-100 p-4 rounded-[20px] flex items-center justify-between relative overflow-hidden">
+                            <div className="relative z-10">
+                                <div className="text-[10px] font-semibold uppercase tracking-wider text-amber-600 mb-1 opacity-80">Target Electorate</div>
+                                <div className="text-sm font-semibold text-slate-800">
+                                    {election.targetType === 'grade' ? `Grade ${election.targetGrade} Students` : 'Entire Student Body'}
+                                </div>
+                            </div>
+                            <SealCheck size={44} weight="duotone" className="text-amber-500 opacity-20 absolute -right-3 -bottom-3 rotate-12" />
+                        </div>
+                    </div>
+
+                    {/* Tally Cards */}
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 md:gap-6 pb-8 md:pb-12">
+                        {election.positions.map((pos) => {
+                            const posResults = results[pos.title] || {};
+                            const totalVotes = Object.values(posResults).reduce((a, b) => a + b, 0);
+                            const candidates = pos.candidates.sort((a, b) => (posResults[b.name] || 0) - (posResults[a.name] || 0));
+
+                            return (
+                                <OfficialTallyCard
+                                    key={pos.id}
+                                    title={pos.title}
+                                    candidates={candidates}
+                                    posResults={posResults}
+                                    totalVotes={totalVotes}
+                                />
+                            );
+                        })}
+                    </div>
+                </main>
+            </div>
+        </div>
+    );
 };
 
-const MetricCard = ({ label, value, icon: Icon }) => (
-    <div className="bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/5 p-4 rounded-2xl flex items-center justify-between">
-        <div>
-            <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">{label}</div>
-            <div className="text-2xl font-black text-slate-800 dark:text-white">
-                {value}
+// --- M3 METRIC CARD ---
+const MetricCard = ({ label, value, icon: Icon, colorTheme }) => {
+    const themes = {
+        emerald: { bg: 'bg-emerald-50 border-emerald-100', text: 'text-emerald-600', icon: 'text-emerald-500' },
+        purple: { bg: 'bg-purple-50 border-purple-100', text: 'text-purple-600', icon: 'text-purple-500' },
+        default: { bg: 'bg-slate-50 border-slate-200/50', text: 'text-slate-400', icon: 'text-slate-200' }
+    };
+    const theme = themes[colorTheme] || themes.default;
+
+    return (
+        <div className={`${theme.bg} border p-4 rounded-[20px] flex items-center justify-between`}>
+            <div>
+                <div className={`text-[10px] font-semibold uppercase tracking-wider ${theme.text} mb-1 opacity-80`}>{label}</div>
+                <div className="text-2xl font-bold text-slate-800 tabular-nums">
+                    {value}
+                </div>
+            </div>
+            <div className={theme.icon}>
+                <Icon size={32} weight="duotone" />
             </div>
         </div>
-        <div className="text-slate-300 dark:text-white/10">
-            <Icon size={32} weight="duotone" />
-        </div>
-    </div>
-);
+    );
+};
 
+// --- M3 TALLY CARD ---
 const OfficialTallyCard = ({ title, candidates, posResults, totalVotes }) => {
     return (
-        <div className="bg-white dark:bg-[#1A1C24] border border-slate-200 dark:border-white/5 rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-            <div className="relative bg-slate-50 dark:bg-white/[0.02] border-b border-slate-200 dark:border-white/5 px-6 py-5 flex justify-between items-center overflow-hidden">
-                <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[var(--monet-primary)]" />
-                <div className="pl-3">
-                    <h3 className="text-sm font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
-                        {title}
-                    </h3>
-                </div>
-                <div className="text-[10px] font-mono font-medium text-slate-400 bg-white dark:bg-white/5 px-2 py-1 rounded border border-slate-200 dark:border-white/5">
-                    <span className="text-slate-900 dark:text-white font-bold">{totalVotes}</span> VOTES
+        <div className="bg-white border border-slate-200/50 rounded-[20px] overflow-hidden hover:shadow-md transition-shadow">
+            {/* M3 Header */}
+            <div className="bg-slate-50 border-b border-slate-200/50 px-5 md:px-6 py-4 flex justify-between items-center">
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-700">
+                    {title}
+                </h3>
+                <div className="text-[10px] font-mono font-medium text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200/50">
+                    <span className="text-slate-900 font-semibold">{totalVotes}</span> votes
                 </div>
             </div>
 
-            <div className="grid grid-cols-12 px-6 py-2.5 bg-slate-50/80 dark:bg-black/20 border-b border-slate-100 dark:border-white/5 text-[9px] font-bold uppercase tracking-wider text-slate-400">
+            {/* Table Header */}
+            <div className="grid grid-cols-12 px-5 md:px-6 py-2.5 border-b border-slate-100 text-[9px] font-semibold uppercase tracking-wider text-slate-400">
                 <div className="col-span-1 text-center">#</div>
                 <div className="col-span-6 pl-2">Candidate</div>
                 <div className="col-span-5 text-right">Count</div>
             </div>
 
-            <div className="p-0">
+            {/* Table Rows */}
+            <div>
                 <LayoutGroup>
                     <AnimatePresence>
                         {candidates.map((cand, idx) => {
                             const votes = posResults[cand.name] || 0;
                             const percent = totalVotes === 0 ? 0 : ((votes / totalVotes) * 100).toFixed(1);
-                            const isWinner = idx === 0 && votes > 0;
-                            const isRunnerUp = idx === 1;
+
+                            // Find the max votes for this position
+                            const maxVotes = candidates.length > 0 ? (posResults[candidates[0].name] || 0) : 0;
+                            // Check if this candidate has the max votes
+                            const hasMaxVotes = votes === maxVotes && votes > 0;
+                            // Check if there are multiple candidates with max votes
+                            const isTied = hasMaxVotes && candidates.filter(c => (posResults[c.name] || 0) === maxVotes).length > 1;
+
+                            const isWinner = hasMaxVotes && !isTied;
+                            const isTopResult = hasMaxVotes; // For general styling
+                            const isRunnerUp = idx === 1 && !hasMaxVotes;
 
                             return (
-                                <motion.div 
+                                <motion.div
                                     layout
                                     key={cand.id}
                                     initial={{ opacity: 0 }}
                                     animate={{ opacity: 1 }}
                                     transition={{ type: "spring", stiffness: 500, damping: 40 }}
                                     className={`
-                                        relative grid grid-cols-12 items-center px-6 py-4 border-b border-slate-100 dark:border-white/[0.03] last:border-0
-                                        ${isWinner ? 'bg-[var(--monet-primary)]/5' : 'bg-transparent'}
+                                        relative grid grid-cols-12 items-center px-5 md:px-6 py-4 border-b border-slate-100 last:border-0
+                                        ${isTopResult ? (isTied ? 'bg-amber-600/[0.04]' : 'bg-blue-600/[0.04]') : 'bg-transparent'}
                                     `}
                                 >
+                                    {/* Rank */}
                                     <div className="col-span-1 flex justify-center">
                                         <div className={`
-                                            w-6 h-6 rounded flex items-center justify-center text-xs font-bold transition-colors duration-500
-                                            ${isWinner ? 'bg-[var(--monet-primary)] text-white shadow-md' : 
-                                              isRunnerUp ? 'bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-300' : 
-                                              'text-slate-400'}
+                                            w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition-colors
+                                            ${isTopResult ? (isTied ? 'bg-amber-500 text-white shadow-sm' : 'bg-blue-600 text-white shadow-sm') :
+                                                isRunnerUp ? 'bg-slate-100 text-slate-600' :
+                                                    'text-slate-400'}
                                         `}>
                                             {idx + 1}
                                         </div>
                                     </div>
 
-                                    <div className="col-span-6 pl-4 flex items-center gap-3 relative z-10">
-                                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-[10px] font-bold shadow-sm ${stringToColor(cand.name)}`}>
+                                    {/* Candidate Info */}
+                                    <div className="col-span-6 pl-3 md:pl-4 flex items-center gap-3 relative z-10">
+                                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-[10px] font-bold ${stringToColor(cand.name)}`}>
                                             {getInitials(cand.name)}
                                         </div>
                                         <div>
-                                            <h4 className={`text-sm font-bold leading-tight ${isWinner ? 'text-[var(--monet-primary)]' : 'text-slate-700 dark:text-slate-300'}`}>
+                                            <h4 className={`text-sm font-semibold leading-tight ${isTopResult ? (isTied ? 'text-amber-600' : 'text-blue-600') : 'text-slate-700'}`}>
                                                 {cand.name}
                                             </h4>
                                             {isWinner && (
-                                                <div className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-[var(--monet-primary)] mt-0.5 opacity-80">
-                                                    <SealCheck weight="fill" /> Leading
+                                                <div className="flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider text-blue-600 mt-0.5 opacity-80">
+                                                    <SealCheck weight="fill" size={12} /> Leading
+                                                </div>
+                                            )}
+                                            {isTied && (
+                                                <div className="flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider text-amber-600 mt-0.5 opacity-80">
+                                                    <SealCheck weight="fill" size={12} /> Tied
                                                 </div>
                                             )}
                                         </div>
                                     </div>
 
+                                    {/* Votes & Bar */}
                                     <div className="col-span-5 relative flex flex-col items-end justify-center">
                                         <div className="flex items-baseline gap-2 mb-1.5 relative z-10">
-                                            <span className={`font-mono font-bold text-sm ${isWinner ? 'text-[var(--monet-primary)]' : 'text-slate-900 dark:text-slate-100'}`}>
+                                            <span className={`font-mono font-semibold text-sm tabular-nums ${isTopResult ? (isTied ? 'text-amber-600' : 'text-blue-600') : 'text-slate-900'}`}>
                                                 {votes.toLocaleString()}
                                             </span>
-                                            <span className="text-[10px] font-medium text-slate-400 w-8 text-right">
+                                            <span className="text-[10px] font-medium text-slate-400 w-8 text-right tabular-nums">
                                                 {percent}%
                                             </span>
                                         </div>
-                                        
-                                        <div className="w-full h-1.5 bg-slate-100 dark:bg-white/10 rounded-full overflow-hidden">
-                                            <motion.div 
+
+                                        <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                                            <motion.div
                                                 initial={{ width: 0 }}
                                                 animate={{ width: `${percent}%` }}
                                                 transition={{ duration: 0.8, ease: "easeOut" }}
-                                                className={`h-full rounded-full ${isWinner ? 'bg-[var(--monet-primary)]' : 'bg-slate-400 dark:bg-slate-500'}`}
+                                                className={`h-full rounded-full ${isTopResult ? (isTied ? 'bg-amber-500' : 'bg-blue-600') : 'bg-slate-300'}`}
                                             />
                                         </div>
                                     </div>
-
-                                    {isWinner && (
-                                        <div 
-                                            className="absolute inset-0 opacity-10 pointer-events-none"
-                                            style={{ background: 'linear-gradient(90deg, transparent, var(--monet-primary))' }}
-                                        />
-                                    )}
                                 </motion.div>
                             );
                         })}
                     </AnimatePresence>
                 </LayoutGroup>
-                
+
                 {candidates.length === 0 && (
                     <div className="py-8 text-center text-slate-400 text-xs uppercase tracking-wider">
                         No Data Received

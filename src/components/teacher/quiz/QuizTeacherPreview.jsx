@@ -1,12 +1,18 @@
-// src/components/teacher/dashboard/widgets/QuizTeacherPreview.jsx
 import React from 'react';
 import { useQuiz } from '../ViewQuizModal';
 import ContentRenderer from '../ContentRenderer'; 
-import { CheckCircleIcon, InformationCircleIcon, ListBulletIcon, KeyIcon } from '@heroicons/react/24/solid';
+import { 
+    CheckCircleIcon, 
+    InformationCircleIcon, 
+    ListBulletIcon, 
+    KeyIcon,
+    SparklesIcon
+} from '@heroicons/react/24/solid';
+import { ArrowRightIcon, PhotoIcon } from '@heroicons/react/24/outline';
 
 /**
- * macOS 26 Design Overhaul - Cleaner Layout
- * Removes "Q1" badge and "Question X" title for a more direct view.
+ * Android 17 Material You Design Overhaul
+ * Features: Tonal Surfaces, Deep Radii, High-Contrast Text, Solid Color Fills
  */
 export default function QuizTeacherPreview() {
     const { 
@@ -17,195 +23,142 @@ export default function QuizTeacherPreview() {
 
     const q = shuffledQuestions[currentQ];
 
-    // --- Shared Styles ---
-    const GlassCard = ({ children, className = "" }) => (
-        <div className={`relative p-6 sm:p-8 rounded-[32px] 
-            bg-white/60 dark:bg-black/40 
-            backdrop-blur-2xl 
-            border border-white/40 dark:border-white/10 
-            shadow-2xl shadow-black/5 dark:shadow-black/50 
-            transition-all duration-500 ease-out ${className}`}>
-            {children}
-        </div>
+    if (!q) return null;
+
+    // --- Material You Shared Components ---
+    const MaterialCard = ({ children, className = "" }) => (
+        <div className={`relative p-6 sm:p-8 rounded-[32px] \n            bg-[#F0F4F8] dark:bg-[#1E1E1E] \n            text-[#1A1C1E] dark:text-[#E3E2E6]\n            transition-all duration-500 ease-[cubic-bezier(0.2,0,0,1)] ${className}`}>\n            {children}\n        </div>
     );
 
-    const AnswerKeyContainer = ({ children, title = "Correct Answer" }) => (
-        <div className="mt-6 pt-6 border-t border-gray-200/50 dark:border-white/10 animate-in fade-in slide-in-from-bottom-2">
-            <div className="flex items-center gap-2 mb-3 text-xs font-bold uppercase tracking-widest text-green-600 dark:text-green-400">
-                <KeyIcon className="h-4 w-4" />
-                {title}
+    const AnswerTonalCard = ({ children, title = "Correct Answer", icon: Icon = KeyIcon }) => (
+        <div className="mt-6 p-5 sm:p-6 bg-white dark:bg-[#2D3033] rounded-[28px] shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <div className="flex items-center gap-2.5 mb-4 text-[12px] font-bold text-[#1B5E20] dark:text-[#A5D6A7] uppercase tracking-widest">
+                <Icon className="h-5 w-5" />
+                <span>{title}</span>
             </div>
-            <div className="space-y-2">
+            <div className="text-[15px] sm:text-[16px] font-semibold text-[#1A1C1E] dark:text-[#E3E2E6]">
                 {children}
             </div>
         </div>
     );
 
-    if (!q) {
-        return (
-            <GlassCard>
-                <div className="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-gray-500">
-                    <ListBulletIcon className="h-12 w-12 mb-3 opacity-20" />
-                    <p className="font-medium">This quiz currently has no questions.</p>
-                </div>
-            </GlassCard>
-        );
-    }
-
     return (
-        <GlassCard>
-            {/* --- Question Header (Cleaner) --- */}
-            <div className="mb-6">
-                <div className="flex items-start justify-between gap-4">
-                    {/* Question Text as main header */}
-                    <div className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white leading-snug flex-1">
-                        <ContentRenderer text={q.text || q.question || "Question Text Missing"} />
-                    </div>
-                    
-                    {/* Points Pill */}
-                    <div className="flex-shrink-0 inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300 border border-blue-100 dark:border-blue-500/20 uppercase tracking-wide mt-1">
-                        {q.points || 0} Point{(q.points || 0) !== 1 && 's'}
-                    </div>
-                </div>
+        <MaterialCard>
+            {/* Header Badges */}
+            <div className="flex flex-wrap items-center gap-3 mb-6">
+                <span className="inline-flex items-center px-4 py-1.5 rounded-full bg-[#D3E3FD] dark:bg-[#004A77] text-[#001C38] dark:text-[#D3E3FD] text-[12px] font-bold uppercase tracking-widest">
+                    {q.type.replace('-', ' ')}
+                </span>
+                <span className="inline-flex items-center px-4 py-1.5 rounded-full bg-[#E1E6EB] dark:bg-[#44474A] text-[#1A1C1E] dark:text-[#E3E2E6] text-[12px] font-bold uppercase tracking-widest">
+                    {q.points || 1} Pts
+                </span>
             </div>
 
-            {/* --- Answer Display Section --- */}
-            <div className="pl-0"> 
+            {/* Question Content */}
+            <div className="text-[18px] sm:text-[22px] font-medium leading-relaxed text-[#1A1C1E] dark:text-[#E3E2E6]">
+                <ContentRenderer text={q.question || q.text || "No question text provided."} />
+            </div>
+
+            {/* Answer Display Section */}
+            <div className="mt-8 space-y-4">
                 
-                {/* Multiple Choice Options */}
-                {q.type === 'multiple-choice' && (
-                    <div className="space-y-3">
-                        {(q.options || []).map((option, idx) => {
-                            const isCorrect = idx === q.correctAnswerIndex;
-                            return (
-                                <div 
-                                    key={idx} 
-                                    className={`flex items-center p-4 rounded-2xl border transition-all duration-300 ${
-                                        isCorrect 
-                                        ? 'bg-green-50/80 dark:bg-green-900/20 border-green-200 dark:border-green-500/30 shadow-sm' 
-                                        : 'bg-white/40 dark:bg-white/5 border-transparent hover:bg-white/60 dark:hover:bg-white/10'
-                                    }`}
-                                >
-                                    <div className={`h-6 w-6 mr-4 flex-shrink-0 rounded-full border-2 flex items-center justify-center transition-colors ${
-                                        isCorrect 
-                                        ? 'border-green-500 bg-green-500 text-white' 
-                                        : 'border-slate-300 dark:border-slate-600'
-                                    }`}>
-                                        {isCorrect && <CheckCircleIcon className="h-4 w-4" />}
+                {/* 1. Multiple Choice / Identification / Exact Answer */}
+                {(q.type === 'multiple-choice' || q.type === 'identification' || q.type === 'exactAnswer') && (
+                    <AnswerTonalCard icon={CheckCircleIcon}>
+                        {q.type === 'multiple-choice' && typeof q.correctAnswerIndex !== 'undefined' 
+                            ? <ContentRenderer text={q.options[q.correctAnswerIndex]?.text || q.options[q.correctAnswerIndex]} /> 
+                            : <ContentRenderer text={String(q.correctAnswer)} />
+                        }
+                    </AnswerTonalCard>
+                )}
+
+                {/* 2. True / False */}
+                {q.type === 'true-false' && (
+                    <AnswerTonalCard icon={CheckCircleIcon}>
+                        {String(q.correctAnswer).toUpperCase()}
+                    </AnswerTonalCard>
+                )}
+
+                {/* 3. Matching Type */}
+                {q.type === 'matching' && q.pairs && (
+                    <AnswerTonalCard title="Correct Matches">
+                        <div className="space-y-3 mt-2">
+                            {q.pairs.map((pair, i) => (
+                                <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 rounded-[20px] bg-[#F0F4F8] dark:bg-[#1E1E1E]">
+                                    <div className="flex-1 text-[14px] font-medium text-[#1A1C1E] dark:text-[#E3E2E6]">
+                                        <ContentRenderer text={pair.premise} />
                                     </div>
-                                    <div className={`font-medium text-sm sm:text-base ${isCorrect ? 'text-green-800 dark:text-green-100' : 'text-slate-700 dark:text-slate-300'}`}>
-                                        <ContentRenderer text={option.text || option || `Option ${idx+1} Missing`} />
+                                    <div className="hidden sm:flex h-8 w-8 items-center justify-center rounded-full bg-white dark:bg-[#2D3033] shadow-sm flex-shrink-0">
+                                        <ArrowRightIcon className="w-4 h-4 text-[#74777F] dark:text-[#8E9099]" />
+                                    </div>
+                                    <div className="flex-1 text-[14px] font-bold text-[#005AC1] dark:text-[#A8C7FA]">
+                                        <ContentRenderer text={pair.answer} />
                                     </div>
                                 </div>
-                            );
-                        })}
-                    </div>
-                )}
-
-                {/* Identification Answer */}
-                {q.type === 'identification' && (
-                    <AnswerKeyContainer>
-                        <div className="p-4 rounded-2xl bg-green-50/80 dark:bg-green-900/20 border border-green-200 dark:border-green-500/30 text-green-800 dark:text-green-100 font-bold text-lg flex items-center gap-3 shadow-sm">
-                            <CheckCircleIcon className="h-6 w-6 text-green-500" />
-                            <ContentRenderer text={q.correctAnswer || 'N/A'} />
+                            ))}
                         </div>
-                    </AnswerKeyContainer>
+                    </AnswerTonalCard>
                 )}
 
-                {/* True/False Answer */}
-                {q.type === 'true-false' && (
-                    <AnswerKeyContainer>
-                        <div className="flex gap-3">
-                            {[true, false].map((val) => {
-                                const isCorrect = q.correctAnswer === val;
-                                return (
-                                    <div key={String(val)} className={`flex-1 p-5 rounded-2xl border text-center font-bold transition-all ${
-                                        isCorrect 
-                                        ? 'bg-green-50/80 dark:bg-green-900/20 border-green-200 dark:border-green-500/30 text-green-700 dark:text-green-300 shadow-sm ring-1 ring-green-500/20' 
-                                        : 'bg-slate-50/50 dark:bg-white/5 border-transparent text-slate-400 dark:text-slate-600'
-                                    }`}>
-                                        <div className="text-lg mb-1">
-                                            {quiz.language === 'Filipino' ? (val ? 'Tama' : 'Mali') : (val ? 'True' : 'False')}
-                                        </div>
-                                        {isCorrect && (
-                                            <div className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-green-600 dark:text-green-400 bg-white/50 dark:bg-black/20 px-2 py-0.5 rounded-full">
-                                                <CheckCircleIcon className="h-3 w-3" /> Correct
-                                            </div>
-                                        )}
+                {/* 4. Image Labeling */}
+                {q.type === 'image-labeling' && q.parts && (
+                    <AnswerTonalCard title="Diagram Labels" icon={PhotoIcon}>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+                            {q.parts.map((part, i) => (
+                                <div key={i} className="flex items-center gap-4 p-3.5 rounded-[20px] bg-[#F0F4F8] dark:bg-[#1E1E1E]">
+                                    <div className="w-8 h-8 rounded-full bg-[#D3E3FD] dark:bg-[#004A77] text-[#001C38] dark:text-[#D3E3FD] flex items-center justify-center text-[13px] font-bold flex-shrink-0">
+                                        {part.number || i + 1}
                                     </div>
-                                );
-                            })}
-                        </div>
-                    </AnswerKeyContainer>
-                )}
-
-                {/* Matching Pairs */}
-                {q.type === 'matching-type' && (
-                    <AnswerKeyContainer title="Correct Matches">
-                        <div className="grid gap-3">
-                            {(q.prompts || []).map(prompt => {
-                                const correctOption = (q.options || []).find(opt => q.correctPairs && opt.id === q.correctPairs[prompt.id]);
-                                return (
-                                    <div key={prompt.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl bg-slate-50/50 dark:bg-white/5 border border-slate-100 dark:border-white/5">
-                                        <span className="font-bold text-slate-700 dark:text-slate-200 px-1">{prompt.text}</span>
-                                        
-                                        <div className="hidden sm:block flex-1 mx-4 border-b border-slate-200 dark:border-white/10 border-dashed h-0"></div>
-                                        
-                                        <div className="flex items-center gap-2 mt-2 sm:mt-0 bg-green-100 dark:bg-green-900/30 px-3 py-1.5 rounded-lg text-green-700 dark:text-green-300 border border-green-200 dark:border-green-500/20 shadow-sm">
-                                            <CheckCircleIcon className="h-4 w-4 text-green-600 dark:text-green-400" />
-                                            <span className="font-bold text-sm">
-                                                {correctOption?.text || 'Missing Option'}
-                                            </span>
-                                        </div>
+                                    <div className="text-[15px] font-semibold text-[#1A1C1E] dark:text-[#E3E2E6]">
+                                        {part.answer}
                                     </div>
-                                );
-                            })}
+                                </div>
+                            ))}
                         </div>
-                    </AnswerKeyContainer>
+                    </AnswerTonalCard>
                 )}
 
-                {/* Essay Rubric */}
-                {q.type === 'essay' && (
-                    <div className="mt-8 pt-6 border-t border-slate-200/50 dark:border-white/10">
-                        <div className="flex items-center gap-2 mb-4 text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400">
-                            <ListBulletIcon className="h-4 w-4" /> Grading Rubric
+                {/* 5. Essay / Rubric */}
+                {q.type === 'essay' && q.rubric && (
+                    <div className="mt-6 p-5 sm:p-6 bg-white dark:bg-[#2D3033] rounded-[28px] shadow-sm">
+                        <div className="flex items-center gap-2 mb-4 text-[12px] font-bold text-[#005AC1] dark:text-[#A8C7FA] uppercase tracking-widest">
+                            <SparklesIcon className="h-5 w-5" />
+                            <span>Grading Rubric</span>
                         </div>
-                        <div className="bg-slate-50/50 dark:bg-black/20 rounded-2xl border border-slate-200/50 dark:border-white/5 overflow-hidden">
-                            <table className="w-full text-left text-sm">
-                                <thead className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase bg-slate-100/50 dark:bg-white/5 border-b border-slate-200/50 dark:border-white/5">
-                                    <tr>
-                                        <th className="px-6 py-3">Criteria</th>
-                                        <th className="px-6 py-3 text-right">Points</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-                                    {(q.rubric || []).map(item => (
-                                        <tr key={item.id || item.criteria} className="group hover:bg-blue-50/30 dark:hover:bg-white/5 transition-colors">
-                                            <td className="px-6 py-4 font-medium text-slate-700 dark:text-slate-200">{item.criteria}</td>
-                                            <td className="px-6 py-4 text-right font-bold text-blue-600 dark:text-blue-400">{item.points}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                        <div className="space-y-3">
+                            {q.rubric.map((item, index) => (
+                                <div key={index} className="flex justify-between items-center p-4 rounded-[20px] bg-[#F0F4F8] dark:bg-[#1E1E1E]">
+                                    <span className="text-[14px] font-medium text-[#1A1C1E] dark:text-[#E3E2E6]">
+                                        {item.criteria}
+                                    </span>
+                                    <span className="text-[14px] font-bold text-[#005AC1] dark:text-[#A8C7FA] bg-[#D3E3FD] dark:bg-[#004A77] px-3 py-1 rounded-full ml-4 flex-shrink-0">
+                                        {item.points} pts
+                                    </span>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 )}
 
-                {/* Explanation Dropdown */}
+                {/* Teacher Explanation Card */}
                 {q.explanation && (
-                    <div className="mt-6 p-5 rounded-2xl bg-amber-50/80 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-500/20 flex gap-4 text-sm shadow-sm">
-                        <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-xl text-amber-600 dark:text-amber-500 h-fit">
-                            <InformationCircleIcon className="h-5 w-5" />
+                    <div className="mt-6 p-5 sm:p-6 rounded-[28px] bg-[#FFF8E1] dark:bg-[#4D4000] flex gap-4 text-sm transition-colors">
+                        <div className="flex-shrink-0 mt-0.5">
+                            <div className="w-10 h-10 rounded-full bg-[#FFE082] dark:bg-[#5C4D00] flex items-center justify-center">
+                                <InformationCircleIcon className="h-6 w-6 text-[#5C4D00] dark:text-[#FFE082]" />
+                            </div>
                         </div>
-                        <div className="text-slate-700 dark:text-slate-300">
-                            <span className="block font-bold text-amber-700 dark:text-amber-500 mb-1 text-xs uppercase tracking-wide">
+                        <div className="text-[#5C4D00] dark:text-[#FFE082]">
+                            <span className="block font-bold mb-1.5 text-[12px] uppercase tracking-widest opacity-80">
                                 Teacher's Explanation
                             </span>
-                            <ContentRenderer text={q.explanation} />
+                            <div className="text-[14px] leading-relaxed font-medium">
+                                <ContentRenderer text={q.explanation} />
+                            </div>
                         </div>
                     </div>
                 )}
             </div>
-        </GlassCard>
+        </MaterialCard>
     );
 }

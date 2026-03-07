@@ -1,3 +1,4 @@
+// src/components/teacher/dashboard/views/components/quiz/quizUtils.js
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Capacitor } from '@capacitor/core';
@@ -29,6 +30,13 @@ const fetchResourceAsBase64 = async (url) => {
     try {
         const res = await fetch(url);
         if (!res.ok) throw new Error(`Failed to fetch ${url}`);
+        
+        // Prevent HTML catch-all from being parsed as a font
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('text/html')) {
+            throw new Error(`Font fetch returned HTML instead of TTF: ${url}`);
+        }
+
         const blob = await res.blob();
         return new Promise((resolve, reject) => {
             const reader = new FileReader();

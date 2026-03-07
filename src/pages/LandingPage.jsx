@@ -284,8 +284,8 @@ const LandingPage = () => {
                             icon={DocumentTextIcon}
                             title="Docu-Vault"
                             desc="Secure storage for all academic resources and files."
-                            fromColor="from-violet-500"
-                            toColor="to-purple-500"
+                            fromColor="from-sky-500"
+                            toColor="to-indigo-500"
                             delay="250ms"
                         />
                     </div>

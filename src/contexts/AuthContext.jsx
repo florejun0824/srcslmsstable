@@ -22,6 +22,7 @@ import {
 
 // ✅ Import the unified firestoreService
 import firestoreService from '../services/firestoreService';
+import { recordLogin, flushSessionTime, clearSession, startHeartbeat, stopHeartbeat } from '../services/sessionTrackingService';
 
 // 🏫 SCHOOL CONFIGURATION (Multi-Tenancy)
 export const SCHOOLS = {
@@ -60,8 +61,8 @@ export const AuthProvider = ({ children }) => {
     []
   );
 
-  // 🔹 MODIFIED: Accept redirectPath, defaulting to '/' (Landing Page)
-  const performLogout = useCallback((redirectPath = '/') => {
+  // 🔹 MODIFIED: Accept redirectPath, defaulting to '/login'
+  const performLogout = useCallback((redirectPath = '/login') => {
     console.log('Performing full logout.');
     setUser(null);
     localStorage.removeItem('loggedInUser');
@@ -79,7 +80,7 @@ export const AuthProvider = ({ children }) => {
       const loggedInUser = localStorage.getItem('loggedInUser');
       if (loggedInUser && loggedInUser !== 'null' && loggedInUser !== 'undefined') {
         const parsedUser = JSON.parse(loggedInUser);
-        
+
         // 🛡️ SAFETY NET: Default to Main School if missing
         if (!parsedUser.schoolId) {
           parsedUser.schoolId = DEFAULT_SCHOOL_ID;
@@ -99,6 +100,20 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  // 📊 Flush session time on page close/refresh
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const sessionUserId = sessionStorage.getItem('srcs_session_user');
+      if (sessionUserId) {
+        // Use sendBeacon-style sync approach: navigator.sendBeacon isn't great for Firestore
+        // Instead we rely on the heartbeat having saved recent data
+        flushSessionTime(sessionUserId).catch(() => { });
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, []);
 
   // 🔹 Session conflict listener + XP-safe sync
@@ -210,8 +225,8 @@ export const AuthProvider = ({ children }) => {
   }, [user?.xp]);
 
 
-  // 🔹 Login
-  const login = useCallback(async (email, password, selectedRole) => {
+  // 🔹 Login — selectedRole is now optional (auto-detect from Firestore)
+  const login = useCallback(async (email, password, selectedRole = null) => {
     setLoading(true);
     try {
       const usersRef = collection(db, 'users');
@@ -223,12 +238,12 @@ export const AuthProvider = ({ children }) => {
 
       const userDoc = querySnapshot.docs[0];
       const rawData = userDoc.data();
-      
+
       // 🛡️ SAFETY NET: Default to Main School if missing
-      const userData = { 
-        id: userDoc.id, 
+      const userData = {
+        id: userDoc.id,
         ...rawData,
-        schoolId: rawData.schoolId || DEFAULT_SCHOOL_ID 
+        schoolId: rawData.schoolId || DEFAULT_SCHOOL_ID
       };
 
       if (!MOCK_PASSWORD_CHECK(password, userData.password)) {
@@ -241,15 +256,23 @@ export const AuthProvider = ({ children }) => {
         );
       }
 
-      const designatedRole = userData.role;
-      if (
-        selectedRole === 'teacher' &&
-        designatedRole !== 'admin' &&
-        designatedRole !== 'teacher'
-      ) {
-        throw new Error(`You are not registered as a teacher.`);
-      } else if (designatedRole !== selectedRole && designatedRole !== 'admin') {
-        throw new Error(`You are not registered as a ${selectedRole}.`);
+      // Role validation — only if selectedRole is explicitly provided (legacy/biometric)
+      if (selectedRole) {
+        const designatedRole = userData.role;
+        if (
+          selectedRole === 'teacher' &&
+          designatedRole !== 'admin' &&
+          designatedRole !== 'teacher'
+        ) {
+          throw new Error(`You are not registered as a teacher.`);
+        } else if (
+          selectedRole === 'student' &&
+          designatedRole !== 'student' &&
+          designatedRole !== 'parent' &&
+          designatedRole !== 'admin'
+        ) {
+          throw new Error(`You are not registered as a student.`);
+        }
       }
 
       const newSessionId =
@@ -258,10 +281,28 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem(`currentSessionId_${userData.id}`, newSessionId);
 
       const userDocRef = doc(db, 'users', userData.id);
-      await updateDoc(userDocRef, { lastSessionId: newSessionId });
+      await updateDoc(userDocRef, {
+        lastSessionId: newSessionId,
+        lastLogin: new Date() // Include the Javascript Date object. Firestore will automatically convert it unless a specific Timestamp is expected. We will use Javascript Date which is compatible.
+      });
 
       setUser(userData);
       localStorage.setItem('loggedInUser', JSON.stringify(userData));
+
+      // Auto-generate parentLinkCode for student accounts that don't have one
+      if (userData.role === 'student' && !userData.parentLinkCode) {
+        firestoreService.generateParentLinkCode(userData.id).catch(err => {
+          console.warn('Failed to auto-generate parentLinkCode:', err);
+        });
+      }
+
+      // 📊 Track login for students and teachers
+      if (userData.role === 'student' || userData.role === 'teacher' || userData.role === 'admin') {
+        recordLogin(userData.id).catch(err => {
+          console.warn('Failed to record login:', err);
+        });
+        startHeartbeat(userData.id);
+      }
     } catch (error) {
       console.error('Login error:', error);
       throw error;
@@ -271,16 +312,22 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   // 🔹 Logout - Modified to accept redirectPath
-  const logout = useCallback(async (redirectPath = '/') => {
+  const logout = useCallback(async (redirectPath = '/login') => {
     if (user && user.id) {
       try {
+        // 📊 Flush session time before logout
+        if (user.role === 'student' || user.role === 'teacher' || user.role === 'admin') {
+          await flushSessionTime(user.id).catch(() => { });
+          stopHeartbeat();
+          clearSession();
+        }
         const userDocRef = doc(db, 'users', user.id);
         await updateDoc(userDocRef, { lastSessionId: null });
       } catch (error) {
-        console.error('Error clearing session ID from Firestore:', error);
+        console.error('Error during logout cleanup:', error);
       }
     }
-    performLogout(redirectPath); // ✅ Pass redirectPath to performLogout
+    performLogout(redirectPath);
   }, [user, performLogout]);
 
   // 🔹 Refresh user profile

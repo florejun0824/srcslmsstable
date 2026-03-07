@@ -69,7 +69,7 @@ const DownloadAccountsModal = ({ groupedUsers, onClose }) => {
 
             // 5. Apply Professional Styling
             const range = XLSX.utils.decode_range(worksheet['!ref']);
-            
+
             // Style Definitions
             const headerStyle = {
                 font: { bold: true, color: { rgb: "FFFFFF" }, name: "Arial", sz: 11 },
@@ -131,7 +131,7 @@ const DownloadAccountsModal = ({ groupedUsers, onClose }) => {
                 if (permStatus.publicStorage !== 'granted') {
                     permStatus = await Filesystem.requestPermissions();
                 }
-                
+
                 if (permStatus.publicStorage !== 'granted') {
                     showToast("Storage permission is required.", "error");
                     setIsExporting(false);
@@ -145,7 +145,7 @@ const DownloadAccountsModal = ({ groupedUsers, onClose }) => {
                     directory: Directory.Documents,
                     recursive: true
                 });
-                
+
                 showToast("File saved to Documents.", "success");
                 await FileOpener.open({
                     filePath: result.uri,
@@ -172,16 +172,16 @@ const DownloadAccountsModal = ({ groupedUsers, onClose }) => {
             {/* --- 1. BACKGROUND & AURORA EFFECTS --- */}
             {/* Dark overlay */}
             <div className="absolute inset-0 bg-black/30 backdrop-blur-sm transition-opacity" onClick={onClose} />
-            
+
             {/* Aurora Blobs (Animated) */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute top-1/3 left-1/4 w-96 h-96 bg-blue-500/20 rounded-full mix-blend-screen filter blur-3xl opacity-40 animate-pulse"></div>
-                <div className="absolute bottom-1/3 right-1/4 w-96 h-96 bg-purple-500/20 rounded-full mix-blend-screen filter blur-3xl opacity-40 animate-pulse delay-1000"></div>
+                <div className="absolute bottom-1/3 right-1/4 w-96 h-96 bg-blue-500/20 rounded-full mix-blend-screen filter blur-3xl opacity-40 animate-pulse delay-1000"></div>
             </div>
 
             {/* --- 2. MODAL CONTAINER --- */}
             <div className="relative w-full max-w-[380px] transform overflow-hidden rounded-[28px] bg-white/70 dark:bg-[#1c1c1e]/80 backdrop-blur-2xl shadow-[0_40px_80px_-12px_rgba(0,0,0,0.3)] ring-1 ring-white/20 dark:ring-white/5 transition-all duration-300 ease-out scale-100 opacity-100">
-                
+
                 {/* Header */}
                 <div className="flex items-center justify-between p-6 pb-2">
                     <div className="flex items-center gap-4">
@@ -198,15 +198,15 @@ const DownloadAccountsModal = ({ groupedUsers, onClose }) => {
                             </p>
                         </div>
                     </div>
-                    
-                    <button 
-                        onClick={onClose} 
+
+                    <button
+                        onClick={onClose}
                         className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100/80 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 text-gray-500 dark:text-gray-400 transition-colors backdrop-blur-sm"
                     >
                         <X size={16} strokeWidth={2.5} />
                     </button>
                 </div>
-                
+
                 {/* Content */}
                 <div className="p-6 pt-4 space-y-5">
                     {/* Role Selector */}
@@ -216,7 +216,7 @@ const DownloadAccountsModal = ({ groupedUsers, onClose }) => {
                         </label>
                         <div className="relative">
                             <select
-                                id="role" 
+                                id="role"
                                 value={selectedRole}
                                 onChange={(e) => setSelectedRole(e.target.value)}
                                 className={glassInput}
@@ -237,7 +237,7 @@ const DownloadAccountsModal = ({ groupedUsers, onClose }) => {
                         </label>
                         <div className="relative">
                             <select
-                                id="gradeLevel" 
+                                id="gradeLevel"
                                 value={selectedGrade}
                                 onChange={(e) => setSelectedGrade(e.target.value)}
                                 className={glassInput}
@@ -252,21 +252,21 @@ const DownloadAccountsModal = ({ groupedUsers, onClose }) => {
 
                 {/* Footer */}
                 <div className="px-6 pb-6 pt-2 flex items-center justify-end gap-3">
-                    <button 
-                        type="button" 
-                        onClick={onClose} 
+                    <button
+                        type="button"
+                        onClick={onClose}
                         className="px-5 py-2.5 text-[15px] font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
                     >
                         Cancel
                     </button>
-                    <button 
-                        type="button" 
-                        onClick={handleDownload} 
+                    <button
+                        type="button"
+                        onClick={handleDownload}
                         disabled={isExporting}
                         className={`
                             relative overflow-hidden px-6 py-2.5 rounded-xl text-white text-[15px] font-semibold shadow-lg shadow-blue-500/25 transition-all duration-200
-                            ${isExporting 
-                                ? 'bg-blue-400 cursor-wait' 
+                            ${isExporting
+                                ? 'bg-blue-400 cursor-wait'
                                 : 'bg-[#007AFF] hover:bg-[#0062CC] active:scale-95'}
                         `}
                     >

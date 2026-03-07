@@ -44,7 +44,7 @@ const getThemeStyles = (overlay) => {
         case 'cyberpunk':
             return {
                 accentBg: 'bg-fuchsia-600',
-                accentGradient: 'from-fuchsia-600 to-purple-700',
+                accentGradient: 'from-fuchsia-600 to-indigo-700',
                 accentText: 'text-fuchsia-500',
                 lightBg: 'bg-fuchsia-50 dark:bg-fuchsia-900/10',
                 border: 'border-fuchsia-200 dark:border-fuchsia-900',

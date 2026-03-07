@@ -21,7 +21,7 @@ const PRIMARY_CONFIGS = [
         service: 'openrouter', 
         url: `${API_BASE}/api/openrouter`, 
         name: 'Gemini 3 Pro)',
-        model: 'google/gemini-2.5-flash-lite',
+        model: 'arcee-ai/trinity-large-preview:free',
         tier: 'primary' // <--- Forces backend to use Key #1
     },
 ];
@@ -32,28 +32,28 @@ const FALLBACK_CONFIGS = [
       service: 'openrouter', 
       url: `${API_BASE}/api/openrouter`, 
       name: 'Hermes 3 Backup 1', 
-      model: 'openai/gpt-oss-120b:free', // Correct OpenRouter Model ID
+      model: 'arcee-ai/trinity-large-preview:free', // Correct OpenRouter Model ID
       tier: 'backup' // <--- Forces backend to use Keys #2-5
   },
   { 
       service: 'openrouter', 
       url: `${API_BASE}/api/openrouter`, 
       name: 'Hermes 3 Backup 2', 
-      model: 'openai/gpt-oss-120b:free',
+      model: 'arcee-ai/trinity-large-preview:free',
       tier: 'backup'
   },
   { 
       service: 'openrouter', 
       url: `${API_BASE}/api/openrouter`, 
       name: 'Hermes Backup 3', 
-      model: 'openai/gpt-oss-120b:free',
+      model: 'arcee-ai/trinity-large-preview:free',
       tier: 'backup'
   },
   { 
       service: 'openrouter', 
       url: `${API_BASE}/api/openrouter`, 
       name: 'Meta LLama Backup 4', 
-      model: 'openai/gpt-oss-120b:free',
+      model: 'arcee-ai/trinity-large-preview:free',
       tier: 'backup'
   },
 ];

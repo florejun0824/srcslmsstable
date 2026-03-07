@@ -73,8 +73,8 @@ const GeminiBeacon = memo(({ onClick }) => (
         onClick={onClick}
         className="relative w-16 h-16 flex items-center justify-center group/beacon"
     >
-        <div className="absolute inset-0 rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-20 animate-ping" />
-        <div className="absolute inset-2 rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-10 animate-ping delay-75" />
+        <div className="absolute inset-0 rounded-full bg-gradient-to-r from-indigo-500 via-indigo-500 to-pink-500 opacity-20 animate-ping" />
+        <div className="absolute inset-2 rounded-full bg-gradient-to-r from-indigo-500 via-indigo-500 to-pink-500 opacity-10 animate-ping delay-75" />
         <div className="relative w-12 h-12 bg-white/10 backdrop-blur-md rounded-full border border-white/20 flex items-center justify-center shadow-[0_0_15px_rgba(168,85,247,0.4)]">
             <svg viewBox="0 0 24 24" className="w-6 h-6 animate-pulse" style={{ filter: 'drop-shadow(0 0 4px rgba(255,255,255,0.5))' }}>
                 <defs>
@@ -185,7 +185,7 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
                             />
                         ) : (
                             <div className="w-full h-full relative overflow-hidden bg-slate-900">
-                                <div className="absolute inset-0 bg-gradient-to-br from-indigo-900 via-purple-900 to-black" />
+                                <div className="absolute inset-0 bg-gradient-to-br from-indigo-900 via-indigo-900 to-black" />
                                 <div className="absolute top-1/2 left-1/2 w-[300px] h-[300px] sm:w-[500px] sm:h-[500px] bg-[var(--monet-accent)] rounded-full mix-blend-overlay blur-[100px] sm:blur-[150px] opacity-40 animate-pulse" />
                             </div>
                         )}
@@ -207,7 +207,7 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
                                     </div>
                                 </div>
                                 <div className="flex flex-col relative pl-4">
-                                    <div className="absolute left-0 top-1 bottom-1 w-1 bg-gradient-to-b from-[var(--monet-accent)] to-purple-500 rounded-full shadow-[0_0_10px_var(--monet-accent)]" />
+                                    <div className="absolute left-0 top-1 bottom-1 w-1 bg-gradient-to-b from-[var(--monet-accent)] to-indigo-500 rounded-full shadow-[0_0_10px_var(--monet-accent)]" />
                                     <span className="text-xs font-bold text-white/80 uppercase tracking-[0.2em] mb-0.5 drop-shadow-md">{greeting},</span>
                                     <span className="text-3xl font-serif italic font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-indigo-200 to-indigo-400 leading-tight drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">
                                         {userProfile?.firstName || 'Educator'}
@@ -254,7 +254,7 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
                                             {bannerSettings.message && <p className="text-sm text-white/70 leading-relaxed font-medium">{bannerSettings.message}</p>}
                                         </div>
                                         {bannerSettings.linkUrl && (
-                                            <button onClick={handleLinkClick} className="mt-2 w-full py-3.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl font-bold text-sm hover:scale-[1.02] transition-transform flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20">
+                                            <button onClick={handleLinkClick} className="mt-2 w-full py-3.5 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white rounded-xl font-bold text-sm hover:scale-[1.02] transition-transform flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20">
                                                 {bannerSettings.linkLabel || "Explore Content"}
                                                 <ArrowUpRight className="w-4 h-4" />
                                             </button>
@@ -344,7 +344,7 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
                          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-30 mix-blend-overlay z-10" />
                          <div className="absolute top-[-50%] left-[-50%] w-[150%] h-[150%] animate-spin-slow opacity-30 pointer-events-none">
                             <div className="absolute top-[20%] left-[30%] w-[50%] h-[50%] bg-[var(--monet-accent)] rounded-full mix-blend-multiply filter blur-[80px] animate-blob" />
-                            <div className="absolute top-[20%] right-[30%] w-[50%] h-[50%] bg-purple-300 dark:bg-purple-900 rounded-full mix-blend-multiply filter blur-[80px] animate-blob animation-delay-2000" />
+                            <div className="absolute top-[20%] right-[30%] w-[50%] h-[50%] bg-indigo-300 dark:bg-indigo-900 rounded-full mix-blend-multiply filter blur-[80px] animate-blob animation-delay-2000" />
                             <div className="absolute bottom-[20%] left-[40%] w-[50%] h-[50%] bg-pink-300 dark:bg-pink-900 rounded-full mix-blend-multiply filter blur-[80px] animate-blob animation-delay-4000" />
                          </div>
                          

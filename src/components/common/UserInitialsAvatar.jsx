@@ -13,7 +13,7 @@ import React from 'react';
 const gradientColors = [
   'from-blue-400 to-sky-500',
   'from-green-400 to-emerald-500',
-  'from-purple-500 to-violet-500',
+  'from-indigo-500 to-sky-500',
   'from-amber-400 to-orange-500',
   'from-rose-400 to-red-500',
   'from-indigo-400 to-blue-500',

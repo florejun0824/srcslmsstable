@@ -31,24 +31,24 @@ const EditPasswordModal = ({ user, onSubmit, onClose }) => {
 
   const modalVariants = {
     hidden: { opacity: 0, scale: 0.92, y: 30 },
-    visible: { 
-      opacity: 1, 
-      scale: 1, 
-      y: 0, 
-      transition: { type: "spring", damping: 28, stiffness: 350, mass: 0.8 } 
+    visible: {
+      opacity: 1,
+      scale: 1,
+      y: 0,
+      transition: { type: "spring", damping: 28, stiffness: 350, mass: 0.8 }
     },
-    exit: { 
-      opacity: 0, 
-      scale: 0.95, 
-      y: 20, 
-      transition: { duration: 0.2, ease: "easeIn" } 
+    exit: {
+      opacity: 0,
+      scale: 0.95,
+      y: 20,
+      transition: { duration: 0.2, ease: "easeIn" }
     }
   };
 
   return createPortal(
     <AnimatePresence>
       <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 font-sans">
-        
+
         {/* Optimized Backdrop */}
         <motion.div
           variants={backdropVariants}
@@ -60,7 +60,7 @@ const EditPasswordModal = ({ user, onSubmit, onClose }) => {
         />
 
         {/* Modal Container */}
-        <motion.div 
+        <motion.div
           variants={modalVariants}
           initial="hidden"
           animate="visible"
@@ -70,17 +70,17 @@ const EditPasswordModal = ({ user, onSubmit, onClose }) => {
           {/* Header */}
           <div className="flex items-center justify-between px-8 py-6 border-b border-black/5 dark:border-white/5">
             <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-sm border border-indigo-100 dark:border-white/5">
-                    <ShieldCheck className="w-6 h-6 stroke-[2.5]" />
-                </div>
-                <div>
-                    <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight leading-none">
-                        Security
-                    </h2>
-                    <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide mt-1">
-                        Update Password
-                    </p>
-                </div>
+              <div className="w-12 h-12 rounded-full bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400 shadow-sm border border-blue-100 dark:border-white/5">
+                <ShieldCheck className="w-6 h-6 stroke-[2.5]" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight leading-none">
+                  Security
+                </h2>
+                <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide mt-1">
+                  Update Password
+                </p>
+              </div>
             </div>
             <button
               onClick={onClose}
@@ -100,40 +100,40 @@ const EditPasswordModal = ({ user, onSubmit, onClose }) => {
               <div className="space-y-3">
                 <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide ml-1">New Credential</label>
                 <div className="relative group">
-                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-indigo-500 transition-colors pointer-events-none" />
-                    <input
-                        type={showPassword ? 'text' : 'password'}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="••••••••"
-                        required
-                        className="w-full pl-12 pr-12 py-3.5 rounded-[1.2rem] bg-slate-100 dark:bg-black/20 border-2 border-transparent focus:bg-white dark:focus:bg-black/40 focus:border-indigo-500/30 text-sm font-bold text-slate-900 dark:text-white placeholder-slate-400 outline-none transition-all"
-                    />
-                    <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute inset-y-0 right-4 flex items-center text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-                    >
-                        {showPassword ? <EyeOff size={20} strokeWidth={2} /> : <Eye size={20} strokeWidth={2} />}
-                    </button>
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-blue-500 transition-colors pointer-events-none" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    className="w-full pl-12 pr-12 py-3.5 rounded-[1.2rem] bg-slate-100 dark:bg-black/20 border-2 border-transparent focus:bg-white dark:focus:bg-black/40 focus:border-blue-500/30 text-sm font-bold text-slate-900 dark:text-white placeholder-slate-400 outline-none transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-4 flex items-center text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                  >
+                    {showPassword ? <EyeOff size={20} strokeWidth={2} /> : <Eye size={20} strokeWidth={2} />}
+                  </button>
                 </div>
               </div>
 
               {/* Actions */}
               <div className="flex justify-end gap-3 pt-4 border-t border-black/5 dark:border-white/5">
                 <button
-                    type="button"
-                    onClick={onClose}
-                    className="px-8 py-3.5 rounded-[1.2rem] font-bold text-sm text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 transition-all active:scale-95"
+                  type="button"
+                  onClick={onClose}
+                  className="px-8 py-3.5 rounded-[1.2rem] font-bold text-sm text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 transition-all active:scale-95"
                 >
-                    Cancel
+                  Cancel
                 </button>
                 <button
-                    type="submit"
-                    disabled={!password}
-                    className="px-8 py-3.5 rounded-[1.2rem] font-bold text-sm text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/30 active:scale-95 transition-all disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed flex items-center gap-2"
+                  type="submit"
+                  disabled={!password}
+                  className="px-8 py-3.5 rounded-[1.2rem] font-bold text-sm text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/30 active:scale-95 transition-all disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed flex items-center gap-2"
                 >
-                    Update Key
+                  Update Key
                 </button>
               </div>
             </form>

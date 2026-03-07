@@ -173,7 +173,7 @@ const StudentLessonsAndQuizzesTab = () => {
                 <div key={`${item.id}-${index}`} className="bg-white/80 backdrop-blur-sm p-4 rounded-xl shadow-md mb-4 border border-white/50">
                     <div className="flex justify-between items-start">
                         <div>
-                            <p className={`font-bold text-lg ${item.type === 'quiz' ? 'text-purple-700' : 'text-blue-700'}`}>{item.title}</p>
+                            <p className={`font-bold text-lg ${item.type === 'quiz' ? 'text-indigo-700' : 'text-blue-700'}`}>{item.title}</p>
                             <p className="text-sm text-gray-600">{item.courseTitle} / {item.unitTitle || item.lessonTitle}</p>
                             <p className="text-xs text-gray-500">Class: {item.className}</p>
                         </div>
@@ -182,7 +182,7 @@ const StudentLessonsAndQuizzesTab = () => {
                         ) : (
                             <button 
                                 onClick={() => setActiveQuiz({...item, isLate: item.isOverdue})} 
-                                className={`px-4 py-2 rounded-lg text-sm shadow transition ${maxAttemptsReached ? 'bg-gray-400 text-white cursor-not-allowed' : 'bg-purple-500 text-white hover:bg-purple-600'}`}
+                                className={`px-4 py-2 rounded-lg text-sm shadow transition ${maxAttemptsReached ? 'bg-gray-400 text-white cursor-not-allowed' : 'bg-indigo-500 text-white hover:bg-indigo-600'}`}
                                 disabled={maxAttemptsReached}
                             >
                                 {maxAttemptsReached ? 'Completed' : 'Take Quiz'} ({attempts}/3)

@@ -9,11 +9,11 @@ const getThemeColors = (activeOverlay) => {
         case 'valentines': return ['bg-rose-500', 'bg-pink-500', 'bg-red-400'];
         case 'graduation': return ['bg-amber-400', 'bg-yellow-600', 'bg-orange-300'];
         case 'rainy': return ['bg-teal-600', 'bg-cyan-600', 'bg-slate-500'];
-        case 'cyberpunk': return ['bg-fuchsia-600', 'bg-violet-600', 'bg-purple-500'];
+        case 'cyberpunk': return ['bg-fuchsia-600', 'bg-sky-600', 'bg-indigo-500'];
         case 'spring': return ['bg-pink-400', 'bg-rose-400', 'bg-emerald-400'];
-        case 'space': return ['bg-indigo-600', 'bg-violet-600', 'bg-blue-600'];
+        case 'space': return ['bg-indigo-600', 'bg-sky-600', 'bg-blue-600'];
         // Default (Blue/Indigo mix)
-        default: return ['bg-blue-500', 'bg-indigo-500', 'bg-violet-500']; 
+        default: return ['bg-blue-500', 'bg-indigo-500', 'bg-sky-500']; 
     }
 };
 

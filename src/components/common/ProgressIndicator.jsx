@@ -19,7 +19,7 @@ const ProgressIndicator = ({ progress = 0 }) => {
       >
         <div 
           className="h-full rounded-full transition-all duration-500 ease-out 
-                     bg-gradient-to-r from-purple-500 to-sky-500
+                     bg-gradient-to-r from-indigo-500 to-sky-500
                      shadow-[0_0_15px_3px_rgba(168,85,247,0.5)] 
                      dark:shadow-[0_0_15px_3px_rgba(168,85,247,0.4)]"
           style={{ width: `${progress}%` }}

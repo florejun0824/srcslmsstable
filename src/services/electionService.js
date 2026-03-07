@@ -1,17 +1,16 @@
 // src/services/electionService.js
-import { 
-  collection, addDoc, doc, updateDoc, deleteDoc, 
-  query, where, onSnapshot, serverTimestamp, orderBy, getDoc, setDoc, limit, getDocs 
+import {
+  collection, addDoc, doc, updateDoc, deleteDoc,
+  query, where, onSnapshot, serverTimestamp, orderBy, getDoc, setDoc, limit, getDocs, or,
+  increment
 } from 'firebase/firestore';
 import { db } from './firebase';
 
 export const electionService = {
-  // ... (keep all your existing create/update/delete/get functions) ...
-  
-  // [NEW] Shared function to mark election as Official
+
   publishOfficialResults: async (election) => {
     try {
-        const notificationHTML = `
+      const notificationHTML = `
             <div style="text-align: center; padding: 20px; font-family: 'Inter', sans-serif;">
                 <div style="font-size: 3rem; margin-bottom: 10px;">🏆</div>
                 <h2 style="margin: 0; color: #1e293b; font-weight: 900;">Official Results Declared</h2>
@@ -22,45 +21,48 @@ export const electionService = {
             </div>
         `;
 
-        // 1. Mark Election as Completed
-        const electionRef = doc(db, 'elections', election.id);
-        await updateDoc(electionRef, {
-            resultsPending: false,
-            resultsPosted: true,
-            status: 'completed',
-        });
+      const electionRef = doc(db, 'elections', election.id);
 
-        // 2. Update the Lounge Post (if it exists)
-        if (election.resultsPostId) {
-            const postRef = doc(db, 'studentPosts', election.resultsPostId);
-            const postSnap = await getDoc(postRef);
+      // Copy the tally into results so student result cards can display them
+      const finalResults = election.results || election.tally || election.liveResults || {};
+      const finalTotalVotes = election.totalVotes || 0;
 
-            if (postSnap.exists()) {
-                await updateDoc(postRef, {
-                    content: notificationHTML,
-                    type: 'election_result',
-                    updatedAt: serverTimestamp()
-                });
-            }
+      await updateDoc(electionRef, {
+        resultsPending: false,
+        resultsPosted: true,
+        status: 'completed',
+        results: finalResults,
+        totalVotes: finalTotalVotes,
+      });
+
+      if (election.resultsPostId) {
+        const postRef = doc(db, 'studentPosts', election.resultsPostId);
+        const postSnap = await getDoc(postRef);
+
+        if (postSnap.exists()) {
+          await updateDoc(postRef, {
+            content: notificationHTML,
+            type: 'election_result',
+            updatedAt: serverTimestamp()
+          });
         }
-        return true;
+      }
+      return true;
     } catch (error) {
-        console.error("Error publishing official results:", error);
-        throw error;
+      console.error("Error publishing official results:", error);
+      throw error;
     }
   },
 
-  // ... (keep checkIfVoted, submitVote, etc.) ...
-  
-  // Make sure to include the previous functions you had!
-  // (createElection, updateElection, deleteElection, getTeacherElections, getStudentElections, getLiveResults, etc.)
   createElection: async (electionData) => {
     try {
       const docRef = await addDoc(collection(db, 'elections'), {
-        ...electionData,
-        createdAt: serverTimestamp(),
-        status: 'scheduled', 
-        resultsPosted: false
+        status: 'scheduled',  // Default fallback
+        resultsPosted: false,
+        totalVotes: 0,
+        tally: {},
+        ...electionData,      // Spread this AFTER the default so it can override the status
+        createdAt: serverTimestamp()
       });
       return docRef.id;
     } catch (error) {
@@ -92,13 +94,31 @@ export const electionService = {
     }
   },
 
-  getTeacherElections: (teacherId, callback) => {
-    const q = query(
-      collection(db, 'elections'), 
-      where('createdBy', '==', teacherId),
-      orderBy('createdAt', 'desc'),
-      limit(20)
-    );
+  // [UPDATED] Now accepts the full user object to check roles and visibility
+  getTeacherElections: (user, callback) => {
+    let q;
+
+    // Check if user is an admin (Adjust 'user.role' to match your actual auth structure)
+    if (user?.role === 'admin') {
+      // Admins see EVERYTHING
+      q = query(
+        collection(db, 'elections'),
+        orderBy('createdAt', 'desc'),
+        limit(50)
+      );
+    } else {
+      // Teachers see elections they created OR elections marked as public
+      q = query(
+        collection(db, 'elections'),
+        or(
+          where('createdBy', '==', user.id),
+          where('visibility', '==', 'public')
+        ),
+        orderBy('createdAt', 'desc'),
+        limit(50)
+      );
+    }
+
     return onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       callback(data);
@@ -106,20 +126,17 @@ export const electionService = {
   },
 
   getStudentElections: (callback) => {
-    const now = new Date().toISOString();
     const q = query(
-        collection(db, 'elections'), 
-        // We fetch slightly older ones too to handle the "calculating" transition visually
-        orderBy('endDate', 'asc') 
+      collection(db, 'elections'),
+      orderBy('endDate', 'asc')
     );
-    
+
     return onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       callback(data);
     }, (error) => {
-         // Fallback logic
-         const fallbackQ = query(collection(db, 'elections'), orderBy('endDate', 'desc'), limit(10));
-         onSnapshot(fallbackQ, (snap) => callback(snap.docs.map(d => ({id:d.id, ...d.data()}))));
+      const fallbackQ = query(collection(db, 'elections'), orderBy('endDate', 'desc'), limit(10));
+      onSnapshot(fallbackQ, (snap) => callback(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
     });
   },
 
@@ -129,20 +146,128 @@ export const electionService = {
     return docSnap.exists();
   },
 
+  // [OPTIMIZED] submitVote now also atomically increments tally counters on the election doc
   submitVote: async (electionId, studentId, votes) => {
+    // 1. Write the individual vote document (for audit trail)
     const voteRef = doc(db, 'elections', electionId, 'votes', studentId);
     await setDoc(voteRef, {
       studentId,
       votes,
       votedAt: serverTimestamp()
     });
+
+    // 2. Atomically increment the tally counters on the election doc
+    // This builds a map like: { 'tally.President.Alice': increment(1), totalVotes: increment(1) }
+    const tallyUpdates = { totalVotes: increment(1) };
+    Object.entries(votes).forEach(([positionTitle, candidateName]) => {
+      // Firestore dot-notation to update nested fields atomically
+      tallyUpdates[`tally.${positionTitle}.${candidateName}`] = increment(1);
+    });
+
+    const electionRef = doc(db, 'elections', electionId);
+    await updateDoc(electionRef, tallyUpdates);
   },
 
+  // [OPTIMIZED] getLiveResults now listens to ONE election doc instead of all vote docs
+  // Callback receives { tally, totalVotes } from the election document
   getLiveResults: (electionId, callback) => {
-    const votesCol = collection(db, 'elections', electionId, 'votes');
-    return onSnapshot(votesCol, (snapshot) => {
-      const allVotes = snapshot.docs.map(d => d.data().votes);
-      callback(allVotes);
+    const electionRef = doc(db, 'elections', electionId);
+    return onSnapshot(electionRef, (docSnap) => {
+      if (!docSnap.exists()) return;
+      const data = docSnap.data();
+      // Prefer tally (increment-based), fall back to liveResults (legacy periodic scan)
+      const tally = data.tally || data.liveResults || {};
+      const totalVotes = data.totalVotes || 0;
+      callback({ tally, totalVotes });
     });
+  },
+
+  // --- TIE-BREAKER LOGIC ---
+
+  /**
+   * Scans the tally for each position and detects ties among the top candidates.
+   * @param {Object} election - The election document (must have .positions and .tally/.results)
+   * @returns {{ hasTie: boolean, tiedPositions: Array<{ title: string, candidates: string[], votes: number }> }}
+   */
+  detectTies: (election) => {
+    const tally = election.tally || election.results || election.liveResults || {};
+    const tiedPositions = [];
+
+    if (!election.positions) return { hasTie: false, tiedPositions: [] };
+
+    election.positions.forEach(pos => {
+      const posTally = tally[pos.title] || {};
+      const sorted = pos.candidates
+        .map(c => ({ name: c.name, votes: posTally[c.name] || 0 }))
+        .sort((a, b) => b.votes - a.votes);
+
+      if (sorted.length < 2) return;
+
+      const topVotes = sorted[0].votes;
+      if (topVotes === 0) return; // No votes cast, no tie
+
+      const tiedCandidates = sorted.filter(c => c.votes === topVotes);
+      if (tiedCandidates.length > 1) {
+        tiedPositions.push({
+          title: pos.title,
+          candidates: tiedCandidates.map(c => c.name),
+          votes: topVotes
+        });
+      }
+    });
+
+    return { hasTie: tiedPositions.length > 0, tiedPositions };
+  },
+
+  /**
+   * Creates a tie-breaker election for the tied positions with a 30-minute voting window.
+   * Links the child election to the parent and updates the parent with the tie-breaker reference.
+   * @param {Object} parentElection - The parent election document
+   * @param {Array} tiedPositions - Array from detectTies().tiedPositions
+   * @returns {string} The ID of the newly created tie-breaker election
+   */
+  createTieBreakerElection: async (parentElection, tiedPositions) => {
+    const now = new Date();
+    const endTime = new Date(now.getTime() + 30 * 60 * 1000); // 30-minute window
+
+    // Build positions array with only the tied candidates
+    const tbPositions = tiedPositions.map(tp => {
+      const originalPos = parentElection.positions.find(p => p.title === tp.title);
+      return {
+        title: tp.title,
+        candidates: tp.candidates.map(name => {
+          const orig = originalPos?.candidates?.find(c => c.name === name);
+          return orig ? { ...orig } : { name };
+        })
+      };
+    });
+
+    const tieBreakerId = await electionService.createElection({
+      title: `${parentElection.title} — Tie-Breaker`,
+      organization: parentElection.organization,
+      startDate: now.toISOString(),
+      endDate: endTime.toISOString(),
+      positions: tbPositions,
+      targetType: parentElection.targetType,
+      targetGrade: parentElection.targetGrade || null,
+      schoolId: parentElection.schoolId,
+      createdBy: parentElection.createdBy,
+      visibility: parentElection.visibility || 'public',
+      status: 'active',
+      isTieBreaker: true,
+      parentElectionId: parentElection.id,
+      tiedPositions: tiedPositions.map(tp => tp.title),
+    });
+
+    // Update the parent election with the tie-breaker reference
+    const parentRef = doc(db, 'elections', parentElection.id);
+    await updateDoc(parentRef, {
+      hasTie: true,
+      tieBreakerId,
+      tiedPositions: tiedPositions.map(tp => tp.title),
+      status: 'completed', // still mark as completed for the original round
+    });
+
+    return tieBreakerId;
   }
 };

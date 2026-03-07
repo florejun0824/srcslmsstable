@@ -13,6 +13,7 @@ const Modal = ({
   containerClassName = '',
   contentClassName = '',
   showCloseButton = true,
+  customMotion = null,
 }) => {
   return (
     <AnimatePresence>
@@ -32,10 +33,10 @@ const Modal = ({
 
           {/* Modal Panel - Glassmorphism Style */}
           <motion.div
-            initial={{ scale: 0.95, opacity: 0, y: 20 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.95, opacity: 0, y: 20 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            initial={customMotion?.initial || { scale: 0.95, opacity: 0, y: 20 }}
+            animate={customMotion?.animate || { scale: 1, opacity: 1, y: 0 }}
+            exit={customMotion?.exit || { scale: 0.95, opacity: 0, y: 20 }}
+            transition={customMotion?.transition || { type: 'spring', stiffness: 300, damping: 30 }}
             className={`
                 relative w-full flex flex-col max-h-full
                 bg-white/90 dark:bg-[#18181b]/90 
@@ -50,16 +51,16 @@ const Modal = ({
             {(title || showCloseButton) && (
               <div className="relative px-8 py-6 border-b border-black/5 dark:border-white/5 flex-shrink-0">
                 {title && (
-                    <div className="pr-10"> 
-                        <h3 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
-                            {title}
-                        </h3>
-                        {description && (
-                            <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
-                                {description}
-                            </p>
-                        )}
-                    </div>
+                  <div className="pr-10">
+                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
+                      {title}
+                    </h3>
+                    {description && (
+                      <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+                        {description}
+                      </p>
+                    )}
+                  </div>
                 )}
 
                 {showCloseButton && (

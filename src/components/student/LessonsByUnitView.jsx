@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo, useCallback, memo } from 'react';
+import React, { useState, useRef, useMemo, useCallback, useEffect, memo } from 'react';
 import {
   BookOpenIcon,
   SparklesIcon,
@@ -8,42 +8,44 @@ import {
   FolderIcon,
   CheckCircleIcon,
   PlayCircleIcon,
-  DocumentTextIcon
+  DocumentTextIcon,
+  CloudArrowDownIcon
 } from '@heroicons/react/24/solid';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { isLessonCachedOffline } from '../../services/offlineContentService';
 
 // =====================================================================
 // 🎨 ONEUI 8.5 PHYSICS CONSTANTS
 // =====================================================================
 const pageVariants = {
-    initial: { opacity: 0, scale: 0.96, y: 10 },
-    animate: { 
-        opacity: 1, 
-        scale: 1, 
-        y: 0,
-        transition: { type: "spring", stiffness: 350, damping: 25, mass: 0.8 }
-    },
-    exit: { 
-        opacity: 0, 
-        scale: 0.96, 
-        y: -10,
-        transition: { duration: 0.2, ease: "easeOut" } 
-    }
+  initial: { opacity: 0, scale: 0.96, y: 10 },
+  animate: {
+    opacity: 1,
+    scale: 1,
+    y: 0,
+    transition: { type: "spring", stiffness: 350, damping: 25, mass: 0.8 }
+  },
+  exit: {
+    opacity: 0,
+    scale: 0.96,
+    y: -10,
+    transition: { duration: 0.2, ease: "easeOut" }
+  }
 };
 
 const containerVariants = {
-    hidden: { opacity: 0 },
-    show: {
-        opacity: 1,
-        transition: { staggerChildren: 0.04 }
-    }
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.04 }
+  }
 };
 
 const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 400, damping: 30 } }
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 400, damping: 30 } }
 };
 
 // =====================================================================
@@ -58,7 +60,7 @@ const OneUICard = memo(({ children, className = "", onClick }) => {
   };
 
   return (
-    <motion.div 
+    <motion.div
       variants={itemVariants}
       onClick={onClick}
       onKeyDown={onClick ? handleKeyDown : undefined}
@@ -93,14 +95,14 @@ const UnitCard = memo(({ title, onClick, lessonCount, isNew, index, progress }) 
 
   const bgColors = [
     'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400',
-    'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400',
+    'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400',
     'bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400',
     'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400',
   ];
   const iconStyle = bgColors[index % bgColors.length];
 
   return (
-    <OneUICard 
+    <OneUICard
       onClick={onClick}
       className="min-h-[9.5rem] sm:min-h-[11rem] flex flex-col p-5 sm:p-6 group"
     >
@@ -117,12 +119,12 @@ const UnitCard = memo(({ title, onClick, lessonCount, isNew, index, progress }) 
             <FolderIcon className="h-6 w-6 sm:h-7 sm:w-7" />
           )}
         </div>
-        
+
         <div className="flex flex-col items-end gap-2">
           {isNew && !isCompleted && (
-              <span className="px-2.5 py-1 rounded-full bg-rose-500 text-white text-[9px] font-bold uppercase tracking-wider shadow-sm shadow-rose-500/30">
-               New
-              </span>
+            <span className="px-2.5 py-1 rounded-full bg-rose-500 text-white text-[9px] font-bold uppercase tracking-wider shadow-sm shadow-rose-500/30">
+              New
+            </span>
           )}
         </div>
       </div>
@@ -134,31 +136,31 @@ const UnitCard = memo(({ title, onClick, lessonCount, isNew, index, progress }) 
 
       {/* Footer: Progress or Count */}
       <div className="mt-auto pt-3 sm:pt-4">
-         <div className="flex items-center justify-between mb-2">
-             {isCompleted ? (
-                 <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
-                     Completed
-                 </span>
-             ) : (
-                 <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                     {lessonCount} {lessonCount === 1 ? 'Task' : 'Tasks'}
-                 </span>
-             )}
-             
-             {/* Hover Arrow (Desktop only visual) */}
-             <div className="hidden sm:flex h-8 w-8 rounded-full bg-slate-50 dark:bg-slate-800 items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-               <ChevronRightIcon className="h-4 w-4 text-slate-400" />
-             </div>
-         </div>
+        <div className="flex items-center justify-between mb-2">
+          {isCompleted ? (
+            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+              Completed
+            </span>
+          ) : (
+            <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+              {lessonCount} {lessonCount === 1 ? 'Task' : 'Tasks'}
+            </span>
+          )}
 
-         {isInProgress && (
-             <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                 <div 
-                      className="h-full bg-blue-500 rounded-full transition-all duration-500 ease-out" 
-                      style={{ width: `${progress}%` }}
-                 />
-             </div>
-         )}
+          {/* Hover Arrow (Desktop only visual) */}
+          <div className="hidden sm:flex h-8 w-8 rounded-full bg-slate-50 dark:bg-slate-800 items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <ChevronRightIcon className="h-4 w-4 text-slate-400" />
+          </div>
+        </div>
+
+        {isInProgress && (
+          <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-blue-500 rounded-full transition-all duration-500 ease-out"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        )}
       </div>
     </OneUICard>
   );
@@ -168,7 +170,7 @@ UnitCard.displayName = 'UnitCard';
 // =====================================================================
 // 📄 LESSON LIST ITEM
 // =====================================================================
-const LessonListItem = memo(({ lesson, onClick, completedLessons }) => {
+const LessonListItem = memo(({ lesson, onClick, completedLessons, isCachedOffline = false }) => {
   const isCompleted = lesson.isCompleted || (completedLessons && completedLessons.includes(lesson.id));
   const progress = lesson.totalPages > 0 ? (lesson.pagesRead / lesson.totalPages) * 100 : 0;
   const isInProgress = !isCompleted && progress > 0;
@@ -221,14 +223,20 @@ const LessonListItem = memo(({ lesson, onClick, completedLessons }) => {
         <h4 className={`text-sm sm:text-base font-bold truncate ${isCompleted ? 'text-slate-500 dark:text-slate-500' : 'text-slate-900 dark:text-slate-100'}`}>
           {lesson.title}
         </h4>
-        <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 mt-0.5 line-clamp-1">
-          {isCompleted ? 'Completed' : isInProgress ? `Resume from page ${lesson.pagesRead}` : lesson.description || 'Tap to start reading'}
+        <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 mt-0.5 flex items-center gap-1.5">
+          <span className="line-clamp-1">{isCompleted ? 'Completed' : isInProgress ? `Resume from page ${lesson.pagesRead}` : lesson.description || 'Tap to start reading'}</span>
+          {isCachedOffline && (
+            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-sky-50 dark:bg-sky-900/20 text-sky-600 dark:text-sky-400 text-[9px] font-bold flex-shrink-0">
+              <CloudArrowDownIcon className="w-3 h-3" />
+              Offline
+            </span>
+          )}
         </p>
       </div>
 
       <div className="flex-shrink-0">
         <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center group-hover:bg-blue-500 group-hover:text-white transition-colors duration-300 text-slate-300">
-           {isCompleted ? <ArrowPathIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : <PlayCircleIcon className="h-4 w-4 sm:h-5 sm:w-5" />}
+          {isCompleted ? <ArrowPathIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : <PlayCircleIcon className="h-4 w-4 sm:h-5 sm:w-5" />}
         </div>
       </div>
     </motion.div>
@@ -240,8 +248,8 @@ LessonListItem.displayName = 'LessonListItem';
 // 🗑️ EMPTY STATE
 // =====================================================================
 const EmptyState = memo(({ icon: Icon, text, subtext }) => (
-  <motion.div 
-    initial={{ opacity: 0, scale: 0.9 }} 
+  <motion.div
+    initial={{ opacity: 0, scale: 0.9 }}
     animate={{ opacity: 1, scale: 1 }}
     className="flex flex-col items-center justify-center py-24 px-6 text-center"
   >
@@ -278,6 +286,24 @@ const LessonsByUnitView = ({
   const { userProfile } = useAuth();
   const { showToast } = useToast();
 
+  // Track which lessons are cached offline
+  const [offlineLessonIds, setOfflineLessonIds] = useState(new Set());
+  useEffect(() => {
+    if (lessons.length === 0) return;
+    let cancelled = false;
+    const checkOffline = async () => {
+      const ids = new Set();
+      for (const lesson of lessons) {
+        if (lesson.id && await isLessonCachedOffline(lesson.id)) {
+          ids.add(lesson.id);
+        }
+      }
+      if (!cancelled) setOfflineLessonIds(ids);
+    };
+    checkOffline();
+    return () => { cancelled = true; };
+  }, [lessons]);
+
   const lessonsByUnit = useMemo(() => {
     if (lessons.length === 0 && units.length === 0) return {};
 
@@ -305,7 +331,7 @@ const LessonsByUnitView = ({
   }, [lessons, units]);
 
   const sortedUnitTitles = useMemo(() => {
-    return Object.keys(lessonsByUnit).sort((a, b) => 
+    return Object.keys(lessonsByUnit).sort((a, b) =>
       a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
     );
   }, [lessonsByUnit]);
@@ -368,7 +394,7 @@ const LessonsByUnitView = ({
 
   return (
     <div className="min-h-full font-sans antialiased pb-32 px-2 sm:px-4">
-      
+
       {/* HEADER SECTION */}
       <div className="flex flex-col gap-4 mb-6 mt-2">
         <div className="flex items-center justify-between">
@@ -398,32 +424,32 @@ const LessonsByUnitView = ({
         <div className="px-2">
           <AnimatePresence mode="wait">
             {selectedUnit ? (
-              <motion.div 
+              <motion.div
                 key="header-unit"
-                initial={{ opacity: 0, y: 5 }} 
-                animate={{ opacity: 1, y: 0 }} 
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -5 }}
               >
-                 <p className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1">
-                   Module
-                 </p>
-                 <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-tight line-clamp-2">
-                   {selectedUnit}
-                 </h1>
+                <p className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1">
+                  Module
+                </p>
+                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-tight line-clamp-2">
+                  {selectedUnit}
+                </h1>
               </motion.div>
             ) : (
-              <motion.div 
+              <motion.div
                 key="header-class"
-                initial={{ opacity: 0, y: 5 }} 
-                animate={{ opacity: 1, y: 0 }} 
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -5 }}
               >
-                 <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-tight">
-                   {selectedClass?.name || 'Class Lessons'}
-                 </h1>
-                 <p className="text-sm font-bold text-slate-400 dark:text-slate-500 mt-1">
-                   Select a module to view tasks
-                 </p>
+                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-tight">
+                  {selectedClass?.name || 'Class Lessons'}
+                </h1>
+                <p className="text-sm font-bold text-slate-400 dark:text-slate-500 mt-1">
+                  Select a module to view tasks
+                </p>
               </motion.div>
             )}
           </AnimatePresence>
@@ -438,13 +464,13 @@ const LessonsByUnitView = ({
         className="min-h-[50vh]"
       >
         <div className={`flex justify-center transition-all duration-300 overflow-hidden ${isRefreshing ? 'h-10 opacity-100' : 'h-0 opacity-0'}`}>
-             <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Syncing Content...</span>
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Syncing Content...</span>
         </div>
 
         {sortedUnitTitles.length > 0 ? (
           <AnimatePresence mode="wait">
             {selectedUnit ? (
-              <motion.div 
+              <motion.div
                 key="lesson-list"
                 variants={containerVariants}
                 initial="hidden"
@@ -457,6 +483,7 @@ const LessonsByUnitView = ({
                     key={lesson.id}
                     lesson={lesson}
                     completedLessons={userProfile?.completedLessons || []}
+                    isCachedOffline={offlineLessonIds.has(lesson.id)}
                     onClick={() => {
                       if (navigator?.vibrate) navigator.vibrate(20);
                       if (setLessonToView) setLessonToView(lesson);
@@ -465,7 +492,7 @@ const LessonsByUnitView = ({
                 ))}
               </motion.div>
             ) : (
-              <motion.div 
+              <motion.div
                 key="unit-grid"
                 variants={containerVariants}
                 initial="hidden"
@@ -477,7 +504,7 @@ const LessonsByUnitView = ({
                   const unitData = lessonsByUnit[unitTitle];
                   const lessonsInUnit = unitData?.lessons || [];
                   const totalLessons = lessonsInUnit.length;
-                  const completedCount = lessonsInUnit.filter(l => 
+                  const completedCount = lessonsInUnit.filter(l =>
                     l.isCompleted || (userProfile?.completedLessons?.includes(l.id))
                   ).length;
                   const progressPercentage = totalLessons > 0 ? (completedCount / totalLessons) * 100 : 0;
@@ -486,10 +513,10 @@ const LessonsByUnitView = ({
                   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
                   let isNew = false;
                   if (unitData?.createdAt) {
-                      const createdAtDate = unitData.createdAt.toDate ? 
-                                            unitData.createdAt.toDate() : 
-                                            new Date(unitData.createdAt);
-                      if (createdAtDate > sevenDaysAgo) isNew = true;
+                    const createdAtDate = unitData.createdAt.toDate ?
+                      unitData.createdAt.toDate() :
+                      new Date(unitData.createdAt);
+                    if (createdAtDate > sevenDaysAgo) isNew = true;
                   }
 
                   return (

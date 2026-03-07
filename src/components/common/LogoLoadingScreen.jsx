@@ -7,7 +7,7 @@ const SCHOOL_BRANDING = {
     'hras_sipalay': { name: 'HRA LMS', logo: '/logos/hra.png', color: 'text-red-600' },
     'kcc_kabankalan': { name: 'KCC LMS', logo: '/logos/kcc.png', color: 'text-green-600' },
     'icad_dancalan': { name: 'ICA LMS', logo: '/logos/ica.png', color: 'text-yellow-600' },
-    'mchs_magballo': { name: 'MCHS LMS', logo: '/logos/mchs.png', color: 'text-purple-600' },
+    'mchs_magballo': { name: 'MCHS LMS', logo: '/logos/mchs.png', color: 'text-indigo-600' },
     'ichs_ilog': { name: 'ICHS LMS', logo: '/logos/ichs.png', color: 'text-orange-600' }
 };
 
@@ -73,7 +73,7 @@ const LogoLoadingScreen = ({ message = "Loading System..." }) => {
 
             {/* Background Decor (Optional Glass Orbs for "Vibes") */}
             <div className="absolute -top-20 -left-20 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute -bottom-20 -right-20 w-96 h-96 bg-purple-400/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-20 -right-20 w-96 h-96 bg-indigo-400/10 rounded-full blur-3xl pointer-events-none" />
 
             <style>{`
                 @keyframes breathing {

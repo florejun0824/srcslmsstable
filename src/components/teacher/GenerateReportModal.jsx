@@ -1,13 +1,13 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, memo } from 'react';
 import { Dialog, DialogPanel } from '@tremor/react';
 import { useToast } from '../../contexts/ToastContext';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
     DocumentChartBarIcon,
     XMarkIcon,
-    ChevronDownIcon,
     FunnelIcon,
-    CheckIcon
+    CheckIcon,
+    ChevronDownIcon
 } from '@heroicons/react/24/outline';
 
 import { Capacitor } from '@capacitor/core';
@@ -16,19 +16,60 @@ import { FileOpener } from '@capacitor-community/file-opener';
 
 // --- ANIMATION VARIANTS ---
 const dropIn = {
-    hidden: { y: 20, opacity: 0, scale: 0.98, filter: "blur(4px)" },
+    hidden: { y: "100%", opacity: 0 },
     visible: {
         y: 0,
         opacity: 1,
-        scale: 1,
-        filter: "blur(0px)",
-        transition: { duration: 0.4, type: "spring", bounce: 0.3 },
+        transition: { duration: 0.4, type: "spring", bounce: 0.1 },
     },
-    exit: { y: 20, opacity: 0, scale: 0.98, filter: "blur(4px)", transition: { duration: 0.2 } },
+    exit: { y: "100%", opacity: 0, transition: { duration: 0.2, ease: "easeInOut" } },
 };
 
-// --- HELPER: KEY GENERATOR (Moved outside to avoid recreation) ---
+const accordionVariant = {
+    hidden: { height: 0, opacity: 0 },
+    visible: { height: "auto", opacity: 1, transition: { duration: 0.2 } },
+    exit: { height: 0, opacity: 0, transition: { duration: 0.2 } }
+};
+
+// --- HELPER: KEY GENERATOR ---
 const getInstanceKey = (postId, quizId) => `${postId}|${quizId}`;
+
+// --- MEMOIZED UI COMPONENTS ---
+
+const QuizItem = memo(({ quiz, postId, isSelected, onToggle }) => (
+    <div 
+        onClick={() => onToggle(postId, quiz.id)}
+        className="flex items-center gap-4 pl-12 pr-4 py-3 md:py-3.5 hover:bg-zinc-100 dark:hover:bg-zinc-700/30 active:bg-zinc-200 dark:active:bg-zinc-700 transition-colors cursor-pointer"
+    >
+        <div className={`w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center border-[2px] transition-colors ${
+            isSelected 
+                ? 'bg-indigo-600 border-indigo-600' 
+                : 'bg-transparent border-zinc-400 dark:border-zinc-500'
+        }`}>
+            {isSelected && <CheckIcon className="w-4 h-4 text-white stroke-[3]" />}
+        </div>
+        <span className={`text-sm md:text-base font-medium truncate select-none ${
+            isSelected ? 'text-indigo-900 dark:text-indigo-100' : 'text-zinc-700 dark:text-zinc-300'
+        }`}>
+            {quiz.title}
+        </span>
+    </div>
+));
+
+const SelectAllButton = memo(({ isAllSelected, onClick }) => (
+    <button
+        onClick={(e) => { e.stopPropagation(); onClick(); }}
+        className={`px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide transition-colors flex-shrink-0 active:scale-95 ${
+            isAllSelected 
+                ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200 dark:bg-indigo-900/50 dark:text-indigo-300' 
+                : 'bg-zinc-200 text-zinc-700 hover:bg-zinc-300 dark:bg-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-600'
+        }`}
+    >
+        {isAllSelected ? 'Deselect All' : 'Select All'}
+    </button>
+));
+
+// --- MAIN COMPONENT ---
 
 export default function GenerateReportModal({
     isOpen,
@@ -50,7 +91,6 @@ export default function GenerateReportModal({
     const [collapsedUnits, setCollapsedUnits] = useState(new Set());
     const [isGenerating, setIsGenerating] = useState(false);
 
-    // Refs for initialization tracking
     const hasInitializedRef = useRef(false);
 
     // Safe fallbacks
@@ -61,7 +101,6 @@ export default function GenerateReportModal({
     const posts = useMemo(() => sharedContentPosts || [], [sharedContentPosts]);
 
     // --- 1. OPTIMIZATION: Memoized Data Transformation ---
-    // This prevents recalculating the entire tree on every checkbox click.
     const { postEntries } = useMemo(() => {
         if (!isOpen) return { postEntries: [] };
 
@@ -86,8 +125,7 @@ export default function GenerateReportModal({
         return { postEntries: sortedEntries };
     }, [posts, unitMap, isOpen]);
 
-    // --- 2. OPTIMIZATION: Stable Effects ---
-    // Only runs when modal opens or data first loads, not on every minor update.
+    // --- 2. DEFAULT COLLAPSED EFFECT ---
     useEffect(() => {
         if (isOpen && !hasInitializedRef.current && posts.length > 0) {
             const newCollapsedPosts = new Set();
@@ -99,7 +137,7 @@ export default function GenerateReportModal({
                     newCollapsedPosts.add(post.id); // Default to collapsed
                     postQuizzes.forEach(quiz => {
                         const unitDisplayName = unitMap[quiz.unitId] || 'Uncategorized';
-                        newCollapsedUnits.add(`${post.id}_${unitDisplayName}`);
+                        newCollapsedUnits.add(`${post.id}_${unitDisplayName}`); // Default to collapsed
                     });
                 }
             });
@@ -125,8 +163,6 @@ export default function GenerateReportModal({
     }, []);
 
     const handleBulkSelection = useCallback((postId, quizIdsInGroup) => {
-        // Pre-calculate keys to avoid mapping inside the setter if possible, 
-        // but here we need 'prev' state so we map inside or pass data.
         const keys = quizIdsInGroup.map(qId => getInstanceKey(postId, qId));
         
         setSelectedInstances(prev => {
@@ -176,7 +212,6 @@ export default function GenerateReportModal({
 
         setIsGenerating(true);
 
-        // Dynamically import helper to keep bundle small
         let XLSX;
         try {
             XLSX = await import('xlsx-js-style');
@@ -210,249 +245,260 @@ export default function GenerateReportModal({
 
     return (
         <Dialog open={isOpen} onClose={handleClose} static={true} className={className}>
-            <div className="fixed inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-md transition-opacity" aria-hidden="true" />
+            {/* Reduced Blurring Overlay */}
+            <div className="fixed inset-0 bg-black/60 transition-opacity z-[100]" aria-hidden="true" />
             
-            <div className="fixed inset-0 flex w-screen items-end sm:items-center justify-center sm:p-4">
+            <div className="fixed inset-0 flex w-screen items-end sm:items-center justify-center sm:p-4 md:p-6 z-[100]">
                 <DialogPanel as={motion.div}
                     variants={dropIn}
                     initial="hidden"
                     animate="visible"
                     exit="exit"
-                    className="w-full h-[100dvh] sm:h-[85vh] sm:max-w-5xl bg-[#fbfbfd] dark:bg-[#1c1c1e] sm:rounded-[28px] flex flex-col overflow-hidden shadow-2xl shadow-black/20 ring-1 ring-black/5 dark:ring-white/10"
+                    // Modal Container: rounded on all corners, fills desktop screen
+                    className="w-full h-[95dvh] sm:h-[96vh] sm:max-w-[96vw] lg:max-w-[1400px] bg-zinc-50 dark:bg-[#111318] rounded-[32px] sm:rounded-[36px] flex flex-col overflow-hidden shadow-2xl"
                 >
-                    {/* HEADER */}
-                    <header className="flex items-center justify-between px-6 py-5 bg-white/80 dark:bg-[#2c2c2e]/80 backdrop-blur-xl border-b border-black/5 dark:border-white/5 z-10 flex-shrink-0">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/25 ring-1 ring-white/20">
-                                <DocumentChartBarIcon className="h-5 w-5 text-white" />
+                    {/* GLOBAL HEADER */}
+                    <header className="flex items-center justify-between px-6 pt-6 pb-4 sm:px-8 sm:pt-8 sm:pb-6 bg-transparent z-20 flex-shrink-0">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center shadow-sm">
+                                <DocumentChartBarIcon className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
                             </div>
                             <div>
-                                <h3 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight font-sans">
-                                    Generate Report
+                                <h3 className="text-xl md:text-2xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
+                                    Generate Class Report
                                 </h3>
-                                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 tracking-tight">Select data to export</p>
+                                <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 mt-0.5">
+                                    {quizzes.length} Quizzes Available
+                                </p>
                             </div>
                         </div>
                         <button 
                             onClick={handleClose} 
-                            className="p-2 rounded-full bg-slate-200/50 dark:bg-white/10 hover:bg-slate-300/50 dark:hover:bg-white/20 transition-all text-slate-500 dark:text-slate-400 active:scale-95"
+                            className="p-3 rounded-full bg-zinc-200/50 hover:bg-zinc-200 dark:bg-zinc-800/50 dark:hover:bg-zinc-700 transition-colors text-zinc-600 dark:text-zinc-300 active:scale-95"
                         >
                             <XMarkIcon className="h-6 w-6" />
                         </button>
                     </header>
 
-                    {/* BODY */}
-                    <div className="flex-1 min-h-0 overflow-y-auto sm:overflow-hidden p-4 sm:p-6 md:p-8">
-                        <div className="flex flex-col lg:grid lg:grid-cols-12 gap-4 lg:gap-6 h-full">
-                            
-                            {/* LEFT COLUMN: SELECTION LIST */}
-                            <div className="flex-1 lg:col-span-7 flex flex-col bg-white dark:bg-[#2c2c2e]/50 rounded-[20px] ring-1 ring-black/5 dark:ring-white/5 shadow-sm overflow-hidden min-h-0">
-                                <div className="px-5 py-4 border-b border-slate-100 dark:border-white/5 flex justify-between items-center bg-slate-50/50 dark:bg-white/5 backdrop-blur-sm z-10">
-                                    <label className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 tracking-tight">
-                                        Select Quizzes
-                                    </label>
-                                    <span className="px-2.5 py-1 rounded-full bg-slate-200/50 dark:bg-white/10 text-[11px] font-bold text-slate-500 dark:text-slate-300">
-                                        {quizzes.length} Available
-                                    </span>
-                                </div>
-                                
+                    {/* TWO-COLUMN DESKTOP LAYOUT / STACKED MOBILE */}
+                    <div className="flex-1 overflow-y-auto lg:overflow-hidden p-4 sm:p-6 lg:p-8 flex flex-col lg:flex-row gap-6 min-h-0 pt-0 sm:pt-0 lg:pt-0">
+                        
+                        {/* Mobile Sort Options (only visible on mobile) */}
+                        <div className="lg:hidden bg-white dark:bg-[#1A1D24] rounded-[24px] p-4 shadow-sm border border-zinc-200/50 dark:border-zinc-800/50 flex flex-col gap-3 flex-shrink-0">
+                            <div className="flex items-center gap-2">
+                                <FunnelIcon className="w-4 h-4 text-zinc-500" />
+                                <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">Sort Students By</h4>
+                            </div>
+                            <div className="flex gap-2 overflow-x-auto hide-scrollbar">
+                                {['gender-lastName', 'gender-firstName'].map((option) => (
+                                    <button 
+                                        key={option}
+                                        onClick={() => setSortOption(option)}
+                                        className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-colors border ${
+                                            sortOption === option 
+                                                ? 'bg-indigo-100 border-indigo-200 text-indigo-800 dark:bg-indigo-900/50 dark:border-indigo-800 dark:text-indigo-200' 
+                                                : 'bg-zinc-50 border-zinc-200 text-zinc-600 dark:bg-zinc-800/30 dark:border-zinc-700 dark:text-zinc-400'
+                                        }`}
+                                    >
+                                        {option === 'gender-lastName' ? 'Gender, Last Name' : 'Gender, First Name'}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* LEFT: SELECTION LIST (Deeply rounded inner container) */}
+                        <div className="flex-1 bg-white dark:bg-[#1A1D24] rounded-[24px] sm:rounded-[32px] flex flex-col overflow-hidden shadow-sm border border-zinc-200/50 dark:border-zinc-800/50 lg:min-h-0">
+                            <div className="flex-1 overflow-y-auto hide-scrollbar">
                                 {quizzes.length === 0 ? (
-                                    <div className="flex flex-col items-center justify-center flex-1 text-center p-8">
-                                        <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center mb-3">
-                                            <DocumentChartBarIcon className="h-8 w-8 text-slate-300 dark:text-slate-600" />
+                                    <div className="flex flex-col items-center justify-center h-full text-center p-8">
+                                        <div className="w-20 h-20 rounded-full bg-zinc-100 dark:bg-zinc-800/50 flex items-center justify-center mb-4">
+                                            <DocumentChartBarIcon className="h-10 w-10 text-zinc-400 dark:text-zinc-500" />
                                         </div>
-                                        <p className="text-slate-500 dark:text-slate-400 font-medium text-sm">No quizzes found</p>
+                                        <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">No quizzes found</h3>
+                                        <p className="text-zinc-500 dark:text-zinc-400 font-medium mt-1">Quizzes shared in this class will appear here.</p>
                                     </div>
                                 ) : (
-                                    <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-3">
+                                    <div className="p-4 sm:p-6 lg:p-8 space-y-4">
                                         {postEntries.map(({ post, units: unitsInPost }) => {
                                             const isPostCollapsed = collapsedPosts.has(post.id);
                                             const sortedUnitKeys = Object.keys(unitsInPost).sort(customUnitSort);
-                                            const sentDate = post.createdAt?.toDate() ? post.createdAt.toDate().toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'N/A';
+                                            const sentDate = post.createdAt?.toDate() ? post.createdAt.toDate().toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
                                             
-                                            // Optimization: Calculate selection state
+                                            // Calc Post Selection State
                                             const allQuizIdsInPost = sortedUnitKeys.flatMap(unitKey => unitsInPost[unitKey].map(q => q.id));
                                             const allInstanceKeysInPost = allQuizIdsInPost.map(qId => getInstanceKey(post.id, qId));
                                             const allSelectedInPost = allInstanceKeysInPost.length > 0 && allInstanceKeysInPost.every(key => selectedInstances.has(key));
-                                            const someSelectedInPost = !allSelectedInPost && allInstanceKeysInPost.some(key => selectedInstances.has(key));
 
                                             return (
-                                                <div key={post.id} className="bg-white dark:bg-[#1c1c1e] rounded-xl ring-1 ring-slate-200 dark:ring-white/10 overflow-hidden transition-all">
-                                                    {/* Post Header */}
+                                                <div key={post.id} className="bg-zinc-50 dark:bg-zinc-800/30 rounded-[24px] overflow-hidden border border-zinc-200/50 dark:border-zinc-700/50">
+                                                    
+                                                    {/* Post Header with Explicit Select All Button */}
                                                     <div 
-                                                        className="flex items-center gap-3 p-3 cursor-pointer select-none hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group"
+                                                        className="px-4 py-3 sm:px-5 sm:py-4 bg-zinc-100/80 dark:bg-zinc-800/80 flex items-center justify-between cursor-pointer hover:bg-zinc-200/80 dark:hover:bg-zinc-700/80 transition-colors"
                                                         onClick={() => togglePostCollapse(post.id)}
                                                     >
-                                                        <div onClick={(e) => e.stopPropagation()} className="flex items-center justify-center pl-1">
-                                                             <div 
-                                                                className={`w-5 h-5 rounded-[6px] flex items-center justify-center transition-all duration-200 border ${
-                                                                    allSelectedInPost || someSelectedInPost 
-                                                                    ? 'bg-[#007AFF] border-[#007AFF]' 
-                                                                    : 'bg-white dark:bg-white/5 border-slate-300 dark:border-slate-600 group-hover:border-[#007AFF]/50'
-                                                                }`}
-                                                                onClick={() => handleBulkSelection(post.id, allQuizIdsInPost)}
-                                                             >
-                                                                {allSelectedInPost && <CheckIcon className="w-3.5 h-3.5 text-white stroke-[3]" />}
-                                                                {someSelectedInPost && <div className="w-2.5 h-0.5 bg-white rounded-full" />}
-                                                             </div>
+                                                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                            <div className={`p-1.5 rounded-full transition-transform duration-300 flex-shrink-0 ${isPostCollapsed ? 'bg-transparent -rotate-90' : 'bg-zinc-200 dark:bg-zinc-700 rotate-0'}`}>
+                                                                <ChevronDownIcon className="w-5 h-5 text-zinc-600 dark:text-zinc-300" />
+                                                            </div>
+                                                            <div className="flex-1 min-w-0 pr-4">
+                                                                <h4 className="font-bold text-base sm:text-lg text-zinc-900 dark:text-zinc-100 tracking-tight truncate">{post.title}</h4>
+                                                                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">Shared on {sentDate}</p>
+                                                            </div>
                                                         </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <h4 className="font-bold text-[13px] text-slate-900 dark:text-white truncate leading-tight">{post.title}</h4>
-                                                            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">{sentDate}</p>
-                                                        </div>
-                                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center bg-slate-100 dark:bg-white/10 transition-transform duration-300 ${isPostCollapsed ? '' : 'rotate-180'}`}>
-                                                            <ChevronDownIcon className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
-                                                        </div>
+                                                        <SelectAllButton 
+                                                            isAllSelected={allSelectedInPost} 
+                                                            onClick={() => handleBulkSelection(post.id, allQuizIdsInPost)} 
+                                                        />
                                                     </div>
                                                     
-                                                    {/* Units & Quizzes */}
-                                                    {!isPostCollapsed && (
-                                                        <div className="pl-11 pr-3 pb-3 pt-0 space-y-2">
-                                                            <div className="h-px w-full bg-slate-100 dark:bg-white/5 mb-2" />
-                                                            {sortedUnitKeys.map(unitDisplayName => {
-                                                                const quizzesInUnit = unitsInPost[unitDisplayName] || [];
-                                                                const quizIdsInUnit = quizzesInUnit.map(q => q.id);
-                                                                const unitInstanceKeys = quizIdsInUnit.map(qId => getInstanceKey(post.id, qId));
-                                                                const allSelected = unitInstanceKeys.length > 0 && unitInstanceKeys.every(k => selectedInstances.has(k));
-                                                                const someSelected = !allSelected && unitInstanceKeys.some(k => selectedInstances.has(k));
-                                                                const unitKey = `${post.id}_${unitDisplayName}`;
-                                                                const isUnitCollapsed = collapsedUnits.has(unitKey);
-
-                                                                return (
-                                                                    <div key={unitKey}>
-                                                                        <div className="flex items-center gap-2 py-1 group/unit cursor-pointer" onClick={() => toggleUnitCollapse(post.id, unitDisplayName)}>
-                                                                             <div 
-                                                                                className={`w-4 h-4 rounded-[4px] flex items-center justify-center transition-all duration-200 border ${
-                                                                                    allSelected || someSelected
-                                                                                    ? 'bg-[#007AFF] border-[#007AFF]' 
-                                                                                    : 'bg-transparent border-slate-300 dark:border-slate-600 group-hover/unit:border-[#007AFF]/50'
-                                                                                }`}
-                                                                                onClick={(e) => { e.stopPropagation(); handleBulkSelection(post.id, quizIdsInUnit); }}
-                                                                             >
-                                                                                {allSelected && <CheckIcon className="w-3 h-3 text-white stroke-[3]" />}
-                                                                                {someSelected && <div className="w-2 h-0.5 bg-white rounded-full" />}
-                                                                             </div>
-                                                                            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide truncate group-hover/unit:text-[#007AFF] transition-colors select-none">{unitDisplayName}</span>
-                                                                        </div>
+                                                    {/* Units inside Post */}
+                                                    <AnimatePresence initial={false}>
+                                                        {!isPostCollapsed && (
+                                                            <motion.div
+                                                                variants={accordionVariant}
+                                                                initial="hidden"
+                                                                animate="visible"
+                                                                exit="exit"
+                                                                className="overflow-hidden"
+                                                            >
+                                                                <div className="pb-2">
+                                                                    {sortedUnitKeys.map(unitDisplayName => {
+                                                                        const quizzesInUnit = unitsInPost[unitDisplayName] || [];
+                                                                        const quizIdsInUnit = quizzesInUnit.map(q => q.id);
                                                                         
-                                                                        {!isUnitCollapsed && (
-                                                                            <div className="mt-1 space-y-1 pl-2 ml-2 border-l border-slate-200 dark:border-white/10">
-                                                                                {quizzesInUnit.sort((a,b) => a.title.localeCompare(b.title)).map(quiz => {
-                                                                                    const instanceKey = getInstanceKey(post.id, quiz.id);
-                                                                                    const isSelected = selectedInstances.has(instanceKey);
+                                                                        const unitInstanceKeys = quizIdsInUnit.map(qId => getInstanceKey(post.id, qId));
+                                                                        const allSelected = unitInstanceKeys.length > 0 && unitInstanceKeys.every(k => selectedInstances.has(k));
+                                                                        const unitKey = `${post.id}_${unitDisplayName}`;
+                                                                        const isUnitCollapsed = collapsedUnits.has(unitKey);
 
-                                                                                    return (
-                                                                                        <div 
-                                                                                            key={quiz.id} 
-                                                                                            className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-200 group/item ${isSelected ? 'bg-[#007AFF]/5' : 'hover:bg-slate-50 dark:hover:bg-white/5'}`}
-                                                                                            onClick={() => handleInstanceSelection(post.id, quiz.id)}
+                                                                        return (
+                                                                            <div key={unitDisplayName} className="flex flex-col border-t border-zinc-200/50 dark:border-zinc-700/50 mt-2 pt-2 first:border-0 first:mt-0 first:pt-0">
+                                                                                
+                                                                                {/* Unit Header with Explicit Select All Button */}
+                                                                                <div 
+                                                                                    className="flex items-center justify-between pl-10 pr-4 sm:pr-5 py-2 sm:py-3 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                                                                                    onClick={() => toggleUnitCollapse(post.id, unitDisplayName)}
+                                                                                >
+                                                                                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                                                        <ChevronDownIcon className={`w-4 h-4 text-zinc-400 transition-transform duration-300 flex-shrink-0 ${isUnitCollapsed ? '-rotate-90' : ''}`} />
+                                                                                        <span className="text-xs sm:text-sm font-bold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider select-none truncate">
+                                                                                            {unitDisplayName}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                    <SelectAllButton 
+                                                                                        isAllSelected={allSelected} 
+                                                                                        onClick={() => handleBulkSelection(post.id, quizIdsInUnit)} 
+                                                                                    />
+                                                                                </div>
+
+                                                                                {/* Quizzes inside Unit */}
+                                                                                <AnimatePresence initial={false}>
+                                                                                    {!isUnitCollapsed && (
+                                                                                        <motion.div
+                                                                                            variants={accordionVariant}
+                                                                                            initial="hidden"
+                                                                                            animate="visible"
+                                                                                            exit="exit"
+                                                                                            className="overflow-hidden"
                                                                                         >
-                                                                                            <div className={`w-4 h-4 rounded-[5px] flex items-center justify-center transition-all duration-200 border ${
-                                                                                                isSelected 
-                                                                                                ? 'bg-[#007AFF] border-[#007AFF]' 
-                                                                                                : 'bg-white dark:bg-white/5 border-slate-300 dark:border-slate-600 group-hover/item:border-[#007AFF]/50'
-                                                                                            }`}>
-                                                                                                {isSelected && <CheckIcon className="w-3 h-3 text-white stroke-[3]" />}
+                                                                                            <div className="divide-y divide-zinc-200/50 dark:divide-zinc-700/50">
+                                                                                                {quizzesInUnit.sort((a,b) => a.title.localeCompare(b.title)).map(quiz => (
+                                                                                                    <QuizItem 
+                                                                                                        key={quiz.id}
+                                                                                                        quiz={quiz}
+                                                                                                        postId={post.id}
+                                                                                                        isSelected={selectedInstances.has(getInstanceKey(post.id, quiz.id))}
+                                                                                                        onToggle={handleInstanceSelection}
+                                                                                                    />
+                                                                                                ))}
                                                                                             </div>
-                                                                                            <span className={`text-[13px] font-medium truncate select-none ${isSelected ? 'text-[#007AFF]' : 'text-slate-700 dark:text-slate-300'}`}>{quiz.title}</span>
-                                                                                        </div>
-                                                                                    );
-                                                                                })}
+                                                                                        </motion.div>
+                                                                                    )}
+                                                                                </AnimatePresence>
                                                                             </div>
-                                                                        )}
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    )}
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </motion.div>
+                                                        )}
+                                                    </AnimatePresence>
                                                 </div>
                                             );
                                         })}
                                     </div>
                                 )}
                             </div>
-                            
-                            {/* RIGHT COLUMN: OPTIONS */}
-                            <div className="flex-shrink-0 lg:col-span-5 flex flex-col gap-4 lg:gap-6">
-                                {/* Sorting Card */}
-                                <div className="bg-white dark:bg-[#2c2c2e]/50 rounded-[20px] ring-1 ring-black/5 dark:ring-white/5 shadow-sm p-4 lg:p-5">
-                                    <div className="flex items-center gap-2 mb-3 lg:mb-4">
-                                        <FunnelIcon className="w-4 h-4 text-slate-400" />
-                                        <h4 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">Sort Order</h4>
-                                    </div>
-                                    <div className="bg-slate-100 dark:bg-black/40 p-1 rounded-xl flex relative z-0 ring-1 ring-black/5 dark:ring-white/5">
-                                        {['gender-lastName', 'gender-firstName'].map((option) => (
-                                            <button 
-                                                key={option}
-                                                onClick={() => setSortOption(option)}
-                                                className="relative flex-1 py-2 text-[13px] font-semibold rounded-[10px] z-10 transition-colors duration-200 focus:outline-none text-center"
-                                            >
-                                                {sortOption === option && (
-                                                    <motion.div layoutId="segment" className="absolute inset-0 bg-white dark:bg-[#636366] shadow-sm rounded-[10px] -z-10 ring-1 ring-black/5" transition={{ type: "spring", bounce: 0.2, duration: 0.6 }} />
-                                                )}
-                                                <span className={sortOption === option ? 'text-black dark:text-white' : 'text-slate-500 dark:text-slate-400'}>
-                                                    {option === 'gender-lastName' ? 'Gender, Last Name' : 'Gender, First Name'}
-                                                </span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
+                        </div>
 
-                                {/* Selection Summary */}
-                                <div className="hidden sm:flex flex-1 bg-gradient-to-b from-white to-slate-50 dark:from-[#2c2c2e]/50 dark:to-[#1c1c1e]/50 rounded-[20px] ring-1 ring-black/5 dark:ring-white/5 shadow-sm p-6 flex-col justify-center items-center text-center min-h-[160px]">
-                                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30 mb-4 ring-4 ring-white dark:ring-[#2c2c2e]">
-                                        <span className="text-2xl font-bold text-white tracking-tight font-mono">{selectedInstances.size}</span>
-                                    </div>
-                                    <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">Items Selected</h3>
-                                    <p className="text-slate-500 dark:text-slate-400 text-xs mt-1.5 leading-relaxed max-w-[220px]">
-                                        {selectedInstances.size > 0 ? 'Ready to generate comprehensive excel report.' : 'Select quizzes from the list to begin.'}
-                                    </p>
+                        {/* RIGHT: OPTIONS & SUMMARY (Desktop Only, Rounded inner containers) */}
+                        <div className="hidden lg:flex w-[380px] xl:w-[420px] flex-shrink-0 flex-col gap-6 overflow-y-auto hide-scrollbar min-h-0">
+                            
+                            {/* Summary Card */}
+                            <div className="bg-white dark:bg-[#1A1D24] rounded-[32px] p-8 flex flex-col items-center text-center shadow-sm border border-zinc-200/50 dark:border-zinc-800/50">
+                                <div className="w-24 h-24 rounded-full bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center mb-6 border border-indigo-100 dark:border-indigo-800/30">
+                                    <span className="text-4xl font-bold text-indigo-600 dark:text-indigo-400">{selectedInstances.size}</span>
                                 </div>
-                                
-                                {/* Mobile Compact Summary */}
-                                <div className="flex sm:hidden items-center justify-between px-5 py-3 bg-white dark:bg-[#2c2c2e]/50 rounded-[16px] ring-1 ring-black/5 dark:ring-white/5 shadow-sm">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md shadow-blue-500/20">
-                                            <span className="text-xs font-bold text-white">{selectedInstances.size}</span>
-                                        </div>
-                                        <div className="flex flex-col">
-                                            <span className="text-sm font-bold text-slate-900 dark:text-white">Items Selected</span>
-                                        </div>
-                                    </div>
-                                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                                        {selectedInstances.size > 0 ? 'Ready' : 'Select'}
-                                    </span>
+                                <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">Quizzes Selected</h3>
+                                <p className="text-zinc-500 dark:text-zinc-400 text-base mt-2 leading-relaxed">
+                                    {selectedInstances.size > 0 ? 'Ready to generate a comprehensive Excel report.' : 'Select quizzes from the list to begin.'}
+                                </p>
+                            </div>
+
+                            {/* Sort Options */}
+                            <div className="bg-white dark:bg-[#1A1D24] rounded-[32px] p-6 shadow-sm border border-zinc-200/50 dark:border-zinc-800/50">
+                                <div className="flex items-center gap-2 mb-5">
+                                    <FunnelIcon className="w-5 h-5 text-zinc-500" />
+                                    <h4 className="text-base font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">Sort Students By</h4>
+                                </div>
+                                <div className="flex flex-col gap-3">
+                                    {['gender-lastName', 'gender-firstName'].map((option) => (
+                                        <button 
+                                            key={option}
+                                            onClick={() => setSortOption(option)}
+                                            className={`w-full py-4 px-5 rounded-[20px] text-sm font-medium transition-colors text-left flex items-center justify-between border ${
+                                                sortOption === option 
+                                                    ? 'bg-indigo-50 border-indigo-200 text-indigo-900 dark:bg-indigo-900/20 dark:border-indigo-800/50 dark:text-indigo-100' 
+                                                    : 'bg-zinc-50 border-zinc-200 text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-800/30 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800/60'
+                                            }`}
+                                        >
+                                            {option === 'gender-lastName' ? 'Gender, then Last Name' : 'Gender, then First Name'}
+                                            {sortOption === option && <CheckIcon className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />}
+                                        </button>
+                                    ))}
                                 </div>
                             </div>
                         </div>
+
                     </div>
 
-                    {/* FOOTER */}
-                    <footer className="flex flex-col sm:flex-row justify-between items-center gap-4 px-6 py-5 border-t border-black/5 dark:border-white/5 bg-white/80 dark:bg-[#2c2c2e]/80 backdrop-blur-xl flex-shrink-0">
-                         <div className="flex items-center gap-2">
-                             <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
-                             <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 tracking-tight">
-                                Output: Excel (.xlsx)
-                            </span>
-                         </div>
+                    {/* GLOBAL FIXED BOTTOM ACTION BAR */}
+                    <footer className="flex-shrink-0 bg-white dark:bg-[#1A1D24] border-t border-zinc-200/50 dark:border-zinc-800/50 px-4 py-4 sm:px-8 sm:py-5 flex flex-col sm:flex-row justify-between sm:items-center gap-4 z-20 shadow-[0_-10px_40px_rgba(0,0,0,0.03)] dark:shadow-none">
                         
-                        <div className="flex gap-3 w-full sm:w-auto">
-                            <button 
-                                onClick={handleClose} 
-                                className="flex-1 sm:flex-none px-6 py-2.5 rounded-full font-semibold text-[13px] text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 transition-colors active:scale-95"
-                            >
+                        <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-lg border border-indigo-100 dark:border-indigo-800/50">
+                                {selectedInstances.size}
+                            </div>
+                            <div>
+                                <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Quizzes Selected</p>
+                                <p className="text-xs text-zinc-500 dark:text-zinc-400">Ready for Excel Export</p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 w-full sm:w-auto">
+                            <button onClick={handleClose} className="flex-1 sm:flex-none px-6 py-3.5 sm:py-3 rounded-full font-semibold text-sm text-zinc-700 dark:text-zinc-300 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800/50 dark:hover:bg-zinc-700 transition-colors active:scale-95">
                                 Cancel
                             </button>
                             <button
                                 onClick={handleGenerate}
                                 disabled={selectedInstances.size === 0 || isGenerating}
-                                className={`flex-1 sm:flex-none px-8 py-2.5 rounded-full font-semibold text-[13px] text-white shadow-lg transition-all active:scale-95 flex justify-center items-center gap-2
+                                className={`flex-1 sm:flex-none px-8 py-3.5 sm:py-3 rounded-full font-bold text-sm text-white transition-all active:scale-95 flex justify-center items-center gap-2
                                     ${selectedInstances.size === 0 || isGenerating
-                                        ? 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed shadow-none opacity-70'
-                                        : 'bg-[#007AFF] hover:bg-[#0062CC] shadow-blue-500/30 hover:shadow-blue-500/40'}`}
+                                        ? 'bg-zinc-300 dark:bg-zinc-800 text-zinc-500 cursor-not-allowed'
+                                        : 'bg-indigo-600 hover:bg-indigo-700 shadow-md hover:shadow-lg'}`}
                             >
-                                {isGenerating && <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                                {isGenerating ? 'Exporting...' : 'Generate Report'}
+                                {isGenerating && <div className="w-4 h-4 border-[2.5px] border-white/30 border-t-white rounded-full animate-spin" />}
+                                <span>{isGenerating ? 'Exporting...' : 'Generate Report'}</span>
                             </button>
                         </div>
                     </footer>
@@ -462,7 +508,7 @@ export default function GenerateReportModal({
     );
 }
 
-// --- UTILITIES (Moved out to optimize main component render) ---
+// --- UTILITIES & EXCEL LOGIC (100% UNTOUCHED) ---
 
 const customUnitSort = (a, b) => {
     if (a === 'Uncategorized') return 1;
@@ -475,7 +521,6 @@ const customUnitSort = (a, b) => {
     return a.localeCompare(b);
 };
 
-// --- STATIC STYLES FOR EXCEL (Moved out to prevent garbage collection churn) ---
 const BORDER_COLOR = { rgb: "B7B7B7" };
 const COMMON_BORDER = {
     top: { style: "thin", color: BORDER_COLOR },
@@ -497,7 +542,6 @@ const STYLES = {
     boldScore: { alignment: { vertical: 'center', horizontal: 'center' }, font: { sz: 12, name: 'Calibri', bold: true }, border: COMMON_BORDER }
 };
 
-// --- EXCEL GENERATOR FUNCTION (Isolated Logic) ---
 const generateClassReportExcel = async ({ XLSX, selectedInstances, quizzes, posts, students, scores, classData, sortOption }) => {
     const selectedKeys = Array.from(selectedInstances);
     const selectedPairs = selectedKeys.map(k => {

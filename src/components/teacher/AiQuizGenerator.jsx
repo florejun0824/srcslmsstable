@@ -176,7 +176,7 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                 };
             case 'cyberpunk':
                 return {
-                    bgGradient: 'bg-purple-950/20',
+                    bgGradient: 'bg-indigo-950/20',
                     panelBg: 'bg-[#180a2e]',
                     borderColor: 'border-cyan-500/40',
                     textColor: 'text-cyan-50',
@@ -234,7 +234,7 @@ export default function AiQuizGenerator({ onBack, onAiComplete, unitId: propUnit
                     textColor: 'text-indigo-50',
                     subText: 'text-indigo-200/50',
                     accentColor: 'text-indigo-400',
-                    buttonGradient: 'bg-gradient-to-r from-indigo-700 to-purple-800',
+                    buttonGradient: 'bg-gradient-to-r from-indigo-700 to-indigo-800',
                     iconBg: 'bg-indigo-900/20',
                     highlight: 'bg-indigo-900/20 border-indigo-500/20',
                     inputBg: 'bg-black/60'

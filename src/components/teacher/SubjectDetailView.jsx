@@ -15,24 +15,24 @@ import Spinner from '../common/Spinner';
 const ContentItem = ({ item, onSelect, onGenerateQuiz, onInitiateDelete, variants }) => {
     const isLesson = item.type === 'lesson';
     const Icon = isLesson ? DocumentTextIcon : ClipboardDocumentListIcon;
-    const iconColor = isLesson ? 'text-blue-600 dark:text-blue-400' : 'text-purple-600 dark:text-purple-400';
+    const iconColor = isLesson ? 'text-blue-600' : 'text-indigo-600';
     
     return (
         <motion.li
             variants={variants}
-            className="group flex items-center justify-between p-3 last:border-b-0 transition-shadow duration-200 hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark rounded-lg"
+            className="group flex items-center justify-between p-3 last:border-b-0 transition-shadow duration-200 hover:shadow-neumorphic-inset rounded-lg"
         >
             <div className="flex items-center gap-4 min-w-0">
-                <div className={`p-3 rounded-xl bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark flex-shrink-0`}>
+                <div className={`p-3 rounded-xl bg-neumorphic-base shadow-neumorphic-inset flex-shrink-0`}>
                     <Icon className={`w-6 h-6 ${iconColor}`} />
                 </div>
-                <span className="font-semibold text-slate-800 dark:text-slate-100 text-base truncate">{item.lessonTitle || item.title}</span>
+                <span className="font-semibold text-slate-800 text-base truncate">{item.lessonTitle || item.title}</span>
             </div>
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex-shrink-0">
-                <button onClick={() => onSelect(item, 'view')} className="p-2 rounded-full hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark" title="View"><EyeIcon className="w-5 h-5 text-slate-500 dark:text-slate-400" /></button>
-                <button onClick={() => onSelect(item, 'edit')} className="p-2 rounded-full hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark" title="Edit"><PencilSquareIcon className="w-5 h-5 text-slate-500 dark:text-slate-400" /></button>
-                {isLesson && <button onClick={() => onGenerateQuiz(item)} className="p-2 rounded-full hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark" title="AI Quiz"><SparklesIcon className="w-5 h-5 text-purple-500 dark:text-purple-400" /></button>}
-                <button onClick={() => onInitiateDelete({ type: item.type, data: item })} className="p-2 rounded-full hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark" title="Delete"><TrashIcon className="w-5 h-5 text-red-500 dark:text-red-400" /></button>
+                <button onClick={() => onSelect(item, 'view')} className="p-2 rounded-full hover:shadow-neumorphic-inset" title="View"><EyeIcon className="w-5 h-5 text-slate-500" /></button>
+                <button onClick={() => onSelect(item, 'edit')} className="p-2 rounded-full hover:shadow-neumorphic-inset" title="Edit"><PencilSquareIcon className="w-5 h-5 text-slate-500" /></button>
+                {isLesson && <button onClick={() => onGenerateQuiz(item)} className="p-2 rounded-full hover:shadow-neumorphic-inset" title="AI Quiz"><SparklesIcon className="w-5 h-5 text-indigo-500" /></button>}
+                <button onClick={() => onInitiateDelete({ type: item.type, data: item })} className="p-2 rounded-full hover:shadow-neumorphic-inset" title="Delete"><TrashIcon className="w-5 h-5 text-red-500" /></button>
             </div>
         </motion.li>
     );
@@ -56,14 +56,14 @@ const UnitCard = ({ unit, lessons, quizzes, onSelectContent, onSelectUnit, onGen
     return (
         <motion.div
             variants={variants}
-            className="bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-3xl shadow-neumorphic dark:shadow-lg p-6"
+            className="bg-neumorphic-base rounded-3xl shadow-neumorphic p-6"
         >
-            <div className="flex items-center justify-between pb-4 mb-4 border-b border-neumorphic-shadow-dark/30 dark:border-slate-700">
-                <h3 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">{unit.title}</h3>
+            <div className="flex items-center justify-between pb-4 mb-4 border-b border-neumorphic-shadow-dark/30">
+                <h3 className="text-xl font-bold tracking-tight text-slate-900">{unit.title}</h3>
                 <div className="flex items-center gap-1">
-                    <button onClick={() => onSelectUnit(unit, 'addLesson')} className="p-2 text-blue-600 dark:text-blue-400 rounded-full hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark" title="Add Lesson"><PlusCircleIcon className="w-6 h-6" /></button>
-                    <button onClick={() => onSelectUnit(unit, 'edit')} className="p-2 text-slate-500 dark:text-slate-400 rounded-full hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark" title="Edit Unit"><PencilSquareIcon className="w-6 h-6" /></button>
-                    <button onClick={() => onInitiateDelete({ type: 'unit', data: unit })} className="p-2 text-red-500 dark:text-red-400 rounded-full hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark" title="Delete Unit"><TrashIcon className="w-6 h-6" /></button>
+                    <button onClick={() => onSelectUnit(unit, 'addLesson')} className="p-2 text-blue-600 rounded-full hover:shadow-neumorphic-inset" title="Add Lesson"><PlusCircleIcon className="w-6 h-6" /></button>
+                    <button onClick={() => onSelectUnit(unit, 'edit')} className="p-2 text-slate-500 rounded-full hover:shadow-neumorphic-inset" title="Edit Unit"><PencilSquareIcon className="w-6 h-6" /></button>
+                    <button onClick={() => onInitiateDelete({ type: 'unit', data: unit })} className="p-2 text-red-500 rounded-full hover:shadow-neumorphic-inset" title="Delete Unit"><TrashIcon className="w-6 h-6" /></button>
                 </div>
             </div>
             <div>
@@ -73,7 +73,7 @@ const UnitCard = ({ unit, lessons, quizzes, onSelectContent, onSelectUnit, onGen
                             <ContentItem key={item.id} item={item} onSelect={onSelectContent} onGenerateQuiz={onGenerateQuiz} onInitiateDelete={onInitiateDelete} variants={itemVariants} />
                         ))
                     ) : (
-                        <p className="text-center text-slate-500 dark:text-slate-400 py-6">No content in this unit yet.</p>
+                        <p className="text-center text-slate-500 py-6">No content in this unit yet.</p>
                     )}
                 </motion.ul>
             </div>
@@ -167,27 +167,27 @@ const SubjectDetailView = (props) => {
     // --- START OF LAYOUT FIX ---
     return (
         // 1. Root div: Removed min-h-screen and py-12. Added flex layout.
-        <div className="bg-neumorphic-base dark:bg-neumorphic-base-dark font-sans flex-1 flex flex-col">
+        <div className="bg-neumorphic-base font-sans flex-1 flex flex-col">
             {/* 2. Card div: Added flex layout and min-h-0 to allow internal scrolling */}
             <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 w-full flex-1 flex flex-col min-h-0 py-6">
                 
                 {/* 3. Header: This is the NON-SCROLLING header. */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-6">
                     <div>
-                        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">{subject.title}</h1>
+                        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 tracking-tight">{subject.title}</h1>
                         <div className="flex gap-1 mt-2">
-                            <button onClick={() => handleOpenEditSubject(subject)} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-full" title="Edit Subject"><PencilSquareIcon className="w-5 h-5" /></button>
-                            <button onClick={() => handleOpenDeleteSubject(subject)} className="p-2 text-red-400 hover:text-red-600 dark:hover:text-red-300 rounded-full" title="Delete Subject"><TrashIcon className="w-5 h-5" /></button>
+                            <button onClick={() => handleOpenEditSubject(subject)} className="p-2 text-slate-400 hover:text-slate-600 rounded-full" title="Edit Subject"><PencilSquareIcon className="w-5 h-5" /></button>
+                            <button onClick={() => handleOpenDeleteSubject(subject)} className="p-2 text-red-400 hover:text-red-600 rounded-full" title="Delete Subject"><TrashIcon className="w-5 h-5" /></button>
                         </div>
                     </div>
                     <div className="flex gap-3 flex-wrap self-start sm:self-center">
-                        <button onClick={() => setShareContentModalOpen(true)} className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-full shadow-neumorphic dark:shadow-lg transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark">
+                        <button onClick={() => setShareContentModalOpen(true)} className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 bg-neumorphic-base rounded-full shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset">
                             <ArrowUpOnSquareIcon className="w-5 h-5" /> Share
                         </button>
-                        <button onClick={() => setAddUnitModalOpen(true)} className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-blue-700 dark:text-blue-300 bg-gradient-to-br from-sky-100 to-blue-200 dark:from-sky-900 dark:to-blue-800 rounded-full shadow-neumorphic dark:shadow-lg transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark">
+                        <button onClick={() => setAddUnitModalOpen(true)} className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-blue-700 bg-gradient-to-br from-sky-100 to-blue-200 rounded-full shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset">
                             <PlusCircleIcon className="w-5 h-5" /> Add Unit
                         </button>
-                        <button onClick={() => setIsAiHubOpen(true)} className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-gradient-to-r from-purple-500 to-pink-500 rounded-full shadow-lg transition-all transform hover:scale-105">
+                        <button onClick={() => setIsAiHubOpen(true)} className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-gradient-to-r from-indigo-500 to-pink-500 rounded-full shadow-lg transition-all transform hover:scale-105">
                             <SparklesIcon className="w-5 h-5" /> AI Tools
                         </button>
                     </div>
@@ -218,12 +218,12 @@ const SubjectDetailView = (props) => {
                         ))
                     )}
                     {!isLoading && !error && units.length === 0 && (
-                         <div className="text-center py-16 bg-neumorphic-base dark:bg-neumorphic-base-dark rounded-3xl shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark">
-                            <BeakerIcon className="mx-auto h-16 w-16 text-slate-400 dark:text-slate-500" />
-                            <h3 className="mt-4 text-xl font-semibold text-slate-800 dark:text-slate-100">No units created yet.</h3>
-                            <p className="mt-2 text-md text-slate-500 dark:text-slate-400">Get started by creating your first unit.</p>
+                         <div className="text-center py-16 bg-neumorphic-base rounded-3xl shadow-neumorphic-inset">
+                            <BeakerIcon className="mx-auto h-16 w-16 text-slate-400" />
+                            <h3 className="mt-4 text-xl font-semibold text-slate-800">No units created yet.</h3>
+                            <p className="mt-2 text-md text-slate-500">Get started by creating your first unit.</p>
                             <div className="mt-8">
-                                <button onClick={() => setAddUnitModalOpen(true)} className="flex items-center mx-auto gap-2 px-6 py-3 text-md font-bold text-blue-700 dark:text-blue-300 bg-gradient-to-br from-sky-100 to-blue-200 dark:from-sky-900 dark:to-blue-800 rounded-full shadow-neumorphic dark:shadow-lg transition-shadow hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark">
+                                <button onClick={() => setAddUnitModalOpen(true)} className="flex items-center mx-auto gap-2 px-6 py-3 text-md font-bold text-blue-700 bg-gradient-to-br from-sky-100 to-blue-200 rounded-full shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset">
                                     <PlusCircleIcon className="h-6 w-6" />
                                     Create New Unit
                                 </button>

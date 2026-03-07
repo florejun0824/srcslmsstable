@@ -87,8 +87,8 @@ const CreateCourseModal = ({
           
           <div className="flex flex-col items-center mb-8">
             <div className="relative group">
-                <div className="absolute inset-0 bg-violet-500 rounded-2xl blur-xl opacity-20"></div>
-                <div className="relative h-16 w-16 rounded-[1.2rem] bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center shadow-lg shadow-violet-500/30 ring-1 ring-white/20">
+                <div className="absolute inset-0 bg-sky-500 rounded-2xl blur-xl opacity-20"></div>
+                <div className="relative h-16 w-16 rounded-[1.2rem] bg-gradient-to-br from-sky-500 to-fuchsia-600 flex items-center justify-center shadow-lg shadow-sky-500/30 ring-1 ring-white/20">
                     <BookOpenIcon className="h-8 w-8 text-white" />
                 </div>
             </div>
@@ -108,7 +108,7 @@ const CreateCourseModal = ({
                     value={courseTitle}
                     onChange={(e) => setCourseTitle(e.target.value)}
                     placeholder="e.g., Introduction to Algebra"
-                    className="w-full px-5 py-4 rounded-2xl bg-slate-100/80 dark:bg-black/40 border border-transparent focus:border-violet-500/50 text-slate-900 dark:text-white text-lg font-semibold focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:bg-white dark:focus:bg-black/60 transition-all"
+                    className="w-full px-5 py-4 rounded-2xl bg-slate-100/80 dark:bg-black/40 border border-transparent focus:border-sky-500/50 text-slate-900 dark:text-white text-lg font-semibold focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:bg-white dark:focus:bg-black/60 transition-all"
                     required
                   />
               </div>
@@ -119,7 +119,7 @@ const CreateCourseModal = ({
                 <select
                   value={selectedCategoryName}
                   onChange={(e) => setSelectedCategoryName(e.target.value)}
-                  className="w-full px-5 py-4 rounded-2xl appearance-none bg-slate-100/80 dark:bg-black/40 border border-transparent focus:border-violet-500/50 text-slate-900 dark:text-white text-lg font-semibold focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:bg-white dark:focus:bg-black/60 transition-all cursor-pointer"
+                  className="w-full px-5 py-4 rounded-2xl appearance-none bg-slate-100/80 dark:bg-black/40 border border-transparent focus:border-sky-500/50 text-slate-900 dark:text-white text-lg font-semibold focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:bg-white dark:focus:bg-black/60 transition-all cursor-pointer"
                   required
                   disabled={preselectedCategory || courseCategories.length === 0}
                 >
@@ -166,7 +166,7 @@ const CreateCourseModal = ({
               <button
                 type="submit"
                 disabled={isSubmitting || !courseTitle.trim() || !selectedCategoryName}
-                className="relative inline-flex justify-center rounded-full px-4 py-3.5 text-sm font-bold text-white bg-gradient-to-r from-violet-600 via-fuchsia-600 to-purple-600 hover:from-violet-500 hover:via-fuchsia-500 shadow-lg disabled:opacity-70"
+                className="relative inline-flex justify-center rounded-full px-4 py-3.5 text-sm font-bold text-white bg-gradient-to-r from-sky-600 via-fuchsia-600 to-indigo-600 hover:from-sky-500 hover:via-fuchsia-500 shadow-lg disabled:opacity-70"
               >
                 {isSubmitting ? 'Creating...' : 'Create Subject'}
               </button>

@@ -56,7 +56,6 @@ const processLatex = (text) => {
         .replace(/\$(.*?)\$/g, latexToImg);    
 };
 
-// UPDATED: Added reject handler to prevent infinite Promise hangs if image parsing fails
 const getImageDimensions = (base64) => {
     return new Promise((resolve, reject) => {
         const i = new Image();
@@ -66,12 +65,17 @@ const getImageDimensions = (base64) => {
     });
 };
 
-// UPDATED: Added HTTP status check and reader.onerror to prevent infinite Promise hangs
 const fetchImageAsBase64 = async (url) => {
   if (!url) return null;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Failed to fetch image: ${res.status} ${res.statusText}`);
   
+  // Prevent HTML catch-all from being parsed as an image
+  const contentType = res.headers.get('content-type');
+  if (contentType && contentType.includes('text/html')) {
+      throw new Error(`Image fetch returned HTML instead of image: ${url}`);
+  }
+
   const blob = await res.blob();
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -344,7 +348,6 @@ const preProcessHtmlForExport = (rawHtml, mode = 'pdf') => {
                         currentTable.style.marginBottom = '8px';
                         
                         const colGroup = document.createElement('colgroup');
-                        // MODIFIED: Changed from 30%/70% to 25%/75% to match PDF requirements
                         colGroup.innerHTML = '<col style="width:25%"><col style="width:75%">';
                         currentTable.appendChild(colGroup);
                         
@@ -460,7 +463,6 @@ const cleanUpPdfContent = (content, inTable = false, depth = 0, tableCols = 1) =
                 });
             });
 
-            // MODIFIED: Apply 25/75 width for 2-column tables (ULP style) to save pages
             if (safeMaxCols === 2) {
                 content.table.widths = ['25%', '*'];
             } else {
@@ -493,6 +495,14 @@ const cleanUpPdfContent = (content, inTable = false, depth = 0, tableCols = 1) =
 
 async function loadFontToVfs(name, url, pdfMake) {
   const res = await fetch(url);
+  if (!res.ok) throw new Error(`Font fetch failed with status: ${res.statusText}`);
+  
+  // Verify it didn't return an HTML fallback (index.html) instead of TTF
+  const contentType = res.headers.get('content-type');
+  if (contentType && contentType.includes('text/html')) {
+      throw new Error(`Font file is missing, returned HTML instead: ${url}`);
+  }
+
   const buffer = await res.arrayBuffer();
   pdfMake.vfs[name] = btoa(new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), ""));
 }
@@ -501,7 +511,6 @@ let dejaVuLoaded = false;
 async function registerDejaVuFonts(pdfMake) {
   if (dejaVuLoaded) return true;
   try {
-    // Note: Ensure these fonts exist in your public/fonts folder!
     await loadFontToVfs("DejaVuSans.ttf", "/fonts/DejaVuSans.ttf", pdfMake);
     await loadFontToVfs("DejaVuSans-Bold.ttf", "/fonts/DejaVuSans-Bold.ttf", pdfMake);
     await loadFontToVfs("DejaVuSans-Oblique.ttf", "/fonts/DejaVuSans-Oblique.ttf", pdfMake);
@@ -514,19 +523,29 @@ async function registerDejaVuFonts(pdfMake) {
         bolditalics: "DejaVuSans-BoldOblique.ttf" 
     };
 
+    const defaultFonts = {
+        Roboto: {
+            normal: 'Roboto-Regular.ttf',
+            bold: 'Roboto-Medium.ttf',
+            italics: 'Roboto-Italic.ttf',
+            bolditalics: 'Roboto-MediumItalic.ttf'
+        }
+    };
+
+    // Safely append to fonts to ensure fallback to Roboto works 
     pdfMake.fonts = {
+      ...(pdfMake.fonts || defaultFonts),
       DejaVu: dejaVuConfig,
       "DejaVu Sans": dejaVuConfig,
       "DejavuSans": dejaVuConfig,
       "DejaVuSans": dejaVuConfig,
-      Roboto: dejaVuConfig,
       Arial: dejaVuConfig,
       Helvetica: dejaVuConfig
     };
     dejaVuLoaded = true;
     return true;
   } catch (e) { 
-      console.error("Font load error", e); 
+      console.warn("Custom fonts not loaded, falling back to default.", e.message); 
       return false;
   }
 }
@@ -648,15 +667,12 @@ export const generateDocx = async (lesson, subject, showToast) => {
                         @page Section1 { size: 8.5in 13in; margin: 1.0in 0.5in 1.0in 0.5in; mso-header-margin: 0.5in; mso-footer-margin: 0.5in; }
                         div.Section1 { page: Section1; }
                         body { font-family: 'Arial', sans-serif; }
-                        
-                        /* MODIFIED: Fixed table layout to prevent destruction */
                         table { 
                             border-collapse: collapse; 
                             width: 100%; 
                             table-layout: fixed; 
                             margin-bottom: 10px; 
                         }
-                        
                         td, th { border: 1px solid black; padding: 8px; vertical-align: top; word-wrap: break-word; }
                         th { background-color: #f0f0f0; font-weight: bold; }
                         thead { display: table-header-group; }
@@ -670,15 +686,9 @@ export const generateDocx = async (lesson, subject, showToast) => {
                 </html>
             `;
 
-            // MODIFIED: Updated margins (1440 = 1 inch, 720 = 0.5 inch)
             const blob = await asBlob(fullHtml, {
                 orientation: 'portrait',
-                margins: { 
-                    top: 1440,     // 1 inch
-                    right: 720,    // 0.5 inch
-                    bottom: 1440,  // 1 inch
-                    left: 720      // 0.5 inch
-                }
+                margins: { top: 1440, right: 720, bottom: 1440, left: 720 }
             });
 
             if (isNativePlatform()) {
@@ -720,7 +730,6 @@ export const generateDocx = async (lesson, subject, showToast) => {
 
             const processedDiv = preProcessHtmlForExport(legacyHtml, 'docx');
 
-            // Math Image Scaling (Regular Export)
             const mathImages = processedDiv.querySelectorAll('img.math-img');
             if (mathImages.length > 0) {
                 await Promise.all(Array.from(mathImages).map(async (img) => {
@@ -953,7 +962,10 @@ export const generatePdf = async (lesson, subject, showToast) => {
             defaultStyle: { font: activeFont, fontSize: 12, alignment: 'justify' }
         };
 
-        const pdfDoc = pdfMake.createPdf(docDef);
+        // EXPLICITLY pass fonts and vfs parameters down into createPdf. 
+        // This stops pdfMake from losing the custom scope context on module load.
+        const pdfDoc = pdfMake.createPdf(docDef, null, pdfMake.fonts, pdfMake.vfs);
+        
         if (isNativePlatform()) {
             pdfDoc.getBlob(b => nativeSave(b, `${(lesson.title || 'export').replace(/[^a-z0-9]/gi, '_')}${suffix}.pdf`, 'application/pdf', showToast));
         } else {

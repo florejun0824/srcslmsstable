@@ -44,7 +44,7 @@ const EditRoleModal = ({ user, onSubmit, onClose }) => {
                             name="role"
                             value={newRole}
                             onChange={(e) => setNewRole(e.target.value)}
-                            className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                            className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
                         >
                             <option value="student">Student</option>
                             <option value="teacher">Teacher</option>
@@ -55,7 +55,7 @@ const EditRoleModal = ({ user, onSubmit, onClose }) => {
                         <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">
                             Cancel
                         </button>
-                        <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+                        <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
                             Update Role
                         </button>
                     </div>

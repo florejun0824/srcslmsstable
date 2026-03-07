@@ -23,7 +23,7 @@ const CountdownTimer = ({ revealTime, onComplete }) => {
     return () => clearInterval(interval);
   }, [revealTime, onComplete]);
 
-  return <span className={isFinished ? "text-white" : "font-mono"}>{timeLeft}</span>;
+  return <span className={isFinished ? "text-emerald-500 font-semibold" : "font-mono tabular-nums"}>{timeLeft}</span>;
 };
 
 export default CountdownTimer;

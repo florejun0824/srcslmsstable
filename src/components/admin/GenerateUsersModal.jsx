@@ -11,7 +11,7 @@ const GenerateUsersModal = ({ onSubmit, onClose }) => {
     const { userProfile } = useAuth();
     const isSuperAdmin = userProfile?.schoolId === DEFAULT_SCHOOL_ID;
 
-    const [activeTab, setActiveTab] = useState('list'); 
+    const [activeTab, setActiveTab] = useState('list');
     const [quantity, setQuantity] = useState(10);
     const [names, setNames] = useState('');
     const [role, setRole] = useState('student');
@@ -30,11 +30,11 @@ const GenerateUsersModal = ({ onSubmit, onClose }) => {
             setError('Please paste at least one name.');
             return;
         }
-        
-        const submissionData = activeTab === 'list' 
-            ? { names, role, schoolId } 
+
+        const submissionData = activeTab === 'list'
+            ? { names, role, schoolId }
             : { quantity: parseInt(quantity, 10), role, schoolId };
-        
+
         if (role === 'student') {
             submissionData.gradeLevel = gradeLevel;
         }
@@ -57,20 +57,20 @@ const GenerateUsersModal = ({ onSubmit, onClose }) => {
 
     const modalVariants = {
         hidden: { opacity: 0, scale: 0.92, y: 30 },
-        visible: { 
-            opacity: 1, scale: 1, y: 0, 
-            transition: { type: "spring", damping: 28, stiffness: 350, mass: 0.8 } 
+        visible: {
+            opacity: 1, scale: 1, y: 0,
+            transition: { type: "spring", damping: 28, stiffness: 350, mass: 0.8 }
         },
-        exit: { 
-            opacity: 0, scale: 0.95, y: 20, 
-            transition: { duration: 0.2, ease: "easeIn" } 
+        exit: {
+            opacity: 0, scale: 0.95, y: 20,
+            transition: { duration: 0.2, ease: "easeIn" }
         }
     };
 
     return createPortal(
         <AnimatePresence>
             <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 font-sans">
-                
+
                 {/* Optimized Backdrop */}
                 <motion.div
                     variants={backdropVariants}
@@ -82,7 +82,7 @@ const GenerateUsersModal = ({ onSubmit, onClose }) => {
                 />
 
                 {/* Modal Container */}
-                <motion.div 
+                <motion.div
                     variants={modalVariants}
                     initial="hidden"
                     animate="visible"
@@ -92,7 +92,7 @@ const GenerateUsersModal = ({ onSubmit, onClose }) => {
                     {/* Header */}
                     <div className="flex items-center justify-between px-8 py-6 border-b border-black/5 dark:border-white/5 flex-shrink-0">
                         <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-[1.2rem] bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20 text-white">
+                            <div className="w-12 h-12 rounded-[1.2rem] bg-gradient-to-br from-blue-500 to-sky-600 flex items-center justify-center shadow-lg shadow-blue-500/20 text-white">
                                 <Users className="w-6 h-6 stroke-[2.5]" />
                             </div>
                             <div>
@@ -104,8 +104,8 @@ const GenerateUsersModal = ({ onSubmit, onClose }) => {
                                 </p>
                             </div>
                         </div>
-                        <button 
-                            onClick={onClose} 
+                        <button
+                            onClick={onClose}
                             className="p-2.5 rounded-full bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/20 transition-all active:scale-90"
                         >
                             <X size={20} strokeWidth={2.5} />
@@ -114,10 +114,10 @@ const GenerateUsersModal = ({ onSubmit, onClose }) => {
 
                     <div className="flex-1 overflow-y-auto custom-scrollbar p-8">
                         <form onSubmit={handleSubmit} className="space-y-6">
-                            
+
                             {/* Segmented Control */}
                             <div className="p-1.5 bg-slate-100 dark:bg-black/20 rounded-[1.5rem] flex relative isolate">
-                                <div 
+                                <div
                                     className={`absolute top-1.5 bottom-1.5 w-[calc(50%-6px)] bg-white dark:bg-[#636366] rounded-[1.1rem] shadow-sm transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] z-0 ${activeTab === 'list' ? 'left-1.5' : 'left-[calc(50%+3px)]'}`}
                                 />
                                 <button
@@ -139,9 +139,9 @@ const GenerateUsersModal = ({ onSubmit, onClose }) => {
                             {/* Content Switching Area */}
                             <div className="min-h-[160px]">
                                 {activeTab === 'list' ? (
-                                    <motion.div 
-                                        initial={{ opacity: 0, x: -20 }} 
-                                        animate={{ opacity: 1, x: 0 }} 
+                                    <motion.div
+                                        initial={{ opacity: 0, x: -20 }}
+                                        animate={{ opacity: 1, x: 0 }}
                                         transition={{ duration: 0.3 }}
                                         className="space-y-2.5"
                                     >
@@ -158,9 +158,9 @@ const GenerateUsersModal = ({ onSubmit, onClose }) => {
                                         </div>
                                     </motion.div>
                                 ) : (
-                                    <motion.div 
-                                        initial={{ opacity: 0, x: 20 }} 
-                                        animate={{ opacity: 1, x: 0 }} 
+                                    <motion.div
+                                        initial={{ opacity: 0, x: 20 }}
+                                        animate={{ opacity: 1, x: 0 }}
                                         transition={{ duration: 0.3 }}
                                         className="space-y-2.5"
                                     >
@@ -185,7 +185,7 @@ const GenerateUsersModal = ({ onSubmit, onClose }) => {
                             {/* Configuration Card */}
                             <div className="p-1 rounded-[1.8rem] bg-slate-50 dark:bg-white/5 border border-black/5 dark:border-white/5">
                                 <div className="grid divide-y divide-black/5 dark:divide-white/5">
-                                    
+
                                     {/* School Selector (Super Admin) */}
                                     {isSuperAdmin && (
                                         <div className="flex items-center justify-between p-4">
@@ -194,9 +194,9 @@ const GenerateUsersModal = ({ onSubmit, onClose }) => {
                                                 <span className="text-sm font-bold">Target School</span>
                                             </div>
                                             <div className="relative">
-                                                <select 
-                                                    value={schoolId} 
-                                                    onChange={(e) => setSchoolId(e.target.value)} 
+                                                <select
+                                                    value={schoolId}
+                                                    onChange={(e) => setSchoolId(e.target.value)}
                                                     className="appearance-none bg-transparent text-right text-sm font-bold text-blue-600 dark:text-blue-400 pr-5 focus:outline-none cursor-pointer"
                                                 >
                                                     {Object.values(SCHOOLS).map((school) => (
@@ -215,13 +215,14 @@ const GenerateUsersModal = ({ onSubmit, onClose }) => {
                                             <span className="text-sm font-bold">Assign Role</span>
                                         </div>
                                         <div className="relative">
-                                            <select 
-                                                value={role} 
-                                                onChange={(e) => setRole(e.target.value)} 
+                                            <select
+                                                value={role}
+                                                onChange={(e) => setRole(e.target.value)}
                                                 className="appearance-none bg-transparent text-right text-sm font-bold text-slate-900 dark:text-white pr-5 focus:outline-none cursor-pointer"
                                             >
                                                 <option value="student">Student</option>
                                                 <option value="teacher">Teacher</option>
+                                                <option value="parent">Parent</option>
                                                 <option value="admin">Admin</option>
                                             </select>
                                             <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
@@ -231,7 +232,7 @@ const GenerateUsersModal = ({ onSubmit, onClose }) => {
                                     {/* Grade Level (Conditional) */}
                                     <AnimatePresence>
                                         {role === 'student' && (
-                                            <motion.div 
+                                            <motion.div
                                                 initial={{ height: 0, opacity: 0 }}
                                                 animate={{ height: 'auto', opacity: 1 }}
                                                 exit={{ height: 0, opacity: 0 }}
@@ -242,9 +243,9 @@ const GenerateUsersModal = ({ onSubmit, onClose }) => {
                                                         <span className="text-sm font-bold pl-8">Grade Level</span>
                                                     </div>
                                                     <div className="relative">
-                                                        <select 
-                                                            value={gradeLevel} 
-                                                            onChange={(e) => setGradeLevel(e.target.value)} 
+                                                        <select
+                                                            value={gradeLevel}
+                                                            onChange={(e) => setGradeLevel(e.target.value)}
                                                             className="appearance-none bg-transparent text-right text-sm font-bold text-slate-900 dark:text-white pr-5 focus:outline-none cursor-pointer"
                                                         >
                                                             {gradeLevels.map(gl => <option key={gl} value={gl}>{gl}</option>)}
@@ -261,7 +262,7 @@ const GenerateUsersModal = ({ onSubmit, onClose }) => {
                             {/* Error Message */}
                             <AnimatePresence>
                                 {error && (
-                                    <motion.div 
+                                    <motion.div
                                         initial={{ opacity: 0, y: -10 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         exit={{ opacity: 0 }}
@@ -273,8 +274,8 @@ const GenerateUsersModal = ({ onSubmit, onClose }) => {
                             </AnimatePresence>
 
                             {/* Submit Button */}
-                            <button 
-                                type="submit" 
+                            <button
+                                type="submit"
                                 className="w-full py-4 rounded-[1.5rem] font-bold text-sm text-white bg-[#007AFF] hover:bg-[#0062cc] shadow-lg shadow-blue-500/30 active:scale-98 transition-all relative overflow-hidden group"
                             >
                                 <span className="relative z-10">Generate Accounts</span>

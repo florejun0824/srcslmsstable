@@ -7,6 +7,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Global Apple System Font */
+html, body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 /* ==========================================================================
    Spinner Component Styles (macOS 16 / VisionOS Glass Aesthetics)
    ========================================================================== */
@@ -42,7 +49,7 @@
   will-change: opacity, backdrop-filter;
   
   z-index: 9999;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
   transition: opacity 0.3s ease, backdrop-filter 0.3s ease;
 }
 
@@ -715,7 +722,7 @@
    ========================================================================== */
 .content-renderer {
   line-height: 1.75;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
   color: #1f2937;
 }
 
@@ -951,4 +958,27 @@
 .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
+}
+
+@media print {
+    /* Hide everything by default */
+    body * {
+        visibility: hidden;
+    }
+    
+    /* Make only the printable area and its children visible */
+    #printable-area, #printable-area * {
+        visibility: visible;
+    }
+    
+    /* Reposition the printable area to the top left of the PDF */
+    #printable-area {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        overflow: visible !important;
+        height: auto !important;
+        padding: 0 !important;
+    }
 }

@@ -77,23 +77,23 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
 
     // --- REFINED DESIGN TOKENS (Fixed Sizes & Layout) ---
     const ui = {
-        card: "bg-[#F2F4F8] dark:bg-[#121212] rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]", 
-        surface: "bg-white dark:bg-[#1E1E1E] rounded-2xl p-4 shadow-sm ring-1 ring-black/5 dark:ring-white/5",
+        card: "bg-[#F2F4F8] rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]", 
+        surface: "bg-white rounded-2xl p-4 shadow-sm ring-1 ring-black/5",
         
         // Compact Inputs
-        inputWrapper: "group relative bg-[#F7F9FC] dark:bg-[#2C2C2C] rounded-xl transition-all duration-300 focus-within:bg-white dark:focus-within:bg-[#3A3A3A] focus-within:ring-2 focus-within:ring-blue-500/20 border border-transparent focus-within:border-blue-500/50",
-        input: "w-full bg-transparent border-none px-4 pt-6 pb-2 text-sm text-gray-900 dark:text-white placeholder-transparent focus:ring-0 focus:outline-none transition-all resize-none",
+        inputWrapper: "group relative bg-[#F7F9FC] rounded-xl transition-all duration-300 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-500/20 border border-transparent focus-within:border-blue-500/50",
+        input: "w-full bg-transparent border-none px-4 pt-6 pb-2 text-sm text-gray-900 placeholder-transparent focus:ring-0 focus:outline-none transition-all resize-none",
         floatingLabel: "absolute left-4 top-3 text-[0.65rem] font-bold text-gray-400 uppercase tracking-widest transition-all group-focus-within:text-blue-500 group-focus-within:top-1.5",
         
         // Sized Buttons
         btnPrimary: "relative px-8 py-3 bg-[#007AFF] hover:bg-[#0062cc] text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-500/30 hover:shadow-blue-500/40 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2",
-        btnSecondary: "px-6 py-3 bg-white dark:bg-[#2C2C2C] text-gray-700 dark:text-white font-bold text-sm rounded-xl hover:bg-gray-50 dark:hover:bg-[#3A3A3A] transition-all active:scale-95 border border-gray-200 dark:border-white/10",
+        btnSecondary: "px-6 py-3 bg-white text-gray-700 font-bold text-sm rounded-xl hover:bg-gray-50 transition-all active:scale-95 border border-gray-200",
         
-        select: "w-full bg-[#F7F9FC] dark:bg-[#2C2C2C] border-none rounded-xl py-3 px-4 text-sm text-gray-900 dark:text-white font-semibold focus:ring-2 focus:ring-blue-500/50 cursor-pointer appearance-none",
+        select: "w-full bg-[#F7F9FC] border-none rounded-xl py-3 px-4 text-sm text-gray-900 font-semibold focus:ring-2 focus:ring-blue-500/50 cursor-pointer appearance-none",
         
-        header: "bg-white/80 dark:bg-[#121212]/80 backdrop-blur-xl border-b border-gray-200/50 dark:border-white/5 px-6 py-4 flex items-center justify-between flex-none z-10",
-        footer: "bg-white dark:bg-[#121212] border-t border-gray-200/50 dark:border-white/5 px-6 py-4 flex items-center justify-end gap-3 flex-none z-10",
-        sectionTitle: "text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3 ml-1",
+        header: "bg-white/80 backdrop-blur-xl border-b border-gray-200/50 px-6 py-4 flex items-center justify-between flex-none z-10",
+        footer: "bg-white border-t border-gray-200/50 px-6 py-4 flex items-center justify-end gap-3 flex-none z-10",
+        sectionTitle: "text-xs font-bold uppercase tracking-wider text-gray-500 mb-3 ml-1",
     };
 
     // --- State ---
@@ -884,8 +884,8 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                             
                             {/* --- LOADING OVERLAY --- */}
                             {(isGenerating || isSaving) && (
-                                <div className="absolute inset-0 bg-white/80 dark:bg-black/80 backdrop-blur-md z-[60] flex flex-col justify-center items-center">
-                                    <div className="bg-white dark:bg-[#1E1E1E] p-8 rounded-3xl shadow-2xl flex flex-col items-center">
+                                <div className="absolute inset-0 bg-white/80 backdrop-blur-md z-[60] flex flex-col justify-center items-center">
+                                    <div className="bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center">
                                         <div className="scale-125 mb-6"><ProgressIndicator progress={progress} /></div>
                                         <h3 className="text-xl font-bold mt-4 animate-pulse">{isGenerating ? 'Drafting Blueprint' : 'Saving'}</h3>
                                         <p className="text-gray-500 mt-2 text-sm">{isGenerating ? progressLabel : 'Writing to database...'}</p>
@@ -896,23 +896,23 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                             {/* --- HEADER (Fixed) --- */}
                             <div className={ui.header}>
                                 <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+                                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
                                         <BookOpenIcon className="h-6 w-6 text-white" />
                                     </div>
                                     <div>
-                                        <Dialog.Title className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+                                        <Dialog.Title className="text-2xl font-bold tracking-tight text-gray-900">
                                             Unit <span className="text-blue-500">Learning Plan</span>
                                         </Dialog.Title>
                                         <p className="text-[0.65rem] font-bold text-gray-400 uppercase tracking-widest">PEAC / DepEd Compliant</p>
                                     </div>
                                 </div>
-                                <button onClick={onClose} disabled={isSaving || isGenerating} className="group p-2 rounded-full hover:bg-gray-100 dark:hover:bg-white/10 transition-all">
-                                    <XMarkIcon className="h-6 w-6 text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white transition-colors" />
+                                <button onClick={onClose} disabled={isSaving || isGenerating} className="group p-2 rounded-full hover:bg-gray-100 transition-all">
+                                    <XMarkIcon className="h-6 w-6 text-gray-400 group-hover:text-gray-900 transition-colors" />
                                 </button>
                             </div>
 
                             {/* --- BODY (Scrollable) --- */}
-                            <div className="flex-1 overflow-y-auto px-6 py-8 custom-scrollbar bg-white/50 dark:bg-[#121212]/50">
+                            <div className="flex-1 overflow-y-auto px-6 py-8 custom-scrollbar bg-white/50">
                                 {!previewData ? (
                                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-full">
                                         
@@ -987,7 +987,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                                         {/* RIGHT COLUMN: SOURCE SELECTOR */}
                                         <div className="lg:col-span-5 flex flex-col">
                                             <h3 className={ui.sectionTitle}>3. Source Material</h3>
-                                            <div className={`${ui.surface} flex-1 min-h-[300px] border border-gray-100 dark:border-white/5 flex flex-col`}>
+                                            <div className={`${ui.surface} flex-1 min-h-[300px] border border-gray-100 flex flex-col`}>
                                                  <SourceContentSelector
                                                     selectedSubjectId={selectedSubjectId}
                                                     handleSubjectChange={(e) => { setSelectedSubjectId(e.target.value); setSelectedUnitIds(new Set()); }}
@@ -1011,13 +1011,13 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                                             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-100 text-green-700 font-bold text-xs mb-3">
                                                 <CheckCircleIcon className="w-4 h-4" /> Generation Complete
                                             </div>
-                                            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Unit Learning Plan</h2>
+                                            <h2 className="text-2xl font-bold text-gray-900">Unit Learning Plan</h2>
                                             <p className="text-gray-500 mt-1">{sourceInfo.title}</p>
                                         </div>
                                         
-                                        <div className="bg-white dark:bg-[#1E1E1E] rounded-xl p-8 shadow-sm border border-gray-100 dark:border-white/5 overflow-x-auto">
+                                        <div className="bg-white rounded-xl p-8 shadow-sm border border-gray-100 overflow-x-auto">
                                             {previewData.generated_lessons.map((lesson, index) => (
-                                                <div key={index} className="prose prose-sm prose-slate dark:prose-invert max-w-none">
+                                                <div key={index} className="prose prose-sm prose-slate max-w-none">
                                                     <div dangerouslySetInnerHTML={{ __html: lesson.pages[0].content }} />
                                                 </div>
                                             ))}

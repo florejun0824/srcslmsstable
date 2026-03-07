@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { db } from '../../services/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '../../contexts/ToastContext';
+import { motion } from 'framer-motion';
+import { PaperAirplaneIcon, ArrowPathIcon } from '@heroicons/react/24/solid';
 
 const CreateClassAnnouncementForm = ({ classId, teacherName, onAnnouncementPosted }) => {
     const [content, setContent] = useState('');
@@ -16,13 +18,12 @@ const CreateClassAnnouncementForm = ({ classId, teacherName, onAnnouncementPoste
         }
         setIsSubmitting(true);
         try {
-            // --- THIS IS THE FIX ---
             // We now save to a field named "classIds" and put the single classId into an array.
             // This matches the data structure of your main announcement form.
             await addDoc(collection(db, 'classAnnouncements'), {
-                classIds: [classId], // Changed from classId: classId
+                classIds: [classId], 
                 teacherName,
-                content,
+                content: content.trim(),
                 createdAt: serverTimestamp(),
             });
             showToast("Announcement posted successfully!", "success");
@@ -37,21 +38,50 @@ const CreateClassAnnouncementForm = ({ classId, teacherName, onAnnouncementPoste
     };
 
     return (
-        <form onSubmit={handleSubmit} className="p-4 border bg-gray-50 rounded-lg mt-4">
-            <textarea
-                className="w-full p-2 border rounded-md"
-                rows="3"
-                placeholder="Write an announcement for this class..."
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                disabled={isSubmitting}
-            />
-            <div className="text-right mt-2">
-                <button type="submit" className="btn-primary" disabled={isSubmitting}>
-                    {isSubmitting ? 'Posting...' : 'Post'}
-                </button>
+        <motion.form 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            onSubmit={handleSubmit} 
+            className="flex flex-col gap-4 w-full"
+        >
+            <div className="relative">
+                <textarea
+                    className="w-full min-h-[140px] p-5 bg-zinc-200/60 dark:bg-zinc-900/50 text-zinc-900 dark:text-zinc-100 placeholder-zinc-500 rounded-[24px] outline-none focus:ring-2 focus:ring-indigo-400/50 dark:focus:ring-indigo-500/50 transition-shadow resize-none text-base"
+                    placeholder="What would you like to share with the class?"
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    disabled={isSubmitting}
+                    autoFocus
+                />
             </div>
-        </form>
+            
+            <div className="flex justify-end items-center">
+                <motion.button 
+                    type="submit" 
+                    disabled={isSubmitting || !content.trim()}
+                    whileHover={!isSubmitting && content.trim() ? { scale: 1.02 } : {}}
+                    whileTap={!isSubmitting && content.trim() ? { scale: 0.96 } : {}}
+                    className={`flex items-center gap-2 px-6 py-3 rounded-full font-medium transition-all ${
+                        isSubmitting || !content.trim()
+                            ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600 cursor-not-allowed'
+                            : 'bg-indigo-600 dark:bg-indigo-500 text-white shadow-md hover:shadow-lg'
+                    }`}
+                >
+                    {isSubmitting ? (
+                        <>
+                            <ArrowPathIcon className="w-5 h-5 animate-spin" />
+                            <span>Posting...</span>
+                        </>
+                    ) : (
+                        <>
+                            <span>Post</span>
+                            <PaperAirplaneIcon className="w-5 h-5" />
+                        </>
+                    )}
+                </motion.button>
+            </div>
+        </motion.form>
     );
 };
 

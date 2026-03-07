@@ -200,7 +200,7 @@ export default function ViewLessonModal({ isOpen, onClose, lesson }) {
                 download
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-purple-600 to-indigo-600 rounded-full shadow-lg hover:from-purple-700 hover:to-indigo-700 transition-all duration-300 ease-in-out transform hover:scale-105"
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-indigo-600 rounded-full shadow-lg hover:from-indigo-700 hover:to-indigo-700 transition-all duration-300 ease-in-out transform hover:scale-105"
               >
                 <ArrowDownTrayIcon className="h-5 w-5" />
                 Download Guide

@@ -1,6 +1,6 @@
 // src/pages/AdminDashboard.jsx
 
-import React, { useState, useEffect, Fragment, memo, useCallback, lazy, Suspense, useRef } from 'react';
+import React, { useState, useEffect, Fragment, memo, useCallback, lazy, Suspense, useRef, useMemo } from 'react';
 import { useAuth, DEFAULT_SCHOOL_ID } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -20,7 +20,8 @@ import {
   AlertTriangle,
   Info,
   Check,
-  Loader2 
+  Loader2,
+  Heart
 } from 'lucide-react';
 import { Dialog, Transition } from '@headlessui/react';
 
@@ -32,7 +33,7 @@ const SimpleAutoSizer = ({ children }) => {
 
   useEffect(() => {
     if (!containerRef.current) return;
-    
+
     // Initial measurement
     const measure = () => {
       if (containerRef.current) {
@@ -131,7 +132,7 @@ class ErrorBoundary extends React.Component {
           <AlertTriangle className="w-16 h-16 text-red-500 mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Something went wrong</h2>
           <p className="text-gray-500 dark:text-gray-400 mb-6">The dashboard encountered an unexpected error.</p>
-          <button 
+          <button
             onClick={() => window.location.reload()}
             className="px-6 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors"
           >
@@ -170,19 +171,19 @@ const useMonetTheme = () => {
         };
       case 'cyberpunk':
         return {
-          iconBg: "bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-500/20 dark:text-fuchsia-300",
-          btnPrimary: "bg-fuchsia-600 hover:bg-fuchsia-700 text-white shadow-fuchsia-500/20",
-          btnTonal: "bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-500/20 dark:text-fuchsia-300 hover:bg-fuchsia-200",
-          tabActive: "bg-fuchsia-600 text-white",
-          textAccent: "text-fuchsia-700 dark:text-fuchsia-400"
+          iconBg: "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300",
+          btnPrimary: "bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/20",
+          btnTonal: "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300 hover:bg-amber-200",
+          tabActive: "bg-amber-500 text-white",
+          textAccent: "text-amber-700 dark:text-amber-400"
         };
       case 'space':
         return {
-          iconBg: "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300",
-          btnPrimary: "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-500/20",
-          btnTonal: "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300 hover:bg-indigo-200",
-          tabActive: "bg-indigo-600 text-white",
-          textAccent: "text-indigo-700 dark:text-indigo-400"
+          iconBg: "bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300",
+          btnPrimary: "bg-sky-500 hover:bg-sky-600 text-white shadow-sky-500/20",
+          btnTonal: "bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300 hover:bg-sky-200",
+          tabActive: "bg-sky-500 text-white",
+          textAccent: "text-sky-700 dark:text-sky-400"
         };
       default:
         return null;
@@ -190,12 +191,12 @@ const useMonetTheme = () => {
   }, [activeOverlay]);
 };
 
-// --- ONE UI DESIGN TOKENS ---
-const oneUiCard = "bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-md rounded-[26px] shadow-[0_4px_24px_rgba(0,0,0,0.04)] border border-white/20 dark:border-white/5 overflow-hidden transition-all duration-300";
+// --- MD3 DESIGN TOKENS ---
+const md3Surface = "bg-white/95 dark:bg-[#1D1B20]/95 backdrop-blur-xl rounded-[28px] shadow-[0_1px_3px_1px_rgba(0,0,0,0.05),0_1px_2px_0_rgba(0,0,0,0.1)] border border-black/[0.04] dark:border-white/[0.06] overflow-hidden transition-all duration-300";
 
 // --- SKELETON COMPONENT ---
 const TableSkeleton = () => (
-  <div className={`${oneUiCard} mb-4 animate-pulse`}>
+  <div className={`${md3Surface} mb-4 animate-pulse`}>
     <div className="p-5 flex items-center justify-between">
       <div className="flex items-center gap-5">
         <div className="w-11 h-11 rounded-[18px] bg-gray-200 dark:bg-[#2C2C2E]"></div>
@@ -252,7 +253,7 @@ export const AlertModal = memo(({ isOpen, onClose, title, message, monet }) => (
                   className="text-xl font-bold leading-6 text-gray-900 dark:text-white flex flex-col items-center gap-4 text-center"
                 >
                   <div className={`p-3 rounded-full ${monet ? monet.iconBg : 'bg-blue-100 dark:bg-blue-500/20 text-[#007AFF]'}`}>
-                      <Info className="w-8 h-8" />
+                    <Info className="w-8 h-8" />
                   </div>
                   {title}
                 </Dialog.Title>
@@ -384,19 +385,19 @@ export const ConfirmActionModal = memo(({
 
 // --- ROW COMPONENT FOR VIRTUALIZED LIST ---
 const VirtualizedUserRow = ({ index, style, data }) => {
-  const { 
-    users, 
-    selectedUserIds, 
-    handleSelectUser, 
-    isRestrictedTable, 
-    handleSetRestriction, 
-    monet, 
-    localActionMenuOpenFor, 
+  const {
+    users,
+    selectedUserIds,
+    handleSelectUser,
+    isRestrictedTable,
+    handleSetRestriction,
+    monet,
+    localActionMenuOpenFor,
     setLocalActionMenuOpenFor,
     handleShowPassword,
     handleEditUser,
     handleSingleDelete,
-    checkboxClass 
+    checkboxClass
   } = data;
 
   const user = users[index];
@@ -531,7 +532,7 @@ const CollapsibleUserTable = memo(({
   handleSingleDelete,
   monet
 }) => {
-  
+
   const [localActionMenuOpenFor, setLocalActionMenuOpenFor] = useState(null);
 
   useEffect(() => {
@@ -545,20 +546,20 @@ const CollapsibleUserTable = memo(({
   const allInTableSelected =
     userIdsInTable.length > 0 && userIdsInTable.every((id) => selectedUserIds.has(id));
 
-  const iconBoxClass = monet 
-    ? monet.iconBg 
+  const iconBoxClass = monet
+    ? monet.iconBg
     : "bg-[#F2F2F7] dark:bg-[#2C2C2E] text-[#007AFF]";
-    
+
   const toggleBtnClass = isOpen
     ? (monet ? `${monet.btnPrimary} text-white rotate-180` : "bg-[#007AFF] text-white rotate-180")
     : "bg-[#F2F2F7] dark:bg-[#2C2C2E] text-gray-400";
-    
-  const checkboxClass = monet 
+
+  const checkboxClass = monet
     ? `checked:${monet.btnPrimary.split(' ')[0]} checked:border-transparent`
     : `checked:bg-[#007AFF] checked:border-[#007AFF]`;
 
   return (
-    <div className={`${oneUiCard} mb-4 flex flex-col`}>
+    <div className={`${md3Surface} mb-4 flex flex-col`}>
       <button
         onClick={() => onToggle(sectionKey)}
         className="w-full flex justify-between items-center p-5 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#252525] transition-colors duration-200 group outline-none shrink-0"
@@ -573,14 +574,14 @@ const CollapsibleUserTable = memo(({
           </div>
         </div>
         <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${toggleBtnClass}`}>
-            <ChevronDown size={20} strokeWidth={2.5} />
+          <ChevronDown size={20} strokeWidth={2.5} />
         </div>
       </button>
-      
+
       {isOpen && (
         <div className="flex-1 flex flex-col animate-in fade-in slide-in-from-top-2 duration-300">
           <div className="h-px w-[calc(100%-40px)] bg-gray-100 dark:bg-white/5 mx-auto shrink-0" />
-          
+
           {/* Header Row */}
           <div className="flex items-center bg-white dark:bg-[#1C1C1E] text-[11px] uppercase font-bold text-gray-400 tracking-wider h-12 border-b border-gray-100 dark:border-white/5 shrink-0">
             <div className="w-16 flex justify-center">
@@ -609,7 +610,7 @@ const CollapsibleUserTable = memo(({
                   <FixedSizeListWrapper
                     height={height}
                     itemCount={users.length}
-                    itemSize={65} 
+                    itemSize={65}
                     width={width}
                     itemData={{
                       users,
@@ -645,19 +646,19 @@ const CollapsibleUserTable = memo(({
 const AdminDashboard = () => {
   const { firestoreService, userProfile } = useAuth();
   const { showToast } = useToast();
-  
+
   // Use extracted theme hook
   const monet = useMonetTheme();
 
   const [allUsers, setAllUsers] = useState([]);
-  const [groupedUsers, setGroupedUsers] = useState({ admins: [], teachers: [], students: [] });
-  const [restrictedGroupedUsers, setRestrictedGroupedUsers] = useState({ admins: [], teachers: [], students: [] });
-  
+  const [groupedUsers, setGroupedUsers] = useState({ admins: [], teachers: [], students: [], parents: [] });
+  const [restrictedGroupedUsers, setRestrictedGroupedUsers] = useState({ admins: [], teachers: [], students: [], parents: [] });
+
   const [loading, setLoading] = useState(true);
   const [selectedUserIds, setSelectedUserIds] = useState(new Set());
   const [activeTab, setActiveTab] = useState('active');
-  const [activeRoleTab, setActiveRoleTab] = useState('admins'); 
-  
+  const [activeRoleTab, setActiveRoleTab] = useState('admins');
+
   const [studentsByGrade, setStudentsByGrade] = useState({});
   const [restrictedStudentsByGrade, setRestrictedStudentsByGrade] = useState({});
   const [restrictedUsers, setRestrictedUsers] = useState([]);
@@ -685,7 +686,7 @@ const AdminDashboard = () => {
   const [isUpdatingUser, setIsUpdatingUser] = useState(false);
 
   const [alertModalState, setAlertModalState] = useState({ isOpen: false, title: '', message: '' });
-  const [confirmModalState, setConfirmModalState] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {}, confirmText: 'Confirm', variant: 'info' });
+  const [confirmModalState, setConfirmModalState] = useState({ isOpen: false, title: '', message: '', onConfirm: () => { }, confirmText: 'Confirm', variant: 'info' });
 
   // --- OPTIMIZED HANDLERS (useCallback) ---
   const toggleSection = useCallback((section) => {
@@ -724,8 +725,8 @@ const AdminDashboard = () => {
   }, [monet]);
 
   const handleEditUser = useCallback((user) => {
-      setSelectedUser(user);
-      setIsEditUserModalOpen(true);
+    setSelectedUser(user);
+    setIsEditUserModalOpen(true);
   }, []);
 
   const fetchAndGroupUsers = async () => {
@@ -742,28 +743,29 @@ const AdminDashboard = () => {
       setRestrictedUsers(restricted);
 
       const groupUsers = (list) => {
-          const groups = { admins: [], teachers: [], students: [] };
-          list.forEach(u => {
-              if (u.role === 'admin') groups.admins.push(u);
-              else if (u.role === 'teacher') groups.teachers.push(u);
-              else groups.students.push(u);
-          });
-          // Sort
-          Object.keys(groups).forEach(key => groups[key].sort((a,b) => (a.lastName || '').localeCompare(b.lastName || '')));
-          return groups;
+        const groups = { admins: [], teachers: [], students: [], parents: [] };
+        list.forEach(u => {
+          if (u.role === 'admin') groups.admins.push(u);
+          else if (u.role === 'teacher') groups.teachers.push(u);
+          else if (u.role === 'parent') groups.parents.push(u);
+          else groups.students.push(u);
+        });
+        // Sort
+        Object.keys(groups).forEach(key => groups[key].sort((a, b) => (a.lastName || '').localeCompare(b.lastName || '')));
+        return groups;
       };
 
       const activeGroups = groupUsers(active);
       const restrictedGroups = groupUsers(restricted);
 
       const processGrades = (studentList) => {
-          const gradeGroups = {};
-          ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12', 'Unassigned'].forEach(lvl => gradeGroups[lvl] = []);
-          studentList.forEach((student) => {
-            const key = student.gradeLevel && gradeGroups[student.gradeLevel] ? student.gradeLevel : 'Unassigned';
-            gradeGroups[key].push(student);
-          });
-          return gradeGroups;
+        const gradeGroups = {};
+        ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12', 'Unassigned'].forEach(lvl => gradeGroups[lvl] = []);
+        studentList.forEach((student) => {
+          const key = student.gradeLevel && gradeGroups[student.gradeLevel] ? student.gradeLevel : 'Unassigned';
+          gradeGroups[key].push(student);
+        });
+        return gradeGroups;
       };
 
       setStudentsByGrade(processGrades(activeGroups.students));
@@ -784,7 +786,7 @@ const AdminDashboard = () => {
 
   const handleSetRestriction = useCallback(async (userId, shouldRestrict, userName) => {
     const action = shouldRestrict ? 'restrict' : 'unrestrict';
-    
+
     setConfirmModalState({
       isOpen: true,
       title: `${action.charAt(0).toUpperCase() + action.slice(1)} Account?`,
@@ -793,13 +795,13 @@ const AdminDashboard = () => {
       variant: shouldRestrict ? 'warning' : 'info',
       monet,
       onConfirm: async () => {
-          try {
-            await firestoreService.updateUserDetails(userId, { isRestricted: shouldRestrict });
-            showToast(`User account ${action}ed successfully!`, 'success');
-            fetchAndGroupUsers();
-          } catch (error) {
-            showToast(`Failed to ${action} account.`, 'error');
-          }
+        try {
+          await firestoreService.updateUserDetails(userId, { isRestricted: shouldRestrict });
+          showToast(`User account ${action}ed successfully!`, 'success');
+          fetchAndGroupUsers();
+        } catch (error) {
+          showToast(`Failed to ${action} account.`, 'error');
+        }
       }
     });
   }, [firestoreService, showToast, monet]);
@@ -813,18 +815,18 @@ const AdminDashboard = () => {
       variant: 'danger',
       monet,
       onConfirm: async () => {
-          try {
-            await firestoreService.deleteMultipleUsers([userId]);
-            showToast(`User ${userName} deleted successfully!`, 'success');
-            setSelectedUserIds((prev) => {
-              const newSet = new Set(prev);
-              newSet.delete(userId);
-              return newSet;
-            });
-            fetchAndGroupUsers();
-          } catch (error) {
-            showToast('Failed to delete user.', 'error');
-          }
+        try {
+          await firestoreService.deleteMultipleUsers([userId]);
+          showToast(`User ${userName} deleted successfully!`, 'success');
+          setSelectedUserIds((prev) => {
+            const newSet = new Set(prev);
+            newSet.delete(userId);
+            return newSet;
+          });
+          fetchAndGroupUsers();
+        } catch (error) {
+          showToast('Failed to delete user.', 'error');
+        }
       }
     });
   }, [firestoreService, showToast, monet]);
@@ -841,14 +843,14 @@ const AdminDashboard = () => {
       variant: 'danger',
       monet,
       onConfirm: async () => {
-          try {
-            await firestoreService.deleteMultipleUsers(userIdsToDelete);
-            showToast(`${userIdsToDelete.length} user(s) deleted successfully!`, 'success');
-            setSelectedUserIds(new Set());
-            fetchAndGroupUsers();
-          } catch (error) {
-            showToast('Failed to delete users.', 'error');
-          }
+        try {
+          await firestoreService.deleteMultipleUsers(userIdsToDelete);
+          showToast(`${userIdsToDelete.length} user(s) deleted successfully!`, 'success');
+          setSelectedUserIds(new Set());
+          fetchAndGroupUsers();
+        } catch (error) {
+          showToast('Failed to delete users.', 'error');
+        }
       }
     });
   }, [selectedUserIds, firestoreService, showToast, monet]);
@@ -862,16 +864,16 @@ const AdminDashboard = () => {
     try {
       if (names) {
         usersToCreate = names.split('\n').map(n => n.trim()).filter(n => n).map(fullName => {
-            const parts = fullName.split(/\s+/);
-            const firstName = parts[0] || 'User';
-            const lastName = parts.slice(1).join(' ') || 'Name';
-            const email = `${firstName.toLowerCase()}.${lastName.toLowerCase().replace(/\s+/g, '')}@srcs.edu`;
-            return { firstName, lastName, email, password: generatePassword(), role, schoolId: targetSchoolId, createdAt: new Date(), ...(role === 'student' && gradeLevel && { gradeLevel }) };
+          const parts = fullName.split(/\s+/);
+          const firstName = parts[0] || 'User';
+          const lastName = parts.slice(1).join(' ') || 'Name';
+          const email = `${firstName.toLowerCase()}.${lastName.toLowerCase().replace(/\s+/g, '')}@srcs.edu`;
+          return { firstName, lastName, email, password: generatePassword(), role, schoolId: targetSchoolId, createdAt: new Date(), ...(role === 'student' && gradeLevel && { gradeLevel }) };
         });
       } else if (quantity) {
         for (let i = 1; i <= quantity; i++) {
           const num = i.toString().padStart(2, '0');
-          let fName = role === 'student' ? 'Student' : role === 'teacher' ? 'Teacher' : 'Admin';
+          let fName = role === 'student' ? 'Student' : role === 'teacher' ? 'Teacher' : role === 'parent' ? 'Parent' : 'Admin';
           usersToCreate.push({
             firstName: fName, lastName: num, email: `${fName.toLowerCase()}.${num}@srcs.edu`,
             password: generatePassword(), role, schoolId: targetSchoolId, createdAt: new Date(),
@@ -920,7 +922,7 @@ const AdminDashboard = () => {
     try {
       showToast("Preparing download...", "info");
       const XLSX = await import('xlsx');
-      
+
       const tableData = users.map((user) => ({
         Name: `${user.firstName} ${user.lastName}`, Username: user.email, Password: user.password, Role: user.role, 'Grade Level': user.gradeLevel || 'N/A',
       }));
@@ -935,117 +937,114 @@ const AdminDashboard = () => {
     }
   };
 
-  // Dynamic Button Classes
-  const primaryBtnClass = monet 
-    ? `${monet.btnPrimary} rounded-[24px] px-6 py-2.5 font-semibold text-[15px] shadow-lg active:scale-95 transition-all`
-    : "bg-[#007AFF] hover:bg-[#0062CC] text-white rounded-[24px] px-6 py-2.5 font-semibold text-[15px] shadow-lg shadow-blue-500/20 active:scale-95 transition-all";
+  // MD3 Dynamic Button Classes
+  const primaryBtnClass = monet
+    ? `${monet.btnPrimary} rounded-full px-6 py-3 font-semibold text-[14px] shadow-md active:scale-[0.97] transition-all`
+    : "bg-blue-600 hover:bg-blue-700 text-white rounded-full px-6 py-3 font-semibold text-[14px] shadow-md shadow-blue-500/15 active:scale-[0.97] transition-all";
 
   const secondaryBtnClass = monet
-    ? `${monet.btnTonal} rounded-[24px] px-6 py-2.5 font-semibold text-[15px] active:scale-95 transition-all border border-transparent`
-    : "bg-[#F2F2F7] dark:bg-[#2C2C2E] text-black dark:text-white rounded-[24px] px-6 py-2.5 font-semibold text-[15px] hover:bg-[#E5E5EA] dark:hover:bg-[#3A3A3C] active:scale-95 transition-all border border-transparent";
-  
-  const destructiveBtnClass = "bg-[#FF3B30] hover:bg-[#D73329] text-white rounded-[24px] px-6 py-2.5 font-semibold text-[15px] shadow-lg shadow-red-500/20 active:scale-95 transition-all";
+    ? `${monet.btnTonal} rounded-full px-6 py-3 font-semibold text-[14px] active:scale-[0.97] transition-all border border-transparent`
+    : "bg-[#E8DEF8] dark:bg-[#4A4458] text-[#1D192B] dark:text-[#E8DEF8] rounded-full px-6 py-3 font-semibold text-[14px] hover:bg-[#D0BCFF]/50 dark:hover:bg-[#4A4458]/80 active:scale-[0.97] transition-all border border-transparent";
+
+  const destructiveBtnClass = "bg-[#B3261E] hover:bg-[#8C1D18] text-white rounded-full px-6 py-3 font-semibold text-[14px] shadow-md shadow-red-500/15 active:scale-[0.97] transition-all";
 
   // --- DERIVE CURRENT VIEW DATA ---
   const currentData = activeTab === 'active' ? groupedUsers : restrictedGroupedUsers;
   const currentStudentsByGrade = activeTab === 'active' ? studentsByGrade : restrictedStudentsByGrade;
-  
+
   return (
-   <ErrorBoundary>
-     <div className="min-h-[calc(100vh-2rem)] m-4 rounded-[42px] bg-[#F2F2F2] dark:bg-black/75 font-sans pb-10 overflow-hidden shadow-2xl backdrop-blur-xl border border-white/10">
-      <div className="p-6 sm:p-10 max-w-[1400px] mx-auto">
-        
-        <header className="mb-10">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
-            <div>
-              <h1 className={`text-[42px] font-bold tracking-tight leading-[1.1] mb-2 ${monet ? monet.textAccent : 'text-black dark:text-white'}`}>
-                Admin Console
-              </h1>
-              <p className="text-[17px] font-medium text-gray-500 dark:text-gray-400">
-                Manage your organization's users and settings.
-              </p>
-            </div>
-            
-            <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-              {selectedUserIds.size > 0 && (
-                <button onClick={handleDeleteSelected} className={destructiveBtnClass}>
-                  <div className="flex items-center"><Trash2 size={18} className="mr-2" strokeWidth={2.5} /> Delete ({selectedUserIds.size})</div>
+    <ErrorBoundary>
+      <div className="min-h-[calc(100vh-2rem)] m-2 sm:m-4 rounded-[28px] sm:rounded-[40px] bg-[#FEF7FF] dark:bg-[#141218] font-sans pb-10 overflow-hidden shadow-xl border border-black/[0.04] dark:border-white/[0.06]">
+        <div className="p-4 sm:p-6 md:p-10 max-w-[1400px] mx-auto">
+
+          <header className="mb-8 sm:mb-10">
+            <div className="flex flex-col gap-4 sm:gap-6">
+              <div>
+                <h1 className={`text-3xl sm:text-[42px] font-bold tracking-tight leading-[1.1] mb-1.5 ${monet ? monet.textAccent : 'text-[#1D1B20] dark:text-[#E6E0E9]'}`}>
+                  Admin Console
+                </h1>
+                <p className="text-sm sm:text-base font-medium text-[#49454F] dark:text-[#CAC4D0]">
+                  Manage your organization's users and settings.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                {selectedUserIds.size > 0 && (
+                  <button onClick={handleDeleteSelected} className={destructiveBtnClass}>
+                    <div className="flex items-center"><Trash2 size={18} className="mr-2" strokeWidth={2.5} /> Delete ({selectedUserIds.size})</div>
+                  </button>
+                )}
+                <button onClick={() => setDownloadModalOpen(true)} className={secondaryBtnClass}>
+                  <div className="flex items-center"><Download size={18} className="mr-2" strokeWidth={2.5} /> Export</div>
                 </button>
-              )}
-              <button onClick={() => setDownloadModalOpen(true)} className={secondaryBtnClass}>
-                <div className="flex items-center"><Download size={18} className="mr-2" strokeWidth={2.5} /> Export</div>
+                <button onClick={() => setGenerateModalOpen(true)} className={primaryBtnClass}>
+                  <div className="flex items-center"><Users size={18} className="mr-2" strokeWidth={2.5} /> New User</div>
+                </button>
+              </div>
+            </div>
+          </header>
+
+          {/* MD3 SEGMENTED BUTTON */}
+          <div className="mb-6 sm:mb-8">
+            <div className="inline-flex p-1 bg-[#E7E0EC] dark:bg-[#1D1B20] rounded-full w-full sm:w-auto border border-[#79747E]/20 dark:border-[#49454F]/30">
+              <button
+                onClick={() => setActiveTab('active')}
+                className={`flex-1 sm:flex-none px-6 sm:px-8 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 ${activeTab === 'active'
+                  ? (monet ? `bg-white dark:bg-[#49454F] shadow-sm ${monet.textAccent}` : 'bg-white dark:bg-[#49454F] text-[#1D1B20] dark:text-[#E6E0E9] shadow-sm')
+                  : 'text-[#49454F] dark:text-[#CAC4D0] hover:text-[#1D1B20] dark:hover:text-[#E6E0E9]'
+                  }`}
+              >
+                Active
               </button>
-              <button onClick={() => setGenerateModalOpen(true)} className={primaryBtnClass}>
-                 <div className="flex items-center"><Users size={18} className="mr-2" strokeWidth={2.5} /> New User</div>
+              <button
+                onClick={() => setActiveTab('restricted')}
+                className={`flex-1 sm:flex-none px-6 sm:px-8 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${activeTab === 'restricted'
+                  ? (monet ? `bg-white dark:bg-[#49454F] shadow-sm ${monet.textAccent}` : 'bg-white dark:bg-[#49454F] text-[#1D1B20] dark:text-[#E6E0E9] shadow-sm')
+                  : 'text-[#49454F] dark:text-[#CAC4D0] hover:text-[#1D1B20] dark:hover:text-[#E6E0E9]'
+                  }`}
+              >
+                Restricted
+                {restrictedUsers.length > 0 && (
+                  <span className={`text-[11px] px-2 py-0.5 rounded-full ${activeTab === 'restricted' ? (monet ? monet.btnTonal : 'bg-[#E8DEF8] dark:bg-[#4A4458] text-[#1D192B] dark:text-[#E8DEF8]') : 'bg-[#CAC4D0]/50 dark:bg-[#49454F] text-[#49454F] dark:text-[#CAC4D0]'}`}>
+                    {restrictedUsers.length}
+                  </span>
+                )}
               </button>
             </div>
           </div>
-        </header>
 
-        {/* ONE UI MAIN SEGMENTED CONTROL */}
-        <div className="mb-8">
-          <div className="inline-flex p-1.5 bg-[#E2E2E2]/80 dark:bg-[#1C1C1E]/80 backdrop-blur-md rounded-full w-full sm:w-auto relative">
-            <button
-              onClick={() => setActiveTab('active')}
-              className={`flex-1 sm:flex-none px-8 py-2.5 rounded-full text-[15px] font-bold transition-all duration-300 ${
-                activeTab === 'active'
-                  ? (monet ? `bg-white dark:bg-[#3A3A3C] shadow-sm scale-100 ${monet.textAccent}` : 'bg-white dark:bg-[#3A3A3C] text-black dark:text-white shadow-sm scale-100')
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-              }`}
-            >
-              Active Accounts
-            </button>
-            <button
-              onClick={() => setActiveTab('restricted')}
-              className={`flex-1 sm:flex-none px-8 py-2.5 rounded-full text-[15px] font-bold transition-all duration-300 flex items-center justify-center gap-2 ${
-                activeTab === 'restricted'
-                  ? (monet ? `bg-white dark:bg-[#3A3A3C] shadow-sm scale-100 ${monet.textAccent}` : 'bg-white dark:bg-[#3A3A3C] text-black dark:text-white shadow-sm scale-100')
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-              }`}
-            >
-              Restricted
-              {restrictedUsers.length > 0 && (
-                <span className={`text-[11px] px-2 py-0.5 rounded-full ${activeTab === 'restricted' ? (monet ? monet.btnTonal : 'bg-gray-100 dark:bg-black/20 text-gray-600 dark:text-gray-300') : 'bg-gray-300 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
-                  {restrictedUsers.length}
-                </span>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {loading ? (
-           <div className="space-y-4 animate-in fade-in duration-500">
-             <TableSkeleton />
-             <TableSkeleton />
-             <TableSkeleton />
-           </div>
-        ) : (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {/* --- SECONDARY TABS --- */}
-            <div className="mb-6">
-               <div className="inline-flex p-1 bg-white/50 dark:bg-black/20 backdrop-blur-md rounded-full border border-white/20 dark:border-white/5 overflow-x-auto max-w-full">
-                  {['admins', 'teachers', 'students'].map((role) => (
-                     <button
-                        key={role}
-                        onClick={() => setActiveRoleTab(role)}
-                        className={`px-6 py-2 rounded-full text-xs font-bold transition-all duration-300 whitespace-nowrap ${
-                           activeRoleTab === role
-                           ? (monet ? `${monet.btnPrimary} shadow-md` : 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-md')
-                           : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+          {loading ? (
+            <div className="space-y-4 animate-in fade-in duration-500">
+              <TableSkeleton />
+              <TableSkeleton />
+              <TableSkeleton />
+            </div>
+          ) : (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              {/* --- MD3 ROLE TABS --- */}
+              <div className="mb-6">
+                <div className="inline-flex p-1 bg-[#E7E0EC]/50 dark:bg-[#1D1B20]/50 backdrop-blur-md rounded-full border border-[#79747E]/10 dark:border-[#49454F]/20 overflow-x-auto max-w-full no-scrollbar">
+                  {['admins', 'teachers', 'students', 'parents'].map((role) => (
+                    <button
+                      key={role}
+                      onClick={() => setActiveRoleTab(role)}
+                      className={`px-5 sm:px-6 py-2 rounded-full text-xs font-semibold transition-all duration-300 whitespace-nowrap ${activeRoleTab === role
+                        ? (monet ? `${monet.btnPrimary} shadow-sm` : 'bg-blue-600 text-white dark:bg-blue-300 dark:text-blue-900 shadow-sm')
+                        : 'text-[#49454F] hover:text-[#1D1B20] dark:text-[#CAC4D0] dark:hover:text-[#E6E0E9]'
                         }`}
-                     >
-                        {role.charAt(0).toUpperCase() + role.slice(1)}
-                        <span className="ml-2 opacity-60">
-                           {currentData[role].length}
-                        </span>
-                     </button>
+                    >
+                      {role.charAt(0).toUpperCase() + role.slice(1)}
+                      <span className="ml-2 opacity-60">
+                        {currentData[role]?.length || 0}
+                      </span>
+                    </button>
                   ))}
-               </div>
-            </div>
+                </div>
+              </div>
 
-            {/* --- CONTENT --- */}
-            
-            {activeRoleTab === 'admins' && (
+              {/* --- CONTENT --- */}
+
+              {activeRoleTab === 'admins' && (
                 <CollapsibleUserTable
                   title="Administrators"
                   sectionKey="admins"
@@ -1063,9 +1062,9 @@ const AdminDashboard = () => {
                   isRestrictedTable={activeTab === 'restricted'}
                   monet={monet}
                 />
-            )}
+              )}
 
-            {activeRoleTab === 'teachers' && (
+              {activeRoleTab === 'teachers' && (
                 <CollapsibleUserTable
                   title="Teachers"
                   sectionKey="teachers"
@@ -1083,10 +1082,30 @@ const AdminDashboard = () => {
                   isRestrictedTable={activeTab === 'restricted'}
                   monet={monet}
                 />
-            )}
+              )}
 
-            {activeRoleTab === 'students' && (
-                <div className={`${oneUiCard} mb-6 overflow-hidden transition-all duration-300`}>
+              {activeRoleTab === 'parents' && (
+                <CollapsibleUserTable
+                  title="Parents / Guardians"
+                  sectionKey="parents"
+                  users={currentData.parents}
+                  icon={<Heart />}
+                  isOpen={openSections.parents !== false}
+                  onToggle={toggleSection}
+                  handleSetRestriction={handleSetRestriction}
+                  handleSelectUser={handleSelectUser}
+                  handleSelectAll={handleSelectAll}
+                  selectedUserIds={selectedUserIds}
+                  handleShowPassword={handleShowPassword}
+                  handleEditUser={handleEditUser}
+                  handleSingleDelete={handleSingleDelete}
+                  isRestrictedTable={activeTab === 'restricted'}
+                  monet={monet}
+                />
+              )}
+
+              {activeRoleTab === 'students' && (
+                <div className={`${md3Surface} mb-6 overflow-hidden transition-all duration-300`}>
                   <button
                     onClick={() => toggleSection(activeTab === 'active' ? 'studentsContainer' : 'restrictedStudentsContainer')}
                     className="w-full flex justify-between items-center p-5 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#252525] transition-colors duration-200 group outline-none"
@@ -1103,34 +1122,34 @@ const AdminDashboard = () => {
                       </div>
                     </div>
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${openSections[activeTab === 'active' ? 'studentsContainer' : 'restrictedStudentsContainer'] ? (monet ? `${monet.btnPrimary} text-white rotate-180` : 'bg-[#007AFF] text-white rotate-180') : 'bg-[#F2F2F7] dark:bg-[#2C2C2E] text-gray-400'}`}>
-                        <ChevronDown size={20} strokeWidth={2.5} />
+                      <ChevronDown size={20} strokeWidth={2.5} />
                     </div>
                   </button>
-                  
+
                   {openSections[activeTab === 'active' ? 'studentsContainer' : 'restrictedStudentsContainer'] && (
                     <div className="animate-in fade-in slide-in-from-top-2 duration-300">
                       <div className="p-4 space-y-4 bg-[#F9F9F9]/50 dark:bg-[#151515]/50 border-t border-gray-100 dark:border-white/5">
                         {currentData.students.length > 0 ? (
                           Object.entries(currentStudentsByGrade).map(([grade, list]) => (
                             list.length > 0 && (
-                                <CollapsibleUserTable
-                                  key={grade}
-                                  title={grade}
-                                  sectionKey={grade}
-                                  users={list}
-                                  icon={<User />}
-                                  isOpen={openSections[grade]}
-                                  onToggle={toggleSection}
-                                  handleSetRestriction={handleSetRestriction}
-                                  handleSelectUser={handleSelectUser}
-                                  handleSelectAll={handleSelectAll}
-                                  selectedUserIds={selectedUserIds}
-                                  handleShowPassword={handleShowPassword}
-                                  handleEditUser={handleEditUser}
-                                  handleSingleDelete={handleSingleDelete}
-                                  isRestrictedTable={activeTab === 'restricted'}
-                                  monet={monet}
-                                />
+                              <CollapsibleUserTable
+                                key={grade}
+                                title={grade}
+                                sectionKey={grade}
+                                users={list}
+                                icon={<User />}
+                                isOpen={openSections[grade]}
+                                onToggle={toggleSection}
+                                handleSetRestriction={handleSetRestriction}
+                                handleSelectUser={handleSelectUser}
+                                handleSelectAll={handleSelectAll}
+                                selectedUserIds={selectedUserIds}
+                                handleShowPassword={handleShowPassword}
+                                handleEditUser={handleEditUser}
+                                handleSingleDelete={handleSingleDelete}
+                                isRestrictedTable={activeTab === 'restricted'}
+                                monet={monet}
+                              />
                             )
                           ))
                         ) : (
@@ -1140,58 +1159,58 @@ const AdminDashboard = () => {
                     </div>
                   )}
                 </div>
-            )}
-          </div>
-        )}
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* --- RENDER ALL MODALS WITH SUSPENSE --- */}
+        <Suspense fallback={<ModalLoader />}>
+          {isAddModalOpen && (
+            <AddUserModal onSubmit={() => { }} onClose={() => setAddModalOpen(false)} />
+          )}
+          {isGenerateModalOpen && (
+            <GenerateUsersModal onSubmit={handleGenerateUsers} onClose={() => setGenerateModalOpen(false)} />
+          )}
+          {isDownloadModalOpen && (
+            <DownloadAccountsModal
+              groupedUsers={{ ...groupedUsers, restricted: restrictedUsers }}
+              onExport={exportToXlsx}
+              onClose={() => setDownloadModalOpen(false)}
+            />
+          )}
+          {isEditUserModalOpen && selectedUser && (
+            <EditUserModal
+              user={selectedUser}
+              onSubmit={handleUpdateUser}
+              onUpdatePassword={handleUpdatePassword}
+              onClose={() => setIsEditUserModalOpen(false)}
+              isLoading={isUpdatingUser}
+            />
+          )}
+        </Suspense>
+
+        <AlertModal
+          isOpen={alertModalState.isOpen}
+          onClose={closeAlertModal}
+          title={alertModalState.title}
+          message={alertModalState.message}
+          monet={monet}
+        />
+
+        <ConfirmActionModal
+          isOpen={confirmModalState.isOpen}
+          onClose={closeConfirmModal}
+          onConfirm={confirmModalState.onConfirm}
+          title={confirmModalState.title}
+          message={confirmModalState.message}
+          confirmText={confirmModalState.confirmText}
+          variant={confirmModalState.variant}
+          monet={monet}
+        />
+
       </div>
-
-      {/* --- RENDER ALL MODALS WITH SUSPENSE --- */}
-      <Suspense fallback={<ModalLoader />}>
-        {isAddModalOpen && (
-          <AddUserModal onSubmit={() => {}} onClose={() => setAddModalOpen(false)} />
-        )}
-        {isGenerateModalOpen && (
-          <GenerateUsersModal onSubmit={handleGenerateUsers} onClose={() => setGenerateModalOpen(false)} />
-        )}
-        {isDownloadModalOpen && (
-          <DownloadAccountsModal
-            groupedUsers={{ ...groupedUsers, restricted: restrictedUsers }}
-            onExport={exportToXlsx}
-            onClose={() => setDownloadModalOpen(false)}
-          />
-        )}
-        {isEditUserModalOpen && selectedUser && (
-          <EditUserModal
-            user={selectedUser}
-            onSubmit={handleUpdateUser}
-            onUpdatePassword={handleUpdatePassword}
-            onClose={() => setIsEditUserModalOpen(false)}
-            isLoading={isUpdatingUser}
-          />
-        )}
-      </Suspense>
-      
-      <AlertModal
-        isOpen={alertModalState.isOpen}
-        onClose={closeAlertModal}
-        title={alertModalState.title}
-        message={alertModalState.message}
-        monet={monet}
-      />
-      
-      <ConfirmActionModal
-        isOpen={confirmModalState.isOpen}
-        onClose={closeConfirmModal}
-        onConfirm={confirmModalState.onConfirm}
-        title={confirmModalState.title}
-        message={confirmModalState.message}
-        confirmText={confirmModalState.confirmText}
-        variant={confirmModalState.variant}
-        monet={monet}
-      />
-
-    </div>
-   </ErrorBoundary>
+    </ErrorBoundary>
   );
 };
 

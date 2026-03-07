@@ -54,7 +54,7 @@ const dropdownList = `
 // Button: "Photon Accelerator" - Unique glow and interaction
 const primaryButtonStyles = `
     group relative w-full py-4 rounded-2xl overflow-hidden
-    bg-gradient-to-r from-indigo-700 via-violet-600 to-indigo-700 background-animate
+    bg-gradient-to-r from-indigo-700 via-indigo-600 to-indigo-700 background-animate
     text-white font-bold text-sm uppercase tracking-[0.15em]
     shadow-[0_0_30px_rgba(79,70,229,0.25)] 
     border border-white/10
@@ -189,7 +189,7 @@ const EditClassModal = ({ isOpen, onClose, classData, onUpdate, courses = [] }) 
                                 
                                 {/* Ambient Light Effects */}
                                 <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none mix-blend-screen" />
-                                <div className="absolute bottom-0 left-0 w-64 h-64 bg-violet-500/5 rounded-full blur-[100px] pointer-events-none mix-blend-screen" />
+                                <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-[100px] pointer-events-none mix-blend-screen" />
 
                                 <div className="relative z-10">
                                     {/* Header */}

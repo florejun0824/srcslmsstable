@@ -35,9 +35,9 @@ const getThemeStyles = (overlay) => {
         case 'cyberpunk':
             return {
                 wrapper: "bg-fuchsia-900/5 border-fuchsia-200 dark:bg-fuchsia-900/20 dark:border-fuchsia-800/30",
-                gradient: "from-fuchsia-500/10 to-purple-500/10",
+                gradient: "from-fuchsia-500/10 to-indigo-500/10",
                 accentText: "text-fuchsia-600 dark:text-fuchsia-400",
-                button: "bg-gradient-to-r from-fuchsia-600 to-purple-600 shadow-fuchsia-500/20"
+                button: "bg-gradient-to-r from-fuchsia-600 to-indigo-600 shadow-fuchsia-500/20"
             };
         // Default clean surface
         default: 

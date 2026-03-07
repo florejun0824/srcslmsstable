@@ -1,172 +1,185 @@
 // src/contexts/ToastContext.jsx
-import React, { useState, createContext, useContext, useMemo } from 'react';
+import React, { useState, createContext, useContext, useCallback, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { 
-    CheckCircleIcon, 
-    XCircleIcon, 
-    InformationCircleIcon, 
-    ExclamationTriangleIcon 
+import {
+    CheckCircleIcon,
+    XCircleIcon,
+    InformationCircleIcon,
+    ExclamationTriangleIcon,
+    XMarkIcon
 } from '@heroicons/react/24/solid';
-import { useTheme } from './ThemeContext'; // Import Theme Context for Monet Support
+import { useTheme } from './ThemeContext';
 
 const ToastContext = createContext();
-let toastRef; 
+let toastRef;
 
 export const useToast = () => useContext(ToastContext);
 
-export const ToastProvider = ({ children }) => {
-    const [toast, setToast] = useState(null);
-    const { activeOverlay } = useTheme(); // Access current season/theme
+// --- M3 TOAST TYPE CONFIG ---
+const TOAST_CONFIG = {
+    success: {
+        icon: CheckCircleIcon,
+        surface: 'bg-emerald-50 dark:bg-emerald-500/[0.12]',
+        border: 'border-emerald-200/60 dark:border-emerald-500/20',
+        iconBg: 'bg-emerald-100 dark:bg-emerald-500/20',
+        iconColor: 'text-emerald-600 dark:text-emerald-400',
+        text: 'text-emerald-900 dark:text-emerald-100',
+        subtext: 'text-emerald-600/70 dark:text-emerald-400/70',
+        progress: 'bg-emerald-500',
+        label: 'Success'
+    },
+    error: {
+        icon: XCircleIcon,
+        surface: 'bg-red-50 dark:bg-red-500/[0.12]',
+        border: 'border-red-200/60 dark:border-red-500/20',
+        iconBg: 'bg-red-100 dark:bg-red-500/20',
+        iconColor: 'text-red-600 dark:text-red-400',
+        text: 'text-red-900 dark:text-red-100',
+        subtext: 'text-red-600/70 dark:text-red-400/70',
+        progress: 'bg-red-500',
+        label: 'Error'
+    },
+    warning: {
+        icon: ExclamationTriangleIcon,
+        surface: 'bg-amber-50 dark:bg-amber-500/[0.12]',
+        border: 'border-amber-200/60 dark:border-amber-500/20',
+        iconBg: 'bg-amber-100 dark:bg-amber-500/20',
+        iconColor: 'text-amber-600 dark:text-amber-400',
+        text: 'text-amber-900 dark:text-amber-100',
+        subtext: 'text-amber-600/70 dark:text-amber-400/70',
+        progress: 'bg-amber-500',
+        label: 'Warning'
+    },
+    info: {
+        icon: InformationCircleIcon,
+        surface: 'bg-blue-50 dark:bg-blue-500/[0.12]',
+        border: 'border-blue-200/60 dark:border-blue-500/20',
+        iconBg: 'bg-blue-100 dark:bg-blue-500/20',
+        iconColor: 'text-blue-600 dark:text-blue-400',
+        text: 'text-blue-900 dark:text-blue-100',
+        subtext: 'text-blue-600/70 dark:text-blue-400/70',
+        progress: 'bg-blue-500',
+        label: 'Info'
+    }
+};
 
-    const showToast = (message, type = 'success', duration = 3000) => {
-        const id = new Date().getTime();
-        setToast({ id, message, type });
-        setTimeout(() => setToast(null), duration);
-    };
+export const ToastProvider = ({ children }) => {
+    const [toasts, setToasts] = useState([]);
+    const { activeOverlay } = useTheme();
+    const timersRef = useRef({});
+
+    const dismissToast = useCallback((id) => {
+        setToasts(prev => prev.filter(t => t.id !== id));
+        if (timersRef.current[id]) {
+            clearTimeout(timersRef.current[id]);
+            delete timersRef.current[id];
+        }
+    }, []);
+
+    const showToast = useCallback((message, type = 'success', duration = 3500) => {
+        const id = Date.now() + Math.random();
+        setToasts(prev => {
+            // Keep max 3 toasts visible
+            const next = prev.length >= 3 ? prev.slice(1) : [...prev];
+            return [...next, { id, message, type, duration }];
+        });
+        timersRef.current[id] = setTimeout(() => dismissToast(id), duration);
+    }, [dismissToast]);
 
     toastRef = showToast;
 
-    // --- MONET SUPPORT: Generate Dynamic Styles based on Active Overlay ---
-    // One UI 8.5 Style: Deep blur, super rounded, subtle borders
-    const themeStyles = useMemo(() => {
-        const base = "backdrop-blur-3xl border shadow-[0_20px_50px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)]";
-        
-        switch (activeOverlay) {
-            case 'christmas':
-                return {
-                    container: `${base} bg-[#1a0505]/90 border-red-500/30`,
-                    iconBg: "bg-red-500/20 text-red-400",
-                    textColor: "text-red-100"
-                };
-            case 'valentines':
-                return {
-                    container: `${base} bg-[#1f0a10]/90 border-pink-500/30`,
-                    iconBg: "bg-pink-500/20 text-pink-400",
-                    textColor: "text-pink-100"
-                };
-            case 'graduation':
-                return {
-                    container: `${base} bg-[#0f121a]/90 border-yellow-500/30`,
-                    iconBg: "bg-yellow-500/20 text-yellow-400",
-                    textColor: "text-blue-100"
-                };
-            case 'cyberpunk':
-                return {
-                    container: `${base} bg-[#050b14]/90 border-cyan-500/40`,
-                    iconBg: "bg-cyan-500/20 text-cyan-400",
-                    textColor: "text-cyan-50"
-                };
-            case 'space':
-                return {
-                    container: `${base} bg-[#0b0b14]/90 border-indigo-500/40`,
-                    iconBg: "bg-indigo-500/20 text-indigo-400",
-                    textColor: "text-indigo-100"
-                };
-            case 'rainy':
-                return {
-                    container: `${base} bg-[#0f172a]/90 border-teal-500/30`,
-                    iconBg: "bg-teal-500/20 text-teal-400",
-                    textColor: "text-slate-200"
-                };
-            case 'spring':
-                return {
-                    container: `${base} bg-[#1c1917]/90 border-pink-400/30`,
-                    iconBg: "bg-pink-500/20 text-pink-400",
-                    textColor: "text-stone-100"
-                };
-            default: // Standard / None
-                return {
-                    container: `${base} bg-white/90 dark:bg-[#2C2C2E]/90 border-white/40 dark:border-white/10`,
-                    iconBg: "bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300",
-                    textColor: "text-slate-800 dark:text-slate-100"
-                };
-        }
-    }, [activeOverlay]);
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            Object.values(timersRef.current).forEach(clearTimeout);
+        };
+    }, []);
 
-    // --- Helper to get visuals based on Message Type (Success/Error) ---
-    const getToastVisuals = (type) => {
-        // If there's an active theme, try to blend it, otherwise use standard One UI colors
-        const isThemed = activeOverlay !== 'none';
-
-        switch (type) {
-            case 'success':
-                return { 
-                    icon: <CheckCircleIcon className="w-6 h-6" />,
-                    iconClass: isThemed ? themeStyles.iconBg : "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400",
-                    containerClass: themeStyles.container
-                };
-            case 'error':
-                return { 
-                    icon: <XCircleIcon className="w-6 h-6" />,
-                    iconClass: "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400",
-                    // Errors override the theme color to ensure visibility
-                    containerClass: "backdrop-blur-3xl bg-white/95 dark:bg-[#2C2C2E]/95 border border-red-200 dark:border-red-900/50 shadow-2xl" 
-                };
-            case 'warning':
-                return { 
-                    icon: <ExclamationTriangleIcon className="w-6 h-6" />,
-                    iconClass: "bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400",
-                    containerClass: themeStyles.container
-                };
-            case 'info':
-            default:
-                return { 
-                    icon: <InformationCircleIcon className="w-6 h-6" />,
-                    iconClass: isThemed ? themeStyles.iconBg : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400",
-                    containerClass: themeStyles.container
-                };
-        }
-    }
+    // Themed overlay adjustments
+    const isThemed = activeOverlay !== 'none';
 
     return (
         <ToastContext.Provider value={{ showToast }}>
             {children}
-            <AnimatePresence>
-                {toast && (
-                    <motion.div
-                        key={toast.id}
-                        layout
-                        initial={{ opacity: 0, y: 100, scale: 0.9 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 50, scale: 0.95 }}
-                        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                        className="fixed bottom-6 right-0 left-0 flex justify-center z-[10000] pointer-events-none px-4"
-                    >
-                        {/* One UI 8.5 Toast Container */}
-                        <div className={`
-                            pointer-events-auto
-                            flex items-center gap-4 py-3 pl-3 pr-6
-                            rounded-[2rem]
-                            ${getToastVisuals(toast.type).containerClass}
-                        `}>
-                            
-                            {/* Icon Bubble */}
-                            <div className={`
-                                w-12 h-12 rounded-[1.5rem] flex items-center justify-center flex-shrink-0
-                                ${getToastVisuals(toast.type).iconClass}
-                            `}>
-                                {getToastVisuals(toast.type).icon}
-                            </div>
 
-                            {/* Text Content */}
-                            <div className="flex flex-col min-w-[200px] max-w-[300px]">
-                                <span className={`text-[11px] font-bold uppercase tracking-wider opacity-60 mb-0.5 ${themeStyles.textColor}`}>
-                                    {toast.type}
-                                </span>
-                                <span className={`text-[14px] font-bold leading-tight ${themeStyles.textColor}`}>
-                                    {toast.message}
-                                </span>
-                            </div>
+            {/* M3 Snackbar Host — bottom center */}
+            <div className="fixed bottom-5 left-0 right-0 flex flex-col items-center gap-2.5 z-[10000] pointer-events-none px-4">
+                <AnimatePresence mode="popLayout">
+                    {toasts.map((toast) => {
+                        const config = TOAST_CONFIG[toast.type] || TOAST_CONFIG.info;
+                        const Icon = config.icon;
 
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                        return (
+                            <motion.div
+                                key={toast.id}
+                                layout
+                                initial={{ opacity: 0, y: 40, scale: 0.92 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: 20, scale: 0.95, transition: { duration: 0.2 } }}
+                                transition={{ type: 'spring', stiffness: 500, damping: 32, mass: 0.8 }}
+                                className="pointer-events-auto w-full max-w-[420px]"
+                            >
+                                <div className={`
+                                    relative overflow-hidden
+                                    flex items-center gap-3 py-3 pl-3.5 pr-3
+                                    rounded-[16px] border backdrop-blur-xl
+                                    shadow-lg dark:shadow-black/30
+                                    ${isThemed
+                                        ? 'bg-[#1a1a2e]/90 border-white/10'
+                                        : `${config.surface} ${config.border}`
+                                    }
+                                `}>
+
+                                    {/* M3 Leading Icon */}
+                                    <div className={`
+                                        w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0
+                                        ${isThemed ? 'bg-white/10' : config.iconBg}
+                                    `}>
+                                        <Icon className={`w-5 h-5 ${isThemed ? 'text-white/80' : config.iconColor}`} />
+                                    </div>
+
+                                    {/* Content */}
+                                    <div className="flex-1 min-w-0 py-0.5">
+                                        <div className={`text-[10px] font-semibold uppercase tracking-widest mb-0.5 ${isThemed ? 'text-white/40' : config.subtext}`}>
+                                            {config.label}
+                                        </div>
+                                        <p className={`text-[13px] font-semibold leading-snug truncate ${isThemed ? 'text-white/90' : config.text}`}>
+                                            {toast.message}
+                                        </p>
+                                    </div>
+
+                                    {/* Dismiss */}
+                                    <button
+                                        onClick={() => dismissToast(toast.id)}
+                                        className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-colors
+                                            ${isThemed
+                                                ? 'text-white/30 hover:text-white/60 hover:bg-white/10'
+                                                : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-black/5 dark:hover:bg-white/10'
+                                            }
+                                        `}
+                                    >
+                                        <XMarkIcon className="w-4 h-4" />
+                                    </button>
+
+                                    {/* M3 Auto-dismiss Progress Bar */}
+                                    <motion.div
+                                        initial={{ scaleX: 1 }}
+                                        animate={{ scaleX: 0 }}
+                                        transition={{ duration: toast.duration / 1000, ease: 'linear' }}
+                                        style={{ transformOrigin: 'left' }}
+                                        className={`absolute bottom-0 left-0 right-0 h-[3px] ${isThemed ? 'bg-white/20' : config.progress} opacity-40 rounded-b-[16px]`}
+                                    />
+                                </div>
+                            </motion.div>
+                        );
+                    })}
+                </AnimatePresence>
+            </div>
         </ToastContext.Provider>
     );
 };
 
-export const triggerToast = (message, type = 'success', duration = 3000) => {
+export const triggerToast = (message, type = 'success', duration = 3500) => {
     if (toastRef) {
         toastRef(message, type, duration);
     } else {

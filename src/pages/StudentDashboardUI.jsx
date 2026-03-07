@@ -9,16 +9,16 @@ import {
     BookOpenIcon,
     GiftIcon,
     InboxIcon,
-    RocketLaunchIcon, 
+    RocketLaunchIcon,
     TrophyIcon,
     StarIcon,
     SparklesIcon,
     VideoCameraIcon,
     FireIcon,
     PlusCircleIcon,
-    HomeIcon, 
+    HomeIcon,
     RectangleGroupIcon,
-	HandRaisedIcon,
+    HandRaisedIcon,
     AcademicCapIcon
 } from '@heroicons/react/24/solid';
 import { IconPalette } from '@tabler/icons-react';
@@ -31,6 +31,7 @@ import StudentClassDetailView from '../components/student/StudentClassDetailView
 import StudentQuizzesTab from '../components/student/StudentQuizzesTab';
 import StudentLessonsTab from '../components/student/StudentLessonsTab';
 import LoungeView from '../components/student/LoungeView';
+
 
 // Common Components
 import UserInitialsAvatar from '../components/common/UserInitialsAvatar';
@@ -63,11 +64,11 @@ const SCHOOL_NAMES = {
 };
 
 const BADGE_MAP = {
-  'first_quiz': { icon: RocketLaunchIcon, title: 'First Quiz' },
-  'perfect_score': { icon: TrophyIcon, title: 'Perfect Score' },
-  'badge_scholar': { icon: AcademicCapIcon, title: 'Scholar' },
-  'badge_master': { icon: StarIcon, title: 'Master' },
-  'badge_legend': { icon: SparklesIcon, title: 'Legend' },
+    'first_quiz': { icon: RocketLaunchIcon, title: 'First Quiz' },
+    'perfect_score': { icon: TrophyIcon, title: 'Perfect Score' },
+    'badge_scholar': { icon: AcademicCapIcon, title: 'Scholar' },
+    'badge_master': { icon: StarIcon, title: 'Master' },
+    'badge_legend': { icon: SparklesIcon, title: 'Legend' },
 };
 
 const QUOTES = [
@@ -94,13 +95,13 @@ const getClassTheme = (subject) => {
     if (s.includes('math') || s.includes('algebra')) return { accent: 'text-blue-500', dot: 'bg-blue-500', gradient: 'from-blue-500/10 to-blue-600/10', border: 'border-blue-200 dark:border-blue-800' };
     if (s.includes('science') || s.includes('bio')) return { accent: 'text-emerald-500', dot: 'bg-emerald-500', gradient: 'from-emerald-500/10 to-emerald-600/10', border: 'border-emerald-200 dark:border-emerald-800' };
     if (s.includes('history')) return { accent: 'text-orange-500', dot: 'bg-orange-500', gradient: 'from-orange-500/10 to-orange-600/10', border: 'border-orange-200 dark:border-orange-800' };
-    if (s.includes('english')) return { accent: 'text-violet-500', dot: 'bg-violet-500', gradient: 'from-violet-500/10 to-violet-600/10', border: 'border-violet-200 dark:border-violet-800' };
+    if (s.includes('english')) return { accent: 'text-sky-500', dot: 'bg-sky-500', gradient: 'from-sky-500/10 to-sky-600/10', border: 'border-sky-200 dark:border-sky-800' };
     if (s.includes('art')) return { accent: 'text-pink-500', dot: 'bg-pink-500', gradient: 'from-pink-500/10 to-pink-600/10', border: 'border-pink-200 dark:border-pink-800' };
     return { accent: 'text-slate-500', dot: 'bg-slate-500', gradient: 'from-slate-500/10 to-slate-600/10', border: 'border-slate-200 dark:border-slate-700' };
 };
 
 const getMonetStyle = (activeOverlay) => {
-    switch(activeOverlay) {
+    switch (activeOverlay) {
         case 'christmas': return { accent: 'text-red-500', bg: 'bg-red-50 dark:bg-red-900/20' };
         case 'valentines': return { accent: 'text-pink-500', bg: 'bg-pink-50 dark:bg-pink-900/20' };
         case 'graduation': return { accent: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-900/20' };
@@ -131,7 +132,7 @@ const containerVariants = {
 
 // --- ONEUI CARD ---
 const OneUICard = memo(({ children, className = "", onClick }) => (
-    <motion.div 
+    <motion.div
         variants={itemVariants}
         onClick={onClick}
         whileTap={onClick ? { scale: 0.97 } : {}}
@@ -154,46 +155,46 @@ OneUICard.displayName = 'OneUICard';
 // --- SUB-COMPONENTS ---
 
 const DailyQuote = memo(() => {
-  const [quote, setQuote] = useState("");
-  useEffect(() => {
-      const index = new Date().getDate() % QUOTES.length;
-      setQuote(QUOTES[index]);
-  }, []);
-  
-  return (
-    <motion.div
-      key={quote} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}
-      className="text-slate-500 dark:text-slate-400 text-[11px] font-semibold italic opacity-80"
-    > “{quote}” </motion.div>
-  );
+    const [quote, setQuote] = useState("");
+    useEffect(() => {
+        const index = new Date().getDate() % QUOTES.length;
+        setQuote(QUOTES[index]);
+    }, []);
+
+    return (
+        <motion.div
+            key={quote} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}
+            className="text-slate-500 dark:text-slate-400 text-[11px] font-semibold italic opacity-80"
+        > “{quote}” </motion.div>
+    );
 });
 
 const ThemeDropdown = memo(({ size = 'desktop' }) => {
-  const buttonSize = size === 'desktop' ? 'w-12 h-12' : 'w-10 h-10';
-  const iconSize = size === 'desktop' ? 22 : 18;
+    const buttonSize = size === 'desktop' ? 'w-12 h-12' : 'w-10 h-10';
+    const iconSize = size === 'desktop' ? 22 : 18;
 
-  return (
-    <Menu as="div" className="relative z-50 flex-shrink-0">
-      <Menu.Button className={`flex items-center justify-center ${buttonSize} rounded-full bg-white dark:bg-slate-800 shadow-sm border border-slate-100 dark:border-slate-700 transition-transform active:scale-90 text-slate-600 dark:text-slate-300`}>
-        <IconPalette size={iconSize} stroke={1.5} />
-      </Menu.Button>
-      <Transition
-        as={Fragment}
-        enter="transition ease-out duration-200" enterFrom="opacity-0 scale-95 translate-y-2" enterTo="opacity-100 scale-100 translate-y-0"
-        leave="transition ease-in duration-150" leaveFrom="opacity-100 scale-100 translate-y-0" leaveTo="opacity-0 scale-95 translate-y-2"
-      >
-        <Menu.Items className="absolute right-0 mt-3 w-72 origin-top-right focus:outline-none z-[60]">
-           <div className="relative"><ThemeToggle /></div>
-        </Menu.Items>
-      </Transition>
-    </Menu>
-  );
+    return (
+        <Menu as="div" className="relative z-50 flex-shrink-0">
+            <Menu.Button className={`flex items-center justify-center ${buttonSize} rounded-full bg-white dark:bg-slate-800 shadow-sm border border-slate-100 dark:border-slate-700 transition-transform active:scale-90 text-slate-600 dark:text-slate-300`}>
+                <IconPalette size={iconSize} stroke={1.5} />
+            </Menu.Button>
+            <Transition
+                as={Fragment}
+                enter="transition ease-out duration-200" enterFrom="opacity-0 scale-95 translate-y-2" enterTo="opacity-100 scale-100 translate-y-0"
+                leave="transition ease-in duration-150" leaveFrom="opacity-100 scale-100 translate-y-0" leaveTo="opacity-0 scale-95 translate-y-2"
+            >
+                <Menu.Items className="absolute right-0 mt-3 w-72 origin-top-right focus:outline-none z-[60]">
+                    <div className="relative"><ThemeToggle /></div>
+                </Menu.Items>
+            </Transition>
+        </Menu>
+    );
 });
 
 const EmptyState = memo(({ icon: Icon, title, message, actionText, onActionClick }) => (
     <OneUICard className="flex flex-col items-center justify-center text-center p-10 min-h-[300px]">
         <div className="h-16 w-16 rounded-[1.5rem] bg-slate-50 dark:bg-slate-800 flex items-center justify-center mb-4">
-             <Icon className="h-8 w-8 text-slate-400" />
+            <Icon className="h-8 w-8 text-slate-400" />
         </div>
         <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">{title}</h3>
         <p className="text-sm text-slate-500 max-w-[250px] mx-auto mb-6 leading-relaxed">{message}</p>
@@ -209,14 +210,14 @@ const DashboardSkeleton = () => (
     <div className="space-y-6 p-4 animate-pulse max-w-[1920px] mx-auto">
         <div className="h-56 w-full bg-slate-200 dark:bg-slate-800 rounded-[2.5rem]"></div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {[1,2,3,4].map(i => <div key={i} className="h-44 w-full bg-slate-200 dark:bg-slate-800 rounded-[2.2rem]"></div>)}
+            {[1, 2, 3, 4].map(i => <div key={i} className="h-44 w-full bg-slate-200 dark:bg-slate-800 rounded-[2.2rem]"></div>)}
         </div>
     </div>
 );
 
 // --- DASHBOARD HOME VIEW ---
 const DashboardHome = memo(({ userProfile, myClasses, setSelectedClass, handleViewChange, monetStyle }) => {
-    
+
     const greeting = useMemo(() => {
         const hour = new Date().getHours();
         if (hour < 12) return 'Good morning';
@@ -229,12 +230,12 @@ const DashboardHome = memo(({ userProfile, myClasses, setSelectedClass, handleVi
         return INSPIRATIONAL_PHRASES[index];
     }, []);
 
-    const genericBadges = useMemo(() => 
-        (userProfile?.genericBadges || []).slice(-3).reverse(), 
-    [userProfile?.genericBadges]);
+    const genericBadges = useMemo(() =>
+        (userProfile?.genericBadges || []).slice(-3).reverse(),
+        [userProfile?.genericBadges]);
 
     return (
-        <motion.div 
+        <motion.div
             variants={containerVariants}
             initial="hidden"
             animate="show"
@@ -242,11 +243,11 @@ const DashboardHome = memo(({ userProfile, myClasses, setSelectedClass, handleVi
         >
             {/* 1. HERO SECTION */}
             <OneUICard className="p-6 sm:p-8 min-h-[220px] flex flex-col justify-between group">
-                <div className={`absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4 pointer-events-none`}></div>
-                
+                <div className={`absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-blue-400/20 to-indigo-400/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4 pointer-events-none`}></div>
+
                 <div className="relative z-10">
                     <h1 className="text-3xl sm:text-5xl font-black text-slate-900 dark:text-white tracking-tight leading-tight mb-3">
-                        {greeting}, <br/>
+                        {greeting}, <br />
                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400">
                             {userProfile?.firstName}
                         </span>
@@ -258,12 +259,12 @@ const DashboardHome = memo(({ userProfile, myClasses, setSelectedClass, handleVi
 
                 <div className="relative z-10 flex flex-wrap items-center gap-4 mt-6">
                     <div className="px-4 py-2 rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 flex items-center gap-2.5">
-                         <div className="p-1 bg-orange-100 dark:bg-orange-900/30 rounded-full text-orange-500">
+                        <div className="p-1 bg-orange-100 dark:bg-orange-900/30 rounded-full text-orange-500">
                             <FireIcon className="w-3.5 h-3.5" />
-                         </div>
-                         <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                        </div>
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
                             {userProfile?.loginStreak || 0} Day Streak
-                         </span>
+                        </span>
                     </div>
                     <div className="hidden sm:block h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-700"></div>
                     <DailyQuote />
@@ -273,14 +274,14 @@ const DashboardHome = memo(({ userProfile, myClasses, setSelectedClass, handleVi
             {/* 2. ACHIEVEMENTS SECTION (Horizontal Scroll) */}
             <OneUICard className="p-6">
                 <div className="flex items-center justify-between mb-4 px-1">
-                    <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2"> 
+                    <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
                         <StarIcon className="h-5 w-5 text-yellow-500" /> Achievements
                     </h2>
                     <button onClick={() => handleViewChange('profile')} className="text-xs font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors">
                         View All
                     </button>
                 </div>
-                
+
                 <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
                     {genericBadges.length > 0 ? (
                         genericBadges.map((badgeKey, idx) => {
@@ -300,10 +301,10 @@ const DashboardHome = memo(({ userProfile, myClasses, setSelectedClass, handleVi
                             );
                         })
                     ) : (
-                         <div className="w-full py-6 flex flex-col items-center justify-center text-center border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-[1.5rem]">
+                        <div className="w-full py-6 flex flex-col items-center justify-center text-center border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-[1.5rem]">
                             <p className="text-sm font-bold text-slate-400">No badges yet</p>
                             <p className="text-[10px] text-slate-300 dark:text-slate-500">Keep learning to unlock!</p>
-                         </div>
+                        </div>
                     )}
                 </div>
             </OneUICard>
@@ -313,7 +314,7 @@ const DashboardHome = memo(({ userProfile, myClasses, setSelectedClass, handleVi
                 <h2 className="text-xl font-black text-slate-900 dark:text-white mb-4 px-2 flex items-center gap-2">
                     My Classes
                 </h2>
-                
+
                 {(!myClasses || myClasses.length === 0) ? (
                     <EmptyState icon={InboxIcon} title="No Classes" message="Join a class to get started." />
                 ) : (
@@ -355,16 +356,16 @@ const DashboardHome = memo(({ userProfile, myClasses, setSelectedClass, handleVi
 
                                     {/* Footer Actions (Restored & Redesigned) */}
                                     <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-700/50 flex items-center gap-3">
-                                        <button 
-                                            onClick={() => setSelectedClass(classItem)} 
+                                        <button
+                                            onClick={() => setSelectedClass(classItem)}
                                             className="flex-1 py-2.5 rounded-xl bg-white/80 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                                         >
                                             View
                                         </button>
                                         <button
-                                            onClick={(e) => { 
-                                                e.stopPropagation(); 
-                                                if (canJoin) window.open(meetLink, '_blank'); 
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (canJoin) window.open(meetLink, '_blank');
                                             }}
                                             disabled={!canJoin}
                                             className={`flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${canJoin ? 'bg-red-500 text-white shadow-md shadow-red-500/20 hover:bg-red-600 active:scale-95' : 'bg-slate-200 dark:bg-slate-700/50 text-slate-400 cursor-not-allowed'}`}
@@ -391,7 +392,7 @@ const StudentDashboardUI = ({
     isFetching, lessons, units, setLessonToView, quizzes,
     handleTakeQuizClick, fetchContent, hasNewLessons, hasNewQuizzes,
     isLoungeLoading, loungePosts, loungeUsersMap, fetchLoungePosts, loungePostUtils,
-    upNextTask 
+    upNextTask
 }) => {
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
@@ -400,7 +401,7 @@ const StudentDashboardUI = ({
 
     const profileMenuRef = useRef(null);
     const { isSessionConflictModalOpen, sessionConflictMessage, performLogout } = useAuth();
-    
+
     // Ensure Branding Fallback
     const branding = useMemo(() => {
         const schoolId = userProfile?.schoolId || 'srcs_main';
@@ -450,9 +451,9 @@ const StudentDashboardUI = ({
         if (selectedClass) {
             return (
                 <div className="pb-32 w-full animate-fade-in-up px-4 sm:px-6 pt-4">
-                    <StudentClassDetailView 
-                        selectedClass={selectedClass} 
-                        onBack={() => setSelectedClass(null)} 
+                    <StudentClassDetailView
+                        selectedClass={selectedClass}
+                        onBack={() => setSelectedClass(null)}
                         setLessonToView={setLessonToView}
                         lessons={lessons}
                         units={units}
@@ -472,25 +473,26 @@ const StudentDashboardUI = ({
                 return <LoungeView isPostsLoading={isLoungeLoading} publicPosts={loungePosts} usersMap={loungeUsersMap} fetchPublicPosts={fetchLoungePosts} {...loungePostUtils} />;
             case 'lessons':
                 return <div className="relative pt-4">{allLessonsEmpty && !isFetching ? <EmptyState icon={BookOpenIcon} title="No Lessons" message="Check back soon!" actionText="Refresh" onActionClick={fetchContent} /> : <StudentLessonsTab lessons={lessons} units={units} setLessonToView={setLessonToView} isFetchingContent={isFetching} onRefreshLessons={fetchContent} />}</div>;
-			case 'elections':
-			                return <div className="pt-4"><StudentElectionTab /></div>;
+            case 'elections':
+                return <div className="pt-4"><StudentElectionTab /></div>;
             case 'quizzes':
                 return <div className="pt-4">{allQuizzesEmpty && !isFetching ? <EmptyState icon={ClipboardDocumentCheckIcon} title="No Quizzes" message="You're all caught up." /> : <StudentQuizzesTab quizzes={quizzes} units={units} handleTakeQuizClick={handleTakeQuizClick} isFetchingContent={isFetching} userProfile={userProfile} onRefresh={fetchContent} />}</div>;
             case 'rewards':
                 return <div className="pt-4"><RewardsPage /></div>;
             case 'profile':
                 return <div className="pt-4"><StudentProfilePage /></div>;
+
             default:
                 return null;
         }
     }, [selectedClass, view, userProfile, myClasses, monetStyle, isLoungeLoading, loungePosts, loungeUsersMap, fetchLoungePosts, loungePostUtils, lessons, units, isFetching, fetchContent, quizzes, handleTakeQuizClick, setSelectedClass, handleViewChange, setLessonToView]);
 
     const sidebarNavItems = useMemo(() => [
-        { view: 'classes', text: 'Home', icon: HomeIcon }, 
-        { view: 'lounge', text: 'Lounge', icon: RocketLaunchIcon }, 
+        { view: 'classes', text: 'Home', icon: HomeIcon },
         { view: 'lessons', text: 'Lessons', icon: BookOpenIcon },
         { view: 'quizzes', text: 'Quizzes', icon: ClipboardDocumentCheckIcon },
-		{ view: 'elections', text: 'Elections', icon: HandRaisedIcon },
+        { view: 'lounge', text: 'Lounge', icon: RocketLaunchIcon },
+        { view: 'elections', text: 'Elections', icon: HandRaisedIcon },
         { view: 'rewards', text: 'Rewards', icon: GiftIcon },
         { view: 'profile', text: 'Profile', icon: UserIcon }
     ], []);
@@ -504,13 +506,13 @@ const StudentDashboardUI = ({
     return (
         <div className="h-screen w-full font-sans bg-slate-50 dark:bg-black text-slate-900 dark:text-slate-100 overflow-hidden flex flex-col transition-colors duration-500">
             <style>{scrollbarStyles}</style>
-            
+
             <UniversalBackground />
 
             {/* HEADER: Floating Island */}
             <header className="flex-none z-50 relative px-4 pt-4 pb-2">
                 <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl mx-auto max-w-[1920px] rounded-[2rem] px-5 py-3 shadow-sm border border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                    
+
                     {/* Brand - Restored Prominence */}
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-2xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center p-1.5 shadow-sm">
@@ -538,8 +540,8 @@ const StudentDashboardUI = ({
                                         key={item.view}
                                         onClick={() => handleViewChange(item.view)}
                                         className={`relative flex items-center gap-2 px-5 py-2.5 rounded-full transition-all duration-300 ease-out
-                                            ${isActive 
-                                                ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-md' 
+                                            ${isActive
+                                                ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-md'
                                                 : 'text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-700'
                                             }`}
                                     >
@@ -556,13 +558,13 @@ const StudentDashboardUI = ({
                     <div className="flex items-center gap-3">
                         <ThemeDropdown size="mobile" />
                         <InstallPWA />
-                        
+
                         {/* Join Button */}
-                        <button 
-                            onClick={() => setJoinClassModalOpen(true)} 
+                        <button
+                            onClick={() => setJoinClassModalOpen(true)}
                             className="hidden sm:flex items-center gap-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold rounded-full py-2.5 px-5 text-xs shadow-lg active:scale-95 transition-transform"
                         >
-                            <PlusCircleIcon className="h-4 w-4" /> 
+                            <PlusCircleIcon className="h-4 w-4" />
                             <span>Join Class</span>
                         </button>
 
@@ -574,7 +576,7 @@ const StudentDashboardUI = ({
                                 </button>
                                 <AnimatePresence>
                                     {isProfileMenuOpen && (
-                                        <motion.div 
+                                        <motion.div
                                             initial={{ opacity: 0, scale: 0.9, y: 10 }}
                                             animate={{ opacity: 1, scale: 1, y: 0 }}
                                             exit={{ opacity: 0, scale: 0.9, y: 10 }}
@@ -605,9 +607,9 @@ const StudentDashboardUI = ({
                     ) : (
                         <motion.div
                             key={view + (selectedClass ? '-detail' : '')}
-                            initial={{ opacity: 0, y: 20, scale: 0.98 }} 
-                            animate={{ opacity: 1, y: 0, scale: 1 }}    
-                            exit={{ opacity: 0, y: -20, scale: 0.98 }}  
+                            initial={{ opacity: 0, y: 20, scale: 0.98 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -20, scale: 0.98 }}
                             transition={{ duration: 0.4, ease: [0.25, 1, 0.5, 1] }} // Elegant ease
                             className="w-full h-full flex flex-col overflow-y-auto app-scroll-container scroll-smooth"
                         >
@@ -620,17 +622,17 @@ const StudentDashboardUI = ({
             {/* MOBILE DOCK (Floating Island) */}
             <div className="fixed bottom-6 left-0 right-0 flex justify-center z-40 lg:hidden pointer-events-none">
                 <div className="pointer-events-auto bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-white/50 dark:border-slate-800 shadow-2xl rounded-full px-2 py-2 flex items-center gap-1 max-w-[95%] sm:max-w-md">
-                    {sidebarNavItems.map(item => { 
-                         const isActive = item.view === 'classes' ? (view === 'classes' || view === 'default') : view === item.view;
-                         const showDot = (item.view === 'lessons' && hasNewLessons) || (item.view === 'quizzes' && hasNewQuizzes) || (item.view === 'rewards' && hasUnclaimedRewards);
+                    {sidebarNavItems.map(item => {
+                        const isActive = item.view === 'classes' ? (view === 'classes' || view === 'default') : view === item.view;
+                        const showDot = (item.view === 'lessons' && hasNewLessons) || (item.view === 'quizzes' && hasNewQuizzes) || (item.view === 'rewards' && hasUnclaimedRewards);
 
                         return (
                             <button
                                 key={item.view}
                                 onClick={() => handleViewChange(item.view)}
                                 className={`relative p-3 rounded-full transition-all duration-300 active:scale-90
-                                    ${isActive 
-                                        ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' 
+                                    ${isActive
+                                        ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
                                         : 'text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
                             >
                                 <item.icon className="h-6 w-6" />
@@ -668,7 +670,7 @@ const StudentDashboardUI = ({
 
             {/* WELCOME MODAL */}
             <Transition appear show={isWelcomeModalOpen} as={Fragment}>
-                <Dialog as="div" className="relative z-[100]" onClose={() => {}}>
+                <Dialog as="div" className="relative z-[100]" onClose={() => { }}>
                     <Transition.Child
                         as={Fragment}
                         enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100"
@@ -689,12 +691,12 @@ const StudentDashboardUI = ({
                                         <img src={branding.logo} alt="School Logo" className="w-full h-full object-contain" />
                                     </div>
                                     <Dialog.Title as="h3" className="text-2xl font-black text-slate-900 dark:text-white text-center mb-2 tracking-tight">
-                                        Welcome back,<br/><span className="text-blue-600 dark:text-blue-400">{userProfile?.firstName}!</span>
+                                        Welcome back,<br /><span className="text-blue-600 dark:text-blue-400">{userProfile?.firstName}!</span>
                                     </Dialog.Title>
                                     <div className="mt-2 text-center mb-8">
                                         <p className="text-sm font-bold text-slate-400 uppercase tracking-wider">{getFullSchoolName(userProfile?.schoolId)}</p>
                                     </div>
-                                    
+
                                     <div className="mt-8">
                                         <div className="flex items-center justify-center gap-2.5 mb-5 cursor-pointer group" onClick={() => setDontShowAgain(!dontShowAgain)}>
                                             <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${dontShowAgain ? 'bg-blue-600 border-blue-600' : 'bg-transparent border-slate-300'}`}>

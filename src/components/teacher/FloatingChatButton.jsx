@@ -69,7 +69,7 @@ const FloatingChatButton = ({ onClick }) => {
 
                 {/* Ethereal background effect (moving gradients/blobs) */}
                 <div className="absolute inset-0 animate-bgBlob opacity-30">
-                    <div className="absolute top-0 left-0 w-1/2 h-1/2 rounded-full bg-purple-200/80 blur-xl"></div>
+                    <div className="absolute top-0 left-0 w-1/2 h-1/2 rounded-full bg-indigo-200/80 blur-xl"></div>
                     <div className="absolute bottom-0 right-0 w-1/2 h-1/2 rounded-full bg-blue-200/80 blur-xl animation-delay-2000"></div>
                 </div>
             </div>

@@ -15,7 +15,7 @@ const ClockWidget = ({ className }) => {
             
             {/* --- Ambient Candy Glows (Decorative Background) --- */}
             <div className="absolute top-0 right-0 w-32 h-32 bg-blue-400/10 dark:bg-blue-500/10 rounded-full blur-[40px] pointer-events-none translate-x-10 -translate-y-10" />
-            <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-400/10 dark:bg-purple-500/10 rounded-full blur-[40px] pointer-events-none -translate-x-10 translate-y-10" />
+            <div className="absolute bottom-0 left-0 w-32 h-32 bg-indigo-400/10 dark:bg-indigo-500/10 rounded-full blur-[40px] pointer-events-none -translate-x-10 translate-y-10" />
 
             {/* --- Date Pill (Glassmorphic) --- */}
             <div className="relative z-10 flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-100/80 dark:bg-white/5 backdrop-blur-md border border-slate-200/50 dark:border-white/10 shadow-sm transition-all hover:scale-105 cursor-default">

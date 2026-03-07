@@ -13,24 +13,24 @@ export default function PresentationGeneratingModal({ isOpen, progress, status }
     return createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#050505]/90 backdrop-blur-xl">
             <div className="relative w-full max-w-lg flex flex-col items-center justify-center p-12">
-                
+
                 {/* --- ANIMATED CORE --- */}
                 <div className="relative w-64 h-64 mb-12 flex items-center justify-center">
                     {/* Outer Rings */}
-                    <motion.div 
+                    <motion.div
                         animate={{ rotate: 360 }}
                         transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
                         className="absolute inset-0 rounded-full border border-indigo-500/20 border-t-indigo-500 shadow-[0_0_30px_rgba(99,102,241,0.2)]"
                     />
-                    <motion.div 
+                    <motion.div
                         animate={{ rotate: -360 }}
                         transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-                        className="absolute inset-4 rounded-full border border-purple-500/20 border-b-purple-500"
+                        className="absolute inset-4 rounded-full border border-sky-400/20 border-b-sky-500"
                     />
-                    
+
                     {/* Inner Pulse */}
                     <div className="relative z-10 w-32 h-32 bg-indigo-500/10 rounded-full flex items-center justify-center backdrop-blur-sm border border-indigo-500/30">
-                        <motion.div 
+                        <motion.div
                             animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
                             transition={{ duration: 2, repeat: Infinity }}
                         >
@@ -67,7 +67,7 @@ export default function PresentationGeneratingModal({ isOpen, progress, status }
                         animate={{ opacity: 1, y: 0 }}
                         className="flex flex-col items-center gap-2"
                     >
-                        <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 to-purple-300 tracking-tight">
+                        <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-sky-500 tracking-tight">
                             {progress < 100 ? "Building Deck..." : "Finalizing..."}
                         </h2>
                         <div className="flex items-center gap-2 px-4 py-1.5 bg-white/5 rounded-full border border-white/5">
@@ -78,8 +78,8 @@ export default function PresentationGeneratingModal({ isOpen, progress, status }
 
                     {/* --- PROGRESS BAR --- */}
                     <div className="relative w-full h-2 bg-white/5 rounded-full overflow-hidden">
-                        <motion.div 
-                            className="absolute inset-y-0 left-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500"
+                        <motion.div
+                            className="absolute inset-y-0 left-0 bg-gradient-to-r from-indigo-500 via-sky-500 to-indigo-500"
                             initial={{ width: 0 }}
                             animate={{ width: `${progress}%` }}
                             transition={{ type: "spring", bounce: 0 }}
@@ -91,7 +91,7 @@ export default function PresentationGeneratingModal({ isOpen, progress, status }
                             transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
                         />
                     </div>
-                    
+
                     <p className="text-xs text-slate-500 font-medium uppercase tracking-widest">
                         {Math.round(progress)}% Complete
                     </p>

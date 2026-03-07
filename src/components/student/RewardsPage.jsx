@@ -269,7 +269,7 @@ const RewardsPage = () => {
                     <div className="relative overflow-hidden bg-slate-900 dark:bg-black rounded-[2.5rem] p-6 shadow-2xl">
                         {/* Abstract Background Shapes */}
                         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/30 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
-                        <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-600/30 rounded-full blur-[80px] translate-y-1/2 -translate-x-1/2 pointer-events-none"></div>
+                        <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-600/30 rounded-full blur-[80px] translate-y-1/2 -translate-x-1/2 pointer-events-none"></div>
 
                         <div className="relative z-10 flex items-center justify-between">
                             <div>
@@ -292,7 +292,7 @@ const RewardsPage = () => {
 
                         {/* Progress Bar Visual */}
                         <div className="mt-6 h-2 w-full bg-white/10 rounded-full overflow-hidden">
-                            <div className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 w-3/4 rounded-full" />
+                            <div className="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-pink-500 w-3/4 rounded-full" />
                         </div>
                     </div>
                 </div>

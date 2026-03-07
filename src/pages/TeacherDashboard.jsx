@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, Suspense, lazy, useCallback } from
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { db } from '../services/firebase'; 
+import { db } from '../services/firebase';
 import { doc, updateDoc, deleteDoc, writeBatch, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { callChatbotAi } from '../services/aiService';
 
@@ -11,13 +11,14 @@ import { callChatbotAi } from '../services/aiService';
 import { useTeacherData } from '../hooks/useTeacherData';
 import { useTeacherActions } from '../hooks/useTeacherActions';
 import { usePresentationGenerator } from '../hooks/usePresentationGenerator';
-import { useStudentPosts } from '../hooks/useStudentPosts'; 
+import { useStudentPosts } from '../hooks/useStudentPosts';
 
 // --- Components ---
 import TeacherDashboardLayout from '../components/teacher/TeacherDashboardLayout';
 import GlobalAiSpinner from '../components/common/GlobalAiSpinner';
-import PublicProfilePage from './PublicProfilePage'; 
-import { ConfirmActionModal } from '../components/common/ConfirmActionModal'; 
+import PublicProfilePage from './PublicProfilePage';
+import { ConfirmActionModal } from '../components/common/ConfirmActionModal';
+import AdminMonitoringView from '../components/admin/AdminMonitoringView';
 
 // --- Lazy Components ---
 const PresentationPreviewModal = lazy(() => import('../components/teacher/PresentationPreviewModal'));
@@ -37,8 +38,10 @@ const TeacherDashboard = () => {
     const segments = pathname.substring('/dashboard'.length).split('/');
     const pathSegment = segments[1];
     if (pathSegment === 'profile' && segments[2]) return 'publicProfile';
-	const validViews = ['lounge', 'studentManagement', 'classes', 'courses', 'analytics', 'profile', 'admin', 'elections'];
-	return validViews.includes(pathSegment) ? pathSegment : 'home';
+    // Handle /dashboard/classes/:classId -> view is still classes
+    if (pathSegment === 'classes' && segments[2]) return 'classes';
+    const validViews = ['lounge', 'studentManagement', 'classes', 'courses', 'analytics', 'profile', 'admin', 'elections', 'monitoring'];
+    return validViews.includes(pathSegment) ? pathSegment : 'home';
   }, []);
 
   const activeView = getActiveViewFromPath(location.pathname);
@@ -47,7 +50,8 @@ const TeacherDashboard = () => {
   const {
     classes, courses, setCourses, courseCategories, teacherAnnouncements, setTeacherAnnouncements,
     loungePosts, setLoungePosts, loungeUsersMap, allLmsClasses,
-    loading: dataLoading, error, isLoungeLoading, isImportViewLoading, fetchLoungePosts
+    loading: dataLoading, error, isLoungeLoading, isImportViewLoading, fetchLoungePosts,
+    adminMonitoringTeachers
   } = useTeacherData(user, userProfile, activeView);
 
   const {
@@ -62,7 +66,7 @@ const TeacherDashboard = () => {
   } = usePresentationGenerator(showToast);
 
   // Existing Hook for Likes/Comments
-  const loungePostUtils = useStudentPosts(loungePosts, setLoungePosts, userProfile?.id, showToast);
+  const loungePostUtils = useStudentPosts(loungePosts, setLoungePosts, userProfile, showToast);
 
   // 4. Local UI State
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -78,7 +82,7 @@ const TeacherDashboard = () => {
   const [categoryToEdit, setCategoryToEdit] = useState(null);
   const [classToEdit, setClassToEdit] = useState(null);
   const [subjectToActOn, setSubjectToActOn] = useState(null);
-  const [lessonsToProcessForPPT, setLessonsToProcessForPPT] = useState({}); 
+  const [lessonsToProcessForPPT, setLessonsToProcessForPPT] = useState({});
 
   // Chat State
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -110,14 +114,14 @@ const TeacherDashboard = () => {
   });
 
   const toggleModal = (name, isOpen) => setModals(prev => ({ ...prev, [name]: isOpen }));
-  
+
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [classOverviewModal, setClassOverviewModal] = useState({ isOpen: false, data: null });
-  const [confirmArchiveModalState, setConfirmArchiveModalState] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+  const [confirmArchiveModalState, setConfirmArchiveModalState] = useState({ isOpen: false, title: '', message: '', onConfirm: () => { } });
 
   // 🔹 Custom Logout Handler for Teachers
   const handleTeacherLogout = useCallback(() => {
-    logout('/login'); 
+    logout('/login');
   }, [logout]);
 
   // 6. Effects
@@ -131,6 +135,29 @@ const TeacherDashboard = () => {
     if (activeView === 'lounge' && userProfile?.id) fetchLoungePosts();
   }, [activeView, userProfile?.id, fetchLoungePosts]);
 
+  // Handle /dashboard/classes/:classId routing
+  useEffect(() => {
+    const segments = location.pathname.substring('/dashboard'.length).split('/');
+    const pathSegment = segments[1];
+    const classIdFromUrl = segments[2];
+
+    if (pathSegment === 'classes' && classIdFromUrl) {
+      // Find class from loaded activeClasses (assuming it loads shortly after on mount)
+      if (classes.length > 0) {
+        const foundClass = classes.find((c) => c.id === classIdFromUrl);
+        if (foundClass && (!classOverviewModal.isOpen || classOverviewModal.data?.id !== foundClass.id)) {
+          setClassOverviewModal({ isOpen: true, data: foundClass });
+        } else if (!foundClass && classOverviewModal.isOpen) {
+          // If class not found (e.g., deleted), close modal and reset URL
+          setClassOverviewModal({ isOpen: false, data: null });
+          navigate('/dashboard/classes', { replace: true });
+        }
+      }
+    } else if (pathSegment === 'classes' && !classIdFromUrl && classOverviewModal.isOpen) {
+      setClassOverviewModal({ isOpen: false, data: null });
+    }
+  }, [location.pathname, classes, classOverviewModal.isOpen, classOverviewModal.data?.id, navigate]);
+
   // 7. Computed Values
   const activeClasses = useMemo(() => classes.filter(c => !c.isArchived), [classes]);
   const archivedClasses = useMemo(() => classes.filter(c => c.isArchived), [classes]);
@@ -143,7 +170,7 @@ const TeacherDashboard = () => {
 
   // Navigation
   const handleViewChangeWrapper = useCallback((view) => {
-    if (activeView === view) setReloadKey(prev => prev + 1);
+    if (activeView === view && view !== 'classes') setReloadKey(prev => prev + 1);
     else {
       navigate(view === 'home' ? '/dashboard' : `/dashboard/${view}`);
       setIsSidebarOpen(false);
@@ -169,29 +196,29 @@ const TeacherDashboard = () => {
         // Batch delete for Subject/Lesson/Quiz
         setIsAiGenerating(true);
         const batch = writeBatch(db);
-        
+
         const markClassesUpdated = (sId) => {
-             classes.filter(c => c.subjectId === sId).forEach(c => 
-                batch.update(doc(db, "classes", c.id), { contentLastUpdatedAt: serverTimestamp() })
-            );
+          classes.filter(c => c.subjectId === sId).forEach(c =>
+            batch.update(doc(db, "classes", c.id), { contentLastUpdatedAt: serverTimestamp() })
+          );
         };
 
         if (type === 'subject') {
-             batch.delete(doc(db, 'courses', id));
-             setActiveSubject(null);
+          batch.delete(doc(db, 'courses', id));
+          setActiveSubject(null);
         } else if (type === 'lesson') {
-            markClassesUpdated(subjectId);
-            batch.delete(doc(db, 'lessons', id));
+          markClassesUpdated(subjectId);
+          batch.delete(doc(db, 'lessons', id));
         } else if (type === 'quiz') {
-            markClassesUpdated(subjectId);
-            batch.delete(doc(db, 'quizzes', id));
-            const subs = await getDocs(query(collection(db, 'quizSubmissions'), where('quizId', '==', id)));
-            subs.forEach(d => batch.delete(d.ref));
+          markClassesUpdated(subjectId);
+          batch.delete(doc(db, 'quizzes', id));
+          const subs = await getDocs(query(collection(db, 'quizSubmissions'), where('quizId', '==', id)));
+          subs.forEach(d => batch.delete(d.ref));
         } else if (type === 'category') {
-             showToast("Category deletion is restricted to Admin.", "warning");
-             setIsAiGenerating(false);
-             toggleModal('deleteGeneric', false);
-             return; 
+          showToast("Category deletion is restricted to Admin.", "warning");
+          setIsAiGenerating(false);
+          toggleModal('deleteGeneric', false);
+          return;
         }
 
         await batch.commit();
@@ -216,39 +243,39 @@ const TeacherDashboard = () => {
   const handleConfirmBetaWarning = useCallback(async (neverShow, dataOverride = null) => {
     if (neverShow) localStorage.setItem('hidePresentationBetaWarning', 'true');
     toggleModal('betaWarning', false);
-  
+
     // Logic: Use override if present (from immediate call), otherwise use state (from modal confirm)
     const sourceData = dataOverride || lessonsToProcessForPPT;
 
     // Safety check
     if (!sourceData || !sourceData.data) {
-         console.error("Presentation generation failed: Missing source data");
-         showToast("Could not generate deck. Please try again.", "error");
-         return;
+      console.error("Presentation generation failed: Missing source data");
+      showToast("Could not generate deck. Please try again.", "error");
+      return;
     }
-  
+
     const { ids, data, units, subject } = sourceData;
     const subjectToUse = subject || activeSubject;
 
     const success = await generatePreview(ids, data, subjectToUse, units);
     if (success) toggleModal('presentationPreview', true);
-  }, [lessonsToProcessForPPT, generatePreview, activeSubject, showToast]); 
+  }, [lessonsToProcessForPPT, generatePreview, activeSubject, showToast]);
 
   const handleInitiatePresentation = useCallback((lessonIds, lessonsData, unitsData, subjectOverride) => {
-    const payload = { 
-        ids: lessonIds, 
-        data: lessonsData, 
-        units: unitsData, 
-        subject: subjectOverride 
+    const payload = {
+      ids: lessonIds,
+      data: lessonsData,
+      units: unitsData,
+      subject: subjectOverride
     };
 
     setLessonsToProcessForPPT(payload);
-  
+
     const hideWarn = localStorage.getItem('hidePresentationBetaWarning');
     if (hideWarn === 'true') {
-        handleConfirmBetaWarning(false, payload);
+      handleConfirmBetaWarning(false, payload);
     } else {
-        toggleModal('betaWarning', true);
+      toggleModal('betaWarning', true);
     }
   }, [handleConfirmBetaWarning, toggleModal]);
 
@@ -259,12 +286,12 @@ const TeacherDashboard = () => {
     setIsAiThinking(true);
     setAiConversationStarted(true);
     try {
-        const res = await callChatbotAi(`User: ${text}`);
-        setMessages(p => [...p, { sender: 'ai', text: res }]);
+      const res = await callChatbotAi(`User: ${text}`);
+      setMessages(p => [...p, { sender: 'ai', text: res }]);
     } catch {
-        setMessages(p => [...p, { sender: 'ai', text: "I'm having trouble connecting right now." }]);
+      setMessages(p => [...p, { sender: 'ai', text: "I'm having trouble connecting right now." }]);
     } finally {
-        setIsAiThinking(false);
+      setIsAiThinking(false);
     }
   }, []);
 
@@ -272,40 +299,40 @@ const TeacherDashboard = () => {
   const handleImportStudentsWrapper = async () => {
     const success = await executeImport(importTargetClassId, selectedClassForImport, studentsToImport);
     if (success) {
-        setStudentsToImport(new Set());
-        setSelectedClassForImport(null);
-        setImportTargetClassId('');
+      setStudentsToImport(new Set());
+      setSelectedClassForImport(null);
+      setImportTargetClassId('');
     }
   };
 
   // Misc Handlers
   const handleUpdateProfile = async (data) => {
     try {
-        // FIX: Ensure we have a valid ID. If 'user' is undefined (due to reload/race condition), fallback to userProfile.id
-        const uid = user?.uid || userProfile?.id;
-        
-        if (!uid) {
-            console.error("Critical Error: No user ID found for profile update.");
-            showToast('Unable to identify user. Please refresh.', 'error');
-            return;
-        }
+      // FIX: Ensure we have a valid ID. If 'user' is undefined (due to reload/race condition), fallback to userProfile.id
+      const uid = user?.uid || userProfile?.id;
 
-        await firestoreService.updateUserProfile(uid, data);
-        await refreshUserProfile();
-        showToast('Profile updated!', 'success');
-        toggleModal('editProfile', false);
-    } catch (e) { 
-        console.error("Profile update error:", e);
-        showToast('Update failed.', 'error'); 
+      if (!uid) {
+        console.error("Critical Error: No user ID found for profile update.");
+        showToast('Unable to identify user. Please refresh.', 'error');
+        return;
+      }
+
+      await firestoreService.updateUserProfile(uid, data);
+      await refreshUserProfile();
+      showToast('Profile updated!', 'success');
+      toggleModal('editProfile', false);
+    } catch (e) {
+      console.error("Profile update error:", e);
+      showToast('Update failed.', 'error');
     }
   };
 
   const handleUpdateLesson = useCallback((updatedLesson) => {
-      setSelectedLesson(updatedLesson);
-      setCourses(prev => prev.map(c => ({
-          ...c, 
-          lessons: c.lessons?.map(l => l.id === updatedLesson.id ? updatedLesson : l)
-      })));
+    setSelectedLesson(updatedLesson);
+    setCourses(prev => prev.map(c => ({
+      ...c,
+      lessons: c.lessons?.map(l => l.id === updatedLesson.id ? updatedLesson : l)
+    })));
   }, [setCourses]);
 
   if (activeView === 'publicProfile') {
@@ -326,7 +353,7 @@ const TeacherDashboard = () => {
         error={error}
         logout={handleTeacherLogout} // 🔹 UPDATED: Uses custom logout
         showToast={showToast}
-        
+
         // --- Navigation ---
         activeView={activeView}
         handleViewChange={handleViewChangeWrapper}
@@ -392,7 +419,7 @@ const TeacherDashboard = () => {
         setDeleteSubjectModalOpen={(v) => toggleModal('deleteSubject', v)}
         isDeleteModalOpen={modals.deleteGeneric}
         setIsDeleteModalOpen={(v) => toggleModal('deleteGeneric', v)}
-        
+
         // --- Modal Data Setters ---
         categoryToEdit={categoryToEdit}
         handleEditCategory={(c) => { setCategoryToEdit(c); toggleModal('editCategory', true); }}
@@ -411,15 +438,15 @@ const TeacherDashboard = () => {
         // --- Actions Handlers ---
         handleCreateUnit={(d) => handleCreateUnit(d).then(ok => ok && toggleModal('addUnit', false))}
         handleDeleteClass={(id, name) => handleInitiateDelete('class', id, name)}
-        handleArchiveClass={(id, name) => setConfirmArchiveModalState({ 
-            isOpen: true, title: "Archive Class?", message: `Archive ${name}?`,
-            onConfirm: async () => { await firestoreService.updateClassArchiveStatus(id, true); setConfirmArchiveModalState(p=>({...p, isOpen:false})); showToast("Archived.", "success"); }
+        handleArchiveClass={(id, name) => setConfirmArchiveModalState({
+          isOpen: true, title: "Archive Class?", message: `Archive ${name}?`,
+          onConfirm: async () => { await firestoreService.updateClassArchiveStatus(id, true); setConfirmArchiveModalState(p => ({ ...p, isOpen: false })); showToast("Archived.", "success"); }
         })}
         handleUnarchiveClass={async (id) => { await firestoreService.updateClassArchiveStatus(id, false); showToast("Restored.", "success"); }}
         handleInitiateDelete={handleInitiateDelete}
         handleConfirmDelete={handleConfirmDelete}
         deleteTarget={deleteTarget}
-        handleUpdateClass={async (id, data) => { await updateDoc(doc(db,"classes",id), data); toggleModal('editClass', false); showToast("Updated", "success"); }}
+        handleUpdateClass={async (id, data) => { await updateDoc(doc(db, "classes", id), data); toggleModal('editClass', false); showToast("Updated", "success"); }}
         handleUpdateProfile={handleUpdateProfile}
         handleChangePassword={async (pw) => { await firestoreService.updateUserPassword(user.uid, pw); toggleModal('changePassword', false); showToast("Password changed.", "success"); }}
         handleGenerateQuizForLesson={handleGenerateQuiz}
@@ -442,8 +469,8 @@ const TeacherDashboard = () => {
         handleImportStudents={handleImportStudentsWrapper}
         isImporting={isImporting}
         studentsToImport={studentsToImport}
-        handleToggleStudentForImport={(id) => setStudentsToImport(prev => { const n=new Set(prev); if(n.has(id))n.delete(id); else n.add(id); return n; })}
-        handleSelectAllStudents={() => {/* Logic can be inline or helper */}}
+        handleToggleStudentForImport={(id) => setStudentsToImport(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; })}
+        handleSelectAllStudents={() => {/* Logic can be inline or helper */ }}
 
         // --- Announcement Logic ---
         handleCreateAnnouncement={handleCreateAnnouncement}
@@ -452,9 +479,9 @@ const TeacherDashboard = () => {
         editingAnnText={editingAnnText}
         setEditingAnnText={setEditingAnnText}
         handleStartEditAnn={(p) => { setEditingAnnId(p.id); setEditingAnnText(p.content); }}
-        handleUpdateTeacherAnn={async () => { await updateDoc(doc(db,'teacherAnnouncements',editingAnnId), { content: editingAnnText }); setEditingAnnId(null); showToast("Updated", "success"); }}
-        handleDeleteTeacherAnn={async (id) => { if(window.confirm("Delete?")) await deleteDoc(doc(db,'teacherAnnouncements',id)); }}
-        handleTogglePinAnnouncement={async (id, s) => { if(userProfile.role!=='admin') return; await updateDoc(doc(db,'teacherAnnouncements',id), { isPinned: !s }); }}
+        handleUpdateTeacherAnn={async () => { await updateDoc(doc(db, 'teacherAnnouncements', editingAnnId), { content: editingAnnText }); setEditingAnnId(null); showToast("Updated", "success"); }}
+        handleDeleteTeacherAnn={async (id) => { if (window.confirm("Delete?")) await deleteDoc(doc(db, 'teacherAnnouncements', id)); }}
+        handleTogglePinAnnouncement={async (id, s) => { if (userProfile.role !== 'admin') return; await updateDoc(doc(db, 'teacherAnnouncements', id), { isPinned: !s }); }}
 
         // --- Chat & Lounge ---
         isChatOpen={isChatOpen}
@@ -470,44 +497,44 @@ const TeacherDashboard = () => {
         loungePosts={loungePosts}
         isLoungeLoading={isLoungeLoading}
         loungeUsersMap={loungeUsersMap}
-        fetchLoungePosts={fetchLoungePosts}
         loungePostUtils={loungePostUtils}
+        adminMonitoringTeachers={adminMonitoringTeachers}
       />
 
       {/* --- Suspended Modals --- */}
       <Suspense fallback={<GlobalAiSpinner message="Loading..." />}>
-        <PresentationGeneratingModal 
-            isOpen={isGeneratingPPT} 
-            progress={pptProgress} 
-            status={pptStatus} 
+        <PresentationGeneratingModal
+          isOpen={isGeneratingPPT}
+          progress={pptProgress}
+          status={pptStatus}
         />
-        
+
         {modals.viewLesson && selectedLesson && (
-          <ViewLessonModal 
-            isOpen={modals.viewLesson} 
-            onClose={() => toggleModal('viewLesson', false)} 
-            lesson={selectedLesson} 
-            onUpdate={handleUpdateLesson} 
+          <ViewLessonModal
+            isOpen={modals.viewLesson}
+            onClose={() => toggleModal('viewLesson', false)}
+            lesson={selectedLesson}
+            onUpdate={handleUpdateLesson}
             userRole={user?.role}
           />
         )}
-        
+
         {modals.betaWarning && (
-            <BetaWarningModal 
-                isOpen={modals.betaWarning} 
-                onClose={() => toggleModal('betaWarning', false)} 
-                onConfirm={() => handleConfirmBetaWarning(false)} 
-                title="AI Presentation Generator" 
-            />
+          <BetaWarningModal
+            isOpen={modals.betaWarning}
+            onClose={() => toggleModal('betaWarning', false)}
+            onConfirm={() => handleConfirmBetaWarning(false)}
+            title="AI Presentation Generator"
+          />
         )}
-        
+
         {modals.presentationPreview && (
-          <PresentationPreviewModal 
-            isOpen={modals.presentationPreview} 
-            onClose={() => toggleModal('presentationPreview', false)} 
-            previewData={previewData} 
-            onConfirm={() => savePresentation(activeSubject)} 
-            isSaving={isSavingPPT} 
+          <PresentationPreviewModal
+            isOpen={modals.presentationPreview}
+            onClose={() => toggleModal('presentationPreview', false)}
+            previewData={previewData}
+            onConfirm={() => savePresentation(activeSubject)}
+            isSaving={isSavingPPT}
           />
         )}
       </Suspense>

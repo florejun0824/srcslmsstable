@@ -258,7 +258,7 @@ export default function ViewRecommendationModal({ isOpen, onClose, recDoc }) {
                         {phases[currentPage].activity && (
                           <div className="pt-2">
                              <h5 className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-white mb-3">
-                                <span className="w-2 h-2 rounded-full bg-purple-500" />
+                                <span className="w-2 h-2 rounded-full bg-indigo-500" />
                                 Activity: {phases[currentPage].activity.title}
                              </h5>
                              <div className="pl-4 border-l-2 border-slate-200 dark:border-white/10 space-y-3">
