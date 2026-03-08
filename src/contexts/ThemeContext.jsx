@@ -148,8 +148,8 @@ export const ThemeProvider = ({ children }) => {
     const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
 
     const surfaceColor = isDarkMode
-      ? `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.70)`
-      : `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.35)`;
+      ? `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.85)`
+      : `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.65)`;
     const borderRgb = adjustBrightness(rgb, isDarkMode ? 30 : -10);
     const borderColor = isDarkMode
       ? `rgba(${borderRgb.r}, ${borderRgb.g}, ${borderRgb.b}, 0.25)`

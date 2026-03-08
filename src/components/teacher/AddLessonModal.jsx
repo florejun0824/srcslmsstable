@@ -19,40 +19,60 @@ const ManualLessonCreator = lazy(() => import('./ManualLessonCreator'));
 
 const SPRING = { type: 'spring', stiffness: 400, damping: 30 };
 
-const CreatorOptionCard = ({ title, description, icon: Icon, gradient, onClick, index }) => (
-    <motion.button
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ ...SPRING, delay: index * 0.1 + 0.2 }}
-        whileHover={{ scale: 1.02, y: -4 }}
-        whileTap={{ scale: 0.98 }}
-        onClick={onClick}
-        className="group relative w-full flex flex-col items-start p-6 rounded-[28px] bg-white border border-slate-200/60 shadow-lg shadow-slate-200/30 hover:shadow-2xl hover:border-transparent transition-all overflow-hidden text-left"
-    >
-        {/* Animated Background Gradient on Hover */}
-        <div className={`absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-300 bg-gradient-to-br ${gradient}`} />
+const CreatorOptionCard = ({ title, description, icon: Icon, colorTheme, onClick, index }) => {
+    const themes = {
+        blue: {
+            bgIcon: 'bg-blue-50',
+            bgHover: 'bg-blue-50/50',
+            textIcon: 'text-blue-500',
+            textHover: 'group-hover:text-blue-600',
+            borderHover: 'hover:border-blue-200',
+        },
+        teal: {
+            bgIcon: 'bg-teal-50',
+            bgHover: 'bg-teal-50/50',
+            textIcon: 'text-teal-500',
+            textHover: 'group-hover:text-teal-600',
+            borderHover: 'hover:border-teal-200',
+        }
+    };
 
-        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-5 bg-gradient-to-br ${gradient} shadow-md group-hover:scale-110 group-hover:rotate-6 transition-transform duration-500`}>
-            <Icon className="w-7 h-7 text-white" strokeWidth={2} />
-        </div>
+    const theme = themes[colorTheme] || themes.blue;
 
-        <h3 className="text-[17px] font-bold text-slate-900 mb-1.5 group-hover:text-blue-600 transition-colors">
-            {title}
-        </h3>
-        <p className="text-[13px] font-medium text-slate-500 leading-relaxed mb-4">
-            {description}
-        </p>
+    return (
+        <motion.button
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ ...SPRING, delay: index * 0.1 + 0.2 }}
+            whileHover={{ scale: 1.02, y: -4 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={onClick}
+            className={`group relative w-full flex flex-col items-start p-6 rounded-[28px] bg-white border border-slate-100 shadow-sm hover:shadow-xl ${theme.borderHover} transition-all overflow-hidden text-left`}
+        >
+            <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${theme.bgHover}`} />
 
-        <div className="mt-auto w-full flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-widest text-slate-400 group-hover:text-blue-500 transition-colors">
-                Select
-            </span>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center bg-slate-50 group-hover:bg-blue-50 transition-colors`}>
-                <ChevronRightIcon className="w-4 h-4 text-slate-400 group-hover:text-blue-500 transition-colors" strokeWidth={3} />
+            <div className={`relative z-10 w-14 h-14 rounded-2xl flex items-center justify-center mb-5 ${theme.bgIcon} transition-colors duration-500`}>
+                <Icon className={`w-7 h-7 ${theme.textIcon} group-hover:scale-110 group-hover:rotate-6 transition-transform duration-500`} strokeWidth={2} />
             </div>
-        </div>
-    </motion.button>
-);
+
+            <h3 className={`relative z-10 text-[17px] font-bold text-slate-800 mb-1.5 ${theme.textHover} transition-colors`}>
+                {title}
+            </h3>
+            <p className="relative z-10 text-[13px] font-medium text-slate-500 leading-relaxed mb-4">
+                {description}
+            </p>
+
+            <div className="relative z-10 mt-auto w-full flex items-center justify-between">
+                <span className={`text-xs font-bold uppercase tracking-widest text-slate-400 ${theme.textHover} transition-colors`}>
+                    Select
+                </span>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center bg-slate-50 group-hover:bg-white transition-colors`}>
+                    <ChevronRightIcon className={`w-4 h-4 text-slate-400 ${theme.textHover} transition-colors`} strokeWidth={3} />
+                </div>
+            </div>
+        </motion.button>
+    );
+};
 
 const LoadingPanel = () => (
     <div className="flex h-full w-full items-center justify-center">
@@ -157,22 +177,22 @@ export default function AddLessonModal({ isOpen, onClose, unitId, subjectId, set
                                 {!creationMode && (
                                     <div className="absolute inset-0 flex flex-col md:flex-row pt-14">
                                         {/* Left branding */}
-                                        <div className="w-full md:w-[40%] p-8 md:p-10 flex flex-col items-start justify-center text-left bg-gradient-to-br from-slate-50 to-white border-r border-slate-100">
+                                        <div className="w-full md:w-[45%] p-8 md:p-12 flex flex-col items-start justify-center text-left bg-white border-r border-slate-100">
                                             <motion.div
                                                 initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.1, ...SPRING }}
-                                                className="w-20 h-20 rounded-[24px] bg-gradient-to-br from-indigo-500 to-blue-600 shadow-xl shadow-blue-500/30 flex items-center justify-center mb-6"
+                                                className="w-16 h-16 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center mb-6"
                                             >
-                                                <PencilSquareIcon className="w-10 h-10 text-white" />
+                                                <PencilSquareIcon className="w-8 h-8 text-blue-500" />
                                             </motion.div>
                                             <motion.h2
                                                 initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}
-                                                className="text-3xl font-black text-slate-900 tracking-tight leading-tight mb-3"
+                                                className="text-3xl font-bold text-slate-800 tracking-tight leading-tight mb-3"
                                             >
                                                 New Module
                                             </motion.h2>
                                             <motion.p
                                                 initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}
-                                                className="text-sm font-medium text-slate-500 leading-relaxed"
+                                                className="text-sm font-medium text-slate-500 leading-relaxed max-w-sm"
                                             >
                                                 Choose how you want to create your curriculum content. Build from scratch or leverage advanced AI.
                                             </motion.p>
@@ -186,7 +206,7 @@ export default function AddLessonModal({ isOpen, onClose, unitId, subjectId, set
                                                     title="AI Magic Creator"
                                                     description="Instantly generate structured lessons from standard topics, PDFs, or links."
                                                     icon={SparklesIcon}
-                                                    gradient="from-blue-500 to-indigo-500"
+                                                    colorTheme="blue"
                                                     onClick={() => setCreationMode('ai')}
                                                 />
                                                 <CreatorOptionCard
@@ -194,7 +214,7 @@ export default function AddLessonModal({ isOpen, onClose, unitId, subjectId, set
                                                     title="Manual Blank Canvas"
                                                     description="Draft your own instructional guide with our powerful rich-text editor."
                                                     icon={DocumentPlusIcon}
-                                                    gradient="from-emerald-500 to-teal-500"
+                                                    colorTheme="teal"
                                                     onClick={() => setCreationMode('manual')}
                                                 />
                                             </div>

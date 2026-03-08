@@ -27,9 +27,9 @@ const GlassCard = memo(({ title, description, icon: Icon, gradient, index, onCli
         whileTap={{ scale: 0.97 }}
         onClick={onClick}
         className="relative group w-full p-5 sm:p-6 text-left rounded-[24px] md:rounded-[32px] overflow-hidden 
-                   border border-white/40 shadow-xl shadow-black/5 hover:shadow-2xl hover:shadow-blue-500/20
+                   border border-white/40 dark:border-white/10 shadow-xl shadow-black/5 hover:shadow-2xl hover:shadow-blue-500/20
                    transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
-                   bg-white/80 backdrop-blur-3xl flex flex-row sm:flex-col items-center sm:items-start gap-4 sm:gap-0"
+                   bg-white/80 dark:bg-slate-900/80 backdrop-blur-3xl flex flex-row sm:flex-col items-center sm:items-start gap-4 sm:gap-0"
     >
         {/* Animated Background Gradient */}
         <div className={`absolute inset-0 opacity-10 group-hover:opacity-20 transition-opacity duration-500 bg-gradient-to-br ${gradient}`} />
@@ -37,18 +37,18 @@ const GlassCard = memo(({ title, description, icon: Icon, gradient, index, onCli
 
         {/* Floating Icon Orb */}
         <div className="relative z-10 w-12 h-12 sm:w-16 sm:h-16 shrink-0 rounded-[16px] sm:rounded-[20px] sm:mb-6 flex items-center justify-center
-                        bg-white shadow-[0_8px_30px_rgb(0,0,0,0.08)] border border-white
+                        bg-white dark:bg-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.08)] border border-white dark:border-white/10
                         group-hover:rotate-6 transition-transform duration-500">
             <div className={`absolute inset-0 rounded-[16px] sm:rounded-[20px] opacity-20 bg-gradient-to-br ${gradient}`} />
-            <Icon className="w-6 h-6 sm:w-8 sm:h-8 text-slate-800" strokeWidth={1.5} />
+            <Icon className="w-6 h-6 sm:w-8 sm:h-8 text-slate-800 dark:text-white" strokeWidth={1.5} />
         </div>
 
         {/* Text Details */}
         <div className="relative z-10 flex-1">
-            <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight leading-none mb-1 sm:mb-2 group-hover:text-blue-600 transition-colors">
+            <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight leading-none mb-1 sm:mb-2 group-hover:text-blue-600 transition-colors">
                 {title}
             </h3>
-            <p className="text-[12px] sm:text-[13px] font-medium text-slate-500 leading-relaxed line-clamp-2">
+            <p className="text-[12px] sm:text-[13px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-2">
                 {description}
             </p>
         </div>
@@ -132,13 +132,13 @@ export default function AiGenerationHub({ isOpen, onClose, unitId, subjectId }) 
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 10 }}
                         transition={SPRING}
-                        className="relative w-full max-w-4xl min-h-[auto] md:min-h-[600px] flex flex-col md:flex-row rounded-[32px] md:rounded-[40px] overflow-hidden bg-white/40 shadow-2xl shadow-blue-900/20 border border-white/60"
+                        className="relative w-full max-w-4xl min-h-[auto] md:min-h-[600px] flex flex-col md:flex-row rounded-[32px] md:rounded-[40px] overflow-hidden bg-white/40 dark:bg-slate-950/40 shadow-2xl shadow-blue-900/20 border border-white/60 dark:border-white/10"
                         style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif' }}
                     >
                         {/* Close Button - Moved here so it's always accessible at top right */}
                         <button
                             onClick={onClose}
-                            className="absolute top-4 right-4 md:top-6 md:right-6 w-10 h-10 rounded-full bg-white/10 md:bg-white border border-white/20 md:border-slate-200 flex items-center justify-center text-white md:text-slate-500 hover:bg-white/20 md:hover:bg-red-50 hover:text-white md:hover:text-red-500 md:hover:border-red-100 shadow-sm transition-all z-50 backdrop-blur-md"
+                            className="absolute top-4 right-4 md:top-6 md:right-6 w-10 h-10 rounded-full bg-white/10 md:bg-white dark:bg-white/10 md:dark:bg-slate-800 border border-white/20 md:border-slate-200 dark:border-white/20 md:dark:border-white/10 flex items-center justify-center text-white md:text-slate-500 dark:text-white md:dark:text-slate-400 hover:bg-white/20 md:hover:bg-red-50 hover:text-white md:hover:text-red-500 md:hover:border-red-100 shadow-sm transition-all z-50 backdrop-blur-md"
                         >
                             <XMarkIcon className="w-5 h-5" strokeWidth={2.5} />
                         </button>
@@ -184,7 +184,7 @@ export default function AiGenerationHub({ isOpen, onClose, unitId, subjectId }) 
                         </div>
 
                         {/* RIGHT PANEL: Generator Cards */}
-                        <div className="relative w-full md:w-3/5 p-6 sm:p-8 md:p-10 bg-[#f8fafc]/80 backdrop-blur-3xl flex flex-col">
+                        <div className="relative w-full md:w-3/5 p-6 sm:p-8 md:p-10 bg-[#f8fafc]/80 dark:bg-slate-950/80 backdrop-blur-3xl flex flex-col">
                             <div className="flex-1 mt-2 md:mt-6">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-5 h-full">
                                     {generatorOptions.map((opt, idx) => (

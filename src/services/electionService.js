@@ -255,18 +255,17 @@ export const electionService = {
       visibility: parentElection.visibility || 'public',
       status: 'active',
       isTieBreaker: true,
-      parentElectionId: parentElection.id,
+      parentData: {
+        positions: parentElection.positions,
+        tally: parentElection.tally || parentElection.results || parentElection.liveResults || {},
+        totalVotes: parentElection.totalVotes || 0
+      },
       tiedPositions: tiedPositions.map(tp => tp.title),
     });
 
-    // Update the parent election with the tie-breaker reference
+    // Delete the parent election entirely instead of updating it
     const parentRef = doc(db, 'elections', parentElection.id);
-    await updateDoc(parentRef, {
-      hasTie: true,
-      tieBreakerId,
-      tiedPositions: tiedPositions.map(tp => tp.title),
-      status: 'completed', // still mark as completed for the original round
-    });
+    await deleteDoc(parentRef);
 
     return tieBreakerId;
   }

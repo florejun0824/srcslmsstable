@@ -46,7 +46,7 @@ const LinkifiedText = memo(({ text, className = "" }) => {
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
-                            className="inline-flex items-center gap-0.5 text-indigo-600 hover:text-indigo-500 underline decoration-indigo-400/30 hover:decoration-indigo-500 break-all transition-colors z-20 relative"
+                            className="inline-flex items-center gap-0.5 text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 underline decoration-indigo-400/30 hover:decoration-indigo-500 break-all transition-colors z-20 relative"
                         >
                             {part}
                             <ExternalLink size={10} className="inline opacity-70" />
@@ -90,17 +90,17 @@ const PrismCard = memo(({ post, authorProfile, onClick, onTogglePin, theme }) =>
             onClick={() => onClick(post)}
             className={`
                 relative flex-shrink-0 w-[85vw] sm:w-96 min-h-[200px] p-6 rounded-[2rem] cursor-pointer
-                bg-white/80 backdrop-blur-xl group overflow-hidden
-                border border-slate-200/60 ${theme.glow} shadow-lg snap-center
+                bg-white/80 dark:bg-white/10 backdrop-blur-xl group overflow-hidden
+                border border-slate-200/60 dark:border-white/10 ${theme.glow} shadow-lg snap-center
             `}
         >
             <div className={`absolute inset-0 bg-gradient-to-tr ${theme.shimmer} opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none`} />
-            <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-slate-300/50 to-transparent opacity-50" />
+            <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-slate-300/50 to-transparent dark:via-white/10 opacity-50" />
 
             {/* ACTION: UNPIN BUTTON */}
             <button
                 onClick={(e) => onTogglePin(e, post)}
-                className="absolute top-4 right-4 z-30 p-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-700 transition-all opacity-0 group-hover:opacity-100"
+                className="absolute top-4 right-4 z-30 p-2 rounded-full bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-all opacity-0 group-hover:opacity-100"
                 title="Unpin Post"
             >
                 <PinOff size={16} />
@@ -121,23 +121,23 @@ const PrismCard = memo(({ post, authorProfile, onClick, onTogglePin, theme }) =>
                 </div>
 
                 <div className="mb-6">
-                    <div className="text-lg font-medium text-slate-800 leading-relaxed line-clamp-3 group-hover:text-slate-900 transition-colors">
+                    <div className="text-lg font-medium text-slate-800 dark:text-slate-200 leading-relaxed line-clamp-3 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
                         <LinkifiedText text={post.content} />
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3 mt-auto pt-4 border-t border-slate-200/40">
-                    <div className="w-8 h-8 rounded-full p-[1px] bg-gradient-to-br from-slate-200 to-transparent">
+                <div className="flex items-center gap-3 mt-auto pt-4 border-t border-slate-200/40 dark:border-white/5">
+                    <div className="w-8 h-8 rounded-full p-[1px] bg-gradient-to-br from-slate-200 dark:from-white/10 to-transparent">
                         <div className="w-full h-full rounded-full overflow-hidden">
                             <UserInitialsAvatar user={authorProfile} size="full" />
                         </div>
                     </div>
                     <div className="flex flex-col">
-                        <span className="text-xs font-bold text-slate-700">{authorProfile?.displayName || 'Instructor'}</span>
-                        <span className="text-[10px] text-slate-400">Tap to expand</span>
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{authorProfile?.displayName || 'Instructor'}</span>
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500">Tap to expand</span>
                     </div>
-                    <div className="ml-auto w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
-                        <ArrowRight size={14} className="text-slate-500" />
+                    <div className="ml-auto w-8 h-8 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center group-hover:bg-indigo-100 dark:group-hover:bg-indigo-500/20 transition-colors">
+                        <ArrowRight size={14} className="text-slate-500 dark:text-slate-400" />
                     </div>
                 </div>
             </div>
@@ -159,15 +159,15 @@ const FrostedSlab = memo(({ post, authorProfile, onClick, onTogglePin, theme, in
         >
             <div className="flex-none flex flex-col items-center pt-2 w-12 sm:w-14">
                 <span className={`text-[10px] sm:text-xs font-black tracking-tighter ${theme.text}`}>{date.month}</span>
-                <span className="text-xl sm:text-2xl font-black text-slate-800 leading-none my-0.5">{date.day}</span>
-                <span className="text-[9px] sm:text-[10px] font-medium text-slate-400">{date.time}</span>
-                <div className="w-[2px] flex-1 mt-3 bg-gradient-to-b from-slate-200 to-transparent rounded-full group-last:hidden" />
+                <span className="text-xl sm:text-2xl font-black text-slate-800 dark:text-slate-100 leading-none my-0.5">{date.day}</span>
+                <span className="text-[9px] sm:text-[10px] font-medium text-slate-400 dark:text-slate-500">{date.time}</span>
+                <div className="w-[2px] flex-1 mt-3 bg-gradient-to-b from-slate-200 dark:from-white/10 to-transparent rounded-full group-last:hidden" />
             </div>
 
             <div className={`
                 flex-1 relative p-4 sm:p-5 mb-6 sm:mb-8 rounded-2xl transition-all duration-300
-                bg-white border border-slate-100
-                active:scale-[0.98] hover:border-transparent hover:ring-1 hover:ring-slate-200
+                bg-white dark:bg-white/5 border border-slate-100 dark:border-white/10
+                active:scale-[0.98] hover:border-transparent hover:ring-1 hover:ring-slate-200 dark:hover:ring-white/20
                 ${theme.hoverBorder} shadow-sm hover:shadow-xl hover:-translate-y-1
             `}>
                 {/* ACTION: PIN BUTTON */}
@@ -189,20 +189,20 @@ const FrostedSlab = memo(({ post, authorProfile, onClick, onTogglePin, theme, in
                         <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full overflow-hidden opacity-70 group-hover:opacity-100 transition-opacity">
                             <UserInitialsAvatar user={authorProfile} size="full" />
                         </div>
-                        <span className="text-xs font-bold text-slate-500 group-hover:text-slate-800 transition-colors">
+                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200 transition-colors">
                             {authorProfile?.displayName}
                         </span>
                     </div>
                 </div>
 
-                <div className="text-sm text-slate-600 leading-relaxed line-clamp-3 sm:line-clamp-2">
+                <div className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-3 sm:line-clamp-2">
                     <LinkifiedText text={post.content} />
                 </div>
 
                 {post.imageUrls && post.imageUrls.length > 0 && (
                     <div className="mt-3 flex gap-2 overflow-x-auto no-scrollbar">
                         {post.imageUrls.slice(0, 3).map((url, i) => (
-                            <div key={i} className="flex-none h-12 w-12 rounded-lg overflow-hidden border border-slate-200">
+                            <div key={i} className="flex-none h-12 w-12 rounded-lg overflow-hidden border border-slate-200 dark:border-white/10">
                                 <img src={url} alt="" className="h-full w-full object-cover" />
                             </div>
                         ))}
@@ -287,22 +287,22 @@ const ActivityFeed = ({ userProfile, teacherAnnouncements, showToast }) => {
             <div className="flex flex-col mb-6 sm:mb-8 px-2">
                 <div className="flex items-center gap-3 mb-1">
                     <div className={`w-1.5 sm:w-2 h-6 sm:h-8 rounded-full ${theme.badge}`} />
-                    <h2 className="text-2xl sm:text-3xl font-black tracking-tighter text-slate-900 uppercase">
+                    <h2 className="text-2xl sm:text-3xl font-black tracking-tighter text-slate-900 dark:text-white uppercase">
                         The Feed
                     </h2>
                 </div>
-                <p className="text-xs sm:text-sm font-medium text-slate-500 pl-4 sm:pl-5">
+                <p className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400 pl-4 sm:pl-5">
                     Latest class updates & highlights
                 </p>
             </div>
 
             {!sortedAnnouncements || sortedAnnouncements.length === 0 ? (
-                <div className="rounded-[2rem] p-8 sm:p-12 flex flex-col items-center justify-center text-center bg-slate-50 border border-dashed border-slate-200 mx-2">
-                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white rounded-full flex items-center justify-center shadow-lg mb-4">
+                <div className="rounded-[2rem] p-8 sm:p-12 flex flex-col items-center justify-center text-center bg-slate-50 dark:bg-white/5 border border-dashed border-slate-200 dark:border-white/10 mx-2">
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white dark:bg-white/5 rounded-full flex items-center justify-center shadow-lg dark:shadow-none mb-4">
                         <Activity className="w-5 h-5 sm:w-6 sm:h-6 text-slate-400" />
                     </div>
-                    <h3 className="text-base sm:text-lg font-bold text-slate-700">All caught up</h3>
-                    <p className="text-xs sm:text-sm text-slate-400 mt-1">No announcements to display right now.</p>
+                    <h3 className="text-base sm:text-lg font-bold text-slate-700 dark:text-slate-300">All caught up</h3>
+                    <p className="text-xs sm:text-sm text-slate-400 dark:text-slate-500 mt-1">No announcements to display right now.</p>
                 </div>
             ) : (
                 <div className="space-y-8 sm:space-y-12">

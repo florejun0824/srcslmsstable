@@ -1,8 +1,8 @@
 import React, { useState, useEffect, Fragment, useCallback, useRef, useMemo } from 'react';
 import UserInitialsAvatar from '../../../common/UserInitialsAvatar';
-import { 
-    IconPencil, 
-    IconMail, 
+import {
+    IconPencil,
+    IconMail,
     IconLogout,
     IconBriefcase,
     IconSchool,
@@ -22,22 +22,22 @@ import { Switch, Dialog, Transition, RadioGroup } from '@headlessui/react';
 import { BiometricAuth } from '@aparajita/capacitor-biometric-auth';
 import { Preferences } from '@capacitor/preferences';
 import { useToast } from '../../../../contexts/ToastContext';
-import { useTheme } from '../../../../contexts/ThemeContext'; 
+import { useTheme } from '../../../../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Firebase Imports
 import { db } from '../../../../services/firebase';
 import {
-  collection,
-  query,
-  where,
-  orderBy,
-  onSnapshot,
-  serverTimestamp,
-  addDoc,
-  limit,
-  doc,       // Added
-  updateDoc  // Added
+    collection,
+    query,
+    where,
+    orderBy,
+    onSnapshot,
+    serverTimestamp,
+    addDoc,
+    limit,
+    doc,       // Added
+    updateDoc  // Added
 } from 'firebase/firestore';
 
 // Post Components & Hook
@@ -82,31 +82,9 @@ const iconButton = `
     hover:bg-slate-100 dark:hover:bg-white/10 rounded-full border border-transparent hover:border-white/20
 `;
 
-// --- Helper: Monet/Theme Color Extraction ---
-const getThemeCardStyle = (activeOverlay) => {
-    switch (activeOverlay) {
-        case 'christmas': 
-            return { backgroundColor: 'rgba(15, 23, 66, 0.6)', borderColor: 'rgba(100, 116, 139, 0.2)' };
-        case 'valentines': 
-            return { backgroundColor: 'rgba(60, 10, 20, 0.6)', borderColor: 'rgba(255, 100, 100, 0.15)' };
-        case 'graduation': 
-            return { backgroundColor: 'rgba(30, 25, 10, 0.6)', borderColor: 'rgba(255, 215, 0, 0.15)' };
-        case 'rainy': 
-            return { backgroundColor: 'rgba(20, 35, 20, 0.6)', borderColor: 'rgba(100, 150, 100, 0.2)' };
-        case 'cyberpunk': 
-            return { backgroundColor: 'rgba(35, 5, 45, 0.6)', borderColor: 'rgba(180, 0, 255, 0.2)' };
-        case 'spring': 
-            return { backgroundColor: 'rgba(50, 10, 20, 0.6)', borderColor: 'rgba(255, 150, 180, 0.2)' };
-        case 'space': 
-            return { backgroundColor: 'rgba(5, 5, 10, 0.6)', borderColor: 'rgba(100, 100, 255, 0.15)' };
-        default: 
-            return {}; 
-    }
-};
-
 // Helper for class names
 function classNames(...classes) {
-  return classes.filter(Boolean).join(' ')
+    return classes.filter(Boolean).join(' ')
 }
 
 // --- Helper: Compress Image using Canvas ---
@@ -119,7 +97,7 @@ const compressImage = (file) => {
             img.src = event.target.result;
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 1024; 
+                const MAX_WIDTH = 1024;
                 let width = img.width;
                 let height = img.height;
 
@@ -143,7 +121,7 @@ const compressImage = (file) => {
                     } else {
                         reject(new Error('Canvas is empty'));
                     }
-                }, 'image/jpeg', 0.7); 
+                }, 'image/jpeg', 0.7);
             };
         };
         reader.onerror = (error) => reject(error);
@@ -154,15 +132,10 @@ const compressImage = (file) => {
 const CreateTeacherPostModal = ({ isOpen, onClose, userProfile, onSubmit, isPosting }) => {
     const [content, setContent] = useState('');
     const [audience, setAudience] = useState('Public');
-    const { activeOverlay } = useTheme();
-    
-    // Memoize modal style to prevent recalculation on every keypress
-    const modalStyle = useMemo(() => {
-        const baseStyle = getThemeCardStyle(activeOverlay);
-        return activeOverlay !== 'none' 
-            ? { ...baseStyle, backgroundColor: baseStyle.backgroundColor.replace('0.6', '0.85') } 
-            : {};
-    }, [activeOverlay]);
+    const { activeOverlay, monetTheme } = useTheme();
+
+    // Use the global monet engine glass style when an overlay is active
+    const modalStyle = activeOverlay !== 'none' ? monetTheme?.glassStyle : {};
 
     const [selectedImages, setSelectedImages] = useState([]);
     const [imagePreviews, setImagePreviews] = useState([]);
@@ -211,7 +184,7 @@ const CreateTeacherPostModal = ({ isOpen, onClose, userProfile, onSubmit, isPost
 
         setSelectedImages(prev => [...prev, ...newImages]);
         setImagePreviews(prev => [...prev, ...newPreviews]);
-        
+
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
@@ -253,8 +226,8 @@ const CreateTeacherPostModal = ({ isOpen, onClose, userProfile, onSubmit, isPost
                             leaveFrom="opacity-100 scale-100 translate-y-0"
                             leaveTo="opacity-0 scale-95 translate-y-4"
                         >
-                            <Dialog.Panel 
-                                style={modalStyle} 
+                            <Dialog.Panel
+                                style={modalStyle}
                                 className="w-full max-w-lg transform overflow-hidden rounded-[2rem] bg-white/80 dark:bg-[#121212]/80 backdrop-blur-[50px] p-6 text-left align-middle shadow-2xl ring-1 ring-white/40 dark:ring-white/5 transition-all"
                             >
                                 <form onSubmit={handleSubmit}>
@@ -266,7 +239,7 @@ const CreateTeacherPostModal = ({ isOpen, onClose, userProfile, onSubmit, isPost
                                             <IconX size={20} />
                                         </button>
                                     </div>
-                                    
+
                                     <div className="mt-4">
                                         <div className="flex items-center gap-3 mb-4">
                                             <div className="w-10 h-10 flex-shrink-0 rounded-full shadow-md overflow-hidden ring-2 ring-white dark:ring-white/10">
@@ -281,7 +254,7 @@ const CreateTeacherPostModal = ({ isOpen, onClose, userProfile, onSubmit, isPost
                                                 </div>
                                             </div>
                                         </div>
-                                        
+
                                         <textarea
                                             ref={textareaRef}
                                             value={content}
@@ -307,15 +280,15 @@ const CreateTeacherPostModal = ({ isOpen, onClose, userProfile, onSubmit, isPost
                                             </div>
                                         )}
 
-                                        <input 
-                                            type="file" 
-                                            accept="image/*" 
-                                            multiple 
-                                            ref={fileInputRef} 
-                                            onChange={handleImageChange} 
-                                            className="hidden" 
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            multiple
+                                            ref={fileInputRef}
+                                            onChange={handleImageChange}
+                                            className="hidden"
                                         />
-                                        
+
                                         {selectedImages.length < 5 && (
                                             <button
                                                 type="button"
@@ -333,32 +306,32 @@ const CreateTeacherPostModal = ({ isOpen, onClose, userProfile, onSubmit, isPost
                                             <RadioGroup.Label className={subHeadingStyle + " mb-2 block"}>Audience</RadioGroup.Label>
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                 {audienceOptions.map((option) => (
-                                                <RadioGroup.Option
-                                                    key={option.name}
-                                                    value={option.name}
-                                                    className={({ active, checked }) =>
-                                                    `${checked
-                                                        ? 'bg-blue-50/50 dark:bg-blue-900/20 ring-1 ring-blue-500/30'
-                                                        : 'bg-white/40 dark:bg-white/5 hover:bg-white/60 dark:hover:bg-white/10'
-                                                    } relative flex cursor-pointer rounded-xl p-3 border border-white/10 transition-all focus:outline-none`
-                                                    }
-                                                >
-                                                    {({ checked }) => (
-                                                        <div className="flex items-center gap-3">
-                                                            <div className={`p-2 rounded-full ${checked ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600' : 'bg-slate-100 dark:bg-white/5 text-slate-500'}`}>
-                                                                <option.icon size={16} />
+                                                    <RadioGroup.Option
+                                                        key={option.name}
+                                                        value={option.name}
+                                                        className={({ active, checked }) =>
+                                                            `${checked
+                                                                ? 'bg-blue-50/50 dark:bg-blue-900/20 ring-1 ring-blue-500/30'
+                                                                : 'bg-white/40 dark:bg-white/5 hover:bg-white/60 dark:hover:bg-white/10'
+                                                            } relative flex cursor-pointer rounded-xl p-3 border border-white/10 transition-all focus:outline-none`
+                                                        }
+                                                    >
+                                                        {({ checked }) => (
+                                                            <div className="flex items-center gap-3">
+                                                                <div className={`p-2 rounded-full ${checked ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600' : 'bg-slate-100 dark:bg-white/5 text-slate-500'}`}>
+                                                                    <option.icon size={16} />
+                                                                </div>
+                                                                <div>
+                                                                    <RadioGroup.Label as="p" className={`font-bold text-sm ${checked ? 'text-blue-700 dark:text-blue-300' : 'text-slate-700 dark:text-slate-200'}`}>
+                                                                        {option.name}
+                                                                    </RadioGroup.Label>
+                                                                    <RadioGroup.Description as="span" className="text-xs text-slate-500 dark:text-slate-400">
+                                                                        {option.description}
+                                                                    </RadioGroup.Description>
+                                                                </div>
                                                             </div>
-                                                            <div>
-                                                                <RadioGroup.Label as="p" className={`font-bold text-sm ${checked ? 'text-blue-700 dark:text-blue-300' : 'text-slate-700 dark:text-slate-200'}`}>
-                                                                    {option.name}
-                                                                </RadioGroup.Label>
-                                                                <RadioGroup.Description as="span" className="text-xs text-slate-500 dark:text-slate-400">
-                                                                    {option.description}
-                                                                </RadioGroup.Description>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </RadioGroup.Option>
+                                                        )}
+                                                    </RadioGroup.Option>
                                                 ))}
                                             </div>
                                         </RadioGroup>
@@ -405,19 +378,19 @@ const ProfileView = ({
     logout
 }) => {
     const { showToast } = useToast();
-    const { activeOverlay } = useTheme();
-    
-    // Optimization: Memoize expensive style calculation
-    const dynamicCardStyle = useMemo(() => getThemeCardStyle(activeOverlay), [activeOverlay]);
+    const { activeOverlay, monetTheme } = useTheme();
+
+    // Optimization: Memoize expensive style calculation using the monet engine
+    const dynamicCardStyle = useMemo(() => activeOverlay !== 'none' ? monetTheme?.glassStyle : {}, [activeOverlay, monetTheme]);
 
     const [isBiometricSupported, setIsBiometricSupported] = useState(false);
     const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
     const [isLoadingBiometrics, setIsLoadingBiometrics] = useState(true);
-    
+
     const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
     const [isCreatePostModalOpen, setIsCreatePostModalOpen] = useState(false);
     const [isCreatingPost, setIsCreatingPost] = useState(false);
-    const [myPosts, setMyPosts] = useState([]); 
+    const [myPosts, setMyPosts] = useState([]);
     const [isPostsLoading, setIsPostsLoading] = useState(true);
 
     // --- Profile Photo Upload State & Refs ---
@@ -427,26 +400,26 @@ const ProfileView = ({
     const coverInputRef = useRef(null);
 
     const {
-            sortedPosts,
-            editingPostId,
-            editingPostText,
-            setEditingPostText,
-            expandedPosts,
-            reactionsModalPost,
-            isReactionsModalOpen,
-            commentModalPost,
-            isCommentModalOpen,
-            handleStartEditPost,
-            handleCancelEdit,
-            handleUpdatePost,
-            handleDeletePost,
-            togglePostExpansion,
-            handleToggleReaction,
-            handleViewReactions,
-            handleCloseReactions,
-            handleViewComments,
-            handleCloseComments,
-        } = useStudentPosts(myPosts, setMyPosts, userProfile, showToast); 
+        sortedPosts,
+        editingPostId,
+        editingPostText,
+        setEditingPostText,
+        expandedPosts,
+        reactionsModalPost,
+        isReactionsModalOpen,
+        commentModalPost,
+        isCommentModalOpen,
+        handleStartEditPost,
+        handleCancelEdit,
+        handleUpdatePost,
+        handleDeletePost,
+        togglePostExpansion,
+        handleToggleReaction,
+        handleViewReactions,
+        handleCloseReactions,
+        handleViewComments,
+        handleCloseComments,
+    } = useStudentPosts(myPosts, setMyPosts, userProfile, showToast);
 
     useEffect(() => {
         let mounted = true;
@@ -473,7 +446,7 @@ const ProfileView = ({
     }, []);
 
     useEffect(() => {
-        if (!userProfile?.id) { 
+        if (!userProfile?.id) {
             setIsPostsLoading(false);
             setMyPosts([]);
             return;
@@ -534,7 +507,7 @@ const ProfileView = ({
             const compressedFile = await compressImage(file);
 
             // 2. Upload to Cloudinary
-            const cloudName = "de2uhc6gl"; 
+            const cloudName = "de2uhc6gl";
             const uploadPreset = "teacher_posts"; // Using the same preset/folder as requested
             const folder = "teacher_posts";
 
@@ -544,7 +517,7 @@ const ProfileView = ({
             formData.append("folder", folder);
 
             const response = await fetch(
-                `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, 
+                `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
                 { method: "POST", body: formData }
             );
 
@@ -571,9 +544,9 @@ const ProfileView = ({
 
     // --- Handle Create Post (Multiple Images to Cloudinary) ---
     const handleCreatePost = useCallback(async (content, audience, imageFiles) => {
-        if (!content.trim() && (!imageFiles || imageFiles.length === 0)) { 
+        if (!content.trim() && (!imageFiles || imageFiles.length === 0)) {
             showToast("Post cannot be empty.", "error");
-            return; 
+            return;
         }
 
         setIsCreatingPost(true);
@@ -581,17 +554,17 @@ const ProfileView = ({
             let uploadedImageUrls = [];
 
             if (imageFiles && imageFiles.length > 0) {
-                const cloudName = "de2uhc6gl"; 
-                const uploadPreset = "teacher_posts"; 
-                
+                const cloudName = "de2uhc6gl";
+                const uploadPreset = "teacher_posts";
+
                 const uploadPromises = imageFiles.map(async (file) => {
                     const formData = new FormData();
                     formData.append("file", file);
                     formData.append("upload_preset", uploadPreset);
-                    formData.append("folder", "teacher_posts"); 
+                    formData.append("folder", "teacher_posts");
 
                     const response = await fetch(
-                        `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, 
+                        `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
                         {
                             method: "POST",
                             body: formData
@@ -610,18 +583,18 @@ const ProfileView = ({
                 authorId: userProfile.id,
                 authorName: `${userProfile.firstName} ${userProfile.lastName}`.trim(),
                 authorPhotoURL: userProfile.photoURL || '',
-                
-                schoolId: userProfile.schoolId || 'srcs_main', 
+
+                schoolId: userProfile.schoolId || 'srcs_main',
 
                 content: content,
-                images: uploadedImageUrls, 
-                imageURL: uploadedImageUrls.length > 0 ? uploadedImageUrls[0] : '', 
+                images: uploadedImageUrls,
+                imageURL: uploadedImageUrls.length > 0 ? uploadedImageUrls[0] : '',
                 audience: audience,
                 createdAt: serverTimestamp(),
                 reactions: {},
                 commentsCount: 0
             });
-            
+
             showToast("Post created successfully!", "success");
             setIsCreatePostModalOpen(false);
         } catch (err) {
@@ -642,7 +615,7 @@ const ProfileView = ({
     }, [userProfile?.work, userProfile?.education, userProfile?.current_city]);
 
     const aboutInfoPreview = aboutInfoPreviewList.slice(0, 3);
-    
+
     // Handlers for modal states to avoid inline functions
     const openCreatePost = useCallback(() => setIsCreatePostModalOpen(true), []);
     const closeCreatePost = useCallback(() => setIsCreatePostModalOpen(false), []);
@@ -657,28 +630,28 @@ const ProfileView = ({
     return (
         <>
             {/* Hidden File Inputs */}
-            <input 
-                type="file" 
-                ref={profileInputRef} 
-                className="hidden" 
-                accept="image/*" 
+            <input
+                type="file"
+                ref={profileInputRef}
+                className="hidden"
+                accept="image/*"
                 onChange={(e) => handlePhotoUpload(e, 'profile')}
             />
-            <input 
-                type="file" 
-                ref={coverInputRef} 
-                className="hidden" 
-                accept="image/*" 
+            <input
+                type="file"
+                ref={coverInputRef}
+                className="hidden"
+                accept="image/*"
                 onChange={(e) => handlePhotoUpload(e, 'cover')}
             />
 
             <div className="max-w-7xl mx-auto w-full space-y-8 py-8 px-4 sm:px-6 font-sans">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                    
+
                     {/* Left Column (Profile Card) */}
                     <div className="lg:col-span-4 lg:sticky lg:top-24 space-y-6">
                         <div className={cardSurface} style={dynamicCardStyle}>
-                            
+
                             {/* COVER PHOTO SECTION */}
                             <div className="relative h-48 w-full bg-slate-200 dark:bg-slate-700 group">
                                 {isUploadingCover ? (
@@ -686,7 +659,7 @@ const ProfileView = ({
                                         <Spinner size="md" className="text-white" />
                                     </div>
                                 ) : (
-                                    <button 
+                                    <button
                                         onClick={triggerCoverUpload}
                                         className="absolute top-4 right-4 z-20 p-2 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70 backdrop-blur-md"
                                         title="Change Cover Photo"
@@ -694,7 +667,7 @@ const ProfileView = ({
                                         <IconCamera size={18} />
                                     </button>
                                 )}
-                                
+
                                 {userProfile?.coverPhotoURL && (
                                     <div
                                         className="w-full h-full opacity-90 transition-transform duration-700"
@@ -711,7 +684,7 @@ const ProfileView = ({
 
                             <div className="relative px-6 pb-6">
                                 <div className="relative -mt-16 mb-3 flex justify-between items-end">
-                                    
+
                                     {/* PROFILE PICTURE SECTION */}
                                     <div className="relative w-32 h-32 group cursor-pointer" onClick={triggerProfileUpload}>
                                         <div className="relative w-full h-full rounded-full p-1.5 bg-white/30 dark:bg-black/30 backdrop-blur-md shadow-2xl ring-1 ring-white/20">
@@ -721,7 +694,7 @@ const ProfileView = ({
                                                         <Spinner size="sm" className="text-white" />
                                                     </div>
                                                 )}
-                                                
+
                                                 {/* Overlay on Hover */}
                                                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10">
                                                     <IconCamera className="text-white" size={24} />
@@ -844,7 +817,7 @@ const ProfileView = ({
             <AnimatePresence>
                 {isAboutModalOpen && <AboutInfoModal isOpen={isAboutModalOpen} onClose={closeAboutModal} userProfile={userProfile} />}
             </AnimatePresence>
-            
+
             <AnimatePresence>
                 {isCreatePostModalOpen && (
                     <CreateTeacherPostModal
@@ -864,7 +837,7 @@ const ProfileView = ({
                         onClose={handleCloseComments}
                         post={commentModalPost}
                         userProfile={userProfile}
-                        onToggleReaction={handleToggleReaction} 
+                        onToggleReaction={handleToggleReaction}
                     />
                 )}
             </AnimatePresence>

@@ -49,26 +49,26 @@ import { useToast } from '../../contexts/ToastContext';
 // --- MATERIAL YOU (M3) STYLES ---
 const MAT_STYLES = {
     // Containers: Large rounded corners, tonal surface colors, soft squish physics
-    cardUnit: "relative group overflow-hidden rounded-[28px] md:rounded-[32px] transition-all duration-300 active:scale-[0.98] border border-black/5 hover:shadow-md",
+    cardUnit: "relative group overflow-hidden rounded-[28px] md:rounded-[32px] transition-all duration-300 active:scale-[0.98] border border-black/5 dark:border-white/10 hover:shadow-md",
 
     // Content Items: Mobile (List Tile), Desktop (Elevated Card)
-    cardContent: "relative group overflow-hidden rounded-[24px] bg-white hover:bg-slate-50 border border-black/[0.03] transition-all duration-250 hover:shadow-[0_4px_12px_rgba(0,0,0,0.05)] active:scale-[0.98]",
+    cardContent: "relative group overflow-hidden rounded-[24px] bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/50 border border-black/[0.03] dark:border-white/10 transition-all duration-250 hover:shadow-[0_4px_12px_rgba(0,0,0,0.05)] active:scale-[0.98]",
 
     // Top App Bar: Frosted glass effect, seamless integration
-    stickyHeader: "sticky top-0 z-40 pb-4 pt-2 md:pt-4 md:mb-4 bg-white/85 backdrop-blur-2xl transition-all duration-300",
+    stickyHeader: "sticky top-0 z-40 pb-4 pt-2 md:pt-4 md:mb-4 bg-white/85 dark:bg-slate-950/80 backdrop-blur-2xl transition-all duration-300 rounded-[24px] md:rounded-[32px] mt-0.5 border border-black/5 dark:border-white/10 shadow-sm",
 
     // Typography: Google Sans equivalent styling
-    displayLarge: "text-2xl md:text-4xl font-normal text-slate-900 tracking-tight",
-    titleMedium: "text-base md:text-lg font-medium text-slate-900 tracking-tight",
-    bodySmall: "text-xs md:text-sm font-medium text-slate-600",
+    displayLarge: "text-2xl md:text-4xl font-normal text-slate-900 dark:text-white tracking-tight",
+    titleMedium: "text-base md:text-lg font-medium text-slate-900 dark:text-white tracking-tight",
+    bodySmall: "text-xs md:text-sm font-medium text-slate-600 dark:text-slate-400",
 
     // Actions: Circular & Pill-shaped (Extended FAB)
-    btnIcon: "w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-full hover:bg-black/10 active:scale-90 transition-all text-slate-700",
+    btnIcon: "w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-full hover:bg-black/10 dark:hover:bg-white/10 active:scale-90 transition-all text-slate-700 dark:text-slate-300",
     btnFab: "flex items-center justify-center gap-2.5 px-5 py-3.5 rounded-full font-medium text-sm transition-all duration-300 shadow-[0_4px_14px_rgba(0,0,0,0.12)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.18)] active:scale-[0.96]",
 
     // Menus: M3 Floating rounded menus
-    menuContainer: "fixed z-[9999] bg-white rounded-[24px] shadow-[0_12px_32px_rgba(0,0,0,0.1)] ring-1 ring-black/5 p-2 animate-in fade-in zoom-in-95 duration-200 min-w-[220px] flex flex-col gap-1",
-    menuItem: "flex items-center w-full px-4 py-3.5 text-sm font-medium rounded-[16px] transition-colors text-slate-700 hover:bg-slate-100 active:scale-[0.98]",
+    menuContainer: "fixed z-[9999] bg-white dark:bg-slate-900 rounded-[24px] shadow-[0_12px_32px_rgba(0,0,0,0.1)] ring-1 ring-black/5 dark:ring-white/10 p-2 animate-in fade-in zoom-in-95 duration-200 min-w-[220px] flex flex-col gap-1",
+    menuItem: "flex items-center w-full px-4 py-3.5 text-sm font-medium rounded-[16px] transition-colors text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 active:scale-[0.98]",
 
     // Section Headers
     sectionHeader: "flex items-center gap-3 mb-4 md:mb-6 px-1 md:px-2",
@@ -191,7 +191,7 @@ const MenuItem = ({ icon: Icon, text, onClick, disabled, loading }) => {
 
     return (
         <button onClick={handleClick} disabled={disabled || loading} className={`${MAT_STYLES.menuItem} ${disabled ? 'opacity-40' : ''}`}>
-            <Icon className={`h-5 w-5 mr-3 ${loading ? 'animate-spin text-[#006A60]' : 'opacity-70'}`} />
+            <Icon className={`h-5 w-5 mr-3 ${loading ? 'animate-spin text-emerald-600' : 'opacity-70 dark:text-slate-400'}`} />
             {text}
         </button>
     );
@@ -244,7 +244,7 @@ const MobileToolsMenu = ({ onSortToggle, isReordering, renderPptButton, activeUn
 
     return (
         <>
-            <button ref={buttonRef} onClick={handleToggle} className={`${MAT_STYLES.btnFab} bg-slate-100 text-slate-700 !px-4 md:hidden`}>
+            <button ref={buttonRef} onClick={handleToggle} className={`${MAT_STYLES.btnFab} bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 !px-4 md:hidden border border-transparent dark:border-white/10`}>
                 <WrenchScrewdriverIcon className="w-5 h-5" />
             </button>
             {isOpen && (
@@ -255,9 +255,9 @@ const MobileToolsMenu = ({ onSortToggle, isReordering, renderPptButton, activeUn
                         onClick={() => onSortToggle(!isReordering)}
                     />
                     {renderPptButton && (
-                        <div className="border-t border-black/5 p-2 mt-1">
-                            <div className="flex items-center gap-3 px-3 py-3 rounded-[16px] hover:bg-black/5 transition-colors cursor-pointer active:scale-95">
-                                <PresentationChartLineIcon className="w-5 h-5 text-slate-500" />
+                        <div className="border-t border-black/5 dark:border-white/10 p-2 mt-1">
+                            <div className="flex items-center gap-3 px-3 py-3 rounded-[16px] hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer active:scale-95">
+                                <PresentationChartLineIcon className="w-5 h-5 text-slate-500 dark:text-slate-400" />
                                 <div className="flex-1" onClick={(e) => { e.stopPropagation(); setIsOpen(false); }}>
                                     {renderPptButton(activeUnit)}
                                 </div>
@@ -275,24 +275,24 @@ const ExportTutorialModal = ({ isOpen, onClose, onConfirm }) => {
     if (!isOpen) return null;
     return createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-300">
-            <div className={`w-full max-w-xl rounded-[32px] shadow-[0_24px_48px_rgba(0,0,0,0.2)] overflow-hidden flex flex-col bg-white scale-in zoom-in-95 duration-300`}>
+            <div className={`w-full max-w-xl rounded-[32px] shadow-[0_24px_48px_rgba(0,0,0,0.2)] overflow-hidden flex flex-col bg-white dark:bg-slate-900 scale-in zoom-in-95 duration-300 border border-transparent dark:border-white/10`}>
                 <div className="p-6 md:p-8 pb-4 flex justify-between items-center">
-                    <h3 className={`text-xl md:text-2xl font-normal flex items-center gap-3 text-slate-900`}>
-                        <PlayCircleIcon className="w-8 h-8 text-[#006A60]" />
+                    <h3 className={`text-xl md:text-2xl font-normal flex items-center gap-3 text-slate-900 dark:text-white`}>
+                        <PlayCircleIcon className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
                         Fixing Table Layouts
                     </h3>
                 </div>
                 <div className="px-6 md:px-8 overflow-y-auto max-h-[60vh] custom-scrollbar">
-                    <div className="relative w-full rounded-[24px] overflow-hidden bg-black aspect-video shadow-lg mb-6 border border-black/10">
+                    <div className="relative w-full rounded-[24px] overflow-hidden bg-black aspect-video shadow-lg mb-6 border border-black/10 dark:border-white/10">
                         <video src="/table tutorial.mp4" className="w-full h-full object-contain" controls autoPlay muted loop />
                     </div>
-                    <div className="p-5 rounded-[20px] bg-[#CCE8E0] text-[#05201A] text-sm md:text-base leading-relaxed">
+                    <div className="p-5 rounded-[20px] bg-emerald-100 dark:bg-emerald-500/10 text-emerald-900 dark:text-emerald-400 text-sm md:text-base leading-relaxed border border-emerald-200/50 dark:border-emerald-500/20">
                         <strong>M3 Tip:</strong> In Word, Select Table Row → Layout → Properties → Row → Check "Repeat as header row".
                     </div>
                 </div>
                 <div className="p-6 md:p-8 flex justify-end gap-3 mt-2">
-                    <button onClick={onClose} className="px-6 py-3 text-sm font-semibold text-slate-600 hover:bg-black/5 rounded-full transition-all active:scale-95">Cancel</button>
-                    <button onClick={onConfirm} className={`${MAT_STYLES.btnFab} bg-[#006A60] text-white`}>Acknowledge & Download</button>
+                    <button onClick={onClose} className="px-6 py-3 text-sm font-semibold text-slate-600 dark:text-slate-400 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-all active:scale-95">Cancel</button>
+                    <button onClick={onConfirm} className={`${MAT_STYLES.btnFab} bg-emerald-600 dark:bg-emerald-500 text-white`}>Acknowledge & Download</button>
                 </div>
             </div>
         </div>, document.body
@@ -307,11 +307,11 @@ const SortableBookItem = memo(({ unit, onSelect, onAction, isReordering, index }
     // Enhanced pastel tonal palettes
     const getTheme = (idx) => {
         const themes = [
-            { bg: "bg-sky-50", accent: "bg-sky-200", iconBg: "bg-sky-100", text: "text-sky-800", badge: "bg-sky-100 text-sky-600" },
-            { bg: "bg-rose-50", accent: "bg-rose-200", iconBg: "bg-rose-100", text: "text-rose-800", badge: "bg-rose-100 text-rose-600" },
-            { bg: "bg-sky-50/80", accent: "bg-sky-200", iconBg: "bg-sky-100", text: "text-sky-800", badge: "bg-sky-100 text-sky-600" },
-            { bg: "bg-emerald-50", accent: "bg-emerald-200", iconBg: "bg-emerald-100", text: "text-emerald-800", badge: "bg-emerald-100 text-emerald-600" },
-            { bg: "bg-amber-50", accent: "bg-amber-200", iconBg: "bg-amber-100", text: "text-amber-800", badge: "bg-amber-100 text-amber-600" },
+            { bg: "bg-sky-50 dark:bg-sky-950/20", accent: "bg-sky-200 dark:bg-sky-500/20", iconBg: "bg-sky-100 dark:bg-sky-500/20", text: "text-sky-800 dark:text-sky-300", badge: "bg-sky-100 dark:bg-sky-500/20 text-sky-600 dark:text-sky-400" },
+            { bg: "bg-rose-50 dark:bg-rose-950/20", accent: "bg-rose-200 dark:bg-rose-500/20", iconBg: "bg-rose-100 dark:bg-rose-500/20", text: "text-rose-800 dark:text-rose-300", badge: "bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400" },
+            { bg: "bg-sky-50/80 dark:bg-sky-950/20", accent: "bg-sky-200 dark:bg-sky-500/20", iconBg: "bg-sky-100 dark:bg-sky-500/20", text: "text-sky-800 dark:text-sky-300", badge: "bg-sky-100 dark:bg-sky-500/20 text-sky-600 dark:text-sky-400" },
+            { bg: "bg-emerald-50 dark:bg-emerald-950/20", accent: "bg-emerald-200 dark:bg-emerald-500/20", iconBg: "bg-emerald-100 dark:bg-emerald-500/20", text: "text-emerald-800 dark:text-emerald-300", badge: "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400" },
+            { bg: "bg-amber-50 dark:bg-amber-950/20", accent: "bg-amber-200 dark:bg-amber-500/20", iconBg: "bg-amber-100 dark:bg-amber-500/20", text: "text-amber-800 dark:text-amber-300", badge: "bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400" },
         ];
         return themes[idx % themes.length];
     };
@@ -349,7 +349,7 @@ const SortableBookItem = memo(({ unit, onSelect, onAction, isReordering, index }
                     {/* Body: Title */}
                     <div className="mb-1 md:mb-2 mt-auto relative z-10 bottom-0 w-full">
                         <span className={`inline-flex items-center gap-1 text-[10px] md:text-xs font-bold uppercase tracking-[0.15em] mb-2 md:mb-2.5 px-2.5 py-1 rounded-lg ${theme.badge}`}>Unit {index + 1}</span>
-                        <h3 className={`text-lg md:text-xl font-[700] leading-tight line-clamp-2 text-slate-900`}>{unit.title}</h3>
+                        <h3 className={`text-lg md:text-xl font-[700] leading-tight line-clamp-2 text-slate-900 dark:text-white`}>{unit.title}</h3>
                     </div>
                 </div>
 
@@ -363,7 +363,7 @@ const SortableBookItem = memo(({ unit, onSelect, onAction, isReordering, index }
                         {/* Content Body */}
                         <div className="flex flex-col justify-center flex-1 min-w-0 pr-2">
                             <span className={`inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-[0.15em] mb-1 px-2 py-0.5 rounded-md w-max ${theme.badge}`}>Unit {index + 1}</span>
-                            <h3 className={`text-[15px] font-[700] leading-tight line-clamp-1 text-slate-900`}>{unit.title}</h3>
+                            <h3 className={`text-[15px] font-[700] leading-tight line-clamp-1 text-slate-900 dark:text-white`}>{unit.title}</h3>
                         </div>
                     </div>
                     {/* Trailing Actions */}
@@ -378,9 +378,9 @@ const SortableBookItem = memo(({ unit, onSelect, onAction, isReordering, index }
                 </div>
 
                 {isReordering && (
-                    <div className="absolute inset-0 z-20 bg-white/40 flex items-center justify-center rounded-[28px] md:rounded-[32px] backdrop-blur-[3px]">
-                        <div className="bg-white shadow-xl rounded-2xl p-4">
-                            <ArrowsUpDownIcon className="w-6 h-6 md:w-7 md:h-7 text-slate-600" />
+                    <div className="absolute inset-0 z-20 bg-white/40 dark:bg-black/40 flex items-center justify-center rounded-[28px] md:rounded-[32px] backdrop-blur-[3px]">
+                        <div className="bg-white dark:bg-slate-800 shadow-xl rounded-2xl p-4 border border-transparent dark:border-white/10">
+                            <ArrowsUpDownIcon className="w-6 h-6 md:w-7 md:h-7 text-slate-600 dark:text-slate-300" />
                         </div>
                     </div>
                 )}
@@ -400,8 +400,8 @@ const SortablePageItem = memo(({ item, isReordering, onAction, exportingLessonId
 
     // M3 Specific container tones for items
     const theme = isLesson
-        ? { icon: DocumentTextSolid, iconBg: "bg-[#D3E4FF]", iconColor: "text-[#001C38]" }
-        : { icon: DocumentCheckIcon, iconBg: "bg-[#FFD9E2]", iconColor: "text-[#3E001D]" };
+        ? { icon: DocumentTextSolid, iconBg: "bg-blue-100 dark:bg-blue-500/20", iconColor: "text-blue-900 dark:text-blue-400" }
+        : { icon: DocumentCheckIcon, iconBg: "bg-rose-100 dark:bg-rose-500/20", iconColor: "text-rose-900 dark:text-rose-400" };
 
     const containerClass = isReordering ? "opacity-70 scale-[0.96] cursor-grab active:cursor-grabbing shadow-lg border-transparent" : "cursor-pointer";
 
@@ -416,10 +416,10 @@ const SortablePageItem = memo(({ item, isReordering, onAction, exportingLessonId
 
                 {/* Content Body */}
                 <div className="flex-1 min-w-0 flex flex-col justify-center">
-                    <h4 className={`text-[15px] md:text-[17px] font-semibold leading-snug text-slate-900 line-clamp-2 md:line-clamp-3 mb-1`}>
+                    <h4 className={`text-[15px] md:text-[17px] font-semibold leading-snug text-slate-900 dark:text-white line-clamp-2 md:line-clamp-3 mb-1`}>
                         {item.title || 'Untitled'}
                     </h4>
-                    <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest truncate">
+                    <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest truncate">
                         {isLesson ? (item.contentType === 'teacherGuide' ? 'Unit Plan' : 'Module') : 'Assessment'}
                     </span>
                 </div>
@@ -550,7 +550,15 @@ export default function UnitAccordion({ subject, onAddUnit, onInitiateDelete, us
     const handleAction = (type, item) => {
         switch (type) {
             case 'select': onSetActiveUnit(item); break;
-            case 'edit': item.type === 'lesson' ? (setSelectedLesson(item), setEditLessonModalOpen(true)) : (setSelectedQuiz(item), setEditQuizModalOpen(true)); break;
+            case 'edit':
+                if (item.type === 'lesson') {
+                    setSelectedLesson(item); setEditLessonModalOpen(true);
+                } else if (item.type === 'quiz') {
+                    setSelectedQuiz(item); setEditQuizModalOpen(true);
+                } else {
+                    setSelectedUnit(item); setEditUnitModalOpen(true);
+                }
+                break;
             case 'delete': if (item.type) onInitiateDelete(item.type, item.id, item.title, item.subjectId); else onInitiateDelete('unit', item.id, item.title, item.subjectId); break;
             case 'view': item.type === 'lesson' ? (setSelectedLesson(item), setViewLessonModalOpen(true)) : (setSelectedQuiz(item), setViewQuizModalOpen(true)); break;
             case 'ai': setUnitForAi(item); setIsAiHubOpen(true); break;
@@ -619,12 +627,12 @@ export default function UnitAccordion({ subject, onAddUnit, onInitiateDelete, us
                                 {/* ADDED: flex-1 min-w-0 to allow the parent flex box to shrink safely */}
                                 <div className="flex-1 min-w-0 w-full flex justify-between items-start md:block">
                                     <div className="flex-1 min-w-0 mr-4 md:mr-6">
-                                        <h2 className={`text-2xl md:text-3xl font-normal text-slate-900 tracking-tight leading-tight truncate`} title={activeUnit.title}>
+                                        <h2 className={`text-2xl md:text-3xl font-normal text-slate-900 dark:text-white tracking-tight leading-tight truncate`} title={activeUnit.title}>
                                             {activeUnit.title}
                                         </h2>
-                                        <div className="flex items-center gap-2 mt-2 text-sm font-medium text-slate-600">
-                                            <span className="flex items-center gap-1.5 bg-slate-100 px-2.5 py-1 rounded-full"><BookOpenIcon className="w-4 h-4" /> {lessons.length} Modules</span>
-                                            <span className="flex items-center gap-1.5 bg-slate-100 px-2.5 py-1 rounded-full"><ClockIcon className="w-4 h-4" /> {quizzes.length} Quizzes</span>
+                                        <div className="flex items-center gap-2 mt-2 text-sm font-medium text-slate-600 dark:text-slate-400">
+                                            <span className="flex items-center gap-1.5 bg-slate-100 dark:bg-white/5 px-2.5 py-1 rounded-full border border-transparent dark:border-white/10"><BookOpenIcon className="w-4 h-4" /> {lessons.length} Modules</span>
+                                            <span className="flex items-center gap-1.5 bg-slate-100 dark:bg-white/5 px-2.5 py-1 rounded-full border border-transparent dark:border-white/10"><ClockIcon className="w-4 h-4" /> {quizzes.length} Quizzes</span>
                                         </div>
                                     </div>
 
@@ -650,9 +658,9 @@ export default function UnitAccordion({ subject, onAddUnit, onInitiateDelete, us
                                 <div className="hidden md:flex items-center gap-3 flex-shrink-0">
                                     {renderGeneratePptButton && renderGeneratePptButton(activeUnit)}
 
-                                    <button onClick={() => setIsReordering(!isReordering)} className={`${MAT_STYLES.btnFab} ${isReordering ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 hover:bg-indigo-600' : 'bg-white text-slate-700 border border-slate-200 shadow-sm hover:bg-slate-50 hover:shadow-md'} transition-all duration-200`}>
+                                    <button onClick={() => setIsReordering(!isReordering)} className={`${MAT_STYLES.btnFab} ${isReordering ? 'bg-indigo-600 dark:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'bg-white dark:bg-white/5 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/10 shadow-sm hover:bg-slate-50 dark:hover:bg-white/10'} transition-all duration-200`}>
                                         <ArrowsUpDownIcon className="w-5 h-5 stroke-2" />
-                                        <span>{isReordering ? 'Done Sorting' : 'Reorder'}</span>
+                                        <span>{isReordering ? 'Done' : 'Reorder'}</span>
                                     </button>
 
                                     <AddContentButton
@@ -668,8 +676,8 @@ export default function UnitAccordion({ subject, onAddUnit, onInitiateDelete, us
                             {/* Modules Section */}
                             <div className="mb-10">
                                 <div className={MAT_STYLES.sectionHeader}>
-                                    <div className="p-2 rounded-full bg-[#CCE8E0]">
-                                        <BookOpenIcon className="w-5 h-5 text-[#05201A]" />
+                                    <div className="p-2 rounded-full bg-emerald-100 dark:bg-emerald-500/20 border border-emerald-200/50 dark:border-emerald-500/20">
+                                        <BookOpenIcon className="w-5 h-5 text-emerald-900 dark:text-emerald-400" />
                                     </div>
                                     <h3 className={MAT_STYLES.titleMedium}>Study Modules</h3>
                                 </div>
@@ -685,8 +693,8 @@ export default function UnitAccordion({ subject, onAddUnit, onInitiateDelete, us
                                         </div>
                                     </SortableContext>
                                 ) : (
-                                    <div className="flex flex-col items-center justify-center p-12 border border-dashed border-black/10 rounded-[32px] bg-slate-50">
-                                        <p className="text-base font-medium text-slate-500">No modules yet</p>
+                                    <div className="flex flex-col items-center justify-center p-12 border border-dashed border-black/10 dark:border-white/10 rounded-[32px] bg-slate-50/50 dark:bg-white/5">
+                                        <p className="text-base font-medium text-slate-500 dark:text-slate-400">No modules yet</p>
                                     </div>
                                 )}
                             </div>
@@ -694,8 +702,8 @@ export default function UnitAccordion({ subject, onAddUnit, onInitiateDelete, us
                             {/* Quizzes Section */}
                             <div>
                                 <div className={MAT_STYLES.sectionHeader}>
-                                    <div className="p-2 rounded-full bg-[#FFD9E2]">
-                                        <AcademicCapIcon className="w-5 h-5 text-[#3E001D]" />
+                                    <div className="p-2 rounded-full bg-rose-100 dark:bg-rose-500/20 border border-rose-200/50 dark:border-rose-500/20">
+                                        <AcademicCapIcon className="w-5 h-5 text-rose-900 dark:text-rose-400" />
                                     </div>
                                     <h3 className={MAT_STYLES.titleMedium}>Assessments</h3>
                                 </div>
@@ -711,8 +719,8 @@ export default function UnitAccordion({ subject, onAddUnit, onInitiateDelete, us
                                         </div>
                                     </SortableContext>
                                 ) : (
-                                    <div className="flex flex-col items-center justify-center p-12 border border-dashed border-black/10 rounded-[32px] bg-slate-50">
-                                        <p className="text-base font-medium text-slate-500">No quizzes yet</p>
+                                    <div className="flex flex-col items-center justify-center p-12 border border-dashed border-black/10 dark:border-white/10 rounded-[32px] bg-slate-50/50 dark:bg-white/5">
+                                        <p className="text-base font-medium text-slate-500 dark:text-slate-400">No quizzes yet</p>
                                     </div>
                                 )}
                             </div>
@@ -727,7 +735,7 @@ export default function UnitAccordion({ subject, onAddUnit, onInitiateDelete, us
                                     <PlusIcon className="w-4 h-4 stroke-[2.5]" />
                                     Add Unit
                                 </button>
-                                <button onClick={() => setIsReordering(!isReordering)} className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all active:scale-95 ${isReordering ? 'bg-[#CCE8E0] text-[#05201A] shadow-md' : 'text-slate-600 hover:bg-black/5 bg-slate-100 md:bg-transparent'}`}>
+                                <button onClick={() => setIsReordering(!isReordering)} className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all active:scale-95 ${isReordering ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-900 dark:text-emerald-400 shadow-md' : 'text-slate-600 dark:text-slate-400 hover:bg-black/5 dark:hover:bg-white/10 bg-slate-100 dark:bg-white/5 md:bg-transparent'}`}>
                                     <ArrowsUpDownIcon className="w-4 h-4 stroke-2" />
                                     {isReordering ? 'Done' : 'Reorder'}
                                 </button>
@@ -744,11 +752,11 @@ export default function UnitAccordion({ subject, onAddUnit, onInitiateDelete, us
                             </SortableContext>
                         ) : (
                             <div className="flex flex-col items-center justify-center py-32 opacity-60">
-                                <div className="p-6 rounded-full bg-slate-100 mb-6">
-                                    <BookOpenIcon className="w-16 h-16 text-slate-400" />
+                                <div className="p-6 rounded-full bg-slate-100 dark:bg-white/5 border border-transparent dark:border-white/10 mb-6">
+                                    <BookOpenIcon className="w-16 h-16 text-slate-400 dark:text-slate-600" />
                                 </div>
-                                <h3 className="text-2xl font-medium text-slate-500">No Units Created</h3>
-                                <p className="text-base text-slate-400 mt-2">Add a unit to get started organizing your curriculum</p>
+                                <h3 className="text-2xl font-medium text-slate-500 dark:text-slate-400">No Units Created</h3>
+                                <p className="text-base text-slate-400 dark:text-slate-500 mt-2">Add a unit to get started organizing your curriculum</p>
                                 <button onClick={onAddUnit} className="md:hidden mt-6 flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-indigo-600 text-white font-semibold text-sm shadow-sm active:scale-95 transition-all">
                                     <PlusIcon className="w-4 h-4 stroke-[2.5]" /> Add Unit
                                 </button>

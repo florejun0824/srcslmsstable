@@ -1,17 +1,44 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { ChartPieSlice, X, Printer as PrinterIcon } from '@phosphor-icons/react';
 import { Printer } from '@capgo/capacitor-printer';
+import { getDoc, doc } from 'firebase/firestore';
+import { db } from '../../../../services/firebase';
 
 const ResultSummaryModal = ({ election, isOpen, onClose }) => {
+    // Use embedded parent data for tie-breakers if available, otherwise we'll fetch
+    const [parentElection, setParentElection] = useState(election?.isTieBreaker && election?.parentData ? election.parentData : null);
+
+    useEffect(() => {
+        const fetchParentFallback = async () => {
+            if (isOpen && election?.isTieBreaker && !election?.parentData && election?.parentElectionId) {
+                try {
+                    const snap = await getDoc(doc(db, 'elections', election.parentElectionId));
+                    if (snap.exists()) {
+                        setParentElection({ id: snap.id, ...snap.data() });
+                    }
+                } catch (err) {
+                    console.error("Error fetching parent election:", err);
+                }
+            } else if (!isOpen) {
+                // Reset state when closed
+                setParentElection(null);
+            } else if (isOpen && election?.parentData) {
+                // Set to embedded data if opened
+                setParentElection(election.parentData);
+            }
+        };
+        fetchParentFallback();
+    }, [election, isOpen]);
+
     if (!isOpen || !election) return null;
 
-	const handlePrint = async () => {
-	    const printContent = document.getElementById('printable-area').innerHTML;
-    
-	    // Wrap the React HTML in a standard document for the Android Spooler
-	    const htmlString = `
+    const handlePrint = async () => {
+        const printContent = document.getElementById('printable-area').innerHTML;
+
+        // Wrap the React HTML in a standard document for the Android Spooler
+        const htmlString = `
 	    <!DOCTYPE html>
 	    <html>
 	      <head>
@@ -40,16 +67,16 @@ const ResultSummaryModal = ({ election, isOpen, onClose }) => {
 	    </html>
 	    `;
 
-	    try {
-	        await Printer.print({
-	            content: htmlString,
-	            name: `${election.title} - Official Return`
-	        });
-	    } catch (error) {
-	        console.log('Native printing failed, falling back to web print', error);
-	        window.print();
-	    }
-	};
+        try {
+            await Printer.print({
+                content: htmlString,
+                name: `${election.title} - Official Return`
+            });
+        } catch (error) {
+            console.log('Native printing failed, falling back to web print', error);
+            window.print();
+        }
+    };
 
     const results = election.results || {};
     const totalVotes = election.totalVotes || 0;
@@ -111,9 +138,9 @@ const ResultSummaryModal = ({ election, isOpen, onClose }) => {
                             const posResults = results[pos.title] || {};
                             const candidates = pos.candidates.sort((a, b) => (posResults[b.name] || 0) - (posResults[a.name] || 0));
                             return (
-                                <div key={pos.id} className="mb-6 break-inside-avoid">
-                                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 text-white text-xs font-semibold uppercase tracking-wider mb-3">
-                                        {pos.title}
+                                <div key={pos.title} className="mb-6 break-inside-avoid">
+                                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500 text-white text-xs font-semibold uppercase tracking-wider mb-3">
+                                        Round 2: {pos.title}
                                     </div>
                                     <div className="rounded-[16px] overflow-hidden border border-slate-200">
                                         <table className="w-full text-sm">
@@ -129,9 +156,51 @@ const ResultSummaryModal = ({ election, isOpen, onClose }) => {
                                                     const votes = posResults[cand.name] || 0;
                                                     const percent = totalVotes === 0 ? 0 : ((votes / totalVotes) * 100).toFixed(1);
                                                     return (
-                                                        <tr key={cand.id} className={`border-t border-slate-100 ${idx === 0 ? 'bg-amber-50/50' : ''}`}>
+                                                        <tr key={cand.id || cand.name} className={`border-t border-slate-100 ${idx === 0 ? 'bg-amber-50/50' : ''}`}>
                                                             <td className="py-3 px-4 text-black flex items-center gap-2">
-                                                                {idx === 0 && <span>🏆</span>}
+                                                                {idx === 0 && <span title="Leading / Winner">🏆</span>}
+                                                                <span className={idx === 0 ? 'font-semibold' : ''}>{cand.name}</span>
+                                                            </td>
+                                                            <td className={`py-3 px-4 text-right ${idx === 0 ? 'font-bold text-black' : 'text-slate-700'}`}>{votes}</td>
+                                                            <td className="py-3 px-4 text-right text-slate-500">{percent}%</td>
+                                                        </tr>
+                                                    )
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )
+                        })}
+
+                        {parentElection && parentElection.positions?.map(pos => {
+                            const parentResults = parentElection.results || parentElection.tally || parentElection.liveResults || {};
+                            const posResults = parentResults[pos.title] || {};
+                            const parentTotalVotes = Object.values(posResults).reduce((a, b) => a + b, 0);
+                            const candidates = pos.candidates.sort((a, b) => (posResults[b.name] || 0) - (posResults[a.name] || 0));
+
+                            return (
+                                <div key={`parent-${pos.title}`} className="mb-6 break-inside-avoid">
+                                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 text-white text-xs font-semibold uppercase tracking-wider mb-3">
+                                        Round 1: {pos.title}
+                                    </div>
+                                    <div className="rounded-[16px] overflow-hidden border border-slate-200">
+                                        <table className="w-full text-sm">
+                                            <thead>
+                                                <tr className="bg-slate-50">
+                                                    <th className="text-left py-3 px-4 text-slate-500 font-semibold uppercase text-xs tracking-wide">Candidate</th>
+                                                    <th className="text-right py-3 px-4 text-slate-500 font-semibold uppercase text-xs tracking-wide">Votes</th>
+                                                    <th className="text-right py-3 px-4 text-slate-500 font-semibold uppercase text-xs tracking-wide">%</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {candidates.map((cand, idx) => {
+                                                    const votes = posResults[cand.name] || 0;
+                                                    const percent = parentTotalVotes === 0 ? 0 : ((votes / parentTotalVotes) * 100).toFixed(1);
+                                                    return (
+                                                        <tr key={cand.id || cand.name} className={`border-t border-slate-100 ${idx === 0 ? 'bg-amber-50/50' : ''}`}>
+                                                            <td className="py-3 px-4 text-black flex items-center gap-2">
+                                                                {idx === 0 && <span title="Leading / Winner">🏆</span>}
                                                                 <span className={idx === 0 ? 'font-semibold' : ''}>{cand.name}</span>
                                                             </td>
                                                             <td className={`py-3 px-4 text-right ${idx === 0 ? 'font-bold text-black' : 'text-slate-700'}`}>{votes}</td>

@@ -290,7 +290,7 @@ const AestheticIcon = memo(({ Icon, isActive }) => {
                 weight={isActive ? "fill" : "duotone"}
                 className={`relative z-10 transition-all duration-500 ${isActive
                     ? "text-[var(--monet-primary)] scale-110 drop-shadow-md"
-                    : "text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200 scale-100"
+                    : "text-slate-500 dark:text-slate-300 group-hover:text-slate-800 dark:group-hover:text-slate-100 scale-100"
                     }`}
             />
             {isActive && (
@@ -336,7 +336,7 @@ const AestheticSidebar = memo(
                             </h1>
                             <div className="flex items-center gap-1.5 mt-0.5">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500/60 dark:text-slate-400">
                                     Version 15.0
                                 </span>
                             </div>
@@ -365,7 +365,7 @@ const AestheticSidebar = memo(
                                         <span
                                             className={`text-[14px] font-medium tracking-wide transition-colors ${isActive
                                                 ? "text-slate-900 dark:text-white font-bold"
-                                                : "text-slate-500 dark:text-slate-400"
+                                                : "text-slate-500 dark:text-slate-300"
                                                 }`}
                                         >
                                             {item.text}
@@ -513,8 +513,8 @@ const TopContextBar = memo(
                         : "opacity-100 blur-0 scale-100"
                         }`}
                 >
-                    <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-[11px] font-bold uppercase tracking-widest mb-1.5">
-                        <span className="opacity-50">System</span>
+                    <div className="flex items-center gap-2 text-slate-500 dark:text-slate-300 text-[11px] font-bold uppercase tracking-widest mb-1.5">
+                        <span className="opacity-60 dark:opacity-80">System</span>
                         <CaretRight size={10} weight="bold" />
                         <span className="text-[var(--monet-primary)] drop-shadow-[0_0_8px_rgba(var(--monet-primary-rgb),0.5)]">
                             {activeView}
@@ -555,7 +555,7 @@ const TopContextBar = memo(
                                         ? "Search across the neural network..."
                                         : "Search..."
                                 }
-                                className="bg-transparent border-none outline-none text-sm w-full font-medium text-slate-800 dark:text-slate-100 placeholder:text-slate-500/60 dark:placeholder:text-slate-400/60 transition-all"
+                                className="bg-transparent border-none outline-none text-sm w-full font-medium text-slate-800 dark:text-slate-100 placeholder:text-slate-500/60 dark:placeholder:text-slate-300/60 transition-all"
                             />
                             <div
                                 className={`flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] font-bold transition-all duration-300 ${isFocused

@@ -48,7 +48,7 @@ const ElectionCard = React.forwardRef(({ election, onClick, onEdit, onDelete, on
         return () => clearInterval(interval);
     }, [election.revealTime, isCalculating]);
 
-// Wrapper to handle the async spinner state
+    // Wrapper to handle the async spinner state
     const handleFinalizeClick = async (e) => {
         e.stopPropagation(); // <-- Catch the click event here
         setIsFinalizing(true);
@@ -70,7 +70,7 @@ const ElectionCard = React.forwardRef(({ election, onClick, onEdit, onDelete, on
             whileHover={election.hasTie ? undefined : "hover"}
             layout
             onClick={onClick}
-            className={`group relative flex flex-col w-full h-full bg-white rounded-[20px] border border-slate-200/60 transition-all duration-300 overflow-hidden selection:bg-transparent
+            className={`group relative flex flex-col w-full h-full bg-white dark:bg-[#1e293b] rounded-[20px] border border-slate-200/60 dark:border-white/10 transition-all duration-300 overflow-hidden selection:bg-transparent
                 ${election.hasTie ? 'opacity-70 cursor-not-allowed filter grayscale-[0.2]' : 'hover:shadow-lg cursor-pointer'}
             `}
         >
@@ -87,7 +87,7 @@ const ElectionCard = React.forwardRef(({ election, onClick, onEdit, onDelete, on
                         {statusConfig.label}
                     </div>
 
-                    <div className="flex items-center gap-1.5 pl-2 pr-3 py-1.5 rounded-full bg-slate-50 border border-slate-200/50 text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+                    <div className="flex items-center gap-1.5 pl-2 pr-3 py-1.5 rounded-full bg-slate-50 dark:bg-white/5 border border-slate-200/50 dark:border-white/10 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
                         {election.targetType === 'grade'
                             ? <GraduationCap weight="duotone" className="text-indigo-500" size={14} />
                             : <Buildings weight="duotone" className="text-blue-500" size={14} />
@@ -98,7 +98,7 @@ const ElectionCard = React.forwardRef(({ election, onClick, onEdit, onDelete, on
 
                 {/* 2. TEXT CONTENT */}
                 <div className="mb-6">
-                    <h3 className="text-lg sm:text-xl font-semibold text-slate-800 leading-tight mb-2 group-hover:text-blue-600 transition-colors line-clamp-2">
+                    <h3 className="text-lg sm:text-xl font-semibold text-slate-800 dark:text-white leading-tight mb-2 group-hover:text-blue-600 transition-colors line-clamp-2">
                         {election.title}
                     </h3>
                     <div className="flex items-center gap-2 text-slate-400 text-xs font-medium">
@@ -109,18 +109,18 @@ const ElectionCard = React.forwardRef(({ election, onClick, onEdit, onDelete, on
 
                 {/* 3. METRICS WIDGETS */}
                 <div className="mt-auto grid grid-cols-2 gap-3">
-                    <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+                    <div className="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-2xl border border-slate-100 dark:border-white/5">
                         <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
                             <Users weight="fill" className="text-blue-600 opacity-70" />
                             Votes
                         </div>
-                        <div className="text-xl font-bold text-slate-700 tabular-nums tracking-tight">
+                        <div className="text-xl font-bold text-slate-700 dark:text-slate-200 tabular-nums tracking-tight">
                             {election.totalVotes?.toLocaleString() || 0}
                         </div>
                     </div>
 
                     <div className={`p-3.5 rounded-2xl border flex flex-col justify-center
-                        ${isExpired && election.status !== 'completed' ? 'bg-rose-50/50 border-rose-100' : 'bg-slate-50 border-slate-100'}
+                        ${isExpired && election.status !== 'completed' ? 'bg-rose-50/50 dark:bg-rose-900/20 border-rose-100 dark:border-rose-900/30' : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-white/5'}
                     `}>
                         <div className={`text-[10px] font-semibold uppercase tracking-wider mb-1.5 flex items-center gap-1.5
                             ${isExpired && election.status !== 'completed' ? 'text-rose-500' : 'text-slate-400'}
@@ -129,7 +129,7 @@ const ElectionCard = React.forwardRef(({ election, onClick, onEdit, onDelete, on
                             {isExpired ? 'Ended' : 'Ends'}
                         </div>
                         <div className={`text-base font-semibold truncate
-                             ${isExpired && election.status !== 'completed' ? 'text-rose-600' : 'text-slate-700'}
+                             ${isExpired && election.status !== 'completed' ? 'text-rose-600 dark:text-rose-400' : 'text-slate-700 dark:text-slate-200'}
                         `}>
                             {endDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                         </div>
@@ -223,10 +223,15 @@ const ElectionCard = React.forwardRef(({ election, onClick, onEdit, onDelete, on
                                     </button>
                                 ) : (
                                     <button
-                                        onClick={onEdit}
-                                        className="flex-1 rounded-full bg-slate-100 border border-slate-200/50 text-slate-600 text-xs sm:text-sm font-semibold hover:bg-blue-600 hover:text-white hover:border-transparent transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
+                                        onClick={election.status === 'completed' ? undefined : onEdit}
+                                        disabled={election.status === 'completed'}
+                                        className={`flex-1 rounded-full flex items-center justify-center gap-2 text-xs sm:text-sm font-semibold transition-all
+                                            ${election.status === 'completed'
+                                                ? 'bg-slate-50 text-slate-300 border border-slate-100 cursor-not-allowed'
+                                                : 'bg-slate-100 border border-slate-200/50 text-slate-600 hover:bg-blue-600 hover:text-white hover:border-transparent active:scale-[0.98]'
+                                            }`}
                                     >
-                                        <PencilSimple weight="duotone" size={18} />
+                                        <PencilSimple weight="duotone" size={18} className={election.status === 'completed' ? 'opacity-50' : ''} />
                                         Edit
                                     </button>
                                 )}

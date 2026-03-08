@@ -41,6 +41,9 @@ const LiveCanvassing = ({ election, onBack }) => {
     const [isGenerating, setIsGenerating] = useState(false);
     const { monetTheme } = useTheme();
 
+    // Use embedded parent data for tie-breakers if available, otherwise we'll fetch
+    const [parentElection, setParentElection] = useState(election.isTieBreaker && election.parentData ? election.parentData : null);
+
     useEffect(() => {
         if (!election?.id) return;
         const unsub = electionService.getLiveResults(election.id, (data) => {
@@ -50,6 +53,23 @@ const LiveCanvassing = ({ election, onBack }) => {
         return () => unsub();
     }, [election]);
 
+    // Fallback fetch for older tie-breakers that don't have parentData embedded
+    useEffect(() => {
+        const fetchParentFallback = async () => {
+            // Only fetch if it's a tie breaker, doesn't have embedded data, but has a parent ID reference
+            if (election.isTieBreaker && !election.parentData && election.parentElectionId) {
+                try {
+                    const snap = await getDoc(doc(db, 'elections', election.parentElectionId));
+                    if (snap.exists()) {
+                        setParentElection({ id: snap.id, ...snap.data() });
+                    }
+                } catch (err) {
+                    console.error("Error fetching parent election:", err);
+                }
+            }
+        };
+        fetchParentFallback();
+    }, [election]);
 
     // --- REPORT GENERATOR ---
     const generateReport = async () => {
@@ -58,7 +78,7 @@ const LiveCanvassing = ({ election, onBack }) => {
         const avatarColors = ['#2563eb', '#7c3aed', '#0891b2', '#059669', '#d97706', '#dc2626', '#db2777', '#4f46e5'];
 
         try {
-            // 1. Fetch Tie-Breaker data if it exists
+            // 1. Fetch Tie-Breaker data if it exists (for backward compatibility if run from older parents)
             let tbData = null;
             if (election.tieBreakerId) {
                 const tbSnap = await getDoc(doc(db, 'elections', election.tieBreakerId));
@@ -67,9 +87,14 @@ const LiveCanvassing = ({ election, onBack }) => {
 
             // 1.5 Fetch Parent data if this IS a tie-breaker election
             let parentData = null;
-            if (election.isTieBreaker && election.parentElectionId) {
-                const parentSnap = await getDoc(doc(db, 'elections', election.parentElectionId));
-                if (parentSnap.exists()) parentData = parentSnap.data();
+            if (election.isTieBreaker) {
+                if (election.parentData) {
+                    parentData = election.parentData;
+                } else if (election.parentElectionId) {
+                    // Fallback for older tie-breaker documents that didn't embed parentData
+                    const parentSnap = await getDoc(doc(db, 'elections', election.parentElectionId));
+                    if (parentSnap.exists()) parentData = parentSnap.data();
+                }
             }
 
             const baseElection = parentData ? parentData : election;
@@ -330,7 +355,7 @@ const LiveCanvassing = ({ election, onBack }) => {
 </body></html>`;
 
             // --- Direct PDF export via html2pdf.js ---
-// --- Direct PDF export via html2pdf.js ---
+            // --- Direct PDF export via html2pdf.js ---
             const loadHtml2Pdf = () => {
                 return new Promise((resolve, reject) => {
                     if (window.html2pdf) return resolve(window.html2pdf);
@@ -344,7 +369,7 @@ const LiveCanvassing = ({ election, onBack }) => {
 
             // Execution logic (No need to wrap this in another exportPdf function)
             const filename = `${election.title.replace(/[^a-zA-Z0-9]/g, '_')}_Report.pdf`;
-            
+
             // Load html2pdf dynamically
             const html2pdfLib = await loadHtml2Pdf();
 
@@ -363,7 +388,7 @@ const LiveCanvassing = ({ election, onBack }) => {
             if (isNative) {
                 // 📱 NATIVE (APK): Generate base64 and save directly to device storage
                 const pdfBase64 = await html2pdfLib().set(opt).from(html).outputPdf('datauristring');
-                
+
                 // Strip the data URI prefix (e.g., "data:application/pdf;base64,")
                 const base64Data = pdfBase64.split(',')[1];
 
@@ -388,262 +413,303 @@ const LiveCanvassing = ({ election, onBack }) => {
         }
     }; // <-- THIS closes the generateReport function properly!
 
-    return (
-        <div
-            className="w-full font-sans text-slate-900"
-            style={monetTheme.variables}
-        >
-            {/* M3 Container */}
-            <div className="max-w-7xl mx-auto bg-white rounded-none lg:rounded-[28px] shadow-md lg:shadow-xl overflow-hidden min-h-[85vh] border-0 lg:border border-slate-200/50 relative">
+	return (
+	        <div
+	            className="w-full font-sans text-slate-900 pb-32"
+	            style={monetTheme?.variables || {}}
+	        >
+	            <div className="max-w-7xl mx-auto rounded-none lg:rounded-[28px] relative">
 
-                {/* === M3 TOP APP BAR === */}
-                <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100 px-4 md:px-6 py-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3 md:gap-4">
-                            <button
-                                onClick={onBack}
-                                className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-slate-100 text-slate-500 transition-colors"
-                            >
-                                <CaretLeft weight="bold" size={20} />
-                            </button>
+	                {/* === STICKY FLOATING HEADER === */}
+	                <div className="sticky top-[2px] z-40 mx-3 md:mx-6 mb-4 mt-2">
+	                    <div className="bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border border-slate-200/50 dark:border-white/10 p-3 md:px-6 md:py-5 rounded-2xl md:rounded-[2rem] shadow-lg shadow-slate-200/20 dark:shadow-none">
+	                        <div className="max-w-7xl mx-auto flex flex-row items-center justify-between gap-3 md:gap-6">
+                            
+	                            {/* Title & Back Button */}
+	                            <div className="flex items-center gap-2 md:gap-4 overflow-hidden">
+	                                <button
+	                                    onClick={onBack}
+	                                    className="shrink-0 w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center hover:bg-slate-100 dark:hover:bg-white/10 text-slate-500 dark:text-slate-400 transition-colors"
+	                                >
+	                                    <CaretLeft weight="bold" size={20} />
+	                                </button>
 
-                            <div>
-                                <h1 className="text-lg md:text-xl font-semibold text-slate-900 tracking-tight leading-tight">
-                                    Official Canvassing
-                                </h1>
-                                <p className="text-xs font-medium text-blue-600 mt-0.5 flex items-center gap-1.5">
-                                    <SealCheck weight="fill" size={14} />
-                                    {election.title}
-                                </p>
-                            </div>
-                        </div>
+	                                <div className="min-w-0">
+	                                    <h1 className="text-sm md:text-xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight truncate">
+	                                        Official Canvassing
+	                                    </h1>
+	                                    <p className="text-[10px] md:text-xs font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1 md:gap-1.5 uppercase tracking-wider truncate">
+	                                        <SealCheck weight="fill" size={14} className="shrink-0" />
+	                                        <span className="truncate">{election.title}</span>
+	                                    </p>
+	                                </div>
+	                            </div>
 
-                        <div className="flex items-center gap-2 md:gap-3">
-                            {/* Generate Report Button - only after finalization */}
-                            {election.status === 'completed' && (
-                                <button
-                                    onClick={generateReport}
-                                    disabled={isGenerating}
-                                    className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-full text-white text-xs font-semibold shadow-md transition-all
-                                    ${isGenerating
-                                            ? 'bg-blue-600/70 cursor-wait'
-                                            : 'bg-blue-600 hover:shadow-lg active:scale-[0.97]'
-                                        }`}
-                                >
-                                    {isGenerating ? (
-                                        <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                                        </svg>
-                                    ) : (
-                                        <Printer weight="fill" size={16} />
-                                    )}
-                                    <span className="hidden sm:inline">{isGenerating ? 'Preparing...' : 'Generate Report'}</span>
-                                </button>
-                            )}
+	                            {/* Action Buttons */}
+	                            <div className="flex items-center gap-2 shrink-0">
+	                                {election.status === 'completed' && (
+	                                    <button
+	                                        onClick={generateReport}
+	                                        disabled={isGenerating}
+	                                        className={`flex items-center justify-center w-9 h-9 md:w-auto md:h-auto md:px-5 md:py-2.5 rounded-xl text-white text-xs font-bold shadow-md transition-all
+	                                        ${isGenerating
+	                                                ? 'bg-blue-600/70 cursor-wait'
+	                                                : 'bg-gradient-to-br from-blue-500 to-indigo-600 hover:shadow-blue-500/25 active:scale-[0.97]'
+	                                            }`}
+	                                    >
+	                                        {isGenerating ? (
+	                                            <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+	                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+	                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+	                                            </svg>
+	                                        ) : (
+	                                            <Printer weight="fill" size={18} />
+	                                        )}
+	                                        <span className="hidden md:inline ml-2">{isGenerating ? 'Preparing...' : 'Generate Report'}</span>
+	                                    </button>
+	                                )}
 
-                            {/* M3 Status Chip */}
-                            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-semibold
-                         ${election.status === 'completed'
-                                    ? 'bg-emerald-50 border-emerald-200 text-emerald-600'
-                                    : 'bg-rose-50 border-rose-100 text-rose-600'
-                                }`}
-                            >
-                                <div className={`w-2 h-2 rounded-full ${election.status === 'completed' ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'}`} />
-                                <span className="uppercase tracking-wider">
-                                    {election.status === 'completed' ? 'Finalized' : 'Live'}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                </header>
+	                                {/* Status Chip - Tighter on mobile */}
+	                                <div className={`flex items-center gap-1.5 px-2.5 py-1.5 md:px-4 md:py-2 rounded-lg md:rounded-full border text-[9px] md:text-[10px] font-bold uppercase tracking-widest
+	                             ${election.status === 'completed'
+	                                        ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+	                                        : 'bg-rose-50 dark:bg-rose-500/10 border-rose-100 dark:border-rose-500/20 text-rose-600 dark:text-rose-400'
+	                                    }`}
+	                                >
+	                                    <div className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full shrink-0 ${election.status === 'completed' ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'}`} />
+	                                    <span className="hidden sm:inline">
+	                                        {election.status === 'completed' ? 'Finalized' : 'Live'}
+	                                    </span>
+	                                </div>
+	                            </div>
+	                        </div>
+	                    </div>
+	                </div>
 
-                {/* === CONTENT === */}
-                <main className="px-4 md:px-6 lg:px-8 py-6 md:py-8 space-y-6 md:space-y-8">
+	                {/* === MAIN CONTENT CONTAINER === */}
+	                <div className="relative z-10 max-w-7xl mx-auto px-3 md:px-6 pt-1">
+	                    <div className="bg-white/40 dark:bg-slate-950/60 backdrop-blur-xl border border-slate-200/50 dark:border-white/10 rounded-[1.5rem] md:rounded-[2.5rem] p-3 md:p-8 lg:p-10 shadow-xl overflow-hidden min-h-[70vh]">
 
-                    {/* M3 Metric Cards */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-                        <MetricCard label="Total Returns" value={totalVotesCast.toLocaleString()} icon={Table} colorTheme="emerald" />
-                        <MetricCard label="Positions" value={election.positions.length} icon={ChartBar} colorTheme="purple" />
-                        <div className="col-span-2 bg-amber-50 border border-amber-100 p-4 rounded-[20px] flex items-center justify-between relative overflow-hidden">
-                            <div className="relative z-10">
-                                <div className="text-[10px] font-semibold uppercase tracking-wider text-amber-600 mb-1 opacity-80">Target Electorate</div>
-                                <div className="text-sm font-semibold text-slate-800">
-                                    {election.targetType === 'grade' ? `Grade ${election.targetGrade} Students` : 'Entire Student Body'}
-                                </div>
-                            </div>
-                            <SealCheck size={44} weight="duotone" className="text-amber-500 opacity-20 absolute -right-3 -bottom-3 rotate-12" />
-                        </div>
-                    </div>
+	                        {/* Metric Cards */}
+	                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-10">
+	                            <MetricCard label="Total Returns" value={totalVotesCast.toLocaleString()} icon={Table} colorTheme="emerald" />
+	                            <MetricCard label="Positions" value={election.positions.length} icon={ChartBar} colorTheme="purple" />
+	                            <div className="col-span-2 bg-amber-50/50 dark:bg-[#2d2417] border border-amber-100 dark:border-amber-500/20 p-4 md:p-5 rounded-2xl md:rounded-[2rem] flex items-center justify-between relative overflow-hidden">
+	                                <div className="relative z-10">
+	                                    <div className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest text-amber-600 dark:text-amber-400 mb-1 opacity-80">Target Electorate</div>
+	                                    <div className="text-sm md:text-base font-bold text-slate-800 dark:text-slate-100">
+	                                        {election.targetType === 'grade' ? `Grade ${election.targetGrade} Students` : 'Entire Student Body'}
+	                                    </div>
+	                                </div>
+	                                <SealCheck size={40} weight="duotone" className="text-amber-500 opacity-20 absolute -right-3 -bottom-3 rotate-12" />
+	                            </div>
+	                        </div>
 
-                    {/* Tally Cards */}
-                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 md:gap-6 pb-8 md:pb-12">
-                        {election.positions.map((pos) => {
-                            const posResults = results[pos.title] || {};
-                            const totalVotes = Object.values(posResults).reduce((a, b) => a + b, 0);
-                            const candidates = pos.candidates.sort((a, b) => (posResults[b.name] || 0) - (posResults[a.name] || 0));
+	                        {/* Tally Cards */}
+	                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6 pb-8 md:pb-12">
+	                            {election.positions.map((pos) => {
+	                                const posResults = results[pos.title] || {};
+	                                const totalVotes = Object.values(posResults).reduce((a, b) => a + b, 0);
+	                                const candidates = pos.candidates.sort((a, b) => (posResults[b.name] || 0) - (posResults[a.name] || 0));
 
-                            return (
-                                <OfficialTallyCard
-                                    key={pos.id}
-                                    title={pos.title}
-                                    candidates={candidates}
-                                    posResults={posResults}
-                                    totalVotes={totalVotes}
-                                />
-                            );
-                        })}
-                    </div>
-                </main>
-            </div>
-        </div>
-    );
-};
+	                                return (
+	                                    <OfficialTallyCard
+	                                        key={pos.title}
+	                                        title={pos.title}
+	                                        candidates={candidates}
+	                                        posResults={posResults}
+	                                        totalVotes={totalVotes}
+	                                        isTieBreakerPos={election.isTieBreaker}
+	                                        tieBreakerStatus={election.status}
+	                                    />
+	                                );
+	                            })}
 
-// --- M3 METRIC CARD ---
-const MetricCard = ({ label, value, icon: Icon, colorTheme }) => {
-    const themes = {
-        emerald: { bg: 'bg-emerald-50 border-emerald-100', text: 'text-emerald-600', icon: 'text-emerald-500' },
-        purple: { bg: 'bg-purple-50 border-purple-100', text: 'text-purple-600', icon: 'text-purple-500' },
-        default: { bg: 'bg-slate-50 border-slate-200/50', text: 'text-slate-400', icon: 'text-slate-200' }
-    };
-    const theme = themes[colorTheme] || themes.default;
+	                            {parentElection && parentElection.positions
+	                                .map((pos) => {
+	                                    const parentResultsObj = parentElection.results || parentElection.tally || parentElection.liveResults || {};
+	                                    const posResults = parentResultsObj[pos.title] || {};
+	                                    const totalVotes = Object.values(posResults).reduce((a, b) => a + b, 0);
+	                                    const candidates = pos.candidates.sort((a, b) => (posResults[b.name] || 0) - (posResults[a.name] || 0));
 
-    return (
-        <div className={`${theme.bg} border p-4 rounded-[20px] flex items-center justify-between`}>
-            <div>
-                <div className={`text-[10px] font-semibold uppercase tracking-wider ${theme.text} mb-1 opacity-80`}>{label}</div>
-                <div className="text-2xl font-bold text-slate-800 tabular-nums">
-                    {value}
-                </div>
-            </div>
-            <div className={theme.icon}>
-                <Icon size={32} weight="duotone" />
-            </div>
-        </div>
-    );
-};
+	                                    return (
+	                                        <OfficialTallyCard
+	                                            key={`parent-${pos.title}`}
+	                                            title={pos.title}
+	                                            candidates={candidates}
+	                                            posResults={posResults}
+	                                            totalVotes={totalVotes}
+	                                            isInherited={true}
+	                                            isTiedPosition={election.tiedPositions?.includes(pos.title)}
+	                                        />
+	                                    );
+	                                })}
+	                        </div>
+	                    </div>
+	                </div>
+	            </div>
+	        </div>
+	    );
+	};
 
-// --- M3 TALLY CARD ---
-const OfficialTallyCard = ({ title, candidates, posResults, totalVotes }) => {
-    return (
-        <div className="bg-white border border-slate-200/50 rounded-[20px] overflow-hidden hover:shadow-md transition-shadow">
-            {/* M3 Header */}
-            <div className="bg-slate-50 border-b border-slate-200/50 px-5 md:px-6 py-4 flex justify-between items-center">
-                <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-700">
-                    {title}
-                </h3>
-                <div className="text-[10px] font-mono font-medium text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200/50">
-                    <span className="text-slate-900 font-semibold">{totalVotes}</span> votes
-                </div>
-            </div>
+	// --- M3 METRIC CARD ---
+	const MetricCard = ({ label, value, icon: Icon, colorTheme }) => {
+	    const themes = {
+	        emerald: { bg: 'bg-emerald-50 dark:bg-[#132a24] border-emerald-100 dark:border-emerald-500/20', text: 'text-emerald-600 dark:text-emerald-400', icon: 'text-emerald-500' },
+	        purple: { bg: 'bg-purple-50 dark:bg-[#251b3d] border-purple-100 dark:border-purple-500/20', text: 'text-purple-600 dark:text-purple-400', icon: 'text-purple-500' },
+	        default: { bg: 'bg-slate-50 dark:bg-slate-800 border-slate-200/50 dark:border-white/10', text: 'text-slate-400 dark:text-slate-500', icon: 'text-slate-200 dark:text-slate-700' }
+	    };
+	    const theme = themes[colorTheme] || themes.default;
 
-            {/* Table Header */}
-            <div className="grid grid-cols-12 px-5 md:px-6 py-2.5 border-b border-slate-100 text-[9px] font-semibold uppercase tracking-wider text-slate-400">
-                <div className="col-span-1 text-center">#</div>
-                <div className="col-span-6 pl-2">Candidate</div>
-                <div className="col-span-5 text-right">Count</div>
-            </div>
+	    return (
+	        <div className={`${theme.bg} border p-4 md:p-5 rounded-2xl md:rounded-[2rem] flex items-center justify-between`}>
+	            <div>
+	                <div className={`text-[9px] md:text-[10px] font-bold uppercase tracking-widest ${theme.text} mb-1 opacity-80`}>{label}</div>
+	                <div className="text-xl md:text-2xl font-black text-slate-800 dark:text-white tabular-nums">
+	                    {value}
+	                </div>
+	            </div>
+	            <div className={`${theme.icon} hidden sm:block`}>
+	                <Icon size={32} weight="duotone" />
+	            </div>
+	        </div>
+	    );
+	};
 
-            {/* Table Rows */}
-            <div>
-                <LayoutGroup>
-                    <AnimatePresence>
-                        {candidates.map((cand, idx) => {
-                            const votes = posResults[cand.name] || 0;
-                            const percent = totalVotes === 0 ? 0 : ((votes / totalVotes) * 100).toFixed(1);
+	// --- M3 TALLY CARD ---
+	const OfficialTallyCard = ({ title, candidates, posResults, totalVotes, isTieBreakerPos, isInherited, tieBreakerStatus, isTiedPosition }) => {
+	    return (
+	        <div className="bg-white dark:bg-[#1e293b] border border-slate-200/50 dark:border-white/10 rounded-2xl md:rounded-[20px] overflow-hidden hover:shadow-md transition-shadow relative">
+            
+	            {/* Badges for Tie-Breaker Context - Scaled down for mobile */}
+	            {isTieBreakerPos && (
+	                <div className="absolute top-0 right-0 z-10">
+	                    <div className={`${tieBreakerStatus === 'completed' ? 'bg-emerald-500' : 'bg-amber-500'} text-white text-[8px] md:text-[9px] font-bold uppercase tracking-wider px-2 md:px-3 py-1 rounded-bl-lg md:rounded-bl-xl shadow-sm`}>
+	                        {tieBreakerStatus === 'completed' ? 'Round 2 Final' : 'Round 2 Live'}
+	                    </div>
+	                </div>
+	            )}
+	            {isInherited && (
+	                <div className="absolute top-0 right-0 z-10">
+	                    <div className={`${isTiedPosition ? 'bg-slate-700 text-white' : 'bg-slate-200 text-slate-600'} border-l border-b border-white dark:border-slate-800 text-[8px] md:text-[9px] font-bold uppercase tracking-wider px-2 md:px-3 py-1 rounded-bl-lg md:rounded-bl-xl shadow-sm`}>
+	                        {isTiedPosition ? 'Round 1 (Tied)' : 'Round 1 Final'}
+	                    </div>
+	                </div>
+	            )}
 
-                            // Find the max votes for this position
-                            const maxVotes = candidates.length > 0 ? (posResults[candidates[0].name] || 0) : 0;
-                            // Check if this candidate has the max votes
-                            const hasMaxVotes = votes === maxVotes && votes > 0;
-                            // Check if there are multiple candidates with max votes
-                            const isTied = hasMaxVotes && candidates.filter(c => (posResults[c.name] || 0) === maxVotes).length > 1;
+	            {/* M3 Header */}
+	            <div className={`bg-slate-50 dark:bg-white/5 border-b border-slate-200/50 dark:border-white/5 px-4 py-3 md:px-6 md:py-4 flex justify-between items-center ${isTieBreakerPos ? 'pr-20' : isInherited ? 'pr-24' : ''}`}>
+	                <h3 className="text-xs md:text-sm font-bold uppercase tracking-widest text-slate-700 dark:text-slate-300">
+	                    {title}
+	                </h3>
+	                <div className="text-[9px] md:text-[10px] font-mono font-bold text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-black/20 px-2.5 py-0.5 md:py-1 rounded-full border border-slate-200/50 dark:border-white/5">
+	                    <span className="text-slate-900 dark:text-white">{totalVotes}</span> votes
+	                </div>
+	            </div>
 
-                            const isWinner = hasMaxVotes && !isTied;
-                            const isTopResult = hasMaxVotes; // For general styling
-                            const isRunnerUp = idx === 1 && !hasMaxVotes;
+	            {/* Table Header - Adjusted Grid Proportions */}
+	            <div className="grid grid-cols-12 px-3 md:px-6 py-2 border-b border-slate-100 dark:border-white/5 text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+	                <div className="col-span-1 text-center">#</div>
+	                <div className="col-span-7 pl-2">Candidate</div>
+	                <div className="col-span-4 text-right">Count</div>
+	            </div>
 
-                            return (
-                                <motion.div
-                                    layout
-                                    key={cand.id}
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    transition={{ type: "spring", stiffness: 500, damping: 40 }}
-                                    className={`
-                                        relative grid grid-cols-12 items-center px-5 md:px-6 py-4 border-b border-slate-100 last:border-0
-                                        ${isTopResult ? (isTied ? 'bg-amber-600/[0.04]' : 'bg-blue-600/[0.04]') : 'bg-transparent'}
-                                    `}
-                                >
-                                    {/* Rank */}
-                                    <div className="col-span-1 flex justify-center">
-                                        <div className={`
-                                            w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition-colors
-                                            ${isTopResult ? (isTied ? 'bg-amber-500 text-white shadow-sm' : 'bg-blue-600 text-white shadow-sm') :
-                                                isRunnerUp ? 'bg-slate-100 text-slate-600' :
-                                                    'text-slate-400'}
-                                        `}>
-                                            {idx + 1}
-                                        </div>
-                                    </div>
+	            {/* Table Rows */}
+	            <div>
+	                <LayoutGroup>
+	                    <AnimatePresence>
+	                        {candidates.map((cand, idx) => {
+	                            const votes = posResults[cand.name] || 0;
+	                            const percent = totalVotes === 0 ? 0 : ((votes / totalVotes) * 100).toFixed(1);
 
-                                    {/* Candidate Info */}
-                                    <div className="col-span-6 pl-3 md:pl-4 flex items-center gap-3 relative z-10">
-                                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-[10px] font-bold ${stringToColor(cand.name)}`}>
-                                            {getInitials(cand.name)}
-                                        </div>
-                                        <div>
-                                            <h4 className={`text-sm font-semibold leading-tight ${isTopResult ? (isTied ? 'text-amber-600' : 'text-blue-600') : 'text-slate-700'}`}>
-                                                {cand.name}
-                                            </h4>
-                                            {isWinner && (
-                                                <div className="flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider text-blue-600 mt-0.5 opacity-80">
-                                                    <SealCheck weight="fill" size={12} /> Leading
-                                                </div>
-                                            )}
-                                            {isTied && (
-                                                <div className="flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider text-amber-600 mt-0.5 opacity-80">
-                                                    <SealCheck weight="fill" size={12} /> Tied
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
+	                            const maxVotes = candidates.length > 0 ? (posResults[candidates[0].name] || 0) : 0;
+	                            const hasMaxVotes = votes === maxVotes && votes > 0;
+	                            const isTied = hasMaxVotes && candidates.filter(c => (posResults[c.name] || 0) === maxVotes).length > 1;
 
-                                    {/* Votes & Bar */}
-                                    <div className="col-span-5 relative flex flex-col items-end justify-center">
-                                        <div className="flex items-baseline gap-2 mb-1.5 relative z-10">
-                                            <span className={`font-mono font-semibold text-sm tabular-nums ${isTopResult ? (isTied ? 'text-amber-600' : 'text-blue-600') : 'text-slate-900'}`}>
-                                                {votes.toLocaleString()}
-                                            </span>
-                                            <span className="text-[10px] font-medium text-slate-400 w-8 text-right tabular-nums">
-                                                {percent}%
-                                            </span>
-                                        </div>
+	                            const isWinner = hasMaxVotes && !isTied;
+	                            const isTopResult = hasMaxVotes;
+	                            const isRunnerUp = idx === 1 && !hasMaxVotes;
 
-                                        <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                                            <motion.div
-                                                initial={{ width: 0 }}
-                                                animate={{ width: `${percent}%` }}
-                                                transition={{ duration: 0.8, ease: "easeOut" }}
-                                                className={`h-full rounded-full ${isTopResult ? (isTied ? 'bg-amber-500' : 'bg-blue-600') : 'bg-slate-300'}`}
-                                            />
-                                        </div>
-                                    </div>
-                                </motion.div>
-                            );
-                        })}
-                    </AnimatePresence>
-                </LayoutGroup>
+	                            return (
+	                                <motion.div
+	                                    layout
+	                                    key={cand.id}
+	                                    initial={{ opacity: 0 }}
+	                                    animate={{ opacity: 1 }}
+	                                    transition={{ type: "spring", stiffness: 500, damping: 40 }}
+	                                    className={`
+	                                        relative grid grid-cols-12 items-center px-2 md:px-6 py-3 md:py-4 border-b border-slate-100 dark:border-white/5 last:border-0
+	                                        ${isTopResult ? (isTied ? 'bg-amber-600/[0.04]' : 'bg-blue-600/[0.04]') : 'bg-transparent'}
+	                                    `}
+	                                >
+	                                    {/* Rank */}
+	                                    <div className="col-span-1 flex justify-center">
+	                                        <div className={`
+	                                            w-5 h-5 md:w-7 md:h-7 rounded-full flex items-center justify-center text-[10px] md:text-xs font-bold transition-colors
+	                                            ${isTopResult ? (isTied ? 'bg-amber-500 text-white shadow-sm' : 'bg-blue-600 text-white shadow-sm') :
+	                                                isRunnerUp ? 'bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-400' :
+	                                                    'text-slate-400 dark:text-slate-600'}
+	                                        `}>
+	                                            {idx + 1}
+	                                        </div>
+	                                    </div>
 
-                {candidates.length === 0 && (
-                    <div className="py-8 text-center text-slate-400 text-xs uppercase tracking-wider">
-                        No Data Received
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-};
+	                                    {/* Candidate Info - Expanded to col-span-7 so names don't squish */}
+	                                    <div className="col-span-7 pl-2 md:pl-3 flex items-center gap-2 md:gap-3 relative z-10 min-w-0">
+	                                        <div className={`shrink-0 w-7 h-7 md:w-9 md:h-9 rounded-lg md:rounded-xl flex items-center justify-center text-[9px] md:text-[10px] font-black ${stringToColor(cand.name)}`}>
+	                                            {getInitials(cand.name)}
+	                                        </div>
+	                                        <div className="min-w-0">
+	                                            <h4 className={`text-xs md:text-sm font-bold leading-tight truncate ${isTopResult ? (isTied ? 'text-amber-600 dark:text-amber-400' : 'text-blue-600 dark:text-blue-400') : 'text-slate-700 dark:text-slate-200'}`}>
+	                                                {cand.name}
+	                                            </h4>
+	                                            {isWinner && (
+	                                                <div className="flex items-center gap-1 text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 mt-0.5 opacity-80">
+	                                                    <SealCheck weight="fill" size={10} className="md:w-3 md:h-3" /> Leading
+	                                                </div>
+	                                            )}
+	                                            {isTied && (
+	                                                <div className="flex items-center gap-1 text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-amber-600 dark:text-amber-400 mt-0.5 opacity-80">
+	                                                    <SealCheck weight="fill" size={10} className="md:w-3 md:h-3" /> Tied
+	                                                </div>
+	                                            )}
+	                                        </div>
+	                                    </div>
 
-export default LiveCanvassing;
+	                                    {/* Count & Progress Bar - Reduced to col-span-4 */}
+	                                    <div className="col-span-4 relative flex flex-col items-end justify-center pl-1">
+	                                        <div className="flex items-baseline gap-1 md:gap-2 mb-1 md:mb-1.5 relative z-10">
+	                                            <span className={`font-mono font-bold text-xs md:text-sm tabular-nums ${isTopResult ? (isTied ? 'text-amber-600 dark:text-amber-400' : 'text-blue-600 dark:text-blue-400') : 'text-slate-900 dark:text-white'}`}>
+	                                                {votes.toLocaleString()}
+	                                            </span>
+	                                            <span className="text-[8px] md:text-[10px] font-bold text-slate-400 dark:text-slate-500 w-6 md:w-8 text-right tabular-nums">
+	                                                {percent}%
+	                                            </span>
+	                                        </div>
+
+	                                        <div className="w-full h-1.5 md:h-2 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
+	                                            <motion.div
+	                                                initial={{ width: 0 }}
+	                                                animate={{ width: `${percent}%` }}
+	                                                transition={{ duration: 0.8, ease: "easeOut" }}
+	                                                className={`h-full rounded-full ${isTopResult ? (isTied ? 'bg-amber-500' : 'bg-blue-600') : 'bg-slate-300 dark:bg-white/10'}`}
+	                                            />
+	                                        </div>
+	                                    </div>
+	                                </motion.div>
+	                            );
+	                        })}
+	                    </AnimatePresence>
+	                </LayoutGroup>
+
+	                {candidates.length === 0 && (
+	                    <div className="py-6 md:py-8 text-center text-slate-400 dark:text-slate-600 text-[9px] md:text-[10px] font-bold uppercase tracking-widest">
+	                        No Data Received
+	                    </div>
+	                )}
+	            </div>
+	        </div>
+	    );
+	};
+
+	export default LiveCanvassing;

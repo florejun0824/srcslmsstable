@@ -26,7 +26,7 @@ import {
   IconCheck,
 } from "@tabler/icons-react";
 
-import Spinner from "../../../common/Spinner"; 
+import Spinner from "../../../common/Spinner";
 import AnalysisReportModal from "../modals/AnalysisReportModal";
 import RemediationPreviewModal from "../modals/RemediationPreviewModal";
 import ViewRecommendationModal from "../modals/ViewRecommendationModal";
@@ -41,45 +41,45 @@ import { marked } from "marked";
 
 // --- MONET STYLE HELPER (Kept external to prevent recreation) ---
 const getMonetStyles = (activeOverlay) => {
-    if (!activeOverlay || activeOverlay === 'none') return null;
+  if (!activeOverlay || activeOverlay === 'none') return null;
 
-    const baseGlass = "backdrop-blur-xl border shadow-xl transition-all duration-300";
-    
-    const styles = {
-        container: "",
-        card: "",
-        textMain: "text-white",
-        textSub: "text-white/60",
-        buttonPrimary: "",
-        buttonSecondary: "",
-        activeTab: "",
-        inactiveTab: "text-white/60 hover:bg-white/10 hover:text-white",
-        dropdown: "bg-[#1E212B]/95 border border-white/10",
-        dropdownItemActive: "bg-white/10 text-white font-semibold",
-        dropdownItemInactive: "text-white/70 hover:bg-white/5 hover:text-white",
-        tableHeader: "bg-white/5 border-b border-white/10 text-white/60",
-        tableRow: "hover:bg-white/5 border-white/5",
-        accentColor: ""
-    };
+  const baseGlass = "backdrop-blur-xl border shadow-xl transition-all duration-300";
 
-    switch (activeOverlay) {
-        case 'christmas':
-            return { ...styles, container: `${baseGlass} bg-[#0f172a]/80 border-emerald-500/20 shadow-emerald-900/10`, card: "bg-[#0f172a]/60 border-emerald-500/20", buttonPrimary: "bg-gradient-to-r from-emerald-600 to-green-600 text-white shadow-emerald-900/20", buttonSecondary: "bg-emerald-900/40 text-emerald-100 border-emerald-500/30 hover:bg-emerald-800/50", activeTab: "bg-emerald-600 text-white shadow-md", accentColor: "text-emerald-400" };
-        case 'valentines':
-            return { ...styles, container: `${baseGlass} bg-[#2c0b0e]/80 border-rose-500/20 shadow-rose-900/10`, card: "bg-[#2c0b0e]/60 border-rose-500/20", buttonPrimary: "bg-gradient-to-r from-rose-600 to-pink-600 text-white shadow-rose-900/20", buttonSecondary: "bg-rose-900/40 text-rose-100 border-rose-500/30 hover:bg-rose-800/50", activeTab: "bg-rose-600 text-white shadow-md", accentColor: "text-rose-400" };
-        case 'graduation':
-            return { ...styles, container: `${baseGlass} bg-[#1a1400]/80 border-amber-500/20 shadow-amber-900/10`, card: "bg-[#1a1400]/60 border-amber-500/20", buttonPrimary: "bg-gradient-to-r from-amber-500 to-yellow-500 text-white shadow-amber-900/20", buttonSecondary: "bg-amber-900/40 text-amber-100 border-amber-500/30 hover:bg-amber-800/50", activeTab: "bg-amber-600 text-white shadow-md", accentColor: "text-amber-400" };
-        case 'rainy':
-            return { ...styles, container: `${baseGlass} bg-[#061816]/80 border-teal-500/20 shadow-teal-900/10`, card: "bg-[#061816]/60 border-teal-500/20", buttonPrimary: "bg-gradient-to-r from-teal-600 to-cyan-600 text-white shadow-teal-900/20", buttonSecondary: "bg-teal-900/40 text-teal-100 border-teal-500/30 hover:bg-teal-800/50", activeTab: "bg-teal-600 text-white shadow-md", accentColor: "text-teal-400" };
-        case 'cyberpunk':
-            return { ...styles, container: `${baseGlass} bg-[#180a20]/80 border-sky-500/20 shadow-sky-900/10`, card: "bg-[#180a20]/60 border-sky-500/20", buttonPrimary: "bg-gradient-to-r from-sky-600 to-sky-600 text-white shadow-sky-900/20", buttonSecondary: "bg-sky-900/40 text-sky-100 border-sky-500/30 hover:bg-sky-800/50", activeTab: "bg-sky-600 text-white shadow-md", accentColor: "text-sky-400" };
-        case 'spring':
-            return { ...styles, container: `${baseGlass} bg-[#1f0f15]/80 border-pink-500/20 shadow-pink-900/10`, card: "bg-[#1f0f15]/60 border-pink-500/20", buttonPrimary: "bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-pink-900/20", buttonSecondary: "bg-pink-900/40 text-pink-100 border-pink-500/30 hover:bg-pink-800/50", activeTab: "bg-pink-500 text-white shadow-md", accentColor: "text-pink-400" };
-        case 'space':
-            return { ...styles, container: `${baseGlass} bg-[#020617]/80 border-indigo-500/20 shadow-indigo-900/10`, card: "bg-[#020617]/60 border-indigo-500/20", buttonPrimary: "bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-indigo-900/20", buttonSecondary: "bg-indigo-900/40 text-indigo-100 border-indigo-500/30 hover:bg-indigo-800/50", activeTab: "bg-indigo-600 text-white shadow-md", accentColor: "text-indigo-400" };
-        default:
-            return null;
-    }
+  const styles = {
+    container: "",
+    card: "",
+    textMain: "text-white",
+    textSub: "text-white/60",
+    buttonPrimary: "",
+    buttonSecondary: "",
+    activeTab: "",
+    inactiveTab: "text-white/60 hover:bg-white/10 hover:text-white",
+    dropdown: "bg-[#1E212B]/95 border border-white/10",
+    dropdownItemActive: "bg-white/10 text-white font-semibold",
+    dropdownItemInactive: "text-white/70 hover:bg-white/5 hover:text-white",
+    tableHeader: "bg-white/5 border-b border-white/10 text-white/60",
+    tableRow: "hover:bg-white/5 border-white/5",
+    accentColor: ""
+  };
+
+  switch (activeOverlay) {
+    case 'christmas':
+      return { ...styles, container: `${baseGlass} bg-[#0f172a]/80 border-emerald-500/20 shadow-emerald-900/10`, card: "bg-[#0f172a]/60 border-emerald-500/20", buttonPrimary: "bg-gradient-to-r from-emerald-600 to-green-600 text-white shadow-emerald-900/20", buttonSecondary: "bg-emerald-900/40 text-emerald-100 border-emerald-500/30 hover:bg-emerald-800/50", activeTab: "bg-emerald-600 text-white shadow-md", accentColor: "text-emerald-400" };
+    case 'valentines':
+      return { ...styles, container: `${baseGlass} bg-[#2c0b0e]/80 border-rose-500/20 shadow-rose-900/10`, card: "bg-[#2c0b0e]/60 border-rose-500/20", buttonPrimary: "bg-gradient-to-r from-rose-600 to-pink-600 text-white shadow-rose-900/20", buttonSecondary: "bg-rose-900/40 text-rose-100 border-rose-500/30 hover:bg-rose-800/50", activeTab: "bg-rose-600 text-white shadow-md", accentColor: "text-rose-400" };
+    case 'graduation':
+      return { ...styles, container: `${baseGlass} bg-[#1a1400]/80 border-amber-500/20 shadow-amber-900/10`, card: "bg-[#1a1400]/60 border-amber-500/20", buttonPrimary: "bg-gradient-to-r from-amber-500 to-yellow-500 text-white shadow-amber-900/20", buttonSecondary: "bg-amber-900/40 text-amber-100 border-amber-500/30 hover:bg-amber-800/50", activeTab: "bg-amber-600 text-white shadow-md", accentColor: "text-amber-400" };
+    case 'rainy':
+      return { ...styles, container: `${baseGlass} bg-[#061816]/80 border-teal-500/20 shadow-teal-900/10`, card: "bg-[#061816]/60 border-teal-500/20", buttonPrimary: "bg-gradient-to-r from-teal-600 to-cyan-600 text-white shadow-teal-900/20", buttonSecondary: "bg-teal-900/40 text-teal-100 border-teal-500/30 hover:bg-teal-800/50", activeTab: "bg-teal-600 text-white shadow-md", accentColor: "text-teal-400" };
+    case 'cyberpunk':
+      return { ...styles, container: `${baseGlass} bg-[#180a20]/80 border-sky-500/20 shadow-sky-900/10`, card: "bg-[#180a20]/60 border-sky-500/20", buttonPrimary: "bg-gradient-to-r from-sky-600 to-sky-600 text-white shadow-sky-900/20", buttonSecondary: "bg-sky-900/40 text-sky-100 border-sky-500/30 hover:bg-sky-800/50", activeTab: "bg-sky-600 text-white shadow-md", accentColor: "text-sky-400" };
+    case 'spring':
+      return { ...styles, container: `${baseGlass} bg-[#1f0f15]/80 border-pink-500/20 shadow-pink-900/10`, card: "bg-[#1f0f15]/60 border-pink-500/20", buttonPrimary: "bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-pink-900/20", buttonSecondary: "bg-pink-900/40 text-pink-100 border-pink-500/30 hover:bg-pink-800/50", activeTab: "bg-pink-500 text-white shadow-md", accentColor: "text-pink-400" };
+    case 'space':
+      return { ...styles, container: `${baseGlass} bg-[#020617]/80 border-indigo-500/20 shadow-indigo-900/10`, card: "bg-[#020617]/60 border-indigo-500/20", buttonPrimary: "bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-indigo-900/20", buttonSecondary: "bg-indigo-900/40 text-indigo-100 border-indigo-500/30 hover:bg-indigo-800/50", activeTab: "bg-indigo-600 text-white shadow-md", accentColor: "text-indigo-400" };
+    default:
+      return null;
+  }
 };
 
 // --- STYLES CONSTANTS ---
@@ -88,8 +88,8 @@ const headingStyle = "font-display font-bold tracking-tight";
 const subHeadingStyle = "font-bold tracking-wide uppercase text-[0.65rem] letter-spacing-1";
 const dropdownContainer = "relative z-[60]";
 const dropdownItem = "block w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors duration-200";
-const activeDropdownItem = 'bg-blue-50 text-blue-700 font-semibold';
-const inactiveDropdownItem = 'text-slate-700 hover:bg-slate-100';
+const activeDropdownItem = 'bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-semibold';
+const inactiveDropdownItem = 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10';
 
 const baseButtonStyles = `
     relative font-semibold rounded-full transition-all duration-200 
@@ -101,31 +101,31 @@ const panelButton = `
     w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-sm group relative overflow-hidden
 `;
 const activePanelButton = 'text-white bg-[#007AFF] shadow-md';
-const inactivePanelButton = 'text-slate-600 hover:bg-slate-100 hover:text-slate-900';
+const inactivePanelButton = 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white';
 
 // --- SKELETONS ---
-const SkeletonPulse = ({ className }) => <div className={`animate-pulse bg-slate-200 rounded-lg ${className}`} />;
+const SkeletonPulse = ({ className }) => <div className={`animate-pulse bg-slate-200 dark:bg-slate-800 rounded-lg ${className}`} />;
 const StudentsSkeleton = () => (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="p-5 h-32 flex flex-col justify-between bg-white rounded-2xl border border-slate-200 shadow-sm">
-                <div className="flex items-center gap-4">
-                    <SkeletonPulse className="w-10 h-10 rounded-full" />
-                    <div className="flex-1 space-y-2"><SkeletonPulse className="h-4 w-3/4" /><SkeletonPulse className="h-3 w-1/2" /></div>
-                </div>
-                <SkeletonPulse className="h-6 w-24 rounded-md self-start" />
-            </div>
-        ))}
-    </div>
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+    {[1, 2, 3, 4, 5, 6].map((i) => (
+      <div key={i} className="p-5 h-32 flex flex-col justify-between bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm">
+        <div className="flex items-center gap-4">
+          <SkeletonPulse className="w-10 h-10 rounded-full" />
+          <div className="flex-1 space-y-2"><SkeletonPulse className="h-4 w-3/4" /><SkeletonPulse className="h-3 w-1/2" /></div>
+        </div>
+        <SkeletonPulse className="h-6 w-24 rounded-md self-start" />
+      </div>
+    ))}
+  </div>
 );
 const TableSkeleton = () => (
-    <div className="overflow-hidden bg-white rounded-2xl border border-slate-200 shadow-sm">
-        <div className="px-6 py-4 border-b border-slate-100 flex gap-4"><SkeletonPulse className="h-4 w-32" /><SkeletonPulse className="h-4 w-20" /></div>
-        <div className="p-4 space-y-4">{[1, 2, 3, 4, 5].map((i) => <div key={i} className="flex items-center justify-between px-2"><SkeletonPulse className="h-4 w-1/2" /><div className="flex gap-4"><SkeletonPulse className="h-6 w-12 rounded-full" /><SkeletonPulse className="h-6 w-16 rounded-md" /></div></div>)}</div>
-    </div>
+  <div className="overflow-hidden bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm">
+    <div className="px-6 py-4 border-b border-slate-100 dark:border-white/5 flex gap-4"><SkeletonPulse className="h-4 w-32" /><SkeletonPulse className="h-4 w-20" /></div>
+    <div className="p-4 space-y-4">{[1, 2, 3, 4, 5].map((i) => <div key={i} className="flex items-center justify-between px-2"><SkeletonPulse className="h-4 w-1/2" /><div className="flex gap-4"><SkeletonPulse className="h-6 w-12 rounded-full" /><SkeletonPulse className="h-6 w-16 rounded-md" /></div></div>)}</div>
+  </div>
 );
 const RecommendationsSkeleton = () => (
-    <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-16 flex items-center px-6 gap-4 bg-white rounded-2xl border border-slate-200 shadow-sm"><SkeletonPulse className="h-4 w-1/3" /><div className="flex-1" /><SkeletonPulse className="h-8 w-8 rounded-full" /><SkeletonPulse className="h-8 w-8 rounded-full" /></div>)}</div>
+  <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-16 flex items-center px-6 gap-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm"><SkeletonPulse className="h-4 w-1/3" /><div className="flex-1" /><SkeletonPulse className="h-8 w-8 rounded-full" /><SkeletonPulse className="h-8 w-8 rounded-full" /></div>)}</div>
 );
 
 // --- UTILS ---
@@ -196,23 +196,23 @@ const AnalyticsView = ({ activeClasses }) => {
   const [isGeneratingRemediation, setIsGeneratingRemediation] = useState(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [expandedRows, setExpandedRows] = useState({});
-  const [isClassDropdownOpen, setIsClassDropdownOpen] = useState(false); 
+  const [isClassDropdownOpen, setIsClassDropdownOpen] = useState(false);
   const [isQuarterDropdownOpen, setIsQuarterDropdownOpen] = useState(false);
 
   const selectedClass = useMemo(() => activeClasses.find((c) => c.id === selectedClassId), [activeClasses, selectedClassId]);
-  
+
   const { activeOverlay } = useTheme();
   // Optimization: Memoize Styles
   const monet = useMemo(() => getMonetStyles(activeOverlay), [activeOverlay]);
 
   // --- STYLES (Memoized) ---
   const dynamicStyles = useMemo(() => ({
-      container: monet ? `relative z-10 h-full flex flex-col rounded-[2rem] overflow-hidden ${monet.container}` : "relative z-10 h-full flex flex-col bg-white rounded-[2rem] shadow-2xl ring-1 ring-black/5 overflow-hidden transition-all duration-300",
-      header: monet ? "flex items-center justify-between p-6 sm:px-8 border-b border-white/10 z-20 sticky top-0" : "flex items-center justify-between p-6 sm:px-8 border-b border-slate-100 bg-white/95 z-20 sticky top-0",
-      sidebar: monet ? "w-full md:w-72 lg:w-80 flex flex-col border-r border-white/10 p-4 sm:p-6 gap-6 overflow-y-auto z-20 custom-scrollbar" : "w-full md:w-72 lg:w-80 flex flex-col border-r border-slate-100 bg-white p-4 sm:p-6 gap-6 overflow-y-auto z-20 custom-scrollbar",
-      dropdownBtn: monet ? `w-full flex justify-between items-center px-4 py-3 rounded-xl shadow-sm transition-all text-sm font-medium ${monet.buttonSecondary} border-transparent` : `w-full flex justify-between items-center px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 shadow-sm hover:bg-slate-100 transition-all text-slate-700 font-medium text-sm`,
-      dropdownList: monet ? `absolute top-full left-0 mt-2 w-full rounded-xl shadow-xl z-[70] overflow-hidden p-1 max-h-60 overflow-y-auto custom-scrollbar ${monet.dropdown}` : `absolute top-full left-0 mt-2 w-full bg-white rounded-xl shadow-xl ring-1 ring-black/5 z-[70] overflow-hidden p-1 max-h-60 overflow-y-auto custom-scrollbar`,
-      card: monet ? `rounded-2xl border shadow-sm ${monet.card}` : `bg-white rounded-2xl border border-slate-200 shadow-sm`,
+    container: monet ? `relative z-10 h-full flex flex-col rounded-[2rem] overflow-hidden ${monet.container}` : "relative z-10 h-full flex flex-col bg-white dark:bg-slate-950 rounded-[2rem] shadow-2xl ring-1 ring-black/5 dark:ring-white/10 overflow-hidden transition-all duration-300",
+    header: monet ? "flex items-center justify-between p-6 sm:px-8 border-b border-white/10 z-20 sticky top-0" : "flex items-center justify-between p-6 sm:px-8 border-b border-slate-100 dark:border-white/10 bg-white/95 dark:bg-slate-950/95 z-20 sticky top-0",
+    sidebar: monet ? "w-full md:w-72 lg:w-80 flex flex-col border-r border-white/10 p-4 sm:p-6 gap-6 overflow-y-auto z-20 custom-scrollbar" : "w-full md:w-72 lg:w-80 flex flex-col border-r border-slate-100 dark:border-white/10 bg-white dark:bg-slate-900 p-4 sm:p-6 gap-6 overflow-y-auto z-20 custom-scrollbar",
+    dropdownBtn: monet ? `w-full flex justify-between items-center px-4 py-3 rounded-xl shadow-sm transition-all text-sm font-medium ${monet.buttonSecondary} border-transparent` : `w-full flex justify-between items-center px-4 py-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 shadow-sm hover:bg-slate-100 dark:hover:bg-white/10 transition-all text-slate-700 dark:text-slate-200 font-medium text-sm`,
+    dropdownList: monet ? `absolute top-full left-0 mt-2 w-full rounded-xl shadow-xl z-[70] overflow-hidden p-1 max-h-60 overflow-y-auto custom-scrollbar ${monet.dropdown}` : `absolute top-full left-0 mt-2 w-full bg-white dark:bg-slate-800 rounded-xl shadow-xl ring-1 ring-black/5 dark:ring-white/10 z-[70] overflow-hidden p-1 max-h-60 overflow-y-auto custom-scrollbar`,
+    card: monet ? `rounded-2xl border shadow-sm ${monet.card}` : `bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm`,
   }), [monet]);
 
   // --- Effects ---
@@ -220,12 +220,12 @@ const AnalyticsView = ({ activeClasses }) => {
     let isMounted = true;
     const loadClassQuizzes = async () => {
       if (!selectedClass) {
-        if(isMounted) { setQuizzesInClass([]); setUnitsMap({}); setLessonsMap({}); setAtRiskByQuarter({}); setItemAnalysisData(null); setSelectedQuizId(""); }
+        if (isMounted) { setQuizzesInClass([]); setUnitsMap({}); setLessonsMap({}); setAtRiskByQuarter({}); setItemAnalysisData(null); setSelectedQuizId(""); }
         return;
       }
       setIsLoading(true);
       // Reset states
-      if(isMounted) { setAtRiskByQuarter({}); setItemAnalysisData(null); setSelectedQuizId(""); setAnalysisResult(null); setGeneratedRemediation(null); }
+      if (isMounted) { setAtRiskByQuarter({}); setItemAnalysisData(null); setSelectedQuizId(""); setAnalysisResult(null); setGeneratedRemediation(null); }
 
       try {
         let quizzesData = [];
@@ -240,28 +240,28 @@ const AnalyticsView = ({ activeClasses }) => {
           fetchUnitsInBatches(unitIds),
           fetchLessonsInBatches(lessonIds),
         ]);
-        if(isMounted) {
-            setUnitsMap(unitsFetched);
-            setLessonsMap(lessonsFetched);
-            setQuizzesInClass(quizzesData.map((q) => ({ ...q, unitDisplayName: q.unitId ? unitsFetched[q.unitId] || "Uncategorized" : "Uncategorized", lessonTitle: q.lessonId ? lessonsFetched[q.lessonId]?.title || "" : "" })));
+        if (isMounted) {
+          setUnitsMap(unitsFetched);
+          setLessonsMap(lessonsFetched);
+          setQuizzesInClass(quizzesData.map((q) => ({ ...q, unitDisplayName: q.unitId ? unitsFetched[q.unitId] || "Uncategorized" : "Uncategorized", lessonTitle: q.lessonId ? lessonsFetched[q.lessonId]?.title || "" : "" })));
         }
       } catch (err) {
         console.error("Error loading class quizzes:", err);
-        if(isMounted) setQuizzesInClass([]);
+        if (isMounted) setQuizzesInClass([]);
       } finally {
-        if(isMounted) setIsLoading(false);
+        if (isMounted) setIsLoading(false);
       }
     };
     loadClassQuizzes();
     return () => { isMounted = false; };
-  }, [selectedClassId, selectedClass]); 
+  }, [selectedClassId, selectedClass]);
 
   // Optimized At-Risk Loader
   useEffect(() => {
     let isMounted = true;
     const loadAtRiskData = async () => {
       if (analysisType !== "students" || !selectedClassId || !selectedClass?.students || !quizzesInClass.length) {
-        if(isMounted) setAtRiskByQuarter({});
+        if (isMounted) setAtRiskByQuarter({});
         return;
       }
       setIsLoading(true);
@@ -271,8 +271,8 @@ const AnalyticsView = ({ activeClasses }) => {
         // For now, we query but awareness of read costs is important.
         const allSubsQ = query(collection(db, "quizSubmissions"), where("classId", "==", selectedClassId));
         const allSubsSnap = await getDocs(allSubsQ);
-        
-        if(!isMounted) return;
+
+        if (!isMounted) return;
 
         const subsByStudent = {};
         allSubsSnap.docs.forEach(doc => {
@@ -284,123 +284,123 @@ const AnalyticsView = ({ activeClasses }) => {
 
         // Loop optimization
         selectedClass.students.forEach(student => {
-           const studentId = student.id || student.userId || student.uid;
-           if(!studentId || !subsByStudent[studentId]) return;
+          const studentId = student.id || student.userId || student.uid;
+          if (!studentId || !subsByStudent[studentId]) return;
 
-           const studentName = student.firstName && student.lastName ? `${student.firstName} ${student.lastName}` : student.name || student.id || "Unnamed Student";
-           
-           // Fast calculate quarters
-           const quarterScores = { 1: [], 2: [], 3: [], 4: [] };
-           const processedQuizzes = new Set(); // To handle repeats if necessary, though best attempt logic is used below
+          const studentName = student.firstName && student.lastName ? `${student.firstName} ${student.lastName}` : student.name || student.id || "Unnamed Student";
 
-           // Filter to best attempts only
-           const bestAttempts = new Map();
-           subsByStudent[studentId].forEach(sub => {
-               const existing = bestAttempts.get(sub.quizId);
-               if(!existing || (sub.score > existing.score)) {
-                   bestAttempts.set(sub.quizId, sub);
-               }
-           });
+          // Fast calculate quarters
+          const quarterScores = { 1: [], 2: [], 3: [], 4: [] };
+          const processedQuizzes = new Set(); // To handle repeats if necessary, though best attempt logic is used below
 
-           bestAttempts.forEach(attempt => {
-               const quiz = quizzesInClass.find(q => q.id === attempt.quizId);
-               const quarter = attempt.quarter || quiz?.quarter;
-               if(quarter && quarterScores[quarter]) {
-                   const percent = attempt.totalItems > 0 ? (attempt.score / attempt.totalItems) * 100 : 0;
-                   quarterScores[quarter].push(percent);
-               }
-           });
+          // Filter to best attempts only
+          const bestAttempts = new Map();
+          subsByStudent[studentId].forEach(sub => {
+            const existing = bestAttempts.get(sub.quizId);
+            if (!existing || (sub.score > existing.score)) {
+              bestAttempts.set(sub.quizId, sub);
+            }
+          });
 
-           Object.entries(quarterScores).forEach(([q, scores]) => {
-               if(scores.length > 0) {
-                   const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
-                   if (avg < 75) quarterGroups[q].push({ id: studentId, name: studentName, reasons: [`Quarter ${q}: Avg ${avg.toFixed(0)}%`] });
-               }
-           });
+          bestAttempts.forEach(attempt => {
+            const quiz = quizzesInClass.find(q => q.id === attempt.quizId);
+            const quarter = attempt.quarter || quiz?.quarter;
+            if (quarter && quarterScores[quarter]) {
+              const percent = attempt.totalItems > 0 ? (attempt.score / attempt.totalItems) * 100 : 0;
+              quarterScores[quarter].push(percent);
+            }
+          });
+
+          Object.entries(quarterScores).forEach(([q, scores]) => {
+            if (scores.length > 0) {
+              const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+              if (avg < 75) quarterGroups[q].push({ id: studentId, name: studentName, reasons: [`Quarter ${q}: Avg ${avg.toFixed(0)}%`] });
+            }
+          });
         });
 
         setAtRiskByQuarter(quarterGroups);
       } catch (err) {
         console.error("Error loading at-risk data:", err);
       } finally {
-        if(isMounted) setIsLoading(false);
+        if (isMounted) setIsLoading(false);
       }
     };
     loadAtRiskData();
     return () => { isMounted = false; };
-  }, [analysisType, selectedClassId, selectedClass, quizzesInClass]); 
+  }, [analysisType, selectedClassId, selectedClass, quizzesInClass]);
 
   useEffect(() => {
     let isMounted = true;
     const analyzeQuizData = async () => {
       if (!selectedQuizId) {
-        if(isMounted) { setItemAnalysisData(null); setLessonData(null); }
+        if (isMounted) { setItemAnalysisData(null); setLessonData(null); }
         return;
       }
       setIsLoading(true);
       setAnalysisResult(null);
       setGeneratedRemediation(null);
-      
-      try {
-          const subsQ = query(collection(db, "quizSubmissions"), where("quizId", "==", selectedQuizId), where("classId", "==", selectedClassId));
-          const subsSnap = await getDocs(subsQ);
-          if(!isMounted) return;
 
-          const submissions = subsSnap.docs.map((d) => d.data());
-          if (submissions.length === 0) {
-            setItemAnalysisData([]);
-            setIsLoading(false);
-            return;
+      try {
+        const subsQ = query(collection(db, "quizSubmissions"), where("quizId", "==", selectedQuizId), where("classId", "==", selectedClassId));
+        const subsSnap = await getDocs(subsQ);
+        if (!isMounted) return;
+
+        const submissions = subsSnap.docs.map((d) => d.data());
+        if (submissions.length === 0) {
+          setItemAnalysisData([]);
+          setIsLoading(false);
+          return;
+        }
+
+        // Data Transformation Logic (Simplified)
+        const firstAttempts = new Map();
+        submissions.forEach((sub) => {
+          const submittedAt = sub.submittedAt?.seconds ? sub.submittedAt.seconds : new Date(sub.submittedAt).getTime() / 1000;
+          const existing = firstAttempts.get(sub.studentId);
+          if (!existing || submittedAt < existing.submittedAt) {
+            firstAttempts.set(sub.studentId, { ...sub, submittedAt });
           }
-          
-          // Data Transformation Logic (Simplified)
-          const firstAttempts = new Map();
-          submissions.forEach((sub) => {
-            const submittedAt = sub.submittedAt?.seconds ? sub.submittedAt.seconds : new Date(sub.submittedAt).getTime() / 1000;
-            const existing = firstAttempts.get(sub.studentId);
-            if (!existing || submittedAt < existing.submittedAt) {
-              firstAttempts.set(sub.studentId, { ...sub, submittedAt });
+        });
+
+        const questionAnalysis = {};
+        firstAttempts.forEach((submission) => {
+          (submission.answers || []).forEach((answer) => {
+            if (!answer || !answer.questionText) return;
+            if (!questionAnalysis[answer.questionText]) {
+              questionAnalysis[answer.questionText] = { correct: 0, total: 0, type: answer.questionType || "multiple-choice", breakdown: [] };
+            }
+            const qData = questionAnalysis[answer.questionText];
+            if (answer.questionType === "matching-type") {
+              (answer.prompts || []).forEach((p) => {
+                const isPairCorrect = p.userAnswerId && p.userAnswerId === p.correctAnswerId;
+                if (isPairCorrect) qData.correct++;
+                qData.total++;
+                qData.breakdown.push({ promptId: p.id || p.promptId, promptText: p.text || p.promptText || "", studentChoice: p.userAnswerText || null, correctChoice: p.correctAnswerText || null, isCorrect: isPairCorrect });
+              });
+            } else {
+              qData.total++;
+              if (answer.isCorrect) qData.correct++;
             }
           });
+        });
 
-          const questionAnalysis = {};
-          firstAttempts.forEach((submission) => {
-            (submission.answers || []).forEach((answer) => {
-              if (!answer || !answer.questionText) return;
-              if (!questionAnalysis[answer.questionText]) {
-                questionAnalysis[answer.questionText] = { correct: 0, total: 0, type: answer.questionType || "multiple-choice", breakdown: [] };
-              }
-              const qData = questionAnalysis[answer.questionText];
-              if (answer.questionType === "matching-type") {
-                (answer.prompts || []).forEach((p) => {
-                  const isPairCorrect = p.userAnswerId && p.userAnswerId === p.correctAnswerId;
-                  if (isPairCorrect) qData.correct++;
-                  qData.total++;
-                  qData.breakdown.push({ promptId: p.id || p.promptId, promptText: p.text || p.promptText || "", studentChoice: p.userAnswerText || null, correctChoice: p.correctAnswerText || null, isCorrect: isPairCorrect });
-                });
-              } else {
-                qData.total++;
-                if (answer.isCorrect) qData.correct++;
-              }
-            });
-          });
+        const results = Object.keys(questionAnalysis).map((question) => {
+          const { correct, total, type, breakdown } = questionAnalysis[question];
+          return { question, correct, total, difficulty: total > 0 ? ((correct / total) * 100).toFixed(0) + "%" : "N/A", type, breakdown: type === "matching-type" ? breakdown : undefined };
+        });
 
-          const results = Object.keys(questionAnalysis).map((question) => {
-            const { correct, total, type, breakdown } = questionAnalysis[question];
-            return { question, correct, total, difficulty: total > 0 ? ((correct / total) * 100).toFixed(0) + "%" : "N/A", type, breakdown: type === "matching-type" ? breakdown : undefined };
-          });
-          
-          setItemAnalysisData(results);
+        setItemAnalysisData(results);
 
-          // Fetch Lesson Data for Context
-          const quizDoc = quizzesInClass.find((q) => q.id === selectedQuizId);
-          if (quizDoc?.lessonId) {
-              const lessonRef = doc(db, "lessons", quizDoc.lessonId);
-              const lessonSnap = await getDoc(lessonRef);
-              if (lessonSnap.exists()) setLessonData({ id: lessonSnap.id, ...lessonSnap.data() });
-          }
+        // Fetch Lesson Data for Context
+        const quizDoc = quizzesInClass.find((q) => q.id === selectedQuizId);
+        if (quizDoc?.lessonId) {
+          const lessonRef = doc(db, "lessons", quizDoc.lessonId);
+          const lessonSnap = await getDoc(lessonRef);
+          if (lessonSnap.exists()) setLessonData({ id: lessonSnap.id, ...lessonSnap.data() });
+        }
       } catch (e) { console.error(e); }
-      finally { if(isMounted) setIsLoading(false); }
+      finally { if (isMounted) setIsLoading(false); }
     };
     analyzeQuizData();
     return () => { isMounted = false; };
@@ -409,17 +409,17 @@ const AnalyticsView = ({ activeClasses }) => {
   useEffect(() => {
     let isMounted = true;
     const loadSavedRecs = async () => {
-      if (!selectedClassId) { if(isMounted) setSavedRecs([]); return; }
+      if (!selectedClassId) { if (isMounted) setSavedRecs([]); return; }
       const q = query(collection(db, "recommendations"), where("classId", "==", selectedClassId));
       const snap = await getDocs(q);
-      if(isMounted) setSavedRecs(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      if (isMounted) setSavedRecs(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     };
     loadSavedRecs();
     return () => { isMounted = false; };
   }, [selectedClassId, isSaving]);
 
   // --- ACTIONS ---
-  
+
   const generateAnalysisReport = async () => {
     if (!itemAnalysisData) return;
     setIsAnalyzing(true);
@@ -459,38 +459,38 @@ const AnalyticsView = ({ activeClasses }) => {
       setIsAnalyzing(false);
     }
   };
-  
+
   const generateRemediationPlan = async () => {
-      if (!analysisResult?.recommendation_action) { alert("Error: No analysis result found."); return; }
-      if (!lessonData) { alert("Cannot generate remediation plan because this Quiz is not linked to a Lesson content in the database."); return; }
+    if (!analysisResult?.recommendation_action) { alert("Error: No analysis result found."); return; }
+    if (!lessonData) { alert("Cannot generate remediation plan because this Quiz is not linked to a Lesson content in the database."); return; }
 
-      const action = analysisResult.recommendation_action;
-      if (action === "NONE") { alert("No remediation needed."); return; }
+    const action = analysisResult.recommendation_action;
+    if (action === "NONE") { alert("No remediation needed."); return; }
 
-      const weakItems = itemAnalysisData.filter((i) => {
-          const percent = i.total > 0 ? (i.correct / i.total) * 100 : 0;
-          return percent < 75;
-      });
-      
-      // Fallback if all items are good but average is low (edge case)
-      const targetItems = weakItems.length > 0 ? weakItems : [...itemAnalysisData].sort((a,b) => {
-           const perA = a.total > 0 ? (a.correct / a.total) : 0;
-           const perB = b.total > 0 ? (b.correct / b.total) : 0;
-           return perA - perB;
-      }).slice(0,3);
+    const weakItems = itemAnalysisData.filter((i) => {
+      const percent = i.total > 0 ? (i.correct / i.total) * 100 : 0;
+      return percent < 75;
+    });
 
-      setIsGeneratingRemediation(true);
-      try {
-          const lessonLanguage = lessonData?.language || "original language";
-          const pages = lessonData?.pages || [];
-          const lessonText = pages.length > 0 ? pages.map((p) => `${p.title ? p.title + "\n" : ""}${p.content || ""}`).join("\n\n") : lessonData.content || "No lesson content found.";
-          const weakTopicsString = targetItems.map((item) => `- ${item.question} (Diff: ${item.difficulty})`).join("\n");
-        
-          let duration = "60 minutes";
-          if (action === "REVIEW") duration = "20 minutes";
-          else if (action === "PARTIAL_RETEACH") duration = "40 minutes";
+    // Fallback if all items are good but average is low (edge case)
+    const targetItems = weakItems.length > 0 ? weakItems : [...itemAnalysisData].sort((a, b) => {
+      const perA = a.total > 0 ? (a.correct / a.total) : 0;
+      const perB = b.total > 0 ? (b.correct / b.total) : 0;
+      return perA - perB;
+    }).slice(0, 3);
 
-          const prompt = `
+    setIsGeneratingRemediation(true);
+    try {
+      const lessonLanguage = lessonData?.language || "original language";
+      const pages = lessonData?.pages || [];
+      const lessonText = pages.length > 0 ? pages.map((p) => `${p.title ? p.title + "\n" : ""}${p.content || ""}`).join("\n\n") : lessonData.content || "No lesson content found.";
+      const weakTopicsString = targetItems.map((item) => `- ${item.question} (Diff: ${item.difficulty})`).join("\n");
+
+      let duration = "60 minutes";
+      if (action === "REVIEW") duration = "20 minutes";
+      else if (action === "PARTIAL_RETEACH") duration = "40 minutes";
+
+      const prompt = `
           Create a remedial lesson plan.
           Original: "${lessonData?.title}"
           Text: ${lessonText.substring(0, 2000)}...
@@ -501,19 +501,19 @@ const AnalyticsView = ({ activeClasses }) => {
           Output JSON: { "weak_topics": ["str"], "remediation_lessons": [{ "topic": "str", "objectives": ["str"], "time_allotment": "str", "lesson_plan": [{"phase":"str", "time":"str", "teacher_instructions":"str", "activity": {"title":"str", "instructions":"str", "materials_needed":["str"]}}], "notes_for_teachers": "str" }] }
           `;
 
-          const rawAiResponse = await callGeminiWithLimitCheck(prompt);
-          const firstBracket = rawAiResponse.indexOf("{");
-          const lastBracket = rawAiResponse.lastIndexOf("}");
-          if (firstBracket === -1 || lastBracket === -1) throw new Error("Invalid AI Response format");
-          setGeneratedRemediation(JSON.parse(rawAiResponse.substring(firstBracket, lastBracket + 1)));
-          setIsAnalysisModalOpen(false);
-          setIsPreviewModalOpen(true);
-      } catch (err) {
-          console.error("Remediation Error", err);
-          alert("Error generating remediation: " + err.message);
-      } finally {
-          setIsGeneratingRemediation(false);
-      }
+      const rawAiResponse = await callGeminiWithLimitCheck(prompt);
+      const firstBracket = rawAiResponse.indexOf("{");
+      const lastBracket = rawAiResponse.lastIndexOf("}");
+      if (firstBracket === -1 || lastBracket === -1) throw new Error("Invalid AI Response format");
+      setGeneratedRemediation(JSON.parse(rawAiResponse.substring(firstBracket, lastBracket + 1)));
+      setIsAnalysisModalOpen(false);
+      setIsPreviewModalOpen(true);
+    } catch (err) {
+      console.error("Remediation Error", err);
+      alert("Error generating remediation: " + err.message);
+    } finally {
+      setIsGeneratingRemediation(false);
+    }
   };
 
   const exportItemAnalysisToCSV = () => {
@@ -558,7 +558,7 @@ const AnalyticsView = ({ activeClasses }) => {
         });
       }
       if (lesson) {
-        if(content.length > 0) content.push({text: '', pageBreak: 'before'});
+        if (content.length > 0) content.push({ text: '', pageBreak: 'before' });
         let lessonContent = [];
         lessonContent.push({ text: lesson.topic, style: 'pageTitle' });
         lessonContent.push({ text: 'Objectives', style: 'subheading' });
@@ -576,9 +576,9 @@ const AnalyticsView = ({ activeClasses }) => {
             }
           }
         });
-        if(lesson.notes_for_teachers){
-            lessonContent.push({ text: 'Notes for Teachers', style: 'subheading' });
-            lessonContent.push(convertMarkdown(lesson.notes_for_teachers));
+        if (lesson.notes_for_teachers) {
+          lessonContent.push({ text: 'Notes for Teachers', style: 'subheading' });
+          lessonContent.push(convertMarkdown(lesson.notes_for_teachers));
         }
         content.push({ stack: lessonContent, alignment: 'justify' });
       }
@@ -626,7 +626,7 @@ const AnalyticsView = ({ activeClasses }) => {
       setIsPreviewModalOpen(false);
     } catch (err) { console.error(err); } finally { setIsSaving(false); }
   };
-  
+
   const deleteRecommendation = async (recDoc) => {
     if (!recDoc || !confirm("Delete?")) return;
     await deleteDoc(doc(db, "recommendations", recDoc.id));
@@ -657,242 +657,242 @@ const AnalyticsView = ({ activeClasses }) => {
       <div className={dynamicStyles.container}>
         {/* Header Bar */}
         <div className={dynamicStyles.header}>
-            <div className="flex flex-col">
-                <h1 className={`${headingStyle} text-2xl sm:text-3xl ${monet ? monet.textMain : 'text-slate-900'}`}>Analytics Center</h1>
-                <span className={`text-xs mt-1 font-medium tracking-wide ${monet ? monet.textSub : 'text-slate-500'}`}>Real-time Performance & Insights</span>
-            </div>
+          <div className="flex flex-col">
+            <h1 className={`${headingStyle} text-2xl sm:text-3xl ${monet ? monet.textMain : 'text-slate-900 dark:text-white'}`}>Analytics Center</h1>
+            <span className={`text-xs mt-1 font-medium tracking-wide ${monet ? monet.textSub : 'text-slate-500 dark:text-slate-400'}`}>Real-time Performance & Insights</span>
+          </div>
         </div>
 
         <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-            {/* --- SIDEBAR --- */}
-            <div className={dynamicStyles.sidebar}>
-                {/* Class Selector */}
+          {/* --- SIDEBAR --- */}
+          <div className={dynamicStyles.sidebar}>
+            {/* Class Selector */}
+            <div className={dropdownContainer}>
+              <div className={`${subHeadingStyle} mb-2 ml-1 ${monet ? monet.textSub : 'text-slate-400 dark:text-slate-500'}`}>Select Class</div>
+              <button onClick={() => setIsClassDropdownOpen(!isClassDropdownOpen)} className={dynamicStyles.dropdownBtn}>
+                <span className="truncate">{selectedClass ? selectedClass.name : "Choose Class"}</span>
+                <IconChevronDown className={`w-4 h-4 transition-transform ${isClassDropdownOpen ? 'rotate-180' : ''} ${monet ? 'text-white/50' : 'text-slate-400 dark:text-slate-500'}`} />
+              </button>
+              <AnimatePresence>
+                {isClassDropdownOpen && (
+                  <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className={dynamicStyles.dropdownList}>
+                    <button onClick={() => { setSelectedClassId(""); setIsClassDropdownOpen(false); }} className={`${dropdownItem} ${!selectedClassId ? (monet ? monet.dropdownItemActive : activeDropdownItem) : (monet ? monet.dropdownItemInactive : inactiveDropdownItem)}`}>None</button>
+                    {activeClasses.map((cls) => (
+                      <button key={cls.id} onClick={() => { setSelectedClassId(cls.id); setSelectedQuizId(""); setIsClassDropdownOpen(false); }} className={`${dropdownItem} ${selectedClassId === cls.id ? (monet ? monet.dropdownItemActive : activeDropdownItem) : (monet ? monet.dropdownItemInactive : inactiveDropdownItem)}`}>{cls.name}</button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Navigation Tabs */}
+            <div className="flex flex-col gap-2">
+              <div className={`${subHeadingStyle} mb-1 ml-1 ${monet ? monet.textSub : 'text-slate-400 dark:text-slate-500'}`}>Analysis Tools</div>
+              <button onClick={() => setAnalysisType("students")} className={`${panelButton} ${analysisType === "students" ? (monet ? monet.activeTab : activePanelButton) : (monet ? monet.inactiveTab : inactivePanelButton)}`}>
+                <IconAlertTriangle size={20} className={analysisType === "students" ? "text-white" : (monet ? "text-white/60" : "text-amber-500")} /> <span>At-Risk Students</span>
+              </button>
+              <button onClick={() => setAnalysisType("quizzes")} className={`${panelButton} ${analysisType === "quizzes" ? (monet ? monet.activeTab : activePanelButton) : (monet ? monet.inactiveTab : inactivePanelButton)}`}>
+                <IconChartBar size={20} className={analysisType === "quizzes" ? "text-white" : (monet ? "text-white/60" : "text-sky-500")} /> <span>Quiz Analysis</span>
+              </button>
+              <button onClick={() => setAnalysisType("recommendations")} className={`${panelButton} ${analysisType === "recommendations" ? (monet ? monet.activeTab : activePanelButton) : (monet ? monet.inactiveTab : inactivePanelButton)}`}>
+                <IconBrain size={20} className={analysisType === "recommendations" ? "text-white" : (monet ? "text-white/60" : "text-emerald-500")} /> <span>Recommendations</span>
+              </button>
+            </div>
+
+            {/* Contextual Sidebar Content */}
+            <div className="flex-1 space-y-4 pr-2">
+              {analysisType === "students" && selectedClassId && (
                 <div className={dropdownContainer}>
-                  <div className={`${subHeadingStyle} mb-2 ml-1 ${monet ? monet.textSub : 'text-slate-400'}`}>Select Class</div>
-                  <button onClick={() => setIsClassDropdownOpen(!isClassDropdownOpen)} className={dynamicStyles.dropdownBtn}>
-                      <span className="truncate">{selectedClass ? selectedClass.name : "Choose Class"}</span>
-                      <IconChevronDown className={`w-4 h-4 transition-transform ${isClassDropdownOpen ? 'rotate-180' : ''} ${monet ? 'text-white/50' : 'text-slate-400'}`} />
+                  <div className={`${subHeadingStyle} mb-2 ml-1 ${monet ? monet.textSub : 'text-slate-400 dark:text-slate-500'}`}>Quarter Filter</div>
+                  <button onClick={() => setIsQuarterDropdownOpen(!isQuarterDropdownOpen)} className={dynamicStyles.dropdownBtn}>
+                    <span>{(quarterOptions.find(q => q.value === selectedQuarter) || quarterOptions[0]).label}</span>
+                    <IconChevronDown className={`w-4 h-4 transition-transform ${isQuarterDropdownOpen ? 'rotate-180' : ''} ${monet ? 'text-white/50' : 'opacity-50'}`} />
                   </button>
                   <AnimatePresence>
-                    {isClassDropdownOpen && (
-                        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className={dynamicStyles.dropdownList}>
-                            <button onClick={() => { setSelectedClassId(""); setIsClassDropdownOpen(false); }} className={`${dropdownItem} ${!selectedClassId ? (monet ? monet.dropdownItemActive : activeDropdownItem) : (monet ? monet.dropdownItemInactive : inactiveDropdownItem)}`}>None</button>
-                            {activeClasses.map((cls) => (
-                                <button key={cls.id} onClick={() => { setSelectedClassId(cls.id); setSelectedQuizId(""); setIsClassDropdownOpen(false); }} className={`${dropdownItem} ${selectedClassId === cls.id ? (monet ? monet.dropdownItemActive : activeDropdownItem) : (monet ? monet.dropdownItemInactive : inactiveDropdownItem)}`}>{cls.name}</button>
-                            ))}
-                        </motion.div>
+                    {isQuarterDropdownOpen && (
+                      <motion.div initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }} transition={{ duration: 0.2 }} className={dynamicStyles.dropdownList}>
+                        {quarterOptions.map((opt) => (
+                          <button key={opt.value} onClick={() => { setSelectedQuarter(opt.value); setIsQuarterDropdownOpen(false); }} className={`${dropdownItem} ${selectedQuarter === opt.value ? (monet ? monet.dropdownItemActive : activeDropdownItem) : (monet ? monet.dropdownItemInactive : inactiveDropdownItem)}`}>{opt.label}</button>
+                        ))}
+                      </motion.div>
                     )}
                   </AnimatePresence>
                 </div>
+              )}
 
-                {/* Navigation Tabs */}
-                <div className="flex flex-col gap-2">
-                    <div className={`${subHeadingStyle} mb-1 ml-1 ${monet ? monet.textSub : 'text-slate-400'}`}>Analysis Tools</div>
-                    <button onClick={() => setAnalysisType("students")} className={`${panelButton} ${analysisType === "students" ? (monet ? monet.activeTab : activePanelButton) : (monet ? monet.inactiveTab : inactivePanelButton)}`}>
-                        <IconAlertTriangle size={20} className={analysisType === "students" ? "text-white" : (monet ? "text-white/60" : "text-amber-500")} /> <span>At-Risk Students</span>
-                    </button>
-                    <button onClick={() => setAnalysisType("quizzes")} className={`${panelButton} ${analysisType === "quizzes" ? (monet ? monet.activeTab : activePanelButton) : (monet ? monet.inactiveTab : inactivePanelButton)}`}>
-                        <IconChartBar size={20} className={analysisType === "quizzes" ? "text-white" : (monet ? "text-white/60" : "text-sky-500")} /> <span>Quiz Analysis</span>
-                    </button>
-                    <button onClick={() => setAnalysisType("recommendations")} className={`${panelButton} ${analysisType === "recommendations" ? (monet ? monet.activeTab : activePanelButton) : (monet ? monet.inactiveTab : inactivePanelButton)}`}>
-                        <IconBrain size={20} className={analysisType === "recommendations" ? "text-white" : (monet ? "text-white/60" : "text-emerald-500")} /> <span>Recommendations</span>
-                    </button>
-                </div>
-
-                {/* Contextual Sidebar Content */}
-                <div className="flex-1 space-y-4 pr-2">
-                    {analysisType === "students" && selectedClassId && (
-                        <div className={dropdownContainer}>
-                             <div className={`${subHeadingStyle} mb-2 ml-1 ${monet ? monet.textSub : 'text-slate-400'}`}>Quarter Filter</div>
-                             <button onClick={() => setIsQuarterDropdownOpen(!isQuarterDropdownOpen)} className={dynamicStyles.dropdownBtn}>
-                                <span>{(quarterOptions.find(q => q.value === selectedQuarter) || quarterOptions[0]).label}</span>
-                                <IconChevronDown className={`w-4 h-4 transition-transform ${isQuarterDropdownOpen ? 'rotate-180' : ''} ${monet ? 'text-white/50' : 'opacity-50'}`} />
-                             </button>
-                             <AnimatePresence>
-                                {isQuarterDropdownOpen && (
-                                    <motion.div initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }} transition={{ duration: 0.2 }} className={dynamicStyles.dropdownList}>
-                                        {quarterOptions.map((opt) => (
-                                            <button key={opt.value} onClick={() => { setSelectedQuarter(opt.value); setIsQuarterDropdownOpen(false); }} className={`${dropdownItem} ${selectedQuarter === opt.value ? (monet ? monet.dropdownItemActive : activeDropdownItem) : (monet ? monet.dropdownItemInactive : inactiveDropdownItem)}`}>{opt.label}</button>
-                                        ))}
-                                    </motion.div>
-                                )}
-                             </AnimatePresence>
-                        </div>
-                    )}
-
-                    {analysisType === "quizzes" && selectedClassId && (
-                        <div className="space-y-1">
-                             <div className={`${subHeadingStyle} mb-3 ml-1 ${monet ? monet.textSub : 'text-slate-400'}`}>Available Quizzes</div>
-                             {Object.keys(quizzesInClass.reduce((acc, quiz) => {
-                                const unitName = quiz.unitDisplayName || "Uncategorized";
-                                if (!acc[unitName]) acc[unitName] = [];
-                                acc[unitName].push(quiz);
-                                return acc;
-                             }, {})).sort(customUnitSort).map((unitName) => (
-                                <div key={unitName} className="mb-2">
-                                    <button onClick={() => setOpenUnit(openUnit === unitName ? null : unitName)} className={`flex items-center justify-between w-full py-2 px-2 text-xs font-bold uppercase tracking-wide transition-colors ${monet ? 'text-white/60 hover:text-white' : 'text-slate-500 hover:text-blue-500'}`}>
-                                        {unitName} <IconChevronDown size={14} className={`transition-transform ${openUnit === unitName ? 'rotate-180' : ''}`} />
-                                    </button>
-                                    <AnimatePresence>
-                                        {openUnit === unitName && (
-                                            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className={`overflow-hidden ml-2 space-y-1 border-l pl-2 ${monet ? 'border-white/10' : 'border-slate-200'}`}>
-                                                {quizzesInClass.filter((q) => (q.unitDisplayName || "Uncategorized") === unitName).sort((a, b) => a.title.localeCompare(b.title)).map((q) => (
-                                                    <button key={q.id} onClick={() => setSelectedQuizId(q.id)} className={`text-sm w-full text-left px-3 py-2 rounded-lg transition-all ${selectedQuizId === q.id ? (monet ? `bg-white/20 text-white font-semibold` : 'bg-blue-50 text-blue-600 font-semibold') : (monet ? 'text-white/70 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50')}`}>{q.title}</button>
-                                                ))}
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
-                                </div>
-                             ))}
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* --- MAIN CONTENT --- */}
-            <motion.div 
-                key={analysisType}
-                initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.4, ease: "easeOut" }}
-                className="flex-1 p-6 sm:p-10 overflow-y-auto custom-scrollbar relative"
-            >
-                {(isAnalyzing || isGeneratingRemediation) && (
-                    <div className={`absolute inset-0 z-50 flex flex-col items-center justify-center backdrop-blur-sm rounded-[2rem] ${monet ? 'bg-black/40 text-white' : 'bg-white/80'}`}>
-                        <Spinner size="xl" />
-                        <span className={`mt-4 font-medium animate-pulse ${monet ? 'text-white' : 'text-slate-600'}`}>{isGeneratingRemediation ? "Designing Personalized Remediation..." : "Analyzing..."}</span>
-                    </div>
-                )}
-
-                {!selectedClassId && (
-                    <div className={`h-full flex flex-col items-center justify-center text-center opacity-60 ${monet ? 'text-white' : ''}`}>
-                         <div className={`w-24 h-24 rounded-3xl flex items-center justify-center mb-6 ${monet ? 'bg-white/10' : 'bg-slate-100'}`}><IconAnalyze size={48} className={monet ? "text-white/50" : "text-slate-400"} /></div>
-                         <h2 className={`text-xl font-bold ${monet ? 'text-white' : 'text-slate-700'}`}>No Class Selected</h2>
-                         <p className={`${monet ? 'text-white/60' : 'text-slate-500'} mt-2 max-w-xs`}>Select a class from the sidebar to begin analyzing student performance.</p>
-                    </div>
-                )}
-
-                {selectedClassId && analysisType === "students" && (
-                    <div className="space-y-8">
-                        <div className="flex items-baseline justify-between">
-                            <h2 className={`text-2xl font-bold tracking-tight ${monet ? monet.textMain : 'text-slate-800'}`}>At-Risk Students</h2>
-                            <span className={`text-sm font-medium ${monet ? monet.textSub : 'text-slate-500'}`}>Threshold: &lt; 75% Avg</span>
-                        </div>
-                        
-                        {isLoading ? <StudentsSkeleton /> : selectedQuarter ? (
-                            atRiskByQuarter[selectedQuarter]?.length > 0 ? (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                                    {atRiskByQuarter[selectedQuarter].map((st) => (
-                                        <motion.div whileHover={{ y: -2 }} key={st.id} className={`${dynamicStyles.card} p-5 border-l-4 border-l-red-500 hover:shadow-md transition-all`}>
-                                            <div className="flex items-start gap-4">
-                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${monet ? 'bg-red-500/20 text-red-300' : 'bg-red-50 text-red-600'}`}><IconAlertTriangle size={20} /></div>
-                                                <div>
-                                                    <h3 className={`font-bold text-base ${monet ? monet.textMain : 'text-slate-800'}`}>{st.name}</h3>
-                                                    <div className="mt-2 space-y-1">
-                                                        {st.reasons.map((r, i) => <span key={i} className={`inline-block px-2 py-1 rounded-md text-xs font-medium ${monet ? 'bg-red-500/20 text-red-200' : 'bg-red-50 text-red-700'}`}>{r}</span>)}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </motion.div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className={`${dynamicStyles.card} p-12 flex flex-col items-center justify-center text-center`}>
-                                    <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${monet ? 'bg-emerald-500/20' : 'bg-emerald-50'}`}><IconCheck size={32} className={monet ? "text-emerald-300" : "text-emerald-600"} /></div>
-                                    <h3 className={`text-lg font-bold ${monet ? monet.textMain : 'text-slate-800'}`}>All Clear!</h3>
-                                    <p className={`${monet ? monet.textSub : 'text-slate-500'} mt-1`}>No students are flagged as at-risk for this quarter.</p>
-                                </div>
-                            )
-                        ) : <div className={`${dynamicStyles.card} p-8 text-center opacity-70 ${monet ? monet.textSub : 'text-slate-500'}`}>Please select a quarter to view analysis.</div>}
-                    </div>
-                )}
-
-                {selectedClassId && analysisType === "quizzes" && (
-                    <div className="space-y-6">
-                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                             <h2 className={`text-2xl font-bold tracking-tight ${monet ? monet.textMain : 'text-slate-800'}`}>Item Analysis</h2>
-                             {selectedQuizId && itemAnalysisData && !isLoading && (
-                                 <div className="flex gap-2">
-                                     <button onClick={exportItemAnalysisToCSV} className={`${baseButtonStyles} px-5 py-2.5 text-sm ${monet ? monet.buttonSecondary : 'text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200'}`}><IconDownload size={16} /> CSV</button>
-                                     <button onClick={generateAnalysisReport} disabled={isAnalyzing} className={`${baseButtonStyles} px-5 py-2.5 text-sm ${monet ? monet.buttonPrimary : 'text-white bg-[#007AFF] hover:bg-[#0062cc] shadow-sm'}`}><IconAnalyze size={18} /> AI Analysis</button>
-                                 </div>
-                             )}
-                         </div>
-
-                         {isLoading ? <TableSkeleton /> : selectedQuizId && itemAnalysisData && itemAnalysisData.length > 0 ? (
-                             <div className={`${dynamicStyles.card} overflow-hidden`}>
-                                 <table className="w-full text-sm text-left">
-                                     <thead className={`text-xs font-bold uppercase ${monet ? monet.tableHeader : 'text-slate-500 bg-slate-50 border-b border-slate-200'}`}><tr><th className="px-6 py-4">Question</th><th className="px-6 py-4 text-center">Performance</th><th className="px-6 py-4 text-right">Mastery</th></tr></thead>
-                                     <tbody className={`divide-y ${monet ? 'divide-white/5' : 'divide-slate-100'}`}>
-                                         {itemAnalysisData.map((item, i) => {
-                                             const percent = parseInt(item.difficulty, 10);
-                                             return (
-                                                 <React.Fragment key={i}>
-                                                     <tr className={`${monet ? monet.tableRow : 'hover:bg-slate-50'} transition-colors`}>
-                                                         <td className={`px-6 py-4 font-medium max-w-md ${monet ? monet.textMain : 'text-slate-700'}`}>
-                                                             <div className="line-clamp-2">{item.type === "matching-type" ? "Matching Question" : item.question}</div>
-                                                             {item.type === "matching-type" && <button onClick={() => setExpandedRows(p => ({...p, [i]: !p[i]}))} className={`text-xs hover:underline mt-1 font-medium ${monet ? monet.accentColor : 'text-blue-500'}`}>{expandedRows[i] ? "Hide Breakdown" : "View Breakdown"}</button>}
-                                                         </td>
-                                                         <td className="px-6 py-4 text-center"><div className={`inline-flex items-center justify-center px-2.5 py-1 rounded-full text-xs font-bold ${monet ? 'bg-white/10 text-white' : 'bg-slate-100 text-slate-600'}`}>{item.correct} / {item.total}</div></td>
-                                                         <td className="px-6 py-4 text-right">
-                                                             <span className={`inline-block px-3 py-1 rounded-lg text-xs font-bold border ${percent >= 75 ? (monet ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" : "bg-emerald-50 text-emerald-700 border-emerald-200") : (monet ? "bg-red-500/20 text-red-300 border-red-500/30" : "bg-red-50 text-red-700 border-red-200")}`}>{item.difficulty}</span>
-                                                         </td>
-                                                     </tr>
-                                                     {item.type === "matching-type" && expandedRows[i] && (
-                                                         <tr className={monet ? "bg-white/5" : "bg-slate-50/50"}>
-                                                             <td colSpan={3} className="px-6 py-4">
-                                                                 <div className="grid gap-2">{item.breakdown.map((p, idx) => <div key={idx} className={`flex items-center justify-between text-xs p-2 rounded border ${monet ? 'bg-white/5 border-white/10' : 'bg-white border-slate-200'}`}><span className={monet ? monet.textSub : "text-slate-600"}>{p.promptText}</span><div className="flex items-center gap-2"><span className={p.isCorrect ? (monet ? "text-emerald-400" : "text-emerald-600") : (monet ? "text-red-400" : "text-red-500")}>{p.studentChoice || "No Answer"}</span><span className={monet ? "text-white/40" : "text-slate-300"}>→</span><span className={`font-bold ${monet ? monet.textMain : "text-slate-700"}`}>{p.correctChoice}</span></div></div>)}</div>
-                                                             </td>
-                                                         </tr>
-                                                     )}
-                                                 </React.Fragment>
-                                             );
-                                         })}
-                                     </tbody>
-                                 </table>
-                             </div>
-                         ) : <div className={`${dynamicStyles.card} p-12 text-center opacity-60 ${monet ? monet.textSub : 'text-slate-500'}`}>Select a quiz to analyze items.</div>}
-                    </div>
-                )}
-
-                {selectedClassId && analysisType === "recommendations" && (
-                    <div className="space-y-6">
-                        <h2 className={`text-2xl font-bold tracking-tight ${monet ? monet.textMain : 'text-slate-800'}`}>Saved Recommendations</h2>
-                        {isLoading ? <RecommendationsSkeleton /> : Object.keys(groupedSavedRecs).length === 0 ? (
-                            <div className={`${dynamicStyles.card} p-12 flex flex-col items-center text-center`}><IconBookmarks size={48} className={`mb-4 ${monet ? 'text-white/30' : 'text-slate-300'}`} /><p className={monet ? monet.textSub : "text-slate-500"}>No AI recommendations generated yet.</p></div>
-                        ) : (
-                            <div className="space-y-4">
-                                {Object.keys(groupedSavedRecs).sort(customUnitSort).map((unitTitle) => (
-                                    <div key={unitTitle} className={`${dynamicStyles.card} overflow-hidden`}>
-                                        <button onClick={() => setOpenRecsUnit(openRecsUnit === unitTitle ? null : unitTitle)} className={`w-full flex justify-between items-center px-6 py-4 border-b transition-colors ${monet ? 'bg-white/5 border-white/10 hover:bg-white/10' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'}`}>
-                                            <span className={`font-bold text-sm ${monet ? monet.textMain : 'text-slate-700'}`}>{unitTitle}</span><IconChevronDown className={`transition-transform ${openRecsUnit === unitTitle ? "rotate-180" : ""} ${monet ? 'text-white/50' : ''}`} size={16} />
-                                        </button>
-                                        <AnimatePresence>
-                                            {openRecsUnit === unitTitle && (
-                                                <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="overflow-hidden">
-                                                    <div className="p-2 space-y-2">
-                                                        {groupedSavedRecs[unitTitle].map((recDoc) => (
-                                                            <div key={recDoc.id} className={`group flex items-center justify-between p-3 rounded-xl transition-all border border-transparent ${monet ? 'hover:bg-white/5 hover:border-white/10' : 'hover:bg-slate-50 hover:border-slate-200'}`}>
-                                                                <div onClick={() => { setViewingRec(recDoc); setViewModalOpen(true); }} className="flex-1 cursor-pointer">
-                                                                    <h4 className={`font-bold text-sm ${monet ? monet.textMain : 'text-slate-800'}`}>{recDoc.lessonTitle || "Remediation Plan"}</h4>
-                                                                    <span className={`text-xs ${monet ? monet.textSub : 'text-slate-500'}`}>{recDoc.createdAt?.toDate().toLocaleDateString()}</span>
-                                                                </div>
-                                                                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                    <button onClick={() => exportRecToPDF(recDoc)} className={`${baseButtonStyles} p-2.5 rounded-full border ${monet ? monet.buttonSecondary : 'text-slate-500 bg-slate-100 hover:bg-slate-200 hover:text-blue-600 border-slate-200'}`} disabled={exportingPdfId === recDoc.id}>{exportingPdfId === recDoc.id ? <Spinner size="xs"/> : <IconFileExport size={16} />}</button>
-                                                                    <button onClick={() => { setEditingRec(recDoc); setEditModalOpen(true); }} className={`${baseButtonStyles} p-2.5 rounded-full border ${monet ? monet.buttonSecondary : 'text-slate-500 bg-slate-100 hover:bg-slate-200 hover:text-blue-600 border-slate-200'}`}><IconEdit size={16} /></button>
-                                                                    <button onClick={() => deleteRecommendation(recDoc)} className={`${baseButtonStyles} p-2.5 rounded-full border ${monet ? 'bg-red-500/20 text-red-300 border-red-500/30 hover:bg-red-500/30' : 'text-red-500 hover:text-red-600 bg-red-50 hover:bg-red-100 border-red-100'}`}><IconTrash size={16} /></button>
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
-                                    </div>
-                                ))}
-                            </div>
+              {analysisType === "quizzes" && selectedClassId && (
+                <div className="space-y-1">
+                  <div className={`${subHeadingStyle} mb-3 ml-1 ${monet ? monet.textSub : 'text-slate-400 dark:text-slate-500'}`}>Available Quizzes</div>
+                  {Object.keys(quizzesInClass.reduce((acc, quiz) => {
+                    const unitName = quiz.unitDisplayName || "Uncategorized";
+                    if (!acc[unitName]) acc[unitName] = [];
+                    acc[unitName].push(quiz);
+                    return acc;
+                  }, {})).sort(customUnitSort).map((unitName) => (
+                    <div key={unitName} className="mb-2">
+                      <button onClick={() => setOpenUnit(openUnit === unitName ? null : unitName)} className={`flex items-center justify-between w-full py-2 px-2 text-xs font-bold uppercase tracking-wide transition-colors ${monet ? 'text-white/60 hover:text-white' : 'text-slate-500 hover:text-blue-500'}`}>
+                        {unitName} <IconChevronDown size={14} className={`transition-transform ${openUnit === unitName ? 'rotate-180' : ''}`} />
+                      </button>
+                      <AnimatePresence>
+                        {openUnit === unitName && (
+                          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className={`overflow-hidden ml-2 space-y-1 border-l pl-2 ${monet ? 'border-white/10' : 'border-slate-200 dark:border-white/10'}`}>
+                            {quizzesInClass.filter((q) => (q.unitDisplayName || "Uncategorized") === unitName).sort((a, b) => a.title.localeCompare(b.title)).map((q) => (
+                              <button key={q.id} onClick={() => setSelectedQuizId(q.id)} className={`text-sm w-full text-left px-3 py-2 rounded-lg transition-all ${selectedQuizId === q.id ? (monet ? `bg-white/20 text-white font-semibold` : 'bg-blue-50 text-blue-600 font-semibold') : (monet ? 'text-white/70 hover:bg-white/5' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5')}`}>{q.title}</button>
+                            ))}
+                          </motion.div>
                         )}
+                      </AnimatePresence>
                     </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* --- MAIN CONTENT --- */}
+          <motion.div
+            key={analysisType}
+            initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.4, ease: "easeOut" }}
+            className="flex-1 p-6 sm:p-10 overflow-y-auto custom-scrollbar relative"
+          >
+            {(isAnalyzing || isGeneratingRemediation) && (
+              <div className={`absolute inset-0 z-50 flex flex-col items-center justify-center backdrop-blur-sm rounded-[2rem] ${monet ? 'bg-black/40 text-white' : 'bg-white/80'}`}>
+                <Spinner size="xl" />
+                <span className={`mt-4 font-medium animate-pulse ${monet ? 'text-white' : 'text-slate-600'}`}>{isGeneratingRemediation ? "Designing Personalized Remediation..." : "Analyzing..."}</span>
+              </div>
+            )}
+
+            {!selectedClassId && (
+              <div className={`h-full flex flex-col items-center justify-center text-center opacity-60 ${monet ? 'text-white' : 'text-slate-500 dark:text-slate-400'}`}>
+                <div className={`w-24 h-24 rounded-3xl flex items-center justify-center mb-6 ${monet ? 'bg-white/10' : 'bg-slate-100 dark:bg-white/5'}`}><IconAnalyze size={48} className={monet ? "text-white/50" : "text-slate-400 dark:text-slate-500"} /></div>
+                <h2 className={`text-xl font-bold ${monet ? 'text-white' : 'text-slate-700 dark:text-white'}`}>No Class Selected</h2>
+                <p className={`${monet ? 'text-white/60' : 'text-slate-500 dark:text-slate-400'} mt-2 max-w-xs`}>Select a class from the sidebar to begin analyzing student performance.</p>
+              </div>
+            )}
+
+            {selectedClassId && analysisType === "students" && (
+              <div className="space-y-8">
+                <div className="flex items-baseline justify-between">
+                  <h2 className={`text-2xl font-bold tracking-tight ${monet ? monet.textMain : 'text-slate-800 dark:text-white'}`}>At-Risk Students</h2>
+                  <span className={`text-sm font-medium ${monet ? monet.textSub : 'text-slate-500 dark:text-slate-400'}`}>Threshold: &lt; 75% Avg</span>
+                </div>
+
+                {isLoading ? <StudentsSkeleton /> : selectedQuarter ? (
+                  atRiskByQuarter[selectedQuarter]?.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                      {atRiskByQuarter[selectedQuarter].map((st) => (
+                        <motion.div whileHover={{ y: -2 }} key={st.id} className={`${dynamicStyles.card} p-5 border-l-4 border-l-red-500 hover:shadow-md transition-all`}>
+                          <div className="flex items-start gap-4">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${monet ? 'bg-red-500/20 text-red-300' : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400'}`}><IconAlertTriangle size={20} /></div>
+                            <div>
+                              <h3 className={`font-bold text-base ${monet ? monet.textMain : 'text-slate-800 dark:text-white'}`}>{st.name}</h3>
+                              <div className="mt-2 space-y-1">
+                                {st.reasons.map((r, i) => <span key={i} className={`inline-block px-2 py-1 rounded-md text-xs font-medium ${monet ? 'bg-red-500/20 text-red-200' : 'bg-red-50 text-red-700'}`}>{r}</span>)}
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className={`${dynamicStyles.card} p-12 flex flex-col items-center justify-center text-center`}>
+                      <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${monet ? 'bg-emerald-500/20' : 'bg-emerald-50 dark:bg-emerald-900/20'}`}><IconCheck size={32} className={monet ? "text-emerald-300" : "text-emerald-600 dark:text-emerald-400"} /></div>
+                      <h3 className={`text-lg font-bold ${monet ? monet.textMain : 'text-slate-800 dark:text-white'}`}>All Clear!</h3>
+                      <p className={`${monet ? monet.textSub : 'text-slate-500'} mt-1`}>No students are flagged as at-risk for this quarter.</p>
+                    </div>
+                  )
+                ) : <div className={`${dynamicStyles.card} p-8 text-center opacity-70 ${monet ? monet.textSub : 'text-slate-500'}`}>Please select a quarter to view analysis.</div>}
+              </div>
+            )}
+
+            {selectedClassId && analysisType === "quizzes" && (
+              <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <h2 className={`text-2xl font-bold tracking-tight ${monet ? monet.textMain : 'text-slate-800 dark:text-white'}`}>Item Analysis</h2>
+                  {selectedQuizId && itemAnalysisData && !isLoading && (
+                    <div className="flex gap-2">
+                      <button onClick={exportItemAnalysisToCSV} className={`${baseButtonStyles} px-5 py-2.5 text-sm ${monet ? monet.buttonSecondary : 'text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10'}`}><IconDownload size={16} /> CSV</button>
+                      <button onClick={generateAnalysisReport} disabled={isAnalyzing} className={`${baseButtonStyles} px-5 py-2.5 text-sm ${monet ? monet.buttonPrimary : 'text-white bg-[#007AFF] hover:bg-[#0062cc] shadow-sm'}`}><IconAnalyze size={18} /> AI Analysis</button>
+                    </div>
+                  )}
+                </div>
+
+                {isLoading ? <TableSkeleton /> : selectedQuizId && itemAnalysisData && itemAnalysisData.length > 0 ? (
+                  <div className={`${dynamicStyles.card} overflow-hidden`}>
+                    <table className="w-full text-sm text-left">
+                      <thead className={`text-xs font-bold uppercase ${monet ? monet.tableHeader : 'text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10'}`}><tr><th className="px-6 py-4">Question</th><th className="px-6 py-4 text-center">Performance</th><th className="px-6 py-4 text-right">Mastery</th></tr></thead>
+                      <tbody className={`divide-y ${monet ? 'divide-white/5' : 'divide-slate-100 dark:divide-white/5'}`}>
+                        {itemAnalysisData.map((item, i) => {
+                          const percent = parseInt(item.difficulty, 10);
+                          return (
+                            <React.Fragment key={i}>
+                              <tr className={`${monet ? monet.tableRow : 'hover:bg-slate-50 dark:hover:bg-white/5'} transition-colors`}>
+                                <td className={`px-6 py-4 font-medium max-w-md ${monet ? monet.textMain : 'text-slate-700 dark:text-slate-300'}`}>
+                                  <div className="line-clamp-2">{item.type === "matching-type" ? "Matching Question" : item.question}</div>
+                                  {item.type === "matching-type" && <button onClick={() => setExpandedRows(p => ({ ...p, [i]: !p[i] }))} className={`text-xs hover:underline mt-1 font-medium ${monet ? monet.accentColor : 'text-blue-500 dark:text-blue-400'}`}>{expandedRows[i] ? "Hide Breakdown" : "View Breakdown"}</button>}
+                                </td>
+                                <td className="px-6 py-4 text-center"><div className={`inline-flex items-center justify-center px-2.5 py-1 rounded-full text-xs font-bold ${monet ? 'bg-white/10 text-white' : 'bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300'}`}>{item.correct} / {item.total}</div></td>
+                                <td className="px-6 py-4 text-right">
+                                  <span className={`inline-block px-3 py-1 rounded-lg text-xs font-bold border ${percent >= 75 ? (monet ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" : "bg-emerald-50 text-emerald-700 border-emerald-200") : (monet ? "bg-red-500/20 text-red-300 border-red-500/30" : "bg-red-50 text-red-700 border-red-200")}`}>{item.difficulty}</span>
+                                </td>
+                              </tr>
+                              {item.type === "matching-type" && expandedRows[i] && (
+                                <tr className={monet ? "bg-white/5" : "bg-slate-50/50"}>
+                                  <td colSpan={3} className="px-6 py-4">
+                                    <div className="grid gap-2">{item.breakdown.map((p, idx) => <div key={idx} className={`flex items-center justify-between text-xs p-2 rounded border ${monet ? 'bg-white/5 border-white/10' : 'bg-white border-slate-200'}`}><span className={monet ? monet.textSub : "text-slate-600"}>{p.promptText}</span><div className="flex items-center gap-2"><span className={p.isCorrect ? (monet ? "text-emerald-400" : "text-emerald-600") : (monet ? "text-red-400" : "text-red-500")}>{p.studentChoice || "No Answer"}</span><span className={monet ? "text-white/40" : "text-slate-300"}>→</span><span className={`font-bold ${monet ? monet.textMain : "text-slate-700"}`}>{p.correctChoice}</span></div></div>)}</div>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : <div className={`${dynamicStyles.card} p-12 text-center opacity-60 ${monet ? monet.textSub : 'text-slate-500'}`}>Select a quiz to analyze items.</div>}
+              </div>
+            )}
+
+            {selectedClassId && analysisType === "recommendations" && (
+              <div className="space-y-6">
+                <h2 className={`text-2xl font-bold tracking-tight ${monet ? monet.textMain : 'text-slate-800 dark:text-white'}`}>Saved Recommendations</h2>
+                {isLoading ? <RecommendationsSkeleton /> : Object.keys(groupedSavedRecs).length === 0 ? (
+                  <div className={`${dynamicStyles.card} p-12 flex flex-col items-center text-center`}><IconBookmarks size={48} className={`mb-4 ${monet ? 'text-white/30' : 'text-slate-300 dark:text-slate-600'}`} /><p className={monet ? monet.textSub : "text-slate-500 dark:text-slate-400"}>No AI recommendations generated yet.</p></div>
+                ) : (
+                  <div className="space-y-4">
+                    {Object.keys(groupedSavedRecs).sort(customUnitSort).map((unitTitle) => (
+                      <div key={unitTitle} className={`${dynamicStyles.card} overflow-hidden`}>
+                        <button onClick={() => setOpenRecsUnit(openRecsUnit === unitTitle ? null : unitTitle)} className={`w-full flex justify-between items-center px-6 py-4 border-b transition-colors ${monet ? 'bg-white/5 border-white/10 hover:bg-white/10' : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/10'}`}>
+                          <span className={`font-bold text-sm ${monet ? monet.textMain : 'text-slate-700 dark:text-slate-200'}`}>{unitTitle}</span><IconChevronDown className={`transition-transform ${openRecsUnit === unitTitle ? "rotate-180" : ""} ${monet ? 'text-white/50' : 'text-slate-400 dark:text-slate-500'}`} size={16} />
+                        </button>
+                        <AnimatePresence>
+                          {openRecsUnit === unitTitle && (
+                            <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="overflow-hidden">
+                              <div className="p-2 space-y-2">
+                                {groupedSavedRecs[unitTitle].map((recDoc) => (
+                                  <div key={recDoc.id} className={`group flex items-center justify-between p-3 rounded-xl transition-all border border-transparent ${monet ? 'hover:bg-white/5 hover:border-white/10' : 'hover:bg-slate-50 dark:hover:bg-white/5 hover:border-slate-200 dark:hover:border-white/10'}`}>
+                                    <div onClick={() => { setViewingRec(recDoc); setViewModalOpen(true); }} className="flex-1 cursor-pointer">
+                                      <h4 className={`font-bold text-sm ${monet ? monet.textMain : 'text-slate-800 dark:text-white'}`}>{recDoc.lessonTitle || "Remediation Plan"}</h4>
+                                      <span className={`text-xs ${monet ? monet.textSub : 'text-slate-500 dark:text-slate-400'}`}>{recDoc.createdAt?.toDate().toLocaleDateString()}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <button onClick={() => exportRecToPDF(recDoc)} className={`${baseButtonStyles} p-2.5 rounded-full border ${monet ? monet.buttonSecondary : 'text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-blue-600 dark:hover:text-blue-400 border-slate-200 dark:border-white/10'}`} disabled={exportingPdfId === recDoc.id}>{exportingPdfId === recDoc.id ? <Spinner size="xs" /> : <IconFileExport size={16} />}</button>
+                                      <button onClick={() => { setEditingRec(recDoc); setEditModalOpen(true); }} className={`${baseButtonStyles} p-2.5 rounded-full border ${monet ? monet.buttonSecondary : 'text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-blue-600 dark:hover:text-blue-400 border-slate-200 dark:border-white/10'}`}><IconEdit size={16} /></button>
+                                      <button onClick={() => deleteRecommendation(recDoc)} className={`${baseButtonStyles} p-2.5 rounded-full border ${monet ? 'bg-red-500/20 text-red-300 border-red-500/30 hover:bg-red-500/30' : 'text-red-500 hover:text-red-600 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 border-red-100 dark:border-red-500/20'}`}><IconTrash size={16} /></button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    ))}
+                  </div>
                 )}
-            </motion.div>
+              </div>
+            )}
+          </motion.div>
         </div>
       </div>
       <style>{`.font-display { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; } .custom-scrollbar::-webkit-scrollbar { width: 5px; } .custom-scrollbar::-webkit-scrollbar-track { background: transparent; } .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.5); border-radius: 10px; }`}</style>

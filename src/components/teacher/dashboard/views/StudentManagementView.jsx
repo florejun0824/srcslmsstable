@@ -90,18 +90,18 @@ const SmartClassBadges = memo(({ classes, limit = 2 }) => {
     return (
         <div className="flex flex-wrap items-center gap-1.5">
             {visibleClasses.map(cls => (
-                <span key={cls} className="text-[10px] font-bold px-2 py-1 rounded-md border bg-slate-100 text-slate-600 border-slate-200/60 whitespace-nowrap">
+                <span key={cls} className="text-[10px] font-bold px-2 py-1 rounded-md border bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200/60 dark:border-white/10 whitespace-nowrap">
                     {cls}
                 </span>
             ))}
             {remainingCount > 0 && (
                 <div className="group relative">
-                    <span className="cursor-help text-[10px] font-bold px-1.5 py-1 rounded-md bg-slate-200 text-slate-500 whitespace-nowrap">
+                    <span className="cursor-help text-[10px] font-bold px-1.5 py-1 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                         +{remainingCount}
                     </span>
                     {/* Tooltip */}
                     <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover:block z-50 w-max max-w-[200px]">
-                        <div className="bg-white text-slate-700 border border-slate-200 shadow-lg text-[10px] p-2 rounded-lg shadow-xl">
+                        <div className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/10 shadow-lg text-[10px] p-2 rounded-lg">
                             {classes.slice(limit).join(', ')}
                         </div>
                     </div>
@@ -145,8 +145,8 @@ const StudentMobileCard = memo(({ user, enrolledClasses, onEdit, onSelect, isSel
             className={`
                 relative p-4 mb-3 rounded-3xl border transition-all duration-300
                 ${isSelected
-                    ? `bg-indigo-50 border-transparent ring-1 ${theme.selectionRing} shadow-[0_4px_20px_-4px_rgba(0,0,0,0.5)]`
-                    : 'bg-white/80 border-slate-200/60 shadow-sm'
+                    ? `bg-indigo-50 dark:bg-indigo-900/30 border-transparent ring-1 ${theme.selectionRing} shadow-[0_4px_20px_-4px_rgba(0,0,0,0.5)]`
+                    : 'bg-white/80 dark:bg-white/5 border-slate-200/60 dark:border-white/5 shadow-sm'
                 }
             `}
             onClick={() => onSelect(user.id)}
@@ -154,7 +154,7 @@ const StudentMobileCard = memo(({ user, enrolledClasses, onEdit, onSelect, isSel
             <div className="flex items-start gap-4">
                 {/* Avatar */}
                 <div className="flex-shrink-0 relative">
-                    <div className="w-12 h-12 rounded-2xl overflow-hidden bg-slate-100 shadow-sm border border-slate-200/60">
+                    <div className="w-12 h-12 rounded-2xl overflow-hidden bg-slate-100 dark:bg-slate-800 shadow-sm border border-slate-200/60 dark:border-white/10">
                         {user.photoURL ? (
                             <img src={user.photoURL} alt="" className="w-full h-full object-cover" />
                         ) : (
@@ -189,7 +189,7 @@ const StudentMobileCard = memo(({ user, enrolledClasses, onEdit, onSelect, isSel
 
                     <div className="mt-3 flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                            <span className="px-2 py-0.5 rounded-md bg-slate-100 text-[10px] font-bold text-slate-600 border border-slate-200/60">
+                            <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-white/10">
                                 {user.gradeLevel || 'No Grade'}
                             </span>
                             <span className="text-[10px] font-medium text-slate-400">
@@ -207,8 +207,8 @@ const StudentDesktopRow = memo(({ user, enrolledClasses, onEdit, onSelect, isSel
     return (
         <tr
             className={`
-                group border-b border-slate-200/50 last:border-none transition-colors cursor-pointer
-                ${isSelected ? 'bg-indigo-50' : 'hover:bg-slate-50'}
+                group border-b border-slate-200/50 dark:border-white/5 last:border-none transition-colors cursor-pointer
+                ${isSelected ? 'bg-indigo-50 dark:bg-indigo-900/20' : 'hover:bg-slate-50 dark:hover:bg-white/5'}
             `}
             onClick={() => onSelect(user.id)}
         >
@@ -218,14 +218,14 @@ const StudentDesktopRow = memo(({ user, enrolledClasses, onEdit, onSelect, isSel
                         type="checkbox"
                         checked={isSelected}
                         onChange={() => onSelect(user.id)}
-                        className={`peer appearance-none w-5 h-5 rounded-lg border-2 transition-all cursor-pointer border-slate-300 ${theme.checkbox} bg-white`}
+                        className={`peer appearance-none w-5 h-5 rounded-lg border-2 transition-all cursor-pointer border-slate-300 dark:border-white/20 ${theme.checkbox} bg-white dark:bg-slate-800`}
                     />
                     <CheckCircleIcon className="absolute w-5 h-5 pointer-events-none opacity-0 peer-checked:opacity-100 transition-all scale-50 peer-checked:scale-100 text-white" />
                 </div>
             </td>
             <td className="px-6 py-4 align-middle">
                 <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl overflow-hidden relative shadow-sm flex-shrink-0 bg-slate-100 border border-slate-200">
+                    <div className="w-9 h-9 rounded-xl overflow-hidden relative shadow-sm flex-shrink-0 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-white/10">
                         {user.photoURL ? (
                             <img src={user.photoURL} alt="" className="w-full h-full object-cover" />
                         ) : (
@@ -233,13 +233,13 @@ const StudentDesktopRow = memo(({ user, enrolledClasses, onEdit, onSelect, isSel
                         )}
                     </div>
                     <div className="flex flex-col">
-                        <span className="font-bold text-slate-800 text-sm leading-tight">{user.lastName}, {user.firstName}</span>
-                        <span className="text-[11px] text-slate-400 font-medium">{user.email}</span>
+                        <span className="font-bold text-slate-800 dark:text-slate-100 text-sm leading-tight">{user.lastName}, {user.firstName}</span>
+                        <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">{user.email}</span>
                     </div>
                 </div>
             </td>
             <td className="px-6 py-4 align-middle">
-                <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-white/5 text-slate-400 border border-slate-200 shadow-sm">
+                <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-white/5 dark:bg-white/10 text-slate-400 dark:text-slate-300 border border-slate-200 dark:border-white/10 shadow-sm">
                     {user.gradeLevel || 'N/A'}
                 </span>
             </td>
@@ -271,10 +271,10 @@ const FloatingActionBar = memo(({ count, onEnroll, onClear, theme }) => {
         >
             <div className={`
                 flex items-center gap-1.5 p-1 rounded-full 
-                bg-white/95 backdrop-blur-xl shadow-2xl 
+                bg-white/95 dark:bg-slate-900/90 backdrop-blur-xl shadow-2xl 
                 ring-1 ${theme.selectionRing || 'ring-indigo-500'} 
                 shadow-[0_0_30px_-10px] ${theme.accentShadow || 'shadow-indigo-500/50'}
-                border border-slate-200
+                border border-slate-200 dark:border-white/10
             `}>
 
                 {/* 1. Counter Badge (Themed) */}
@@ -286,12 +286,12 @@ const FloatingActionBar = memo(({ count, onEnroll, onClear, theme }) => {
                 </div>
 
                 {/* 2. "Selected" Label (Desktop Only) */}
-                <span className="text-xs font-bold text-slate-600 hidden sm:inline px-1">
+                <span className="text-xs font-bold text-slate-600 dark:text-slate-300 hidden sm:inline px-1">
                     Selected
                 </span>
 
                 {/* Vertical Divider (Desktop Only) */}
-                <div className="hidden sm:block h-3 w-px bg-slate-300 mx-1" />
+                <div className="hidden sm:block h-3 w-px bg-slate-300 dark:bg-slate-700 mx-1" />
 
                 {/* 3. Enroll Button (Gradient Theme) */}
                 <button
@@ -310,7 +310,7 @@ const FloatingActionBar = memo(({ count, onEnroll, onClear, theme }) => {
                 {/* 4. Close Button */}
                 <button
                     onClick={onClear}
-                    className="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                    className="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
                 >
                     <X size={14} />
                 </button>
@@ -450,7 +450,7 @@ const StudentManagementView = () => {
         <div className="flex flex-col h-[calc(100vh-100px)] overflow-hidden font-sans space-y-4 relative z-10 p-2 lg:p-4">
 
             {/* --- UNIFIED CONTROL DECK --- */}
-            <div className="flex-none flex flex-col gap-4 bg-white/80 backdrop-blur-xl border border-slate-200/60 shadow-sm rounded-[2rem] p-4 lg:p-5 relative z-40 transition-all">
+            <div className="flex-none flex flex-col gap-4 bg-white/80 dark:bg-white/5 backdrop-blur-xl border border-slate-200/60 dark:border-white/5 shadow-sm rounded-[2rem] p-4 lg:p-5 relative z-40 transition-all">
 
                 {/* Top Row: Search & Stats */}
                 <div className="flex items-center gap-3">
@@ -463,14 +463,14 @@ const StudentManagementView = () => {
                             onFocus={() => setIsSearchFocused(true)}
                             onBlur={() => setIsSearchFocused(false)}
                             onChange={(e) => handleFilterChange('name', e.target.value)}
-                            className="w-full pl-12 pr-4 py-3 rounded-2xl bg-white border-none text-sm font-semibold text-slate-200 placeholder:text-slate-500 focus:outline-none focus:bg-black/40 focus:ring-2 focus:ring-indigo-500/10 transition-all"
+                            className="w-full pl-12 pr-4 py-3 rounded-2xl bg-white dark:bg-white/5 border dark:border-white/10 text-sm font-semibold text-slate-800 dark:text-slate-100 placeholder:text-slate-500 focus:outline-none focus:bg-white dark:focus:bg-white/10 focus:ring-2 focus:ring-indigo-500/10 transition-all"
                         />
                     </div>
 
                     {/* Desktop Stat Badge */}
-                    <div className="hidden md:flex items-center gap-2 px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200/60">
+                    <div className="hidden md:flex items-center gap-2 px-4 py-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5">
                         <Users size={16} className="text-slate-400" />
-                        <span className="text-sm font-bold text-slate-700">
+                        <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
                             {filteredStudents.length} <span className="text-slate-500 font-medium">Students</span>
                         </span>
                     </div>
@@ -478,7 +478,7 @@ const StudentManagementView = () => {
 
                 {/* Bottom Row: Quick Filter Chips */}
                 <div className="flex items-center gap-3">
-                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex-shrink-0">
+                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-slate-400 flex-shrink-0">
                         <Filter size={14} />
                     </div>
                     <div className="flex-1 overflow-hidden">
@@ -492,7 +492,7 @@ const StudentManagementView = () => {
             </div>
 
             {/* --- SCROLLABLE CONTENT --- */}
-            <div className="flex-1 min-h-0 rounded-[2.5rem] bg-white/70 backdrop-blur-xl border border-slate-200/60 overflow-hidden flex flex-col relative">
+            <div className="flex-1 min-h-0 rounded-[2.5rem] bg-white/70 dark:bg-white/5 backdrop-blur-xl border border-slate-200/60 dark:border-white/5 overflow-hidden flex flex-col relative">
                 {loading && allStudents.length === 0 ? (
                     <div className="flex items-center justify-center h-full">
                         <Loader2 className={`w-8 h-8 animate-spin ${theme.accentText}`} />
@@ -514,10 +514,10 @@ const StudentManagementView = () => {
                                                 />
                                             </div>
                                         </th>
-                                        <th className="px-6 py-3 text-left font-bold text-slate-500 text-[10px] uppercase tracking-widest">Student</th>
-                                        <th className="px-6 py-3 text-left font-bold text-slate-500 text-[10px] uppercase tracking-widest">Grade</th>
-                                        <th className="px-6 py-3 text-left font-bold text-slate-500 text-[10px] uppercase tracking-widest">Enrolled Classes</th>
-                                        <th className="px-6 py-3 text-right font-bold text-slate-500 text-[10px] uppercase tracking-widest">Actions</th>
+                                        <th className="px-6 py-3 text-left font-bold text-slate-500 dark:text-slate-400 text-[10px] uppercase tracking-widest">Student</th>
+                                        <th className="px-6 py-3 text-left font-bold text-slate-500 dark:text-slate-400 text-[10px] uppercase tracking-widest">Grade</th>
+                                        <th className="px-6 py-3 text-left font-bold text-slate-500 dark:text-slate-400 text-[10px] uppercase tracking-widest">Enrolled Classes</th>
+                                        <th className="px-6 py-3 text-right font-bold text-slate-500 dark:text-slate-400 text-[10px] uppercase tracking-widest">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -541,7 +541,7 @@ const StudentManagementView = () => {
 
                             {hasMore && (
                                 <div className="p-6 flex justify-center">
-                                    <button onClick={() => fetchStudents(true)} className="flex items-center gap-2 px-6 py-2.5 bg-white/5 border border-slate-200 rounded-full text-xs font-bold text-slate-300 hover:bg-white/10 transition-all">
+                                    <button onClick={() => fetchStudents(true)} className="flex items-center gap-2 px-6 py-2.5 bg-white/5 dark:bg-white/10 border border-slate-200 dark:border-white/10 rounded-full text-xs font-bold text-slate-300 hover:bg-white/10 dark:hover:bg-white/20 transition-all">
                                         {loading ? <Loader2 className="animate-spin h-3 w-3" /> : <ChevronDown size={14} />}
                                         Load More
                                     </button>
@@ -579,7 +579,7 @@ const StudentManagementView = () => {
 
                             {hasMore && (
                                 <div className="pb-24 pt-4 flex justify-center">
-                                    <button onClick={() => fetchStudents(true)} className="flex items-center gap-2 px-6 py-3 bg-white/5 border border-slate-200 rounded-full text-xs font-bold text-slate-300">
+                                    <button onClick={() => fetchStudents(true)} className="flex items-center gap-2 px-6 py-3 bg-white/5 dark:bg-white/10 border border-slate-200 dark:border-white/10 rounded-full text-xs font-bold text-slate-300">
                                         {loading ? <Loader2 className="animate-spin h-3 w-3" /> : <ChevronDown size={14} />}
                                         Load More
                                     </button>
