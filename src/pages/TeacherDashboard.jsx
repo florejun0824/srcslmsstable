@@ -282,18 +282,48 @@ const TeacherDashboard = () => {
   // Chat Handler
   const handleChat = useCallback(async (text) => {
     if (!text.trim()) return;
+
+    // Always append user message immediately
     setMessages(p => [...p, { sender: 'user', text }]);
+
+    // Filter out previous errors for context
+    const history = messages.filter(m => !m.isError);
+
     setIsAiThinking(true);
     setAiConversationStarted(true);
+
     try {
-      const res = await callChatbotAi(`User: ${text}`);
+      const res = await callChatbotAi(text, history);
       setMessages(p => [...p, { sender: 'ai', text: res }]);
     } catch {
-      setMessages(p => [...p, { sender: 'ai', text: "I'm having trouble connecting right now." }]);
+      // Flag as an error message so the UI can render a retry button
+      setMessages(p => [...p, { sender: 'ai', text: "I'm having trouble connecting right now.", isError: true }]);
     } finally {
       setIsAiThinking(false);
     }
-  }, []);
+  }, [messages]);
+
+  // Dedicated Retry Function
+  const handleRetryChat = useCallback(async () => {
+    // 1. Find the last user message
+    const lastUserMessage = [...messages].reverse().find(m => m.sender === 'user');
+    if (!lastUserMessage) return;
+
+    // 2. Remove the previous error message
+    setMessages(p => p.filter(m => !m.isError));
+    const history = messages.filter(m => !m.isError && m !== lastUserMessage);
+
+    setIsAiThinking(true);
+    try {
+      const res = await callChatbotAi(lastUserMessage.text, history);
+      setMessages(p => [...p, { sender: 'ai', text: res }]);
+    } catch {
+      // Re-append error if it fails again
+      setMessages(p => [...p, { sender: 'ai', text: "I'm having trouble connecting right now.", isError: true }]);
+    } finally {
+      setIsAiThinking(false);
+    }
+  }, [messages]);
 
   // Import Wrapper
   const handleImportStudentsWrapper = async () => {
@@ -490,6 +520,7 @@ const TeacherDashboard = () => {
         isAiThinking={isAiThinking}
         handleAskAiWrapper={handleChat}
         handleAskAi={handleChat}
+        handleRetryChat={handleRetryChat}
         aiConversationStarted={aiConversationStarted}
         setAiConversationStarted={setAiConversationStarted}
         isAiHubOpen={isAiHubOpen}

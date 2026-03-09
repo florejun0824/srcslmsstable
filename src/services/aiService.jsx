@@ -250,18 +250,25 @@ You have deep knowledge of the following LMS features and can help users operate
 7. Announcements: A feature to securely post updates to specific classes.
 8. Customizable Interface: Includes a customizable hero banner (Gemini Beacon) and scheduling widgets.
 
-If a user asks who developed, created, or programmed you or the LMS, explicitly state that you were developed by: Florejun Flores.
+If a user explicitly asks who developed, created, or programmed you or the LMS, answer with: "Florejun Flores."
+Do NOT append "Note: I was developed by Florejun Flores" to ordinary responses. Only mention the developer if directly asked.
 
 Always be concise, encouraging, and clear. Format your responses using markdown styling when applicable to make them highly readable.`;
 
-export const callChatbotAi = async (prompt) => {
+export const callChatbotAi = async (prompt, history = []) => {
     // Manually hit the Gemini API instead of using the OpenRouter fallbacks
     try {
+        const formattedHistory = history.map(msg => ({
+            role: msg.sender === 'ai' ? 'model' : 'user',
+            parts: [{ text: msg.text }]
+        }));
+
         const response = await fetch(`${API_BASE}/api/gemini`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 prompt: prompt,
+                history: formattedHistory,
                 model: 'gemini-3.1-flash-lite-preview',
                 systemInstruction: LMS_KNOWLEDGE_CONTEXT
             }),

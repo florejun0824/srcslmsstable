@@ -122,19 +122,7 @@ const LoginPage = () => {
                         backgroundPosition: 'center',
                     }}
                 />
-                {/* A very light, subtle overlay just to ensure the whole page doesn't look too dark if the photo is dark */}
                 <div className="absolute inset-0 bg-white/10" />
-            </div>
-
-            {/* --- BACK BUTTON --- */}
-            <div className="absolute top-5 left-5 z-50">
-                <Link
-                    to="/"
-                    className="group flex items-center justify-center w-11 h-11 lg:w-auto lg:px-5 lg:py-2.5 rounded-full bg-white/70 hover:bg-white/90 backdrop-blur-xl border border-white/50 shadow-sm transition-all active:scale-95"
-                >
-                    <ArrowLeft className="w-4 h-4 text-slate-700 lg:group-hover:-translate-x-1 transition-transform" />
-                    <span className="hidden lg:block ml-2 text-sm font-bold text-slate-700">Back</span>
-                </Link>
             </div>
 
             {/* --- MAIN GLASS CARD --- */}
@@ -159,7 +147,7 @@ const LoginPage = () => {
                         <p className="text-[15px] text-white/90 font-medium leading-relaxed max-w-[280px] drop-shadow">
                             Your unified campus learning experience. AI-powered, real-time, secure.
                         </p>
-                        
+
                         <div className="mt-6 flex flex-wrap gap-2.5">
                             {['AI-Powered', 'Real-time', 'Secure'].map(tag => (
                                 <span key={tag} className="px-3.5 py-1.5 rounded-lg bg-white/20 backdrop-blur-md border border-white/30 text-[10px] font-bold text-white uppercase tracking-widest shadow-sm">
@@ -172,7 +160,7 @@ const LoginPage = () => {
 
                 {/* RIGHT: Frosted Light Login Form */}
                 <div className="w-full lg:w-[55%] p-8 sm:p-12 lg:p-14 relative bg-white/85 backdrop-blur-2xl">
-                    
+
                     {/* Mobile Logo & Header */}
                     <div className="lg:hidden flex flex-col items-center text-center mb-8 mt-2">
                         <div className="w-16 h-16 rounded-2xl bg-white border border-slate-100 flex items-center justify-center shadow-md mb-5">

@@ -175,23 +175,20 @@ export const useTeacherData = (user, userProfile, activeView) => {
             console.error("Firestore (categories) error:", err);
         });
 
-        // Promise wrapper to determine "initial loading" state
-        Promise.all([
-            getDocs(classesQuery),
-            getDocs(coursesQuery),
-            getDocs(announcementsQuery)
-        ]).then(() => {
+        // OPTIMIZATION: Removed blocking Promise.all([getDocs...]) 
+        // to allow the UI to mount immediately with Skeletons!
+        // The snapshots above will independently populate the data in real-time.
+        // We add a tiny artificial delay just to smooth the transition from the global spinner.
+        const loadingTimer = setTimeout(() => {
             setLoading(false);
-        }).catch(err => {
-            console.error("Error during initial data fetch:", err);
-            setLoading(false);
-        });
+        }, 300);
 
         return () => {
             unsubClasses();
             unsubCourses();
             unsubAnnouncements();
             unsubCategories();
+            clearTimeout(loadingTimer);
         };
     }, [user, userProfile, schoolId]);
 

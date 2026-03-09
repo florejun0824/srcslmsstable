@@ -83,49 +83,49 @@ const getMonetStyles = (activeOverlay) => {
 };
 
 // --- STYLES CONSTANTS ---
-const commonContainerClasses = "relative h-full w-full p-4 sm:p-6 font-sans overflow-hidden selection:bg-blue-500/30";
+const commonContainerClasses = "relative h-full w-full p-2 sm:p-4 md:p-6 font-sans overflow-hidden selection:bg-blue-500/30";
 const headingStyle = "font-display font-bold tracking-tight";
-const subHeadingStyle = "font-bold tracking-wide uppercase text-[0.65rem] letter-spacing-1";
-const dropdownContainer = "relative z-[60]";
-const dropdownItem = "block w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors duration-200";
-const activeDropdownItem = 'bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-semibold';
-const inactiveDropdownItem = 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10';
+const subHeadingStyle = "font-bold tracking-widest uppercase text-[0.65rem] letter-spacing-1";
+const dropdownContainer = "relative z-[60] w-full";
+const dropdownItem = "block w-full text-left px-4 py-3 sm:py-2.5 rounded-lg text-sm sm:text-[13px] transition-colors duration-200 mt-1 first:mt-0";
+const activeDropdownItem = 'bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 font-semibold';
+const inactiveDropdownItem = 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5';
 
 const baseButtonStyles = `
-    relative font-semibold rounded-full transition-all duration-200 
+    relative font-semibold rounded-full transition-all duration-200 hover:-translate-y-0.5
     flex items-center justify-center gap-2 active:scale-95 tracking-wide shrink-0 select-none
-    focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
+    focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none
 `;
 
 const panelButton = `
-    w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-sm group relative overflow-hidden
+    flex items-center sm:w-full gap-2 sm:gap-3 px-4 py-3 sm:py-3.5 rounded-2xl transition-all duration-300 font-medium text-sm group relative overflow-hidden shrink-0 border border-transparent
 `;
-const activePanelButton = 'text-white bg-[#007AFF] shadow-md';
-const inactivePanelButton = 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white';
+const activePanelButton = 'text-white bg-gradient-to-br from-blue-500 to-indigo-600 shadow-md shadow-blue-500/20';
+const inactivePanelButton = 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 hover:border-slate-200 dark:hover:bg-slate-800 dark:hover:border-slate-700 hover:text-slate-900 dark:hover:text-white';
 
 // --- SKELETONS ---
 const SkeletonPulse = ({ className }) => <div className={`animate-pulse bg-slate-200 dark:bg-slate-800 rounded-lg ${className}`} />;
 const StudentsSkeleton = () => (
-  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
     {[1, 2, 3, 4, 5, 6].map((i) => (
-      <div key={i} className="p-5 h-32 flex flex-col justify-between bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm">
+      <div key={i} className="p-5 sm:p-6 h-36 flex flex-col justify-between bg-white dark:bg-slate-900/50 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
         <div className="flex items-center gap-4">
-          <SkeletonPulse className="w-10 h-10 rounded-full" />
-          <div className="flex-1 space-y-2"><SkeletonPulse className="h-4 w-3/4" /><SkeletonPulse className="h-3 w-1/2" /></div>
+          <SkeletonPulse className="w-12 h-12 rounded-full" />
+          <div className="flex-1 space-y-2"><SkeletonPulse className="h-4 w-3/4 bg-slate-200 dark:bg-slate-700" /><SkeletonPulse className="h-3 w-1/2 bg-slate-100 dark:bg-slate-800" /></div>
         </div>
-        <SkeletonPulse className="h-6 w-24 rounded-md self-start" />
+        <SkeletonPulse className="h-6 w-24 rounded-full mt-4 bg-slate-100 dark:bg-slate-800" />
       </div>
     ))}
   </div>
 );
 const TableSkeleton = () => (
-  <div className="overflow-hidden bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm">
-    <div className="px-6 py-4 border-b border-slate-100 dark:border-white/5 flex gap-4"><SkeletonPulse className="h-4 w-32" /><SkeletonPulse className="h-4 w-20" /></div>
-    <div className="p-4 space-y-4">{[1, 2, 3, 4, 5].map((i) => <div key={i} className="flex items-center justify-between px-2"><SkeletonPulse className="h-4 w-1/2" /><div className="flex gap-4"><SkeletonPulse className="h-6 w-12 rounded-full" /><SkeletonPulse className="h-6 w-16 rounded-md" /></div></div>)}</div>
+  <div className="overflow-hidden bg-white dark:bg-slate-900/50 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm mt-6">
+    <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex gap-4"><SkeletonPulse className="h-4 w-32 bg-slate-200 dark:bg-slate-700" /><SkeletonPulse className="h-4 w-20 bg-slate-200 dark:bg-slate-700" /></div>
+    <div className="p-4 space-y-4">{[1, 2, 3, 4, 5].map((i) => <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between px-2 gap-4"><SkeletonPulse className="h-4 w-full sm:w-1/2 bg-slate-100 dark:bg-slate-800" /><div className="flex gap-4"><SkeletonPulse className="h-6 w-12 rounded-full bg-slate-200 dark:bg-slate-700" /><SkeletonPulse className="h-6 w-16 rounded-lg bg-slate-200 dark:bg-slate-700" /></div></div>)}</div>
   </div>
 );
 const RecommendationsSkeleton = () => (
-  <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-16 flex items-center px-6 gap-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm"><SkeletonPulse className="h-4 w-1/3" /><div className="flex-1" /><SkeletonPulse className="h-8 w-8 rounded-full" /><SkeletonPulse className="h-8 w-8 rounded-full" /></div>)}</div>
+  <div className="space-y-4 mt-6">{[1, 2, 3].map((i) => <div key={i} className="pt-4 pb-4 h-auto sm:h-20 flex flex-col sm:flex-row sm:items-center px-6 gap-4 bg-white dark:bg-slate-900/50 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm"><SkeletonPulse className="h-4 w-full sm:w-1/3 bg-slate-200 dark:bg-slate-700" /><div className="flex-1 hidden sm:block" /><div className="flex gap-2 self-end sm:self-auto"><SkeletonPulse className="h-10 w-10 rounded-full bg-slate-100 dark:bg-slate-800" /><SkeletonPulse className="h-10 w-10 rounded-full bg-slate-100 dark:bg-slate-800" /></div></div>)}</div>
 );
 
 // --- UTILS ---
@@ -207,12 +207,12 @@ const AnalyticsView = ({ activeClasses }) => {
 
   // --- STYLES (Memoized) ---
   const dynamicStyles = useMemo(() => ({
-    container: monet ? `relative z-10 h-full flex flex-col rounded-[2rem] overflow-hidden ${monet.container}` : "relative z-10 h-full flex flex-col bg-white dark:bg-slate-950 rounded-[2rem] shadow-2xl ring-1 ring-black/5 dark:ring-white/10 overflow-hidden transition-all duration-300",
-    header: monet ? "flex items-center justify-between p-6 sm:px-8 border-b border-white/10 z-20 sticky top-0" : "flex items-center justify-between p-6 sm:px-8 border-b border-slate-100 dark:border-white/10 bg-white/95 dark:bg-slate-950/95 z-20 sticky top-0",
-    sidebar: monet ? "w-full md:w-72 lg:w-80 flex flex-col border-r border-white/10 p-4 sm:p-6 gap-6 overflow-y-auto z-20 custom-scrollbar" : "w-full md:w-72 lg:w-80 flex flex-col border-r border-slate-100 dark:border-white/10 bg-white dark:bg-slate-900 p-4 sm:p-6 gap-6 overflow-y-auto z-20 custom-scrollbar",
-    dropdownBtn: monet ? `w-full flex justify-between items-center px-4 py-3 rounded-xl shadow-sm transition-all text-sm font-medium ${monet.buttonSecondary} border-transparent` : `w-full flex justify-between items-center px-4 py-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 shadow-sm hover:bg-slate-100 dark:hover:bg-white/10 transition-all text-slate-700 dark:text-slate-200 font-medium text-sm`,
-    dropdownList: monet ? `absolute top-full left-0 mt-2 w-full rounded-xl shadow-xl z-[70] overflow-hidden p-1 max-h-60 overflow-y-auto custom-scrollbar ${monet.dropdown}` : `absolute top-full left-0 mt-2 w-full bg-white dark:bg-slate-800 rounded-xl shadow-xl ring-1 ring-black/5 dark:ring-white/10 z-[70] overflow-hidden p-1 max-h-60 overflow-y-auto custom-scrollbar`,
-    card: monet ? `rounded-2xl border shadow-sm ${monet.card}` : `bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm`,
+    container: monet ? `relative z-10 h-full flex flex-col rounded-[2rem] sm:rounded-[2.5rem] overflow-hidden ${monet.container}` : "relative z-10 h-full flex flex-col bg-slate-50/50 dark:bg-[#0B1121] rounded-[2rem] sm:rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] ring-1 ring-black/5 dark:ring-white/5 overflow-hidden transition-all duration-300",
+    header: monet ? "flex flex-col sm:flex-row sm:items-center justify-between p-6 sm:px-8 border-b border-white/10 z-20 shrink-0 gap-4" : "flex flex-col sm:flex-row sm:items-center justify-between p-6 sm:px-8 border-b border-slate-200/50 dark:border-white/5 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl z-20 shrink-0 gap-4",
+    sidebar: monet ? "w-full sm:w-80 flex flex-col border-b sm:border-b-0 sm:border-r border-white/10 p-5 sm:p-6 gap-6 sm:overflow-y-auto z-20 sm:custom-scrollbar shrink-0" : "w-full sm:w-80 flex flex-col border-b sm:border-b-0 sm:border-r border-slate-200/50 dark:border-white/5 bg-white/40 dark:bg-slate-900/40 backdrop-blur-md p-5 sm:p-6 gap-6 sm:overflow-y-auto z-20 sm:custom-scrollbar shrink-0",
+    dropdownBtn: monet ? `w-full flex justify-between items-center px-4 py-3 sm:py-3.5 rounded-2xl shadow-sm transition-all text-sm font-semibold ${monet.buttonSecondary} border-transparent` : `w-full flex justify-between items-center px-4 py-3 sm:py-3.5 rounded-2xl bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 shadow-sm hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md transition-all duration-300 text-slate-800 dark:text-slate-100 font-semibold text-[13px] sm:text-sm`,
+    dropdownList: monet ? `absolute top-full left-0 mt-2 w-full rounded-2xl shadow-xl z-[70] overflow-hidden p-2 max-h-64 sm:max-h-72 overflow-y-auto custom-scrollbar ${monet.dropdown}` : `absolute top-full left-0 mt-2 w-full bg-white dark:bg-slate-800 rounded-2xl shadow-2xl ring-1 ring-black/5 dark:ring-white/10 z-[70] overflow-hidden p-2 max-h-64 sm:max-h-72 overflow-y-auto custom-scrollbar`,
+    card: monet ? `rounded-3xl border shadow-sm ${monet.card}` : `bg-white dark:bg-slate-900/60 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] dark:shadow-none`,
   }), [monet]);
 
   // --- Effects ---
@@ -663,7 +663,7 @@ const AnalyticsView = ({ activeClasses }) => {
           </div>
         </div>
 
-        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+        <div className="flex-1 flex flex-col sm:flex-row overflow-hidden">
           {/* --- SIDEBAR --- */}
           <div className={dynamicStyles.sidebar}>
             {/* Class Selector */}
@@ -685,22 +685,24 @@ const AnalyticsView = ({ activeClasses }) => {
               </AnimatePresence>
             </div>
 
-            {/* Navigation Tabs */}
+            {/* Navigation Tabs (Horizontal on Mobile, Vertical on Desktop) */}
             <div className="flex flex-col gap-2">
-              <div className={`${subHeadingStyle} mb-1 ml-1 ${monet ? monet.textSub : 'text-slate-400 dark:text-slate-500'}`}>Analysis Tools</div>
-              <button onClick={() => setAnalysisType("students")} className={`${panelButton} ${analysisType === "students" ? (monet ? monet.activeTab : activePanelButton) : (monet ? monet.inactiveTab : inactivePanelButton)}`}>
-                <IconAlertTriangle size={20} className={analysisType === "students" ? "text-white" : (monet ? "text-white/60" : "text-amber-500")} /> <span>At-Risk Students</span>
-              </button>
-              <button onClick={() => setAnalysisType("quizzes")} className={`${panelButton} ${analysisType === "quizzes" ? (monet ? monet.activeTab : activePanelButton) : (monet ? monet.inactiveTab : inactivePanelButton)}`}>
-                <IconChartBar size={20} className={analysisType === "quizzes" ? "text-white" : (monet ? "text-white/60" : "text-sky-500")} /> <span>Quiz Analysis</span>
-              </button>
-              <button onClick={() => setAnalysisType("recommendations")} className={`${panelButton} ${analysisType === "recommendations" ? (monet ? monet.activeTab : activePanelButton) : (monet ? monet.inactiveTab : inactivePanelButton)}`}>
-                <IconBrain size={20} className={analysisType === "recommendations" ? "text-white" : (monet ? "text-white/60" : "text-emerald-500")} /> <span>Recommendations</span>
-              </button>
+              <div className={`${subHeadingStyle} mb-1 ml-1 ${monet ? monet.textSub : 'text-slate-400 dark:text-slate-500'} hidden sm:block`}>Analysis Tools</div>
+              <div className="flex flex-row sm:flex-col gap-2 overflow-x-auto no-scrollbar pb-1 sm:pb-0 -mx-5 px-5 sm:mx-0 sm:px-0">
+                <button onClick={() => setAnalysisType("students")} className={`${panelButton} ${analysisType === "students" ? (monet ? monet.activeTab : activePanelButton) : (monet ? monet.inactiveTab : inactivePanelButton)}`}>
+                  <IconAlertTriangle size={18} className={analysisType === "students" ? "text-white" : (monet ? "text-white/60" : "text-amber-500")} /> <span className="whitespace-nowrap">At-Risk Students</span>
+                </button>
+                <button onClick={() => setAnalysisType("quizzes")} className={`${panelButton} ${analysisType === "quizzes" ? (monet ? monet.activeTab : activePanelButton) : (monet ? monet.inactiveTab : inactivePanelButton)}`}>
+                  <IconChartBar size={18} className={analysisType === "quizzes" ? "text-white" : (monet ? "text-white/60" : "text-sky-500")} /> <span className="whitespace-nowrap">Quiz Analysis</span>
+                </button>
+                <button onClick={() => setAnalysisType("recommendations")} className={`${panelButton} ${analysisType === "recommendations" ? (monet ? monet.activeTab : activePanelButton) : (monet ? monet.inactiveTab : inactivePanelButton)}`}>
+                  <IconBrain size={18} className={analysisType === "recommendations" ? "text-white" : (monet ? "text-white/60" : "text-emerald-500")} /> <span className="whitespace-nowrap">Recommendations</span>
+                </button>
+              </div>
             </div>
 
             {/* Contextual Sidebar Content */}
-            <div className="flex-1 space-y-4 pr-2">
+            <div className="flex-1 flex flex-col gap-4 sm:pr-2">
               {analysisType === "students" && selectedClassId && (
                 <div className={dropdownContainer}>
                   <div className={`${subHeadingStyle} mb-2 ml-1 ${monet ? monet.textSub : 'text-slate-400 dark:text-slate-500'}`}>Quarter Filter</div>
@@ -730,14 +732,14 @@ const AnalyticsView = ({ activeClasses }) => {
                     return acc;
                   }, {})).sort(customUnitSort).map((unitName) => (
                     <div key={unitName} className="mb-2">
-                      <button onClick={() => setOpenUnit(openUnit === unitName ? null : unitName)} className={`flex items-center justify-between w-full py-2 px-2 text-xs font-bold uppercase tracking-wide transition-colors ${monet ? 'text-white/60 hover:text-white' : 'text-slate-500 hover:text-blue-500'}`}>
+                      <button onClick={() => setOpenUnit(openUnit === unitName ? null : unitName)} className={`flex items-center justify-between w-full py-2 px-2 text-[11px] sm:text-xs font-bold uppercase tracking-wide transition-colors ${monet ? 'text-white/60 hover:text-white' : 'text-slate-500 dark:text-slate-400 hover:text-blue-500 dark:hover:text-blue-400'}`}>
                         {unitName} <IconChevronDown size={14} className={`transition-transform ${openUnit === unitName ? 'rotate-180' : ''}`} />
                       </button>
                       <AnimatePresence>
                         {openUnit === unitName && (
-                          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className={`overflow-hidden ml-2 space-y-1 border-l pl-2 ${monet ? 'border-white/10' : 'border-slate-200 dark:border-white/10'}`}>
+                          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className={`overflow-hidden ml-2 space-y-1 border-l pl-2 ${monet ? 'border-white/10' : 'border-slate-200 dark:border-slate-800'}`}>
                             {quizzesInClass.filter((q) => (q.unitDisplayName || "Uncategorized") === unitName).sort((a, b) => a.title.localeCompare(b.title)).map((q) => (
-                              <button key={q.id} onClick={() => setSelectedQuizId(q.id)} className={`text-sm w-full text-left px-3 py-2 rounded-lg transition-all ${selectedQuizId === q.id ? (monet ? `bg-white/20 text-white font-semibold` : 'bg-blue-50 text-blue-600 font-semibold') : (monet ? 'text-white/70 hover:bg-white/5' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5')}`}>{q.title}</button>
+                              <button key={q.id} onClick={() => setSelectedQuizId(q.id)} className={`text-[13px] sm:text-sm w-full text-left px-3 py-2.5 rounded-xl transition-all ${selectedQuizId === q.id ? (monet ? `bg-white/20 text-white font-semibold` : 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold') : (monet ? 'text-white/70 hover:bg-white/5' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50')}`}>{q.title}</button>
                             ))}
                           </motion.div>
                         )}
@@ -771,114 +773,181 @@ const AnalyticsView = ({ activeClasses }) => {
             )}
 
             {selectedClassId && analysisType === "students" && (
-              <div className="space-y-8">
-                <div className="flex items-baseline justify-between">
-                  <h2 className={`text-2xl font-bold tracking-tight ${monet ? monet.textMain : 'text-slate-800 dark:text-white'}`}>At-Risk Students</h2>
-                  <span className={`text-sm font-medium ${monet ? monet.textSub : 'text-slate-500 dark:text-slate-400'}`}>Threshold: &lt; 75% Avg</span>
+              <div className="space-y-6 sm:space-y-8 pb-10">
+                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+                  <h2 className={`text-2xl sm:text-3xl font-bold tracking-tight ${monet ? monet.textMain : 'text-slate-800 dark:text-white font-display'}`}>At-Risk Students</h2>
+                  <span className={`text-[13px] sm:text-sm font-semibold px-3 py-1 rounded-full ${monet ? 'bg-white/10 text-white/80' : 'bg-slate-200/50 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}`}>Threshold: &lt; 75% Avg</span>
                 </div>
 
                 {isLoading ? <StudentsSkeleton /> : selectedQuarter ? (
                   atRiskByQuarter[selectedQuarter]?.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
                       {atRiskByQuarter[selectedQuarter].map((st) => (
-                        <motion.div whileHover={{ y: -2 }} key={st.id} className={`${dynamicStyles.card} p-5 border-l-4 border-l-red-500 hover:shadow-md transition-all`}>
-                          <div className="flex items-start gap-4">
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${monet ? 'bg-red-500/20 text-red-300' : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400'}`}><IconAlertTriangle size={20} /></div>
-                            <div>
-                              <h3 className={`font-bold text-base ${monet ? monet.textMain : 'text-slate-800 dark:text-white'}`}>{st.name}</h3>
-                              <div className="mt-2 space-y-1">
-                                {st.reasons.map((r, i) => <span key={i} className={`inline-block px-2 py-1 rounded-md text-xs font-medium ${monet ? 'bg-red-500/20 text-red-200' : 'bg-red-50 text-red-700'}`}>{r}</span>)}
+                        <motion.div whileHover={{ y: -4, scale: 1.01 }} transition={{ type: "spring", stiffness: 300 }} key={st.id} className={`${dynamicStyles.card} p-5 sm:p-6 relative overflow-hidden group`}>
+                          {/* Top Red Glow Accent */}
+                          <div className={`absolute top-0 left-0 right-0 h-1.5 ${monet ? 'bg-red-500/50' : 'bg-gradient-to-r from-red-500 to-rose-400'}`} />
+
+                          <div className="flex items-start gap-4 sm:gap-5 relative z-10">
+                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-inner ${monet ? 'bg-red-500/20 text-red-300' : 'bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400'}`}>
+                              <IconAlertTriangle size={24} stroke={2.5} />
+                            </div>
+                            <div className="flex-1 min-w-0 pt-1">
+                              <h3 className={`font-bold text-base block truncate ${monet ? monet.textMain : 'text-slate-800 dark:text-slate-100'}`} title={st.name}>{st.name}</h3>
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                {st.reasons.map((r, i) => <span key={i} className={`inline-block px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wide ${monet ? 'bg-red-500/20 text-red-200 border border-red-500/30' : 'bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-500/20'}`}>{r}</span>)}
                               </div>
                             </div>
                           </div>
+
+                          {/* Decorative Background Blob */}
+                          <div className={`absolute -bottom-10 -right-10 w-32 h-32 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 ${monet ? 'bg-red-500/10' : 'bg-red-500/5 dark:bg-red-500/10'}`} />
                         </motion.div>
                       ))}
                     </div>
                   ) : (
-                    <div className={`${dynamicStyles.card} p-12 flex flex-col items-center justify-center text-center`}>
-                      <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${monet ? 'bg-emerald-500/20' : 'bg-emerald-50 dark:bg-emerald-900/20'}`}><IconCheck size={32} className={monet ? "text-emerald-300" : "text-emerald-600 dark:text-emerald-400"} /></div>
-                      <h3 className={`text-lg font-bold ${monet ? monet.textMain : 'text-slate-800 dark:text-white'}`}>All Clear!</h3>
-                      <p className={`${monet ? monet.textSub : 'text-slate-500'} mt-1`}>No students are flagged as at-risk for this quarter.</p>
-                    </div>
+                    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className={`${dynamicStyles.card} p-12 flex flex-col items-center justify-center text-center mt-8`}>
+                      <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 shadow-inner ${monet ? 'bg-emerald-500/20 shadow-emerald-900/20' : 'bg-emerald-50 dark:bg-emerald-500/10 shadow-emerald-500/5'}`}>
+                        <IconCheck size={40} stroke={2.5} className={monet ? "text-emerald-300" : "text-emerald-500 dark:text-emerald-400"} />
+                      </div>
+                      <h3 className={`text-xl font-bold font-display tracking-tight ${monet ? monet.textMain : 'text-slate-800 dark:text-slate-100'}`}>All Clear!</h3>
+                      <p className={`${monet ? monet.textSub : 'text-slate-500 dark:text-slate-400'} mt-2 max-w-sm font-medium`}>Excellent work! No students are flagged as at-risk for this quarter.</p>
+                    </motion.div>
                   )
-                ) : <div className={`${dynamicStyles.card} p-8 text-center opacity-70 ${monet ? monet.textSub : 'text-slate-500'}`}>Please select a quarter to view analysis.</div>}
+                ) : <div className={`${dynamicStyles.card} p-12 text-center mt-8`}><span className={`font-semibold ${monet ? 'text-white/50' : 'text-slate-400 dark:text-slate-500'}`}>Please select a quarter from the sidebar to view analysis.</span></div>}
               </div>
             )}
 
             {selectedClassId && analysisType === "quizzes" && (
-              <div className="space-y-6">
+              <div className="space-y-6 sm:space-y-8 pb-10">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <h2 className={`text-2xl font-bold tracking-tight ${monet ? monet.textMain : 'text-slate-800 dark:text-white'}`}>Item Analysis</h2>
+                  <h2 className={`text-2xl sm:text-3xl font-bold tracking-tight ${monet ? monet.textMain : 'text-slate-800 dark:text-white font-display'}`}>Item Analysis</h2>
                   {selectedQuizId && itemAnalysisData && !isLoading && (
-                    <div className="flex gap-2">
-                      <button onClick={exportItemAnalysisToCSV} className={`${baseButtonStyles} px-5 py-2.5 text-sm ${monet ? monet.buttonSecondary : 'text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10'}`}><IconDownload size={16} /> CSV</button>
-                      <button onClick={generateAnalysisReport} disabled={isAnalyzing} className={`${baseButtonStyles} px-5 py-2.5 text-sm ${monet ? monet.buttonPrimary : 'text-white bg-[#007AFF] hover:bg-[#0062cc] shadow-sm'}`}><IconAnalyze size={18} /> AI Analysis</button>
+                    <div className="flex gap-2 sm:gap-3 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
+                      <button onClick={exportItemAnalysisToCSV} className={`${baseButtonStyles} px-5 py-2.5 sm:py-3 text-[13px] sm:text-sm ${monet ? monet.buttonSecondary : 'text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 shadow-sm border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'}`}>
+                        <IconDownload size={18} /> CSV
+                      </button>
+                      <button onClick={generateAnalysisReport} disabled={isAnalyzing} className={`${baseButtonStyles} px-6 py-2.5 sm:py-3 text-[13px] sm:text-sm ${monet ? monet.buttonPrimary : 'text-white bg-gradient-to-r from-blue-600 to-indigo-600 shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 border-0'}`}>
+                        <IconAnalyze size={18} /> AI Analysis
+                      </button>
                     </div>
                   )}
                 </div>
 
                 {isLoading ? <TableSkeleton /> : selectedQuizId && itemAnalysisData && itemAnalysisData.length > 0 ? (
-                  <div className={`${dynamicStyles.card} overflow-hidden`}>
-                    <table className="w-full text-sm text-left">
-                      <thead className={`text-xs font-bold uppercase ${monet ? monet.tableHeader : 'text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10'}`}><tr><th className="px-6 py-4">Question</th><th className="px-6 py-4 text-center">Performance</th><th className="px-6 py-4 text-right">Mastery</th></tr></thead>
-                      <tbody className={`divide-y ${monet ? 'divide-white/5' : 'divide-slate-100 dark:divide-white/5'}`}>
-                        {itemAnalysisData.map((item, i) => {
-                          const percent = parseInt(item.difficulty, 10);
-                          return (
-                            <React.Fragment key={i}>
-                              <tr className={`${monet ? monet.tableRow : 'hover:bg-slate-50 dark:hover:bg-white/5'} transition-colors`}>
-                                <td className={`px-6 py-4 font-medium max-w-md ${monet ? monet.textMain : 'text-slate-700 dark:text-slate-300'}`}>
-                                  <div className="line-clamp-2">{item.type === "matching-type" ? "Matching Question" : item.question}</div>
-                                  {item.type === "matching-type" && <button onClick={() => setExpandedRows(p => ({ ...p, [i]: !p[i] }))} className={`text-xs hover:underline mt-1 font-medium ${monet ? monet.accentColor : 'text-blue-500 dark:text-blue-400'}`}>{expandedRows[i] ? "Hide Breakdown" : "View Breakdown"}</button>}
-                                </td>
-                                <td className="px-6 py-4 text-center"><div className={`inline-flex items-center justify-center px-2.5 py-1 rounded-full text-xs font-bold ${monet ? 'bg-white/10 text-white' : 'bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300'}`}>{item.correct} / {item.total}</div></td>
-                                <td className="px-6 py-4 text-right">
-                                  <span className={`inline-block px-3 py-1 rounded-lg text-xs font-bold border ${percent >= 75 ? (monet ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" : "bg-emerald-50 text-emerald-700 border-emerald-200") : (monet ? "bg-red-500/20 text-red-300 border-red-500/30" : "bg-red-50 text-red-700 border-red-200")}`}>{item.difficulty}</span>
-                                </td>
-                              </tr>
-                              {item.type === "matching-type" && expandedRows[i] && (
-                                <tr className={monet ? "bg-white/5" : "bg-slate-50/50"}>
-                                  <td colSpan={3} className="px-6 py-4">
-                                    <div className="grid gap-2">{item.breakdown.map((p, idx) => <div key={idx} className={`flex items-center justify-between text-xs p-2 rounded border ${monet ? 'bg-white/5 border-white/10' : 'bg-white border-slate-200'}`}><span className={monet ? monet.textSub : "text-slate-600"}>{p.promptText}</span><div className="flex items-center gap-2"><span className={p.isCorrect ? (monet ? "text-emerald-400" : "text-emerald-600") : (monet ? "text-red-400" : "text-red-500")}>{p.studentChoice || "No Answer"}</span><span className={monet ? "text-white/40" : "text-slate-300"}>→</span><span className={`font-bold ${monet ? monet.textMain : "text-slate-700"}`}>{p.correctChoice}</span></div></div>)}</div>
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`${dynamicStyles.card} overflow-hidden`}>
+                    <div className="overflow-x-auto custom-scrollbar">
+                      <table className="w-full text-sm text-left whitespace-nowrap sm:whitespace-normal">
+                        <thead className={`text-xs font-bold uppercase tracking-wider ${monet ? monet.tableHeader : 'text-slate-500 dark:text-slate-400 bg-slate-50/80 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800'}`}>
+                          <tr>
+                            <th className="px-6 py-5">Question Statement</th>
+                            <th className="px-6 py-5 text-center">Class Performance</th>
+                            <th className="px-6 py-5 text-right rounded-tr-3xl">Mastery Index</th>
+                          </tr>
+                        </thead>
+                        <tbody className={`divide-y ${monet ? 'divide-white/5' : 'divide-slate-200/50 dark:divide-slate-800/50'}`}>
+                          {itemAnalysisData.map((item, i) => {
+                            const percent = parseInt(item.difficulty, 10);
+                            return (
+                              <React.Fragment key={i}>
+                                <tr className={`${monet ? monet.tableRow : 'hover:bg-slate-50/50 dark:hover:bg-white/[0.02]'} transition-colors group`}>
+                                  <td className={`px-6 py-4 font-semibold max-w-md ${monet ? monet.textMain : 'text-slate-800 dark:text-slate-200'}`}>
+                                    <div className="line-clamp-2 leading-relaxed">{item.type === "matching-type" ? "Matching Question Cluster" : item.question}</div>
+                                    {item.type === "matching-type" && (
+                                      <button onClick={() => setExpandedRows(p => ({ ...p, [i]: !p[i] }))} className={`text-[11px] uppercase tracking-wider font-bold mt-2 hover:underline inline-flex items-center gap-1 ${monet ? monet.accentColor : 'text-blue-500 dark:text-blue-400'}`}>
+                                        {expandedRows[i] ? "Hide Breakdown" : "View Breakdown"}
+                                        <IconChevronDown size={14} className={`transition-transform ${expandedRows[i] ? 'rotate-180' : ''}`} />
+                                      </button>
+                                    )}
+                                  </td>
+                                  <td className="px-6 py-4 text-center">
+                                    <div className={`inline-flex items-center justify-center px-4 py-1.5 rounded-full text-xs font-bold font-mono tracking-widest ${monet ? 'bg-white/10 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}`}>
+                                      {item.correct} / {item.total}
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 text-right">
+                                    <span className={`inline-block px-3 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wider ${percent >= 75 ? (monet ? "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30" : "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 ring-1 ring-emerald-500/20") : (monet ? "bg-rose-500/20 text-rose-300 ring-1 ring-rose-500/30" : "bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 ring-1 ring-rose-500/20")}`}>
+                                      {item.difficulty}
+                                    </span>
                                   </td>
                                 </tr>
-                              )}
-                            </React.Fragment>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : <div className={`${dynamicStyles.card} p-12 text-center opacity-60 ${monet ? monet.textSub : 'text-slate-500'}`}>Select a quiz to analyze items.</div>}
+                                {item.type === "matching-type" && expandedRows[i] && (
+                                  <tr className={monet ? "bg-white/[0.02]" : "bg-slate-50/30 dark:bg-slate-800/20"}>
+                                    <td colSpan={3} className="px-6 py-5 border-t border-slate-100 dark:border-slate-800/50">
+                                      <div className="grid gap-3 max-w-2xl">
+                                        {item.breakdown.map((p, idx) => (
+                                          <div key={idx} className={`flex flex-col sm:flex-row sm:items-center justify-between text-xs p-3 rounded-xl border ${monet ? 'bg-white/5 border-white/10' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 shadow-sm gap-2 sm:gap-4'}`}>
+                                            <span className={`font-medium ${monet ? monet.textSub : "text-slate-600 dark:text-slate-400"}`}>{p.promptText}</span>
+                                            <div className="flex flex-wrap items-center gap-2 bg-slate-50 dark:bg-slate-800/50 px-3 py-1.5 rounded-lg border border-slate-100 dark:border-slate-700/50 min-w-max">
+                                              <span className={`font-semibold ${p.isCorrect ? (monet ? "text-emerald-400" : "text-emerald-600 dark:text-emerald-500") : (monet ? "text-rose-400" : "text-rose-600 dark:text-rose-500")}`}>{p.studentChoice || "No Answer"}</span>
+                                              <span className={monet ? "text-white/30" : "text-slate-300 dark:text-slate-600"}>→</span>
+                                              <span className={`font-bold ${monet ? monet.textMain : "text-slate-800 dark:text-slate-200"}`}>{p.correctChoice}</span>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </motion.div>
+                ) : <div className={`${dynamicStyles.card} p-12 text-center mt-8`}><span className={`font-semibold ${monet ? 'text-white/50' : 'text-slate-400 dark:text-slate-500'}`}>Select a quiz from the sidebar to analyze item performance.</span></div>}
               </div>
             )}
 
             {selectedClassId && analysisType === "recommendations" && (
-              <div className="space-y-6">
-                <h2 className={`text-2xl font-bold tracking-tight ${monet ? monet.textMain : 'text-slate-800 dark:text-white'}`}>Saved Recommendations</h2>
+              <div className="space-y-6 sm:space-y-8 pb-10">
+                <h2 className={`text-2xl sm:text-3xl font-bold tracking-tight ${monet ? monet.textMain : 'text-slate-800 dark:text-white font-display'}`}>Saved Recommendations</h2>
+
                 {isLoading ? <RecommendationsSkeleton /> : Object.keys(groupedSavedRecs).length === 0 ? (
-                  <div className={`${dynamicStyles.card} p-12 flex flex-col items-center text-center`}><IconBookmarks size={48} className={`mb-4 ${monet ? 'text-white/30' : 'text-slate-300 dark:text-slate-600'}`} /><p className={monet ? monet.textSub : "text-slate-500 dark:text-slate-400"}>No AI recommendations generated yet.</p></div>
+                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className={`${dynamicStyles.card} p-12 flex flex-col items-center justify-center text-center mt-8`}>
+                    <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 shadow-inner ${monet ? 'bg-white/10' : 'bg-slate-100 dark:bg-slate-800'}`}>
+                      <IconBookmarks size={40} stroke={2} className={`${monet ? 'text-white/50' : 'text-slate-400 dark:text-slate-500'}`} />
+                    </div>
+                    <h3 className={`text-xl font-bold font-display tracking-tight ${monet ? monet.textMain : 'text-slate-800 dark:text-slate-100'}`}>No Recommendations</h3>
+                    <p className={`${monet ? monet.textSub : 'text-slate-500 dark:text-slate-400'} mt-2 max-w-sm font-medium`}>Run an AI Analysis on a quiz to generate and save remediation strategies here.</p>
+                  </motion.div>
                 ) : (
                   <div className="space-y-4">
                     {Object.keys(groupedSavedRecs).sort(customUnitSort).map((unitTitle) => (
                       <div key={unitTitle} className={`${dynamicStyles.card} overflow-hidden`}>
-                        <button onClick={() => setOpenRecsUnit(openRecsUnit === unitTitle ? null : unitTitle)} className={`w-full flex justify-between items-center px-6 py-4 border-b transition-colors ${monet ? 'bg-white/5 border-white/10 hover:bg-white/10' : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/10'}`}>
-                          <span className={`font-bold text-sm ${monet ? monet.textMain : 'text-slate-700 dark:text-slate-200'}`}>{unitTitle}</span><IconChevronDown className={`transition-transform ${openRecsUnit === unitTitle ? "rotate-180" : ""} ${monet ? 'text-white/50' : 'text-slate-400 dark:text-slate-500'}`} size={16} />
+                        <button onClick={() => setOpenRecsUnit(openRecsUnit === unitTitle ? null : unitTitle)} className={`w-full flex justify-between items-center px-6 py-4 border-b transition-colors ${monet ? 'bg-white/5 border-white/10 hover:bg-white/10' : 'bg-slate-50/80 dark:bg-slate-900/80 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
+                          <span className={`font-bold text-sm sm:text-base tracking-wide ${monet ? monet.textMain : 'text-slate-800 dark:text-slate-200'}`}>{unitTitle}</span>
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${monet ? 'bg-white/10' : 'bg-white dark:bg-slate-800 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)]'} ${openRecsUnit === unitTitle ? (monet ? 'bg-white/20' : 'bg-blue-50 dark:bg-blue-500/10 text-blue-600') : ''}`}>
+                            <IconChevronDown className={`transition-transform duration-300 ${openRecsUnit === unitTitle ? "rotate-180" : ""} ${monet ? 'text-white' : 'text-slate-500 dark:text-slate-400'}`} size={18} />
+                          </div>
                         </button>
                         <AnimatePresence>
                           {openRecsUnit === unitTitle && (
-                            <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="overflow-hidden">
-                              <div className="p-2 space-y-2">
+                            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden bg-white dark:bg-slate-950/30">
+                              <div className="p-4 space-y-3">
                                 {groupedSavedRecs[unitTitle].map((recDoc) => (
-                                  <div key={recDoc.id} className={`group flex items-center justify-between p-3 rounded-xl transition-all border border-transparent ${monet ? 'hover:bg-white/5 hover:border-white/10' : 'hover:bg-slate-50 dark:hover:bg-white/5 hover:border-slate-200 dark:hover:border-white/10'}`}>
-                                    <div onClick={() => { setViewingRec(recDoc); setViewModalOpen(true); }} className="flex-1 cursor-pointer">
-                                      <h4 className={`font-bold text-sm ${monet ? monet.textMain : 'text-slate-800 dark:text-white'}`}>{recDoc.lessonTitle || "Remediation Plan"}</h4>
-                                      <span className={`text-xs ${monet ? monet.textSub : 'text-slate-500 dark:text-slate-400'}`}>{recDoc.createdAt?.toDate().toLocaleDateString()}</span>
+                                  <div key={recDoc.id} className={`group flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl transition-all border ${monet ? 'bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20 shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-500/50 shadow-sm hover:shadow-md'}`}>
+                                    <div onClick={() => { setViewingRec(recDoc); setViewModalOpen(true); }} className="flex-1 cursor-pointer mb-4 sm:mb-0">
+                                      <div className="flex items-center gap-3">
+                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${monet ? 'bg-emerald-500/20 text-emerald-300' : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'}`}>
+                                          <IconBrain size={20} />
+                                        </div>
+                                        <div>
+                                          <h4 className={`font-bold text-sm sm:text-base ${monet ? monet.textMain : 'text-slate-800 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors'}`}>{recDoc.lessonTitle || "Remediation Plan"}</h4>
+                                          <span className={`text-xs font-medium ${monet ? monet.textSub : 'text-slate-500 dark:text-slate-400'}`}>Generated: {recDoc.createdAt?.toDate().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                        </div>
+                                      </div>
                                     </div>
-                                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                      <button onClick={() => exportRecToPDF(recDoc)} className={`${baseButtonStyles} p-2.5 rounded-full border ${monet ? monet.buttonSecondary : 'text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-blue-600 dark:hover:text-blue-400 border-slate-200 dark:border-white/10'}`} disabled={exportingPdfId === recDoc.id}>{exportingPdfId === recDoc.id ? <Spinner size="xs" /> : <IconFileExport size={16} />}</button>
-                                      <button onClick={() => { setEditingRec(recDoc); setEditModalOpen(true); }} className={`${baseButtonStyles} p-2.5 rounded-full border ${monet ? monet.buttonSecondary : 'text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-blue-600 dark:hover:text-blue-400 border-slate-200 dark:border-white/10'}`}><IconEdit size={16} /></button>
-                                      <button onClick={() => deleteRecommendation(recDoc)} className={`${baseButtonStyles} p-2.5 rounded-full border ${monet ? 'bg-red-500/20 text-red-300 border-red-500/30 hover:bg-red-500/30' : 'text-red-500 hover:text-red-600 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 border-red-100 dark:border-red-500/20'}`}><IconTrash size={16} /></button>
+                                    <div className="flex items-center gap-2 sm:opacity-0 group-hover:opacity-100 transition-opacity self-end sm:self-auto">
+                                      <button onClick={() => exportRecToPDF(recDoc)} className={`${baseButtonStyles} p-2.5 rounded-full border ${monet ? monet.buttonSecondary : 'text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 border-slate-200 dark:border-slate-700 shadow-sm'}`} disabled={exportingPdfId === recDoc.id} title="Export to PDF">
+                                        {exportingPdfId === recDoc.id ? <Spinner size="xs" /> : <IconFileExport size={16} stroke={2} />}
+                                      </button>
+                                      <button onClick={() => { setEditingRec(recDoc); setEditModalOpen(true); }} className={`${baseButtonStyles} p-2.5 rounded-full border ${monet ? monet.buttonSecondary : 'text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-amber-600 dark:hover:text-amber-400 border-slate-200 dark:border-slate-700 shadow-sm'}`} title="Edit Recommendation">
+                                        <IconEdit size={16} stroke={2} />
+                                      </button>
+                                      <button onClick={() => deleteRecommendation(recDoc)} className={`${baseButtonStyles} p-2.5 rounded-full border ${monet ? 'bg-red-500/20 text-red-300 border-red-500/30 hover:bg-red-500/40' : 'text-red-500 dark:text-red-400 hover:text-red-700 bg-white dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-red-900/20 border-slate-200 dark:border-slate-700 hover:border-red-200 dark:hover:border-red-500/30 shadow-sm'}`} title="Delete">
+                                        <IconTrash size={16} stroke={2} />
+                                      </button>
                                     </div>
                                   </div>
                                 ))}

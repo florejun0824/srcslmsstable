@@ -1532,6 +1532,7 @@ const TeacherDashboardLayout = (props) => {
                     onClose={handleCloseChat}
                     messages={messages}
                     onSendMessage={handleAskAiWrapper}
+                    onRetryChat={rest.handleRetryChat}
                     isAiThinking={isAiThinking}
                     userFirstName={userProfile?.firstName}
                 />

@@ -41,7 +41,7 @@ export default async function handler(req) {
     if (!bodyText) return new Response(JSON.stringify({ error: "Empty body" }), { status: 400, headers: corsHeaders });
 
     const body = JSON.parse(bodyText);
-    const { prompt, model: requestedModel, systemInstruction } = body;
+    const { prompt, history, model: requestedModel, systemInstruction } = body;
 
     if (!prompt) {
       return new Response(JSON.stringify({ error: "No prompt provided" }), { status: 400, headers: corsHeaders });
@@ -64,8 +64,13 @@ export default async function handler(req) {
     const model = genAI.getGenerativeModel(modelOptions);
 
     // --- STREAMING LOGIC START ---
-    // Instead of waiting for full response, we stream it chunk by chunk.
-    const result = await model.generateContentStream(prompt);
+    let result;
+    if (history && Array.isArray(history) && history.length > 0) {
+      const contents = [...history, { role: 'user', parts: [{ text: prompt }] }];
+      result = await model.generateContentStream({ contents });
+    } else {
+      result = await model.generateContentStream(prompt);
+    }
 
     // Create a ReadableStream to pipe the data to the client immediately
     const stream = new ReadableStream({

@@ -15,17 +15,40 @@ const SUGGESTIONS = [
 ];
 
 // --- Memoized single message to prevent ContentRenderer re-renders on typing ---
-const ChatMessage = memo(({ msg, chatbotProfilePic }) => {
+const ChatMessage = memo(({ msg, chatbotProfilePic, onRetryChat }) => {
     if (msg.sender === 'ai') {
         return (
-            <div className={`message-row ai-row`}>
+            <div className={`message-row ai-row ${msg.isError ? 'error-row' : ''}`}>
                 <div className="message-row-inner">
                     <img src={chatbotProfilePic} alt="AI" className="msg-avatar" />
                     <div className="msg-body">
-                        <div className="msg-text ai-text">
+                        <div className={`msg-text ai-text relative group ${msg.isError ? 'error-text text-red-600 bg-red-50 dark:bg-red-900/10' : ''}`}>
                             <div className="markdown-content">
                                 <ContentRenderer text={msg.text} />
                             </div>
+
+                            {/* Copy Button (Only show if not an error) */}
+                            {!msg.isError && (
+                                <button
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(msg.text);
+                                        // Optional: Add a brief local state for a checkmark, but native icon click is often enough visually
+                                    }}
+                                    className="absolute -bottom-8 right-0 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-md hover:bg-slate-200 text-slate-500 hover:text-slate-700"
+                                    title="Copy response"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                </button>
+                            )}
+
+                            {msg.isError && onRetryChat && (
+                                <button
+                                    onClick={onRetryChat}
+                                    className="mt-3 flex items-center gap-2 px-4 py-2 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-700 dark:text-red-400 rounded-lg text-[13px] font-bold transition-colors"
+                                >
+                                    <Sparkles size={14} /> Retry Connection
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -44,10 +67,10 @@ const ChatMessage = memo(({ msg, chatbotProfilePic }) => {
 });
 
 // --- Memoized messages list so typing in input doesn't re-render all messages ---
-const MessagesList = memo(({ messages, isAiThinking, chatbotProfilePic, messagesEndRef }) => (
+const MessagesList = memo(({ messages, isAiThinking, chatbotProfilePic, messagesEndRef, onRetryChat }) => (
     <div className="chat-messages" aria-live="polite">
         {messages.map((msg, index) => (
-            <ChatMessage key={index} msg={msg} chatbotProfilePic={chatbotProfilePic} />
+            <ChatMessage key={index} msg={msg} chatbotProfilePic={chatbotProfilePic} onRetryChat={onRetryChat} />
         ))}
 
         {/* Typing Indicator — shimmer skeleton */}
@@ -89,7 +112,7 @@ const getDialogBg = (overlay, monetTheme) => {
     return `linear-gradient(to bottom, ${tint}, #ffffff)`;
 };
 
-const ChatDialog = memo(({ isOpen, onClose, messages, onSendMessage, isAiThinking, userFirstName }) => {
+const ChatDialog = memo(({ isOpen, onClose, messages, onSendMessage, onRetryChat, isAiThinking, userFirstName }) => {
     const messagesEndRef = useRef(null);
     const [inputValue, setInputValue] = useState('');
     const textareaRef = useRef(null);
@@ -246,23 +269,25 @@ const ChatDialog = memo(({ isOpen, onClose, messages, onSendMessage, isAiThinkin
                                 isAiThinking={isAiThinking}
                                 chatbotProfilePic={chatbotProfilePic}
                                 messagesEndRef={messagesEndRef}
+                                onRetryChat={onRetryChat}
                             />
                         )}
 
-                        {/* === INPUT AREA === */}
-                        <div className="suggestion-chips" style={{ padding: '0 16px 8px', overflowX: 'auto', display: 'flex', gap: '8px', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
-                            {SUGGESTIONS.map((s, i) => (
-                                <button
-                                    key={i}
-                                    className="suggestion-chip"
-                                    style={{ flexShrink: 0, padding: '6px 12px', fontSize: '11px', whiteSpace: 'nowrap', opacity: 0.9, backgroundColor: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.05)', borderRadius: '100px' }}
-                                    onClick={() => handleSuggestion(s)}
-                                >
-                                    <Sparkles size={12} style={{ display: 'inline', marginRight: 4, opacity: 0.6 }} />
-                                    {s}
-                                </button>
-                            ))}
-                        </div>
+						{/* === INPUT AREA === */}
+						<div style={{ display: 'flex', justifyContent: 'center', width: '100%', padding: '0 16px 12px' }}>
+						    <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '8px', maxWidth: '768px' }}>
+						        {SUGGESTIONS.map((s, i) => (
+						            <button
+						                key={i}
+						                className="suggestion-chip"
+						                onClick={() => handleSuggestion(s)}
+						            >
+						                <Sparkles size={12} style={{ marginRight: '6px', opacity: 0.7 }} />
+						                <span>{s}</span>
+						            </button>
+						        ))}
+						    </div>
+						</div>
                         <div className="chat-input-area">
                             <div className="input-wrapper">
                                 <textarea
