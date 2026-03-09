@@ -8,10 +8,10 @@ import './ChatDialog.css';
 
 // --- SUGGESTION CHIPS ---
 const SUGGESTIONS = [
-    "How to create an exam?",
-    "Tips for classroom management",
+    "What are the features of this LMS?",
+    "Who developed you?",
+    "How do I generate an exam?",
     "Write a lesson plan for Math",
-    "Explain adaptive teaching",
 ];
 
 // --- Memoized single message to prevent ContentRenderer re-renders on typing ---
@@ -239,18 +239,6 @@ const ChatDialog = memo(({ isOpen, onClose, messages, onSendMessage, isAiThinkin
                                 <div className="empty-subtitle">
                                     I'm your AI teaching assistant. Ask me anything about lessons, exams, or classroom strategies.
                                 </div>
-                                <div className="suggestion-chips">
-                                    {SUGGESTIONS.map((s, i) => (
-                                        <button
-                                            key={i}
-                                            className="suggestion-chip"
-                                            onClick={() => handleSuggestion(s)}
-                                        >
-                                            <Sparkles size={12} style={{ display: 'inline', marginRight: 6, opacity: 0.6 }} />
-                                            {s}
-                                        </button>
-                                    ))}
-                                </div>
                             </div>
                         ) : (
                             <MessagesList
@@ -262,6 +250,19 @@ const ChatDialog = memo(({ isOpen, onClose, messages, onSendMessage, isAiThinkin
                         )}
 
                         {/* === INPUT AREA === */}
+                        <div className="suggestion-chips" style={{ padding: '0 16px 8px', overflowX: 'auto', display: 'flex', gap: '8px', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
+                            {SUGGESTIONS.map((s, i) => (
+                                <button
+                                    key={i}
+                                    className="suggestion-chip"
+                                    style={{ flexShrink: 0, padding: '6px 12px', fontSize: '11px', whiteSpace: 'nowrap', opacity: 0.9, backgroundColor: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.05)', borderRadius: '100px' }}
+                                    onClick={() => handleSuggestion(s)}
+                                >
+                                    <Sparkles size={12} style={{ display: 'inline', marginRight: 4, opacity: 0.6 }} />
+                                    {s}
+                                </button>
+                            ))}
+                        </div>
                         <div className="chat-input-area">
                             <div className="input-wrapper">
                                 <textarea

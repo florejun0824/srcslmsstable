@@ -403,7 +403,19 @@ const getTosPlannerPrompt = (guideData) => {
     const combinedLessonTitles = selectedLessons.map(lesson => lesson.title).join(', ');
 
     return `
-    You are an expert educational assessment planner for the Philippines K-12 curriculum. Your *only* task is to generate a detailed Table of Specifications (TOS) in JSON format. Do NOT generate exam questions.
+    # Role: Expert Educational Assessment Planner (DepEd K-12 Standards)
+    You are a Master Teacher and Subject Matter Expert in the Philippines. I have uploaded lesson materials. Your task is to generate a comprehensive **Table of Specifications (TOS)** in JSON format based *strictly* on these materials. Do NOT generate exam questions.
+
+    **STRICT INPUT PARAMETERS:**
+    * **Subject:** ${subject}
+    * **Grade Level:** ${gradeLevelText}
+    * **Language:** ${language}
+    * **Total Items:** ${totalConfiguredItems}
+    * **Total Hours:** ${totalHours || 'Not specified'}
+    * **Test Structure:** ${formattedTestStructure}
+    * **Lesson Titles:** "${combinedLessonTitles}"
+    * **Learning Competencies:** 
+    \`\`\`${learningCompetencies}\`\`\`
 
     **PRIMARY DIRECTIVE: YOUR ENTIRE RESPONSE MUST BE A SINGLE, VALID JSON OBJECT.**
     ---
@@ -419,29 +431,15 @@ const getTosPlannerPrompt = (guideData) => {
         }
     }
     ---
-    **INPUT DATA**
-    - **Grade Level:** ${gradeLevelText} (Strictly adhere to this difficulty level)
-    - **Lesson Titles:** "${combinedLessonTitles}"
-    - **Learning Competencies:** \`\`\`${learningCompetencies}\`\`\`
-    - **Language:** ${language}
-    - **Total Hours for Topic:** ${totalHours || 'not specified'}
-    - **Total Items:** ${totalConfiguredItems}
-    - **Test Structure:** ${formattedTestStructure}
-
-    **CRITICAL GENERATION RULES (NON-NEGOTIABLE):**
-    1.  **TOTAL ITEMS ADHERENCE:** The 'noOfItems' in the TOS 'totalRow' MUST equal ${totalConfiguredItems}.
-    2.  **TOS COMPETENCIES:** You MUST use the exact learning competencies provided.
-    3.  **ITEM CALCULATION:** Calculate 'noOfItems' using: \`(weightPercentage / 100) * ${totalConfiguredItems}\`, then adjust rounded numbers to sum to the 'Total Items' using the Largest Remainder Method.
-    4.  **LANGUAGE:** All text MUST be in **${language}**.
     
-    **5. DIFFICULTY & PLACEMENT (CRITICAL):**
-       - **Distribution:** Strictly adhere to Revised Bloom's Taxonomy:
-         - **EASY (60%):** Remembering / Understanding.
-         - **AVERAGE (30%):** Applying / Analyzing.
-         - **DIFFICULT (10%):** Evaluating / Creating.
-       - **Item Numbers:** 'itemNumbers' strings MUST look like "1-5, 8" or "6-10". 
-       - **Coverage:** Ensure EVERY number from 1 to ${totalConfiguredItems} appears EXACTLY ONCE across the entire table.
-       - **Essay Placement:** Place an essay's entire item number range in the 'difficultItems' column.
+    ### PART 1: TABLE OF SPECIFICATIONS (TOS) RULES
+    **Logic & Math Constraints:**
+    1.  **Distribution:** Distribute the ${totalConfiguredItems} Total Items strictly:
+        * **Easy (Knowledge):** 60%
+        * **Average (Comprehension/Understanding):** 30%
+        * **Difficult (Application/Thinking):** 10%
+    2.  **Calculations:** Calculate the "noOfItems" per competency based on the "weightPercentage" (derived from hours spent). Use the **Largest Remainder Method** to ensure the total equals ${totalConfiguredItems} exactly.
+    3.  **Placement:** Ensure every question number from 1 to ${totalConfiguredItems} is accounted for exactly once. 'itemNumbers' strings MUST include the specific numbers (e.g. "1-5", "6-8"). Place an essay's entire item number range in the 'difficultItems' column.
     `;
 };
 
@@ -473,8 +471,8 @@ const getExamComponentPrompt = (guideData, generatedTos, testType, previousQuest
 
 
     return `
-    You are an expert exam question writer. 
-    **PERSONA:** You are the Subject Matter Expert. You are writing this exam based on your own knowledge. **NEVER** refer to "the lesson", "the text", "the passage", or "the material" in your questions or explanations. State facts directly.
+    # Role: Expert Educational Assessment Planner (DepEd K-12 Standards)
+    You are a Master Teacher and Subject Matter Expert in the Philippines. I have uploaded lesson materials. Your task is to generate a comprehensive **Periodical Exam** and a **Detailed Answer Key with Explanations** based *strictly* on these materials.
 
     **PRIMARY DIRECTIVE: RESPONSE MUST BE A SINGLE VALID JSON OBJECT.**
     ---
@@ -500,40 +498,60 @@ const getExamComponentPrompt = (guideData, generatedTos, testType, previousQuest
     - Count: **${numItems}** items.
     - Range: **${range}**
 
-    **CRITICAL TONE & FACT RULES (NON-NEGOTIABLE):**
-    1.  **NO META-REFERENCES (TONE):** It is strictly forbidden to use phrases that cite the source. Use an authoritative voice.
-    2.  **SOURCE TRUTH:** Use the Source Material for facts, but present them as absolute truths.
-	3.  **PHILIPPINE CONTEXT (CRITICAL):** - **Currency:** Use **PHP / Pesos** for all money problems.
-        - **Names:** Use Filipino names (e.g., Juan, Maria, Cruz, Reyes).
-        - **Scenarios:** Use local settings (e.g., sari-sari store, barangay hall, jeepney commute) where applicable.
-    4.  **CORRECT ANSWER:** Must be the **EXACT** string from the options (if Multiple Choice).
-	5. 	**ALTERNATIVE RESPONSE (ANSWER DISTRIBUTION):** For all True/False items generated in this batch (range ${range}), the correct answers MUST be balanced. Approximately **50% of the statements MUST be TRUE** and **50% MUST be FALSE** to maintain assessment integrity. If the total item count is odd, you may round up or down, but strive for balance.
+    ### PART 2: THE EXAM QUESTIONS (The "San Ramon" Standard)
+    **General Constraints (STRICT & NON-NEGOTIABLE):**
+    1.  **Language Consistency (STRICT):**
+        * Adhere strictly to the **${language}** language.
+        * **NO Taglish:** Do not mix English and Filipino unless a specific term has no translation.
+        * **If Filipino:** Use formal academic Filipino (e.g., use "Tama/Mali" instead of "True/False", "Piliin" instead of "Choose").
+        * **If English:** Use standard academic English.
+    2.  **Tone & Phrasing (CRITICAL):**
+        * **NO META-REFERENCES:** You are strictly **FORBIDDEN** from using phrases like "According to the lesson," "In the text," "As mentioned in the module," or "The author states."
+        * **BAD EXAMPLE:** *According to the lesson 'The Divine Overture,' what is described as the primordial impulse?*
+        * **GOOD EXAMPLE:** *What is described as the primordial impulse of God?*
+        * **RULE:** State facts as absolute, objective truths. Write as if you are the authority on the subject.
+    3.  **Philippine Context (Non-Negotiable):**
+        * **Currency:** Always use **PHP** or **Pesos** for money problems.
+        * **Names:** Use Filipino names (e.g., Juan, Maria, Cruz, Reyes).
+        * **Settings:** Use local scenarios (e.g., sari-sari store, barangay hall, jeepney commute, local elections) where applicable.
 
-    **NON-NEGOTIABLE REPETITION RULE (CRITICAL CHECK):**
-    - **ABSOLUTELY DO NOT REPEAT THE CONCEPT OR PHRASING** of any question listed in the section below. If a question is similar, you MUST rephrase it significantly or address a different facet of the same competency.
+    **Specific Rules per Test Type:**
+    
+    **I. Multiple Choice & Analogy & Interpretive**
+    * **Format:** Provide exactly four options in the "options" array.
+    * **Choice Mechanics & Length (CRITICAL):**
+        * **Uniformity:** All four options must have an equal or near-equal word count. Ensure the grammatical structure and level of detail are consistent across all choices to prevent obvious outliers.
+        * **Anti-Bias Rule:** The correct answer MUST NOT consistently be the longest or shortest option. It must blend in seamlessly.
+    * **Choice Arrangement:**
+        * **Short Choices (1-2 words):** Arrange single words or short phrases in strict **alphabetical order**.
+        * **Longer Choices (3 or more words):** Arrange the options in a **"pyramid style"** (ordered shortest-to-longest or longest-to-shortest).
+    * **Strict Randomization Guardrail:** The correct answers must be randomly and evenly scattered across the options indices. If pyramid arrangement forces predictable patterns, break the rule to keep correct answers randomized.
 
-    **PREVIOUSLY GENERATED QUESTIONS TO AVOID:**
+    **II. True/False (Alternative Response)**
+    * **Format:** Single, declarative sentences. **NO questions.** Balance True/False 50/50 for this batch.
+
+    **III. Identification**
+    * **Format:** Group all items. Generate a single \`choicesBox\` array/string with answers + 2-3 distractors.
+
+    **IV. Matching Type**
+    * **Logic:** Column B must have more options than Column A to prevent elimination guessing. Return a single object with \`prompts\`, \`options\`, and \`correctPairs\`.
+
+    **V. Essay**
+    * **Format:** Provide a \`rubric\` array with criteria and points.
+
+    ### PART 4: EXPLANATIONS & RATIONALE
+    **Instructions:**
+    For every single question generated, provide a brief explanation.
+    * **Direct Explanation Only:** Do **NOT** refer to the source material. Do not say "The PDF says..." or "The lesson stated...".
+    * **Method:** Provide the explanation as a standalone fact or a direct discussion of the concept.
+    * **Bad Example:** "False. The lesson states that global warming is caused by greenhouse gases."
+    * **Good Example:** "False. Global warming is primarily caused by the accumulation of greenhouse gases in the atmosphere, not by the depletion of the ozone layer."
+
+    **NON-NEGOTIABLE REPETITION RULE:**
+    - DO NOT REPEAT THE CONCEPT OR PHRASING of any question listed here:
     \`\`\`
     ${previousQuestionsSummary || "None"}
     \`\`\`
-
-    **FORMAT & QUESTION PHRASING RULES (STRICT):**
-    
-    **A. MULTIPLE CHOICE / ANALOGY / INTERPRETIVE:**
-    - The output MUST include the "options" array with **EXACTLY four options** for every question.
-    - The question text MUST be formatted as a question or an incomplete statement requiring a choice.
-    
-    **B. ALTERNATIVE RESPONSE / TRUE-FALSE:**
-    - The statement MUST be a **single, declarative sentence ending in a period (.)**.
-    - You are ABSOLUTELY FORBIDDEN from using question words ("What," "Which," "Who," or "How").
-    - You are FORBIDDEN from generating an "options" array (A, B, C, D).
-
-    **C. GENERAL PHRASING:**
-    - Do NOT start questions with "Identify...". Phrase them as descriptions.
-    
-    **D. COMPLEX TYPES (MATCHING/IDENTIFICATION):**
-    - **MATCHING:** Return a single object with \`prompts\`, \`options\`, and \`correctPairs\`.
-    - **IDENTIFICATION:** Group all items. Generate a single \`choicesBox\` with answers + distractors.
     `;
 };
 // --- BATCHING HELPER: Generates a small chunk of questions to avoid 504 Timeouts ---

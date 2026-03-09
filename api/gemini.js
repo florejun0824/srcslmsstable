@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // 1. ENABLE EDGE RUNTIME (Critical for streaming)
 export const config = {
-  runtime: 'edge', 
+  runtime: 'edge',
 };
 
 const getApiKeyPool = () => {
@@ -39,12 +39,12 @@ export default async function handler(req) {
   try {
     const bodyText = await req.text();
     if (!bodyText) return new Response(JSON.stringify({ error: "Empty body" }), { status: 400, headers: corsHeaders });
-    
+
     const body = JSON.parse(bodyText);
-    const { prompt, model: requestedModel } = body;
+    const { prompt, model: requestedModel, systemInstruction } = body;
 
     if (!prompt) {
-        return new Response(JSON.stringify({ error: "No prompt provided" }), { status: 400, headers: corsHeaders });
+      return new Response(JSON.stringify({ error: "No prompt provided" }), { status: 400, headers: corsHeaders });
     }
 
     const apiKey = getRandomKey();
@@ -53,46 +53,54 @@ export default async function handler(req) {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: requestedModel || 'gemma-3-27b-it' });
+    const modelOptions = { model: requestedModel || 'gemini-3.1-flash-lite-preview' };
+
+    // The Gemini SDK expects systemInstruction as an object with parts
+    if (systemInstruction) {
+      modelOptions.systemInstruction = {
+        parts: [{ text: systemInstruction }]
+      };
+    }
+    const model = genAI.getGenerativeModel(modelOptions);
 
     // --- STREAMING LOGIC START ---
     // Instead of waiting for full response, we stream it chunk by chunk.
     const result = await model.generateContentStream(prompt);
-    
+
     // Create a ReadableStream to pipe the data to the client immediately
     const stream = new ReadableStream({
-        async start(controller) {
-            const encoder = new TextEncoder();
-            try {
-                for await (const chunk of result.stream) {
-                    const chunkText = chunk.text();
-                    if (chunkText) {
-                        controller.enqueue(encoder.encode(chunkText));
-                    }
-                }
-            } catch (err) {
-                console.error("Stream Error:", err);
-                controller.error(err);
-            } finally {
-                controller.close();
+      async start(controller) {
+        const encoder = new TextEncoder();
+        try {
+          for await (const chunk of result.stream) {
+            const chunkText = chunk.text();
+            if (chunkText) {
+              controller.enqueue(encoder.encode(chunkText));
             }
+          }
+        } catch (err) {
+          console.error("Stream Error:", err);
+          controller.error(err);
+        } finally {
+          controller.close();
         }
+      }
     });
 
-    return new Response(stream, { 
-        status: 200, 
-        headers: { 
-            ...corsHeaders, 
-            'Content-Type': 'text/plain; charset=utf-8' // Return raw text, not JSON
-        } 
+    return new Response(stream, {
+      status: 200,
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'text/plain; charset=utf-8' // Return raw text, not JSON
+      }
     });
     // --- STREAMING LOGIC END ---
 
   } catch (error) {
     console.error("Vercel Gemini Error:", error);
-    return new Response(JSON.stringify({ error: error.message }), { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
 }

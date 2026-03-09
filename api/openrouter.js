@@ -12,10 +12,10 @@ const getApiKey = (tier) => {
     if (process.env.OPENROUTER_API_KEY_3) keys.push(process.env.OPENROUTER_API_KEY_3);
     if (process.env.OPENROUTER_API_KEY_4) keys.push(process.env.OPENROUTER_API_KEY_4);
     if (process.env.OPENROUTER_API_KEY_5) keys.push(process.env.OPENROUTER_API_KEY_5);
-    
+
     // Safety: If no backups exist, fall back to Primary to prevent crashing
     if (keys.length === 0 && process.env.OPENROUTER_API_KEY) {
-        keys.push(process.env.OPENROUTER_API_KEY);
+      keys.push(process.env.OPENROUTER_API_KEY);
     }
   } else {
     // PRIMARY POOL (Default)
@@ -24,7 +24,7 @@ const getApiKey = (tier) => {
 
   // Filter empty keys and pick one randomly
   keys = keys.filter(k => k && k.length > 10);
-  
+
   if (keys.length === 0) return null;
   return keys[Math.floor(Math.random() * keys.length)];
 };
@@ -32,7 +32,7 @@ const getApiKey = (tier) => {
 export default async function handler(req) {
   const corsHeaders = {
     'Access-Control-Allow-Credentials': 'true',
-    'Access-Control-Allow-Origin': '*', 
+    'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET,OPTIONS,PATCH,DELETE,POST,PUT',
     'Access-Control-Allow-Headers': 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
   };
@@ -44,20 +44,20 @@ export default async function handler(req) {
 
   // 2. Validate Method
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: "Method not allowed. Use POST." }), { 
-      status: 405, 
-      headers: corsHeaders 
+    return new Response(JSON.stringify({ error: "Method not allowed. Use POST." }), {
+      status: 405,
+      headers: corsHeaders
     });
   }
 
   try {
     const bodyText = await req.text();
     if (!bodyText) return new Response(JSON.stringify({ error: "Empty body" }), { status: 400, headers: corsHeaders });
-    
+
     const body = JSON.parse(bodyText);
-    
+
     // Destructure inputs including TIER
-    const { prompt, imageUrl, model: requestedModel, maxOutputTokens, tier } = body; 
+    const { prompt, imageUrl, model: requestedModel, maxOutputTokens, tier } = body;
 
     // 3. Validate Inputs
     if (!prompt || typeof prompt !== 'string') {
@@ -65,20 +65,20 @@ export default async function handler(req) {
     }
 
     // SELECT KEY BASED ON TIER
-    const apiKey = getApiKey(tier); 
-    
+    const apiKey = getApiKey(tier);
+
     if (!apiKey) {
       return new Response(JSON.stringify({ error: `Server Error: No OpenRouter Keys found for tier: ${tier || 'primary'}` }), { status: 500, headers: corsHeaders });
     }
 
     // 4. Construct Messages & Select Model
-    let selectedModel = requestedModel || "google/gemini-2.5-flash-lite"; 
+    let selectedModel = requestedModel || "google/gemini-2.5-flash-lite";
     let messages = [];
 
     if (imageUrl) {
       console.log("Image detected: Switching to Gemini 2.0 Flash for Vision");
       selectedModel = "google/gemini-2.0-flash-exp:free";
-      
+
       messages = [
         {
           role: "user",
@@ -107,7 +107,7 @@ export default async function handler(req) {
       headers: {
         "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://srcslms.vercel.app", 
+        "HTTP-Referer": "https://srcslms.vercel.app",
         "X-Title": "LMS Teacher Assistant",
       },
       body: JSON.stringify({
@@ -115,22 +115,22 @@ export default async function handler(req) {
         messages: messages,
         stream: true,
         max_tokens: maxOutputTokens || 8192,
-        include_reasoning: true 
+        include_reasoning: true
       }),
     });
 
     if (!response.ok) {
-        const errText = await response.text();
-        return new Response(JSON.stringify({ error: `OpenRouter Failed (${selectedModel}): ${errText}` }), { 
-            status: response.status, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+      const errText = await response.text();
+      return new Response(JSON.stringify({ error: `OpenRouter Failed (${selectedModel}): ${errText}` }), {
+        status: response.status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     // 6. TRANSFORM STREAM
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
-    
+
     const stream = new ReadableStream({
       async start(controller) {
         const reader = response.body.getReader();
@@ -140,24 +140,24 @@ export default async function handler(req) {
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
-            
+
             buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split('\n');
-            buffer = lines.pop(); 
+            buffer = lines.pop();
 
             for (const line of lines) {
               const trimmed = line.trim();
               if (trimmed.startsWith('data: ')) {
                 const dataStr = trimmed.replace('data: ', '').trim();
                 if (dataStr === '[DONE]') continue;
-                
+
                 try {
                   const data = JSON.parse(dataStr);
                   const content = data.choices?.[0]?.delta?.content;
                   if (content) {
                     controller.enqueue(encoder.encode(content));
                   }
-                } catch (e) {}
+                } catch (e) { }
               }
             }
           }
@@ -169,15 +169,15 @@ export default async function handler(req) {
       },
     });
 
-    return new Response(stream, { 
-      status: 200, 
-      headers: { ...corsHeaders, 'Content-Type': 'text/plain; charset=utf-8' } 
+    return new Response(stream, {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'text/plain; charset=utf-8' }
     });
 
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
 }
