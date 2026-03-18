@@ -227,46 +227,48 @@ export const electionService = {
    * @returns {string} The ID of the newly created tie-breaker election
    */
   createTieBreakerElection: async (parentElection, tiedPositions) => {
-    const now = new Date();
-    const endTime = new Date(now.getTime() + 30 * 60 * 1000); // 30-minute window
+      const now = new Date();
+      const endTime = new Date(now.getTime() + 30 * 60 * 1000); 
 
-    // Build positions array with only the tied candidates
-    const tbPositions = tiedPositions.map(tp => {
-      const originalPos = parentElection.positions.find(p => p.title === tp.title);
-      return {
-        title: tp.title,
-        candidates: tp.candidates.map(name => {
-          const orig = originalPos?.candidates?.find(c => c.name === name);
-          return orig ? { ...orig } : { name };
-        })
-      };
-    });
+      // Build positions array and PRESERVE individual position targeting
+      const tbPositions = tiedPositions.map(tp => {
+        const originalPos = parentElection.positions.find(p => p.title === tp.title);
+        return {
+          title: tp.title,
+          candidates: tp.candidates.map(name => {
+            const orig = originalPos?.candidates?.find(c => c.name === name);
+            return orig ? { ...orig } : { name };
+          }),
+          // Carry over the custom targeting for this specific position
+          targetType: originalPos?.targetType || 'school',
+          targetGrade: originalPos?.targetGrade || null
+        };
+      });
 
-    const tieBreakerId = await electionService.createElection({
-      title: `${parentElection.title} — Tie-Breaker`,
-      organization: parentElection.organization,
-      startDate: now.toISOString(),
-      endDate: endTime.toISOString(),
-      positions: tbPositions,
-      targetType: parentElection.targetType,
-      targetGrade: parentElection.targetGrade || null,
-      schoolId: parentElection.schoolId,
-      createdBy: parentElection.createdBy,
-      visibility: parentElection.visibility || 'public',
-      status: 'active',
-      isTieBreaker: true,
-      parentData: {
-        positions: parentElection.positions,
-        tally: parentElection.tally || parentElection.results || parentElection.liveResults || {},
-        totalVotes: parentElection.totalVotes || 0
-      },
-      tiedPositions: tiedPositions.map(tp => tp.title),
-    });
+      const tieBreakerId = await electionService.createElection({
+        title: `${parentElection.title} — Tie-Breaker`,
+        organization: parentElection.organization,
+        startDate: now.toISOString(),
+        endDate: endTime.toISOString(),
+        positions: tbPositions,
+        // Default top-level to school-wide so everyone can see the election exists
+        targetType: 'school', 
+        schoolId: parentElection.schoolId,
+        createdBy: parentElection.createdBy,
+        visibility: parentElection.visibility || 'public',
+        status: 'active',
+        isTieBreaker: true,
+        parentData: {
+          positions: parentElection.positions,
+          tally: parentElection.tally || parentElection.results || parentElection.liveResults || {},
+          totalVotes: parentElection.totalVotes || 0
+        },
+        tiedPositions: tiedPositions.map(tp => tp.title),
+      });
 
-    // Delete the parent election entirely instead of updating it
-    const parentRef = doc(db, 'elections', parentElection.id);
-    await deleteDoc(parentRef);
+      const parentRef = doc(db, 'elections', parentElection.id);
+      await deleteDoc(parentRef);
 
-    return tieBreakerId;
-  }
+      return tieBreakerId;
+    }
 };

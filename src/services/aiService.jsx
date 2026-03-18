@@ -15,44 +15,55 @@ const API_BASE = PROD_API_URL;
 
 // --- CONFIGURATION ---
 
-// TIER 1: OpenRouter (Reasoning/Complex) - DeepSeek R1
+// TIER 1: OpenRouter (Reasoning/Complex) - Arcee Trinity
 const PRIMARY_CONFIGS = [
     {
         service: 'openrouter',
         url: `${API_BASE}/api/openrouter`,
-        name: 'Gemini 3 Pro)',
+        name: 'Arcee Trinity',
         model: 'arcee-ai/trinity-large-preview:free',
         tier: 'primary' // <--- Forces backend to use Key #1
     },
 ];
 
-// TIER 2: OpenRouter (Fast/Backup) - Gemini Flash
+// NEW TIER: Logic & Structure (For TOS, Math, and Strict Formats)
+const LOGIC_CONFIGS = [
+    {
+        service: 'openrouter',
+        url: `${API_BASE}/api/openrouter`,
+        name: 'NVIDIA Nemotron 3 Super',
+        model: 'nvidia/nemotron-3-super-120b-a12b:free',
+        tier: 'logic' // <--- New tier flag for OpenRouter routing
+    },
+];
+
+// TIER 2: OpenRouter (Fast/Backup) - Arcee Trinity
 const FALLBACK_CONFIGS = [
     {
         service: 'openrouter',
         url: `${API_BASE}/api/openrouter`,
-        name: 'Hermes 3 Backup 1',
+        name: 'Trinity Backup 1',
         model: 'arcee-ai/trinity-large-preview:free', // Correct OpenRouter Model ID
         tier: 'backup' // <--- Forces backend to use Keys #2-5
     },
     {
         service: 'openrouter',
         url: `${API_BASE}/api/openrouter`,
-        name: 'Hermes 3 Backup 2',
+        name: 'Trinity Backup 2',
         model: 'arcee-ai/trinity-large-preview:free',
         tier: 'backup'
     },
     {
         service: 'openrouter',
         url: `${API_BASE}/api/openrouter`,
-        name: 'Hermes Backup 3',
+        name: 'Trinity Backup 3',
         model: 'arcee-ai/trinity-large-preview:free',
         tier: 'backup'
     },
     {
         service: 'openrouter',
         url: `${API_BASE}/api/openrouter`,
-        name: 'Meta LLama Backup 4',
+        name: 'Trinity Backup 4',
         model: 'arcee-ai/trinity-large-preview:free',
         tier: 'backup'
     },
@@ -120,7 +131,7 @@ const callProxyApiInternal = async (prompt, jsonMode = false, config, maxOutputT
                 jsonMode: jsonMode,
                 maxOutputTokens: maxOutputTokens,
                 model: config.model,
-                tier: config.tier // <--- Sends 'primary' or 'backup' to server logic
+                tier: config.tier // <--- Sends 'primary', 'backup', or 'logic' to server logic
             }),
         });
 
@@ -157,10 +168,25 @@ const callProxyApiInternal = async (prompt, jsonMode = false, config, maxOutputT
 }
 
 // --- TIERED LOAD BALANCER ---
-const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTokens = undefined, skipPrimary = false) => {
+// Updated to accept 'forceTier' argument
+const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTokens = undefined, skipPrimary = false, forceTier = null) => {
     const errors = {};
 
-    // PHASE 1: Try Primary Tier (OpenRouter / DeepSeek)
+    // NEW LOGIC: Route to the Logic Tier if requested
+    if (forceTier === 'logic') {
+        const config = LOGIC_CONFIGS[0];
+        try {
+             console.log(`Routing to strict logic tier: ${config.name}...`);
+             return await callProxyApiInternal(prompt, jsonMode, config, maxOutputTokens);
+        } catch (error) {
+             console.warn(`${config.name} failed:`, error.message);
+             // If Nemotron fails, we throw an error instead of falling back to Arcee,
+             // because Arcee might hallucinate the strict JSON or math required.
+             throw new Error(`Logic tier failed: ${error.message}`);
+        }
+    }
+
+    // PHASE 1: Try Primary Tier (OpenRouter / Arcee)
     if (!skipPrimary) {
         const maxPrimaryAttempts = 3;
 
@@ -186,7 +212,7 @@ const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTo
         console.log("Skipping Primary Tier. Using Fallback Tier directly.");
     }
 
-    // PHASE 2: Try Fallback Tier (OpenRouter Gemini Flash)
+    // PHASE 2: Try Fallback Tier (OpenRouter / Arcee Backups)
     for (let i = 0; i < FALLBACK_CONFIGS.length; i++) {
         const config = FALLBACK_CONFIGS[fallbackIndex];
         fallbackIndex = (fallbackIndex + 1) % FALLBACK_CONFIGS.length;
@@ -222,7 +248,8 @@ export const callGeminiWithLimitCheck = async (prompt, options = {}) => {
             prompt,
             false,
             options.maxOutputTokens,
-            options.skipPrimary
+            options.skipPrimary,
+            options.forceTier // <--- Pass the new option here
         );
 
         await updateDoc(doc(db, 'usage_trackers', 'ai_usage'), { callCount: increment(1) });
@@ -336,7 +363,9 @@ export const gradeEssayWithAI = async (promptText, rubric, studentAnswer) => {
 
     try {
         console.log("Sending grading prompt to AI...");
-        const jsonResponseText = await callGeminiWithLoadBalancing(gradingPrompt, true);
+        
+        // Let's force the Logic tier for grading too, as it requires strict math and JSON
+        const jsonResponseText = await callGeminiWithLoadBalancing(gradingPrompt, true, undefined, false, 'logic');
 
         let data;
         try {

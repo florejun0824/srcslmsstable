@@ -32,7 +32,7 @@ import { db } from '../../services/firebase';
 
 // --- LOTTIE IMPORTS ---
 import Lottie from 'lottie-react';
-import countingAnimation from '../../assets/data.json'; // Ensure this path is correct in your project
+import countingAnimation from '../../assets/data.json';
 
 // --- HELPERS ---
 const useWindowSizeCustom = () => {
@@ -54,7 +54,6 @@ const ElectionResultCard = ({ election }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [expandedPositions, setExpandedPositions] = useState({});
 
-    // Status Helpers
     const isCalculating = election.status === 'calculating';
     const isActive = election.status === 'active';
     const isCompleted = election.status === 'completed';
@@ -65,14 +64,12 @@ const ElectionResultCard = ({ election }) => {
 
     useEffect(() => {
         setIsLoading(true);
-        // Pull from 'results' (final) or 'liveResults' (periodic summary)
         const tallySource = election.results || election.liveResults;
 
         if (tallySource && Object.keys(tallySource).length > 0) {
             setTally(tallySource);
             setTotalProcessed(election.totalVotes || 0);
         } else {
-            // Initial zero state
             const initialTally = {};
             election.positions?.forEach(pos => {
                 initialTally[pos.title] = {};
@@ -129,11 +126,8 @@ const ElectionResultCard = ({ election }) => {
                                     <CheckBadgeIcon className="w-3 h-3" /> Official Results
                                 </span>
                             )}
-                            {/* Target Badge */}
                             <span className="bg-slate-100 dark:bg-slate-800 text-slate-500 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-widest flex items-center gap-1">
-                                {election.targetType === 'grade'
-                                    ? <><AcademicCapIcon className="w-3 h-3" /> Grade {election.targetGrade}</>
-                                    : <><BuildingLibraryIcon className="w-3 h-3" /> School Wide</>}
+                                <BuildingLibraryIcon className="w-3 h-3" /> Multi-Target Ballot
                             </span>
                         </div>
                         <h2 className="text-xl font-black text-slate-900 dark:text-white leading-tight truncate">
@@ -147,16 +141,6 @@ const ElectionResultCard = ({ election }) => {
                     </div>
                 </div>
             </div>
-
-            {isCompleted && (
-                <div className="mb-6 relative z-10 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl p-3 flex items-start gap-3">
-                    <InformationCircleIcon className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
-                    <div>
-                        <p className="text-[10px] font-black text-blue-700 dark:text-blue-300 uppercase tracking-wide mb-0.5">Limited Availability</p>
-                        <p className="text-[10px] font-medium text-blue-600 dark:text-blue-400 leading-relaxed">Results are available for 24 hours.</p>
-                    </div>
-                </div>
-            )}
 
             <div className="grid grid-cols-1 gap-6 relative z-10">
                 {isCalculating ? (
@@ -186,10 +170,15 @@ const ElectionResultCard = ({ election }) => {
 
                         return (
                             <div key={pos.id} className="bg-white/50 dark:bg-white/5 p-4 rounded-2xl border border-white/50 dark:border-white/5">
-                                <h3 className="font-black text-slate-700 dark:text-slate-200 flex items-center gap-2 text-xs uppercase tracking-wide mb-3">
-                                    <span className={`w-1.5 h-1.5 rounded-full ${isCompleted ? 'bg-green-500' : 'bg-orange-400 animate-pulse'}`}></span>
-                                    {pos.title}
-                                </h3>
+                                <div className="flex justify-between items-center mb-3">
+                                    <h3 className="font-black text-slate-700 dark:text-slate-200 flex items-center gap-2 text-xs uppercase tracking-wide">
+                                        <span className={`w-1.5 h-1.5 rounded-full ${isCompleted ? 'bg-green-500' : 'bg-orange-400 animate-pulse'}`}></span>
+                                        {pos.title}
+                                    </h3>
+                                    <span className="text-[9px] font-black px-2 py-0.5 rounded bg-slate-100 dark:bg-white/5 text-slate-400 uppercase">
+                                        {pos.targetType === 'grade' ? `Grade ${pos.targetGrade}` : 'School Wide'}
+                                    </span>
+                                </div>
 
                                 <div className="space-y-2.5">
                                     {visibleCandidates.map((cand, idx) => {
@@ -226,11 +215,7 @@ const ElectionResultCard = ({ election }) => {
                                         onClick={() => togglePosition(pos.id)}
                                         className="w-full py-2 mt-2 flex items-center justify-center gap-1 text-[10px] font-bold text-slate-400 hover:text-blue-500 hover:bg-white dark:hover:bg-white/10 rounded-lg transition-all"
                                     >
-                                        {isExpanded ? (
-                                            <>Show Less <ChevronUpIcon className="w-3 h-3" /></>
-                                        ) : (
-                                            <>Show {hiddenCount} More <ChevronDownIcon className="w-3 h-3" /></>
-                                        )}
+                                        {isExpanded ? <>Show Less <ChevronUpIcon className="w-3 h-3" /></> : <>Show {hiddenCount} More <ChevronDownIcon className="w-3 h-3" /></>}
                                     </button>
                                 )}
                             </div>
@@ -253,6 +238,14 @@ const VotingWizard = ({ election, user, onBack, onSuccess }) => {
     const [direction, setDirection] = useState(0);
     const [countdownText, setCountdownText] = useState('');
 
+    // --- NEW: Filter positions based on student grade ---
+    const eligiblePositions = useMemo(() => {
+        return election.positions.filter(pos => {
+            if (!pos.targetType || pos.targetType === 'school') return true;
+            return String(pos.targetGrade) === String(user?.gradeLevel);
+        });
+    }, [election.positions, user?.gradeLevel]);
+
     useEffect(() => {
         const check = async () => {
             const voted = await electionService.checkIfVoted(election.id, user.id);
@@ -263,9 +256,8 @@ const VotingWizard = ({ election, user, onBack, onSuccess }) => {
             else setViewState('voting');
         };
         check();
-    }, [election, user.id]);
+    }, [election.id, election.startDate, user.id]);
 
-    // [FIX] Live countdown timer that auto-transitions to 'voting' when startDate arrives
     useEffect(() => {
         if (viewState !== 'countdown') return;
         const startMs = new Date(election.startDate).getTime();
@@ -280,24 +272,22 @@ const VotingWizard = ({ election, user, onBack, onSuccess }) => {
             const hrs = Math.floor((diff % 86400000) / 3600000);
             const mins = Math.floor((diff % 3600000) / 60000);
             const secs = Math.floor((diff % 60000) / 1000);
-            if (days > 0) setCountdownText(`${days}d ${hrs}h ${mins}m ${secs}s`);
-            else if (hrs > 0) setCountdownText(`${hrs}h ${mins}m ${secs}s`);
-            else setCountdownText(`${mins}m ${secs}s`);
+            setCountdownText(days > 0 ? `${days}d ${hrs}h ${mins}m ${secs}s` : hrs > 0 ? `${hrs}h ${mins}m ${secs}s` : `${mins}m ${secs}s`);
         };
 
-        tick(); // run immediately
+        tick();
         const interval = setInterval(tick, 1000);
         return () => clearInterval(interval);
     }, [viewState, election.startDate]);
 
     const handleSelect = (candName) => {
         if (navigator.vibrate) navigator.vibrate(10);
-        const posTitle = election.positions[currentStep].title;
+        const posTitle = eligiblePositions[currentStep].title;
         setBallot(prev => ({ ...prev, [posTitle]: candName }));
     };
 
     const handleNext = () => {
-        if (currentStep < election.positions.length - 1) {
+        if (currentStep < eligiblePositions.length - 1) {
             setDirection(1);
             setCurrentStep(prev => prev + 1);
         } else {
@@ -318,7 +308,7 @@ const VotingWizard = ({ election, user, onBack, onSuccess }) => {
         if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
         try {
             await Promise.all([
-                new Promise(r => setTimeout(r, 2000)), // Simulate minimal encryption delay
+                new Promise(r => setTimeout(r, 2000)),
                 electionService.submitVote(election.id, user.id, ballot)
             ]);
             setViewState('voted');
@@ -351,9 +341,7 @@ const VotingWizard = ({ election, user, onBack, onSuccess }) => {
             <div className="font-mono text-2xl font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-6 py-3 rounded-2xl tabular-nums tracking-wider">
                 {countdownText || '...'}
             </div>
-            <p className="text-xs text-slate-400 mt-3 font-medium">
-                Opens {new Date(election.startDate).toLocaleString()}
-            </p>
+            <p className="text-xs text-slate-400 mt-3 font-medium">Opens {new Date(election.startDate).toLocaleString()}</p>
             <button onClick={onBack} className="mt-8 text-sm font-bold text-blue-500 hover:underline">Go Back</button>
         </div>
     );
@@ -362,15 +350,9 @@ const VotingWizard = ({ election, user, onBack, onSuccess }) => {
         <div className="flex flex-col items-center justify-center h-full min-h-[400px] bg-white dark:bg-slate-900 rounded-[3rem]">
             <div className="relative mb-8">
                 <div className="w-48 h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                    <motion.div
-                        initial={{ width: 0 }} animate={{ width: "100%" }} transition={{ duration: 2 }}
-                        className="h-full bg-blue-500 rounded-full"
-                    />
+                    <motion.div initial={{ width: 0 }} animate={{ width: "100%" }} transition={{ duration: 2 }} className="h-full bg-blue-500 rounded-full" />
                 </div>
-                <motion.div
-                    initial={{ y: -50, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-                    className="absolute inset-0 flex justify-center -top-12"
-                >
+                <motion.div initial={{ y: -50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="absolute inset-0 flex justify-center -top-12">
                     <DocumentArrowDownIcon className="w-10 h-10 text-blue-500" />
                 </motion.div>
             </div>
@@ -378,26 +360,24 @@ const VotingWizard = ({ election, user, onBack, onSuccess }) => {
         </div>
     );
 
-    const positions = election.positions;
-    const currentPos = positions[currentStep];
-    const isSelected = !!ballot[currentPos.title];
+    const currentPos = eligiblePositions[currentStep];
+    const isSelected = !!ballot[currentPos?.title];
 
     return (
         <div className="h-full flex flex-col relative max-h-[85vh] md:max-h-[90vh] bg-white dark:bg-slate-900 md:rounded-[2.5rem] overflow-hidden shadow-2xl">
-            {/* Header */}
             <div className="flex flex-col items-center mb-2 z-10 px-6 pt-6 flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm pb-4 border-b border-slate-50 dark:border-white/5">
                 <div className="flex items-center w-full justify-between mb-4">
                     <button onClick={handleBackStep} className="p-2 -ml-2 text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors bg-slate-50 dark:bg-white/5 rounded-full">
                         <ChevronLeftIcon className="w-5 h-5" />
                     </button>
                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                        {isReviewing ? 'Final Review' : `Position ${currentStep + 1} of ${positions.length}`}
+                        {isReviewing ? 'Final Review' : `Position ${currentStep + 1} of ${eligiblePositions.length}`}
                     </span>
                     <div className="w-9" />
                 </div>
                 {!isReviewing && (
                     <div className="flex gap-1.5 w-full max-w-[240px] h-1.5">
-                        {positions.map((_, idx) => (
+                        {eligiblePositions.map((_, idx) => (
                             <div key={idx} className="flex-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                                 <motion.div
                                     initial={false}
@@ -413,7 +393,6 @@ const VotingWizard = ({ election, user, onBack, onSuccess }) => {
                 )}
             </div>
 
-            {/* Scrollable Content */}
             <div className="flex-1 relative overflow-hidden flex flex-col bg-slate-50/50 dark:bg-black/20">
                 <AnimatePresence initial={false} custom={direction} mode="wait">
                     {isReviewing ? (
@@ -429,7 +408,7 @@ const VotingWizard = ({ election, user, onBack, onSuccess }) => {
                                 <h2 className="text-2xl font-black mb-1 text-slate-900 dark:text-white">Summary</h2>
                                 <p className="text-sm text-slate-500 mb-6">Review your choices before submitting.</p>
                                 <div className="space-y-3">
-                                    {positions.map((pos, idx) => (
+                                    {eligiblePositions.map((pos, idx) => (
                                         <div key={idx} onClick={() => { setDirection(-1); setCurrentStep(idx); setIsReviewing(false); }} className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl flex justify-between items-center cursor-pointer hover:ring-2 ring-blue-500/50 transition-all group">
                                             <div>
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{pos.title}</p>
@@ -454,12 +433,12 @@ const VotingWizard = ({ election, user, onBack, onSuccess }) => {
                             className="absolute inset-0 px-4 py-4 flex flex-col"
                         >
                             <div className="text-center mb-6 flex-shrink-0">
-                                <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-2">{currentPos.title}</h2>
+                                <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-2">{currentPos?.title}</h2>
                                 <p className="text-sm font-medium text-slate-500">Who is your choice?</p>
                             </div>
 
                             <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pb-24 px-1 max-w-md mx-auto w-full">
-                                {currentPos.candidates.map(cand => {
+                                {currentPos?.candidates.map(cand => {
                                     const active = ballot[currentPos.title] === cand.name;
                                     return (
                                         <button
@@ -481,15 +460,12 @@ const VotingWizard = ({ election, user, onBack, onSuccess }) => {
                 </AnimatePresence>
             </div>
 
-            {/* Footer Action */}
             <div className="p-6 bg-white dark:bg-slate-900 border-t border-slate-50 dark:border-white/5 absolute bottom-0 w-full z-20">
                 <button
                     onClick={isReviewing ? handleSubmit : handleNext}
                     disabled={!isReviewing && !isSelected}
                     className={`w-full py-4 rounded-[1.2rem] font-bold text-lg shadow-xl transition-all flex items-center justify-center gap-2
-                        ${(!isReviewing && !isSelected)
-                            ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
-                            : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/30 hover:shadow-blue-500/40 active:scale-[0.98]'}
+                        ${(!isReviewing && !isSelected) ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/30 active:scale-[0.98]'}
                     `}
                 >
                     {isReviewing ? 'Submit Ballot' : 'Next Position'}
@@ -503,7 +479,6 @@ const VotingWizard = ({ election, user, onBack, onSuccess }) => {
 // --- MAIN COMPONENT ---
 export default function StudentElectionTab() {
     const { userProfile, currentUser } = useAuth();
-    // Ensure we prioritize userProfile for grade/school data
     const user = userProfile || currentUser;
     const { showToast } = useToast();
 
@@ -512,68 +487,45 @@ export default function StudentElectionTab() {
     const [allElections, setAllElections] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // [OPTIMIZED] Fetch elections once with getDocs instead of onSnapshot to reduce reads
     const fetchElections = async () => {
         setLoading(true);
         try {
-            const q = query(
-                collection(db, 'elections'),
-                orderBy('endDate', 'desc'),
-                limit(50)
-            );
+            const q = query(collection(db, 'elections'), orderBy('endDate', 'desc'), limit(50));
             const snapshot = await getDocs(q);
             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-            // --- FILTER LOGIC ---
+            // --- REVISED FILTER LOGIC: Check positions, not just the election header ---
             const filteredData = data.filter(e => {
-                // A. School Filter
-                if (user?.schoolId && e.schoolId && e.schoolId !== user.schoolId) {
-                    return false;
-                }
-                // B. Grade Filter
-                if (e.targetType === 'grade') {
-                    const userGrade = user?.gradeLevel;
-                    if (!userGrade) return false;
-                    if (String(e.targetGrade) !== String(userGrade)) {
-                        return false;
-                    }
+                if (user?.schoolId && e.schoolId && e.schoolId !== user.schoolId) return false;
+
+                if (e.positions && e.positions.length > 0) {
+                    const hasEligiblePosition = e.positions.some(pos => {
+                        if (!pos.targetType || pos.targetType === 'school') return true;
+                        return String(pos.targetGrade) === String(user?.gradeLevel);
+                    });
+                    if (!hasEligiblePosition) return false;
                 }
                 return true;
             });
 
-            // --- AUTO-COUNTDOWN: If a teacher is offline, students can trigger the countdown ---
+            // Auto-countdown logic
             const nowMs = Date.now();
             for (const e of filteredData) {
                 if (e.status === 'active' && e.endDate) {
-                    const endMs = new Date(e.endDate).getTime();
-                    if (nowMs >= endMs) {
-                        try {
-                            // Re-read to confirm it's still 'active' (prevent race conditions)
-                            const freshSnap = await getDoc(doc(db, 'elections', e.id));
-                            const freshData = freshSnap.data();
-                            if (freshData?.status === 'active') {
-                                const tally = freshData.tally || {};
-                                const totalVotes = freshData.totalVotes || 0;
-                                const revealTime = new Date(Date.now() + 5 * 60 * 1000);
-                                await updateDoc(doc(db, 'elections', e.id), {
-                                    resultsPending: true,
-                                    revealTime,
-                                    status: 'calculating',
-                                    results: tally,
-                                    totalVotes,
-                                    liveResults: tally
-                                });
-                                e.status = 'calculating'; // Update local state
-                                e.revealTime = revealTime;
-                                console.log(`[Student] Auto-triggered countdown for ${e.title}`);
-                            }
-                        } catch (err) {
-                            console.error('[Student] Auto-countdown failed:', err);
+                    if (nowMs >= new Date(e.endDate).getTime()) {
+                        const freshSnap = await getDoc(doc(db, 'elections', e.id));
+                        const freshData = freshSnap.data();
+                        if (freshData?.status === 'active') {
+                            const tally = freshData.tally || {};
+                            const revealTime = new Date(Date.now() + 5 * 60 * 1000);
+                            await updateDoc(doc(db, 'elections', e.id), {
+                                resultsPending: true, revealTime, status: 'calculating', results: tally, totalVotes: freshData.totalVotes || 0
+                            });
+                            e.status = 'calculating';
                         }
                     }
                 }
             }
-
             setAllElections(filteredData);
         } catch (error) {
             console.error("Error fetching elections:", error);
@@ -587,7 +539,6 @@ export default function StudentElectionTab() {
     }, [user?.schoolId, user?.gradeLevel]);
 
     const [now, setNow] = useState(new Date());
-
     useEffect(() => {
         const timer = setInterval(() => setNow(new Date()), 1000);
         return () => clearInterval(timer);
@@ -604,28 +555,17 @@ export default function StudentElectionTab() {
             const isWithin24Hours = (now.getTime() - endDate.getTime()) < twentyFourHoursMs;
 
             if (e.status === 'completed' || e.status === 'calculating') {
-                // Only show results within 24 hours of election end
-                if (isWithin24Hours || !isTimeUp) {
-                    results.push(e);
-                }
-                // Add 'scheduled' to the condition below
+                if (isWithin24Hours || !isTimeUp) results.push(e);
             } else if (e.status === 'active' || e.status === 'scheduled') {
                 if (isTimeUp) {
-                    // Expired active elections show in results only within 24 hours
-                    if (isWithin24Hours) {
-                        results.push(e);
-                    }
+                    if (isWithin24Hours) results.push(e);
                 } else {
                     active.push(e);
                 }
             }
         });
-
-        // Sort results by most recent first
         results.sort((a, b) => new Date(b.endDate) - new Date(a.endDate));
-        // Sort active by ending soonest
         active.sort((a, b) => new Date(a.endDate) - new Date(b.endDate));
-
         return { activeList: active, resultsList: results };
     }, [allElections, now]);
 
@@ -648,17 +588,10 @@ export default function StudentElectionTab() {
         );
     }
 
-    if (loading) {
-        return (
-            <div className="flex justify-center items-center py-32 text-slate-400">
-                <ArrowPathIcon className="w-8 h-8 animate-spin opacity-50" />
-            </div>
-        );
-    }
+    if (loading) return <div className="flex justify-center items-center py-32 text-slate-400"><ArrowPathIcon className="w-8 h-8 animate-spin opacity-50" /></div>;
 
     return (
         <div className="max-w-4xl mx-auto px-4 pb-32 min-h-[60vh] font-sans">
-            {/* Tab Switcher */}
             <div className="flex justify-center mb-6 sticky top-0 z-20 pt-4 pb-4 -mx-4 px-4 bg-slate-50/95 dark:bg-[#1c1b1f]/95 backdrop-blur-md rounded-[2rem] shadow-sm">
                 <div className="bg-white dark:bg-slate-900 p-1.5 rounded-[1.2rem] border border-slate-200 dark:border-slate-800 flex shadow-sm w-full max-w-md relative">
                     {[
@@ -669,102 +602,50 @@ export default function StudentElectionTab() {
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
                             className={`flex-1 px-4 py-3 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 relative z-10
-                            ${activeTab === tab.id
-                                    ? 'bg-slate-600 dark:bg-slate-300 text-white dark:text-slate-900 shadow-md'
-                                    : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
-                                }`}
+                            ${activeTab === tab.id ? 'bg-slate-600 dark:bg-slate-300 text-white dark:text-slate-900 shadow-md' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
                         >
                             <tab.icon className="w-4 h-4" />
                             {tab.label}
-                            {tab.count > 0 && (
-                                <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${activeTab === tab.id ? 'bg-white/20' : 'bg-red-500 text-white shadow-sm'}`}>
-                                    {tab.count}
-                                </span>
-                            )}
+                            {tab.count > 0 && <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${activeTab === tab.id ? 'bg-white/20' : 'bg-red-500 text-white shadow-sm'}`}>{tab.count}</span>}
                         </button>
                     ))}
                 </div>
-                {/* Refresh Button */}
-                <button
-                    onClick={fetchElections}
-                    className="ml-2 w-10 h-10 flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all active:scale-95 shadow-sm"
-                    title="Refresh elections"
-                >
-                    <ArrowPathIcon className="w-4 h-4" />
-                </button>
+                <button onClick={fetchElections} className="ml-2 w-10 h-10 flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all active:scale-95 shadow-sm"><ArrowPathIcon className="w-4 h-4" /></button>
             </div>
 
             <AnimatePresence mode="wait">
                 {activeTab === 'vote' ? (
-                    <motion.div
-                        key="vote-list"
-                        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-                        className="grid grid-cols-1 md:grid-cols-2 gap-4"
-                    >
+                    <motion.div key="vote-list" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {activeList.length === 0 ? (
                             <div className="col-span-full flex flex-col items-center justify-center text-center py-24 opacity-60">
-                                <div className="w-20 h-20 bg-slate-200 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
-                                    <ClipboardDocumentCheckIcon className="w-10 h-10 text-slate-400" />
-                                </div>
+                                <div className="w-20 h-20 bg-slate-200 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4"><ClipboardDocumentCheckIcon className="w-10 h-10 text-slate-400" /></div>
                                 <h3 className="text-lg font-black text-slate-700 dark:text-slate-300">No Ballots Open</h3>
                                 <p className="text-sm text-slate-500 max-w-xs mx-auto mt-2">There are no active elections for your grade level at the moment.</p>
                             </div>
-                        ) : (
-                            activeList.map(election => (
-                                <div
-                                    key={election.id}
-                                    onClick={() => setSelectedElection(election)}
-                                    className="group bg-white dark:bg-slate-900 rounded-[2rem] p-6 shadow-sm border border-slate-100 dark:border-slate-800 cursor-pointer hover:shadow-xl hover:border-blue-200 dark:hover:border-blue-900 hover:scale-[1.02] transition-all relative overflow-hidden flex flex-col h-full"
-                                >
-                                    {/* Background Decor */}
-                                    <div className="absolute top-0 right-0 p-8 opacity-[0.03] dark:opacity-[0.05] group-hover:opacity-10 transition-opacity transform group-hover:rotate-12 duration-500">
-                                        <CheckBadgeIcon className="w-32 h-32" />
+                        ) : activeList.map(election => (
+                            <div key={election.id} onClick={() => setSelectedElection(election)} className="group bg-white dark:bg-slate-900 rounded-[2rem] p-6 shadow-sm border border-slate-100 dark:border-slate-800 cursor-pointer hover:shadow-xl hover:border-blue-200 dark:hover:border-blue-900 hover:scale-[1.02] transition-all relative overflow-hidden flex flex-col h-full">
+                                <div className="absolute top-0 right-0 p-8 opacity-[0.03] dark:opacity-[0.05] group-hover:opacity-10 transition-opacity transform group-hover:rotate-12 duration-500"><CheckBadgeIcon className="w-32 h-32" /></div>
+                                <div className="relative z-10 flex-1">
+                                    <div className="flex flex-wrap items-center gap-2 mb-4">
+                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-[10px] font-black uppercase tracking-widest"><span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span></span>Open Ballot</span>
+                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest">Multi-Position</span>
                                     </div>
-
-                                    <div className="relative z-10 flex-1">
-                                        <div className="flex flex-wrap items-center gap-2 mb-4">
-                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-[10px] font-black uppercase tracking-widest">
-                                                <span className="relative flex h-2 w-2">
-                                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
-                                                </span>
-                                                Open Ballot
-                                            </span>
-                                            {/* Grade Badge */}
-                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest">
-                                                {election.targetType === 'grade' ? <><AcademicCapIcon className="w-3 h-3" /> Grade {election.targetGrade}</> : <><BuildingLibraryIcon className="w-3 h-3" /> School Wide</>}
-                                            </span>
-                                        </div>
-
-                                        <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-1 leading-tight">{election.title}</h3>
-                                        <p className="text-slate-500 font-bold text-xs uppercase tracking-wide mb-6">{election.organization}</p>
-                                    </div>
-
-                                    <button className="w-full py-4 rounded-[1.2rem] bg-slate-50 dark:bg-slate-800 group-hover:bg-blue-600 group-hover:text-white text-slate-600 dark:text-slate-300 font-bold text-sm transition-all flex items-center justify-center gap-2 relative z-10">
-                                        Tap to Vote <ChevronRightIcon className="w-4 h-4" />
-                                    </button>
+                                    <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-1 leading-tight">{election.title}</h3>
+                                    <p className="text-slate-500 font-bold text-xs uppercase tracking-wide mb-6">{election.organization}</p>
                                 </div>
-                            ))
-                        )}
+                                <button className="w-full py-4 rounded-[1.2rem] bg-slate-50 dark:bg-slate-800 group-hover:bg-blue-600 group-hover:text-white text-slate-600 dark:text-slate-300 font-bold text-sm transition-all flex items-center justify-center gap-2 relative z-10">Tap to Vote <ChevronRightIcon className="w-4 h-4" /></button>
+                            </div>
+                        ))}
                     </motion.div>
                 ) : (
-                    <motion.div
-                        key="results-list"
-                        initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}
-                    >
+                    <motion.div key="results-list" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
                         {resultsList.length === 0 ? (
                             <div className="flex flex-col items-center justify-center text-center py-24 opacity-60">
-                                <div className="w-20 h-20 bg-slate-200 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
-                                    <ChartBarIcon className="w-10 h-10 text-slate-400" />
-                                </div>
+                                <div className="w-20 h-20 bg-slate-200 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4"><ChartBarIcon className="w-10 h-10 text-slate-400" /></div>
                                 <h3 className="text-lg font-black text-slate-700 dark:text-slate-300">No Results Yet</h3>
                                 <p className="text-sm text-slate-500 mt-2">Completed election tallies will appear here.</p>
                             </div>
-                        ) : (
-                            resultsList.map(election => (
-                                <ElectionResultCard key={election.id} election={election} />
-                            ))
-                        )}
+                        ) : resultsList.map(election => <ElectionResultCard key={election.id} election={election} />)}
                     </motion.div>
                 )}
             </AnimatePresence>

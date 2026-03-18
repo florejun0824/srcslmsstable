@@ -337,7 +337,7 @@ const AestheticSidebar = memo(
                             <div className="flex items-center gap-1.5 mt-0.5">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                                 <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500/60 dark:text-slate-400">
-                                    Version 15.0
+                                    Version 16.0
                                 </span>
                             </div>
                         </div>

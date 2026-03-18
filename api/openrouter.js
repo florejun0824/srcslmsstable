@@ -17,8 +17,13 @@ const getApiKey = (tier) => {
     if (keys.length === 0 && process.env.OPENROUTER_API_KEY) {
       keys.push(process.env.OPENROUTER_API_KEY);
     }
+  } else if (tier === 'logic') {
+    // LOGIC POOL (Used by NVIDIA Nemotron for strict formatting & math)
+    // Currently shares the Primary key. If rate limits become an issue, 
+    // you can swap this out for a dedicated OPENROUTER_API_KEY_LOGIC.
+    if (process.env.OPENROUTER_API_KEY) keys.push(process.env.OPENROUTER_API_KEY);
   } else {
-    // PRIMARY POOL (Default)
+    // PRIMARY POOL (Default for Arcee Trinity)
     if (process.env.OPENROUTER_API_KEY) keys.push(process.env.OPENROUTER_API_KEY);
   }
 

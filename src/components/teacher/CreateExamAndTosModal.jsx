@@ -414,8 +414,7 @@ const getTosPlannerPrompt = (guideData) => {
     * **Total Hours:** ${totalHours || 'Not specified'}
     * **Test Structure:** ${formattedTestStructure}
     * **Lesson Titles:** "${combinedLessonTitles}"
-    * **Learning Competencies:** 
-    \`\`\`${learningCompetencies}\`\`\`
+    * **Learning Competencies:** \`\`\`${learningCompetencies}\`\`\`
 
     **PRIMARY DIRECTIVE: YOUR ENTIRE RESPONSE MUST BE A SINGLE, VALID JSON OBJECT.**
     ---
@@ -562,7 +561,8 @@ const generateSingleBatch = async (guideData, generatedTos, batchTestType, previ
         if (!isGenerationRunningRef.current) throw new Error("Generation aborted by user.");
 
         try {
-            const aiResponse = await callGeminiWithLimitCheck(prompt);
+            // FORCE LOGIC TIER FOR EXAM QUESTIONS
+            const aiResponse = await callGeminiWithLimitCheck(prompt, { forceTier: 'logic' });
 
             if (!isGenerationRunningRef.current) throw new Error("Generation aborted by user.");
 
@@ -780,7 +780,10 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
             const tosPrompt = getTosPlannerPrompt(guideData);
 
             if (!isGenerationRunning.current) throw new Error("Generation aborted by user.");
-            const tosResponse = await callGeminiWithLimitCheck(tosPrompt);
+            
+            // FORCE LOGIC TIER FOR TOS PLANNER
+            const tosResponse = await callGeminiWithLimitCheck(tosPrompt, { forceTier: 'logic' }); 
+            
             if (!isGenerationRunning.current) throw new Error("Generation aborted by user.");
 
             const parsedTosData = tryParseJson(extractJson(tosResponse));
