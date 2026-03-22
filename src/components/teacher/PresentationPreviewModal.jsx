@@ -26,19 +26,14 @@ const flattenNotes = (notes) => {
 };
 
 export default function PresentationPreviewModal({ isOpen, onClose, previewData, onConfirm, isSaving }) {
-    // Local state for WYSIWYG editing
     const [localSlides, setLocalSlides] = useState([]);
     const [selectedSlideIndex, setSelectedSlideIndex] = useState(0);
     const [isCreationComplete, setIsCreationComplete] = useState(false);
-    
-    // Drag and Drop State
     const [draggingIndex, setDraggingIndex] = useState(null);
 
-    // Refs for Text Manipulation
     const bodyInputRef = useRef(null);
     const prevIsSaving = useRef(isSaving);
 
-    // Initialize local state when modal opens or data changes
     useEffect(() => {
         if (isOpen && previewData?.slides) {
             const editableSlides = previewData.slides.map(s => ({
@@ -52,15 +47,12 @@ export default function PresentationPreviewModal({ isOpen, onClose, previewData,
         }
     }, [isOpen, previewData]);
 
-    // Handle saving completion
     useEffect(() => {
         if (prevIsSaving.current && !isSaving && isOpen) {
             setIsCreationComplete(true);
         }
         prevIsSaving.current = isSaving;
     }, [isSaving, isOpen]);
-
-    // --- TEXT MANIPULATION HELPERS ---
 
     const insertAtCursor = (textToInsert, wrapChar = '') => {
         const input = bodyInputRef.current;
@@ -75,26 +67,20 @@ export default function PresentationPreviewModal({ isOpen, onClose, previewData,
         let newCursorPos;
 
         if (wrapChar) {
-            // Wrapping logic (Bold/Italic)
             newText = text.substring(0, start) + wrapChar + selectedText + wrapChar + text.substring(end);
             newCursorPos = end + (wrapChar.length * 2);
         } else {
-            // Insertion logic (Bullets)
             newText = text.substring(0, start) + textToInsert + text.substring(end);
             newCursorPos = start + textToInsert.length;
         }
 
-        // Update State
         handleSlideChange(selectedSlideIndex, 'body', newText);
 
-        // Restore Focus & Cursor
         setTimeout(() => {
             input.focus();
             input.setSelectionRange(newCursorPos, newCursorPos);
         }, 0);
     };
-
-    // --- ACTIONS ---
 
     const handleSlideChange = (index, field, value) => {
         const updatedSlides = [...localSlides];
@@ -149,8 +135,6 @@ export default function PresentationPreviewModal({ isOpen, onClose, previewData,
         onConfirm(localSlides);
     };
 
-    // --- DRAG AND DROP ---
-
     const handleDragStart = (e, index) => {
         setDraggingIndex(index);
         e.dataTransfer.effectAllowed = "move";
@@ -188,14 +172,12 @@ export default function PresentationPreviewModal({ isOpen, onClose, previewData,
         setDraggingIndex(null);
     };
 
-
     const selectedSlide = localSlides[selectedSlideIndex];
     const hasTableData = selectedSlide?.tableData && 
                          Array.isArray(selectedSlide.tableData.headers) && 
                          selectedSlide.tableData.headers.length > 0;
 
-    // Define common button class for formatting tools
-    const formatBtnClass = "p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:text-slate-200 dark:hover:text-white dark:hover:bg-white/10 rounded transition-colors";
+    const formatBtnClass = "p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors";
 
     return (
         <Transition show={isOpen} as={React.Fragment}>
@@ -210,7 +192,7 @@ export default function PresentationPreviewModal({ isOpen, onClose, previewData,
                     leaveFrom="opacity-100"
                     leaveTo="opacity-0"
                 >
-                    <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm transition-opacity" />
+                    <div className="fixed inset-0 bg-slate-900/40 dark:bg-black/60 transition-opacity" />
                 </Transition.Child>
 
                 <div className="fixed inset-0 z-10 overflow-hidden">
@@ -224,39 +206,38 @@ export default function PresentationPreviewModal({ isOpen, onClose, previewData,
                             leaveFrom="opacity-100 scale-100 translate-y-0"
                             leaveTo="opacity-0 scale-95 translate-y-4"
                         >
-                            <Dialog.Panel className="w-full max-w-[95vw] h-[92vh] transform overflow-hidden rounded-2xl bg-white dark:bg-[#0f0f0f] shadow-2xl ring-1 ring-white/10 flex flex-col isolation-auto">
+                            <Dialog.Panel className="w-full max-w-[95vw] h-[92vh] transform overflow-hidden rounded-2xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col">
                                 
-                                {/* --- 1. Top Bar: App Header --- */}
-                                <div className="relative z-30 flex-shrink-0 h-16 bg-white dark:bg-[#1a1a1a] border-b border-slate-200 dark:border-white/5 flex items-center justify-between px-6 shadow-sm">
+                                {/* --- 1. Top Bar --- */}
+                                <div className="relative z-30 flex-shrink-0 h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-6">
                                     <div className="flex items-center gap-4">
-                                        <div className="bg-gradient-to-br from-orange-500 to-red-600 p-2 rounded-lg text-white shadow-lg shadow-orange-500/20">
+                                        <div className="bg-indigo-600 p-2.5 rounded-xl text-white shadow-md shadow-indigo-500/20">
                                             <PresentationChartLineIcon className="h-5 w-5" />
                                         </div>
                                         <div>
-                                            <h3 className="text-base font-bold text-slate-800 dark:text-white leading-tight">Presentation Editor</h3>
+                                            <h3 className="text-base font-bold text-slate-900 dark:text-white leading-tight">Presentation Editor</h3>
                                             <div className="flex items-center gap-2 mt-0.5">
-                                                <span className="text-[11px] font-medium text-slate-500 dark:text-slate-300 bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-full">
+                                                <span className="text-[11px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full border border-slate-200 dark:border-slate-700">
                                                     {localSlides.length} Slides
                                                 </span>
                                             </div>
                                         </div>
                                     </div>
-
                                     <button 
                                         onClick={onClose} 
-                                        className="p-2 text-slate-400 hover:text-slate-600 dark:text-slate-200 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 rounded-full transition-all"
+                                        className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-all"
                                     >
                                         <XMarkIcon className="h-6 w-6" />
                                     </button>
                                 </div>
 
                                 {/* --- 2. Toolbar --- */}
-                                <div className="relative z-20 flex-shrink-0 h-12 bg-white dark:bg-[#1a1a1a] border-b border-slate-200 dark:border-white/5 flex items-center px-4 gap-2 overflow-x-auto">
-                                    <div className="flex items-center gap-1 pr-3 border-r border-slate-200 dark:border-white/10">
+                                <div className="relative z-20 flex-shrink-0 h-12 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center px-4 gap-2 overflow-x-auto">
+                                    <div className="flex items-center gap-1 pr-3 border-r border-slate-200 dark:border-slate-700">
                                         <button 
                                             onClick={handleAddSlide}
                                             disabled={isSaving}
-                                            className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 rounded-md transition-colors disabled:opacity-50"
+                                            className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 rounded-lg transition-colors disabled:opacity-50 border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
                                         >
                                             <PlusIcon className="h-4 w-4" />
                                             <span>Add Slide</span>
@@ -264,7 +245,7 @@ export default function PresentationPreviewModal({ isOpen, onClose, previewData,
                                         <button 
                                             onClick={(e) => handleDeleteSlide(e)}
                                             disabled={isSaving}
-                                            className="p-1.5 text-slate-400 dark:text-slate-200 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors disabled:opacity-50"
+                                            className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors disabled:opacity-50"
                                             title="Delete Current Slide"
                                         >
                                             <TrashIcon className="h-4 w-4" />
@@ -277,7 +258,7 @@ export default function PresentationPreviewModal({ isOpen, onClose, previewData,
                                         <button onClick={() => insertAtCursor('', '_')} className={formatBtnClass} title="Italic">
                                             <ItalicIcon className="h-4 w-4" />
                                         </button>
-                                        <div className="w-px h-4 bg-slate-200 dark:bg-white/10 mx-2"></div>
+                                        <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1"></div>
                                         <button onClick={() => insertAtCursor('• ')} className={formatBtnClass} title="Bullet List">
                                             <ListBulletIcon className="h-4 w-4" />
                                         </button>
@@ -291,7 +272,7 @@ export default function PresentationPreviewModal({ isOpen, onClose, previewData,
                                 <div className="flex flex-1 overflow-hidden relative z-0">
                                     
                                     {/* Sidebar: Filmstrip */}
-                                    <div className="w-[240px] bg-slate-50 dark:bg-[#151515] border-r border-slate-200 dark:border-white/5 overflow-y-auto custom-scrollbar flex flex-col p-4 gap-4 flex-shrink-0">
+                                    <div className="w-[240px] bg-slate-50 dark:bg-slate-950 border-r border-slate-200 dark:border-slate-800 overflow-y-auto custom-scrollbar flex flex-col p-4 gap-4 flex-shrink-0">
                                         {localSlides.map((slide, idx) => (
                                             <div 
                                                 key={idx}
@@ -303,20 +284,20 @@ export default function PresentationPreviewModal({ isOpen, onClose, previewData,
                                                 className={`
                                                     relative group cursor-pointer transition-all duration-200 flex gap-3 select-none
                                                     ${selectedSlideIndex === idx ? 'opacity-100' : 'opacity-60 hover:opacity-100'}
-                                                    ${draggingIndex === idx ? 'opacity-40 scale-95 border-dashed border-2 border-orange-400' : ''}
+                                                    ${draggingIndex === idx ? 'opacity-40 scale-95 border-dashed border-2 border-indigo-400 rounded-lg' : ''}
                                                 `}
                                             >
                                                 <div className="flex flex-col items-center pt-1 w-5">
-                                                    <span className={`text-[11px] font-bold ${selectedSlideIndex === idx ? 'text-orange-600 dark:text-orange-400' : 'text-slate-400'}`}>
+                                                    <span className={`text-[11px] font-bold ${selectedSlideIndex === idx ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`}>
                                                         {idx + 1}
                                                     </span>
                                                     <Bars2Icon className="h-4 w-4 text-slate-300 mt-2 cursor-move opacity-0 group-hover:opacity-100 transition-opacity" />
                                                 </div>
 
-                                                <div className={`flex-1 aspect-[16/9] bg-white dark:bg-[#2c2c2c] rounded-lg overflow-hidden relative shadow-sm transition-all
+                                                <div className={`flex-1 aspect-[16/9] bg-white dark:bg-slate-800 rounded-lg overflow-hidden relative transition-all border
                                                     ${selectedSlideIndex === idx 
-                                                        ? 'ring-2 ring-orange-500 ring-offset-2 ring-offset-slate-50 dark:ring-offset-[#151515] shadow-md' 
-                                                        : 'ring-1 ring-slate-200 dark:ring-white/10 group-hover:ring-slate-400'
+                                                        ? 'ring-2 ring-indigo-500 ring-offset-2 ring-offset-slate-50 dark:ring-offset-slate-950 shadow-md border-indigo-200 dark:border-indigo-800' 
+                                                        : 'border-slate-200 dark:border-slate-700 group-hover:border-slate-300 dark:group-hover:border-slate-600'
                                                     }`}>
                                                     <div className="absolute inset-0 p-2 overflow-hidden pointer-events-none">
                                                         <h1 className="text-[5px] font-bold text-slate-800 dark:text-slate-200 mb-1 truncate leading-tight">
@@ -333,7 +314,7 @@ export default function PresentationPreviewModal({ isOpen, onClose, previewData,
                                         <button 
                                             onClick={handleAddSlide}
                                             disabled={isSaving}
-                                            className="flex flex-col items-center justify-center gap-2 w-full aspect-[16/9] border-2 border-dashed border-slate-200 dark:border-white/10 rounded-lg text-slate-400 hover:border-orange-400 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-all group ml-8 max-w-[calc(100%-2rem)] disabled:opacity-50"
+                                            className="flex flex-col items-center justify-center gap-2 w-full aspect-[16/9] border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-lg text-slate-400 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/10 transition-all ml-8 max-w-[calc(100%-2rem)] disabled:opacity-50"
                                         >
                                             <PlusIcon className="h-5 w-5" />
                                             <span className="text-[10px] font-bold uppercase tracking-wide">Add Slide</span>
@@ -342,24 +323,24 @@ export default function PresentationPreviewModal({ isOpen, onClose, previewData,
                                     </div>
 
                                     {/* Canvas Area */}
-                                    <div className="flex-1 bg-slate-100 dark:bg-black flex flex-col relative">
+                                    <div className="flex-1 bg-slate-100 dark:bg-slate-950 flex flex-col relative">
                                         
-                                        {/* Dot Pattern Background */}
-                                        <div className="absolute inset-0 pointer-events-none opacity-[0.03] dark:opacity-[0.08]"
+                                        {/* Dot Pattern */}
+                                        <div className="absolute inset-0 pointer-events-none opacity-[0.04] dark:opacity-[0.06]"
                                              style={{ backgroundImage: 'radial-gradient(currentColor 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
                                         </div>
 
-                                        {/* Scrollable Container with forced Top Padding */}
+                                        {/* Scrollable Canvas */}
                                         <div className="flex-1 overflow-y-auto px-8 lg:px-12 py-12 flex flex-col items-center justify-start relative z-0">
                                             {selectedSlide ? (
-                                                <div className="w-full max-w-5xl aspect-[16/9] bg-white dark:bg-[#1e1e1e] border border-slate-200 dark:border-white/10 shadow-2xl shadow-black/40 rounded-sm flex flex-col p-10 md:p-16 transition-all duration-300 shrink-0">
+                                                <div className="w-full max-w-5xl aspect-[16/9] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-lg rounded-lg flex flex-col p-10 md:p-16 transition-all duration-300 shrink-0">
                                                     
                                                     {/* Title Input */}
                                                     <input
                                                         type="text"
                                                         value={selectedSlide.title}
                                                         onChange={(e) => handleSlideChange(selectedSlideIndex, 'title', e.target.value)}
-                                                        className="text-4xl font-extrabold text-slate-900 dark:text-white mb-8 bg-transparent border-b-2 border-transparent focus:border-orange-500/50 outline-none pb-2 transition-colors placeholder-slate-300 dark:placeholder-slate-600 w-full"
+                                                        className="text-4xl font-bold text-slate-900 dark:text-white mb-8 bg-transparent border-b-2 border-transparent focus:border-indigo-500/50 outline-none pb-2 transition-colors placeholder-slate-300 dark:placeholder-slate-600 w-full"
                                                         placeholder="Add Title"
                                                         disabled={isSaving}
                                                     />
@@ -367,27 +348,27 @@ export default function PresentationPreviewModal({ isOpen, onClose, previewData,
                                                     {/* Content Body */}
                                                     <div className="flex-1 overflow-hidden relative group">
                                                         {hasTableData ? (
-                                                            <div className="w-full h-full overflow-auto custom-scrollbar border border-slate-100 dark:border-white/5 rounded-lg">
+                                                            <div className="w-full h-full overflow-auto custom-scrollbar border border-slate-100 dark:border-slate-700 rounded-lg">
                                                                 <table className="min-w-full border-collapse text-left text-sm">
                                                                     <thead>
-                                                                        <tr className="bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10">
+                                                                        <tr className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-600">
                                                                             {selectedSlide.tableData.headers.map((header, i) => (
-                                                                                <th key={i} className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200 text-xs uppercase tracking-wider">
+                                                                                <th key={i} className="px-4 py-3 font-bold text-slate-700 dark:text-slate-200 text-xs uppercase tracking-wider">
                                                                                     {header}
                                                                                 </th>
                                                                             ))}
                                                                         </tr>
                                                                     </thead>
-                                                                    <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                                                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                                                                         {selectedSlide.tableData.rows.map((row, rIndex) => (
-                                                                            <tr key={rIndex} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+                                                                            <tr key={rIndex} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
                                                                                 {row.map((cell, cIndex) => (
-                                                                                    <td key={cIndex} className="p-0 border-r border-slate-100 dark:border-white/5 last:border-0">
+                                                                                    <td key={cIndex} className="p-0 border-r border-slate-100 dark:border-slate-700 last:border-0">
                                                                                         <input
                                                                                             type="text"
                                                                                             value={cell}
                                                                                             onChange={(e) => handleTableChange(selectedSlideIndex, rIndex, cIndex, e.target.value)}
-                                                                                            className="w-full px-4 py-3 bg-transparent border-none outline-none focus:bg-blue-50/50 dark:focus:bg-blue-900/20 text-slate-600 dark:text-slate-300"
+                                                                                            className="w-full px-4 py-3 bg-transparent border-none outline-none focus:bg-indigo-50/50 dark:focus:bg-indigo-900/20 text-slate-600 dark:text-slate-300"
                                                                                             disabled={isSaving}
                                                                                         />
                                                                                     </td>
@@ -415,20 +396,19 @@ export default function PresentationPreviewModal({ isOpen, onClose, previewData,
                                                     <p className="font-medium">No slide selected</p>
                                                 </div>
                                             )}
-                                            {/* Spacer at bottom for scrolling */}
                                             <div className="h-12 w-full shrink-0"></div>
                                         </div>
 
                                         {/* Speaker Notes */}
-                                        <div className="h-[160px] bg-white dark:bg-[#1a1a1a] border-t border-slate-200 dark:border-white/5 flex flex-col flex-shrink-0 z-10 shadow-[0_-4px_20px_rgba(0,0,0,0.03)]">
-                                            <div className="px-6 py-2 bg-slate-50/50 dark:bg-[#202020] border-b border-slate-100 dark:border-white/5 flex items-center justify-between">
+                                        <div className="h-[160px] bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex flex-col flex-shrink-0 z-10">
+                                            <div className="px-6 py-2 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
                                                 <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Speaker Notes</span>
                                                 <span className="text-[10px] text-slate-400">Private to presenter</span>
                                             </div>
                                             <textarea
                                                 value={selectedSlide ? selectedSlide.notes : ''}
                                                 onChange={(e) => selectedSlide && handleSlideChange(selectedSlideIndex, 'notes', e.target.value)}
-                                                className="flex-1 w-full px-6 py-4 resize-none bg-transparent border-none outline-none focus:bg-yellow-50/30 dark:focus:bg-yellow-900/5 text-sm font-mono text-slate-600 dark:text-slate-400 custom-scrollbar leading-relaxed"
+                                                className="flex-1 w-full px-6 py-4 resize-none bg-transparent border-none outline-none focus:bg-amber-50/30 dark:focus:bg-amber-900/10 text-sm font-mono text-slate-600 dark:text-slate-400 custom-scrollbar leading-relaxed"
                                                 placeholder="Add your talking points here..."
                                                 disabled={!selectedSlide || isSaving}
                                             />
@@ -436,11 +416,11 @@ export default function PresentationPreviewModal({ isOpen, onClose, previewData,
                                     </div>
                                 </div>
 
-                                {/* --- 4. Footer Actions --- */}
-                                <div className="px-6 py-4 bg-white dark:bg-[#1a1a1a] border-t border-slate-200 dark:border-white/5 flex justify-between items-center z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                                {/* --- 4. Footer --- */}
+                                <div className="px-6 py-4 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center z-20">
                                     <div className="flex items-center gap-4">
                                         {isCreationComplete && (
-                                            <div className="flex items-center text-green-600 dark:text-green-400 text-sm font-semibold animate-in fade-in slide-in-from-left-2 duration-300 bg-green-50 dark:bg-green-900/20 px-3 py-1.5 rounded-full border border-green-200 dark:border-green-800/30">
+                                            <div className="flex items-center text-emerald-600 dark:text-emerald-400 text-sm font-bold bg-emerald-50 dark:bg-emerald-900/20 px-3 py-1.5 rounded-full border border-emerald-200 dark:border-emerald-800/30">
                                                 <CheckCircleIcon className="h-4 w-4 mr-2" />
                                                 Presentation Created!
                                             </div>
@@ -451,7 +431,7 @@ export default function PresentationPreviewModal({ isOpen, onClose, previewData,
                                             type="button"
                                             onClick={onClose}
                                             disabled={isSaving}
-                                            className="px-5 py-2.5 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 transition-all disabled:opacity-50"
+                                            className="px-5 py-2.5 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all disabled:opacity-50 border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
                                         >
                                             {isCreationComplete ? "Close" : "Cancel"}
                                         </button>
@@ -460,13 +440,13 @@ export default function PresentationPreviewModal({ isOpen, onClose, previewData,
                                             onClick={handleConfirm}
                                             disabled={isSaving}
                                             className={`
-                                                relative px-6 py-2.5 rounded-xl text-sm font-bold text-white shadow-lg shadow-blue-500/20 
+                                                relative px-6 py-2.5 rounded-xl text-sm font-bold text-white shadow-md
                                                 flex items-center gap-2 transition-all active:scale-[0.98] overflow-hidden
                                                 ${isSaving 
                                                     ? 'bg-slate-400 dark:bg-slate-700 cursor-wait pl-10' 
                                                     : isCreationComplete
-                                                        ? 'bg-slate-700 hover:bg-slate-800 dark:bg-slate-600 dark:hover:bg-slate-500'
-                                                        : 'bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400'
+                                                        ? 'bg-slate-600 hover:bg-slate-700 shadow-slate-500/20'
+                                                        : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-500/20'
                                                 }
                                             `}
                                         >

@@ -1,4 +1,4 @@
-// src/components/teacher/TeacherDashboardLayout.jsx
+// src/components/student/StudentDashboardLayout.jsx
 import React, {
     useState,
     Suspense,
@@ -14,7 +14,6 @@ import React, {
 import { Menu, Transition, Dialog, Portal } from "@headlessui/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { NavLink, useNavigate } from "react-router-dom";
-import Lottie from "lottie-react";
 
 // --- ICON LIBRARY: PHOSPHOR ICONS ---
 import {
@@ -33,77 +32,25 @@ import {
     CaretRight,
     X,
     SquaresFour,
-    Robot,
     WarningCircle,
-    CheckSquareOffset,
-    ChartLineUp,
     Lightning,
     Sparkle,
     LightningSlash,
 } from "@phosphor-icons/react";
 
 // SERVICES
-import {
-    getDocs,
-    query,
-    collection,
-    where,
-    writeBatch,
-    doc,
-    updateDoc,
-} from "firebase/firestore";
-import { db } from "../../services/firebase";
-import { useToast } from "../../contexts/ToastContext";
 import { useTheme } from "../../contexts/ThemeContext";
 
 // ASSETS
-import robotAnimation from "../../assets/robot.json";
-
 // CORE COMPONENTS
-import AnimatedRobot from "./dashboard/widgets/AnimatedRobot";
 import UniversalBackground from "../common/UniversalBackground";
 import ThemeToggle from "../common/ThemeToggle";
 import UserInitialsAvatar from "../common/UserInitialsAvatar";
 
-// LAZY-LOADED VIEWS
-const AdminDashboard = lazy(() => import("../../pages/AdminDashboard"));
-const HomeView = lazy(() => import("./dashboard/views/HomeView"));
-const ClassesView = lazy(() => import("./dashboard/views/ClassesView"));
-const CoursesView = lazy(() => import("./dashboard/views/CoursesView"));
-const StudentManagementView = lazy(() =>
-    import("./dashboard/views/StudentManagementView")
-);
-const ProfileView = lazy(() => import("./dashboard/views/ProfileView"));
-const AnalyticsView = lazy(() => import("./dashboard/views/AnalyticsView"));
-const LoungeView = lazy(() => import("../student/LoungeView"));
-const ElectionManager = lazy(() => import("./ElectionManager"));
-const AdminMonitoringView = lazy(() => import("../admin/AdminMonitoringView"));
-
 // LAZY-LOADED MODALS
-const AiGenerationHub = lazy(() => import("./AiGenerationHub"));
-const ChatDialog = lazy(() => import("./ChatDialog"));
-const ArchivedClassesModal = lazy(() => import("./ArchivedClassesModal"));
-const EditProfileModal = lazy(() => import("./EditProfileModal"));
-const ChangePasswordModal = lazy(() => import("./ChangePasswordModal"));
-const CreateCategoryModal = lazy(() => import("./CreateCategoryModal"));
-const EditCategoryModal = lazy(() => import("./EditCategoryModal"));
-const CreateClassModal = lazy(() => import("./CreateClassModal"));
-const CreateCourseModal = lazy(() => import("./CreateCourseModal"));
-const ClassOverviewModal = lazy(() => import("./ClassOverviewModal"));
-const EditClassModal = lazy(() => import("./EditClassModal"));
-const AddUnitModal = lazy(() => import("./AddUnitModal"));
-const EditUnitModal = lazy(() => import("./EditUnitModal"));
-const AddLessonModal = lazy(() => import("./AddLessonModal"));
-const AddQuizModal = lazy(() => import("./AddQuizModal"));
-const DeleteUnitModal = lazy(() => import("./DeleteUnitModal"));
-const EditLessonModal = lazy(() => import("./EditLessonModal"));
-const ShareMultipleLessonsModal = lazy(() =>
-    import("./ShareMultipleLessonsModal")
-);
-const DeleteConfirmationModal = lazy(() => import("./DeleteConfirmationModal"));
-const EditSubjectModal = lazy(() => import("./EditSubjectModal"));
-const DeleteSubjectModal = lazy(() => import("./DeleteSubjectModal"));
-const CommandPalette = lazy(() => import("./CommandPalette"));
+const ArchivedClassesModal = lazy(() => import("../teacher/ArchivedClassesModal"));
+const EditProfileModal = lazy(() => import("../teacher/EditProfileModal"));
+const ChangePasswordModal = lazy(() => import("../teacher/ChangePasswordModal"));
 
 const SCHOOL_BRANDING = {
     srcs_main: { name: "SRCS Digital Ecosystem", logo: "/logo.png" },
@@ -337,7 +284,7 @@ const AestheticSidebar = memo(
                             <div className="flex items-center gap-1.5 mt-0.5">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                                 <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500/60 dark:text-slate-400">
-                                    Version 17.0
+                                    Version 16.0
                                 </span>
                             </div>
                         </div>
@@ -442,8 +389,6 @@ const TopContextBar = memo(
         userProfile,
         activeView,
         onLogout,
-        handleOpenChat,
-        isAiThinking,
         courses,
         activeClasses,
         onNavigate,
@@ -491,15 +436,15 @@ const TopContextBar = memo(
         };
 
         const titles = {
-            home: "Dashboard",
-            lounge: "Faculty Neural Lounge",
-            studentManagement: "Student Directory",
-            classes: "Live Classrooms",
-            courses: "Knowledge Library",
-            analytics: "Data Intelligence",
-            elections: "Election Command",
-            profile: "User Identity",
-            admin: "System Core",
+            home: "Student Dashboard",
+            lounge: "Student Lounge",
+            lessons: "Interactive Lessons",
+            classes: "My Classes",
+            quizzes: "Assessments",
+            rewards: "Achievements",
+            elections: "Student Council Elections",
+            profile: "My Profile",
+            settings: "Settings",
         };
 
         return (
@@ -521,7 +466,7 @@ const TopContextBar = memo(
                         </span>
                     </div>
                     <h2 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-slate-900 via-slate-700 to-slate-900 dark:from-white dark:via-slate-200 dark:to-slate-500 tracking-tight drop-shadow-sm">
-                        {titles[activeView] || "Teacher Workspace"}
+                        {titles[activeView] || "Student Workspace"}
                     </h2>
                 </motion.div>
 
@@ -666,43 +611,6 @@ const TopContextBar = memo(
                             )}
                         </AnimatePresence>
                     </div>
-                    <button
-                        onClick={handleOpenChat}
-                        className="group relative flex items-center h-[52px] pl-2 pr-6 rounded-full text-slate-900 dark:text-white shadow-[0_8px_32px_-8px_var(--monet-primary)] hover:shadow-[0_16px_48px_-10px_var(--monet-primary)] hover:-translate-y-1 active:scale-[0.98] active:translate-y-0 transition-all duration-400 ease-[cubic-bezier(0.34,1.56,0.64,1)] overflow-hidden"
-                        style={{ backgroundColor: "var(--monet-primary)" }}
-                    >
-                        {/* Animated Shine & Gradients */}
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full group-hover:animate-[shimmer_2s_infinite] pointer-events-none" />
-                        <div className="absolute top-0 right-0 w-20 h-20 bg-white/40 blur-[24px] rounded-full translate-x-1/2 -translate-y-1/2 group-hover:scale-150 transition-transform duration-700 ease-out" />
-                        <div className="absolute bottom-0 left-0 w-16 h-16 bg-black/20 blur-[20px] rounded-full -translate-x-1/2 translate-y-1/2" />
-                        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay pointer-events-none" />
-
-                        {/* Inner Content */}
-                        <div className="relative z-10 flex items-center gap-3">
-                            {/* Icon Container with Glassmorphism */}
-                            <div className="w-10 h-10 flex items-center justify-center bg-white/20 backdrop-blur-md rounded-full border border-white/30 shadow-inner group-hover:rotate-[15deg] group-hover:scale-110 transition-transform duration-300 ease-out">
-                                {isAiThinking ? (
-                                    <div className="w-5 h-5 border-[2.5px] border-white/40 border-t-white rounded-full animate-spin" />
-                                ) : (
-                                    <Lottie
-                                        animationData={robotAnimation}
-                                        loop={true}
-                                        className="w-8 h-8 scale-150 drop-shadow-md"
-                                    />
-                                )}
-                            </div>
-
-                            {/* Typography */}
-                            <div className="flex flex-col items-start justify-center">
-                                <span className="text-[9px] uppercase tracking-[0.2em] font-black text-slate-800/80 dark:text-white/70 mb-0.5 leading-none">
-                                    Assistant
-                                </span>
-                                <span className="text-[15px] font-bold tracking-wide text-slate-900 dark:text-white drop-shadow-sm leading-none group-hover:text-blue-900 dark:group-hover:text-blue-50 transition-colors duration-300">
-                                    Ask AI
-                                </span>
-                            </div>
-                        </div>
-                    </button>
                     <div className="w-px h-8 bg-slate-200 dark:bg-black/40 mx-2" />
                     <ProfileDropdown
                         userProfile={userProfile}
@@ -757,7 +665,7 @@ const ProfileDropdown = memo(({ userProfile, onLogout, size = "desktop" }) => {
                             {userProfile?.email}
                         </p>
                         <div className="mt-3 inline-flex items-center px-2 py-0.5 rounded-md bg-[var(--monet-primary)]/10 text-[var(--monet-primary)] text-[10px] font-bold uppercase tracking-wider">
-                            {userProfile?.role || "Instructor"}
+                            {userProfile?.role || "Student"}
                         </div>
                     </div>
                     <div className="p-2">
@@ -828,65 +736,31 @@ const MobileThemeButton = memo(({ onThemeSelect }) => {
 });
 
 // --- MAIN LAYOUT COMPONENT ---
-const TeacherDashboardLayout = (props) => {
+const StudentDashboardLayout = (props) => {
     const {
-        user,
+        children,
         userProfile,
         loading,
-        authLoading,
         error,
         activeView,
         handleViewChange,
         logout,
-        isAiGenerating,
-        setIsAiGenerating,
-        isChatOpen,
-        setIsChatOpen,
-        messages,
-        isAiThinking,
-        handleAskAiWrapper,
-        isAiHubOpen,
-        setIsAiHubOpen,
-        activeSubject,
-        activeUnit,
-        onSetActiveUnit,
-        reloadKey,
-        isDeleteModalOpen,
-        setIsDeleteModalOpen,
-        handleConfirmDelete,
-        deleteTarget,
-        handleInitiateDelete,
-        handleCreateUnit,
-        courses,
-        activeClasses,
-        handleUpdateClass,
-        isLoungeLoading,
-        loungePosts,
-        loungeUsersMap,
-        fetchLoungePosts,
-        loungePostUtils,
-        adminMonitoringTeachers,
+        navItems,
+        courses = [],
+        activeClasses = [],
         ...rest
     } = props;
 
     // --- STATE ---
-    const [categoryToEdit, setCategoryToEdit] = useState(null);
-    const [isEditCategoryModalOpen, setIsEditCategoryModalOpen] = useState(false);
-    const [
-        preselectedCategoryForCourseModal,
-        setPreselectedCategoryForCourseModal,
-    ] = useState(null);
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
     const [isChangePasswordModalOpen, setChangePasswordModalOpen] =
         useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [showAmbienceTutorial, setShowAmbienceTutorial] = useState(false);
-    const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
     // THEME SELECTION STATE (Lifted Up)
     const [pendingTheme, setPendingTheme] = useState(null);
 
-    const { showToast } = useToast();
     const { monetTheme, setActiveOverlay, setThemeMode } = useTheme();
     const navigate = useNavigate();
 
@@ -912,18 +786,6 @@ const TeacherDashboardLayout = (props) => {
         },
         [pendingTheme, setActiveOverlay, setThemeMode]
     );
-
-    // KEYBOARD SHORTCUT
-    useEffect(() => {
-        const down = (e) => {
-            if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
-                e.preventDefault();
-                setIsCommandPaletteOpen((open) => !open);
-            }
-        };
-        document.addEventListener("keydown", down);
-        return () => document.removeEventListener("keydown", down);
-    }, []);
 
     // TUTORIAL
     useEffect(() => {
@@ -951,178 +813,15 @@ const TeacherDashboardLayout = (props) => {
         logout();
     }, [logout]);
     const cancelLogout = useCallback(() => setIsLogoutModalOpen(false), []);
-    const handleCloseChat = useCallback(
-        () => setIsChatOpen(false),
-        [setIsChatOpen]
-    );
-    const handleOpenChat = useCallback(
-        () => setIsChatOpen(true),
-        [setIsChatOpen]
-    );
-    const handleCloseAiHub = useCallback(
-        () => setIsAiHubOpen(false),
-        [setIsAiHubOpen]
-    );
+
     const handleClosePasswordModal = useCallback(
         () => setChangePasswordModalOpen(false),
         []
     );
 
-    const handleSearchNavigation = useCallback(
-        (type, item) => {
-            if (type === "courses" && item) {
-                const url = `/dashboard/courses/teacher/${encodeURIComponent(
-                    item.category
-                )}/${item.id}`;
-                navigate(url);
-            } else if (type === "classes" && item) {
-                navigate("/dashboard/classes");
-            } else {
-                handleViewChange(type);
-            }
-        },
-        [navigate, handleViewChange]
-    );
-
-    const commandActions = useMemo(
-        () => ({
-            createClass: () => rest.setCreateClassModalOpen(true),
-            createSubject: () => rest.setCreateCourseModalOpen(true),
-            openAiHub: () => setIsAiHubOpen(true),
-            openLounge: () => handleViewChange("lounge"),
-            openProfile: () => handleViewChange("profile"),
-            viewArchived: () => rest.setIsArchivedModalOpen(true),
-            logout: handleLogoutClick,
-        }),
-        [
-            rest.setCreateClassModalOpen,
-            rest.setCreateCourseModalOpen,
-            setIsAiHubOpen,
-            handleViewChange,
-            handleLogoutClick,
-            rest.setIsArchivedModalOpen,
-        ]
-    );
-
-    const handleRenameCategory = useCallback(
-        async (newName) => {
-            const oldName = categoryToEdit?.name;
-            if (!oldName || !newName || oldName === newName) {
-                setIsEditCategoryModalOpen(false);
-                return;
-            }
-            const subjectsQuery = query(
-                collection(db, "courses"),
-                where("category", "==", oldName)
-            );
-            try {
-                const querySnapshot = await getDocs(subjectsQuery);
-                const batch = writeBatch(db);
-                querySnapshot.forEach((document) => {
-                    const subjectRef = doc(db, "courses", document.id);
-                    batch.update(subjectRef, { category: newName });
-                });
-                await batch.commit();
-                showToast("Category renamed successfully!", "success");
-            } catch (error) {
-                console.error("Error renaming category:", error);
-                showToast("Failed to rename category.", "error");
-            } finally {
-                setIsEditCategoryModalOpen(false);
-            }
-        },
-        [categoryToEdit, showToast]
-    );
-
-    const handleEditCategory = useCallback((category) => {
-        setCategoryToEdit(category);
-        setIsEditCategoryModalOpen(true);
-    }, []);
-
-    const courseCategories = useMemo(
-        () =>
-            [...new Set(courses.map((c) => c.category).filter(Boolean))].map(
-                (name) => ({ id: name, name: name })
-            ),
-        [courses]
-    );
-
-    const handleAddSubjectWithCategory = useCallback(
-        (categoryName) => {
-            setPreselectedCategoryForCourseModal(categoryName);
-            rest.setCreateCourseModalOpen(true);
-        },
-        [rest.setCreateCourseModalOpen]
-    );
-
-    const handleStartOnlineClass = useCallback(
-        async (classId, meetingCode, meetLink) => {
-            try {
-                const classRef = doc(db, "classes", classId);
-                await updateDoc(classRef, {
-                    videoConference: {
-                        isLive: true,
-                        meetingCode: meetingCode,
-                        platform: "GOOGLE_MEET",
-                        startTime: new Date().toISOString(),
-                    },
-                });
-                showToast(
-                    `Class ${meetingCode} is now live! Opening Google Meet...`,
-                    "success"
-                );
-                window.open(meetLink, "_blank");
-            } catch (error) {
-                console.error("Error starting online class:", error);
-                showToast(
-                    "Failed to start the online class due to a system error.",
-                    "error"
-                );
-            }
-        },
-        [showToast]
-    );
-
-    const handleEndOnlineClass = useCallback(
-        async (classId) => {
-            try {
-                const classRef = doc(db, "classes", classId);
-                await updateDoc(classRef, {
-                    "videoConference.isLive": false,
-                    "videoConference.meetingCode": null,
-                    "videoConference.startTime": null,
-                });
-                showToast("Online class successfully ended.", "info");
-            } catch (error) {
-                console.error("Error ending online class:", error);
-                showToast("Failed to end the online class.", "error");
-            }
-        },
-        [showToast]
-    );
-
-    // NAVIGATION ITEMS
-    const navItems = useMemo(() => {
-        const items = [
-            { view: "home", text: "Dashboard", icon: House },
-            { view: "lounge", text: "Lounge", icon: Coffee },
-            { view: "studentManagement", text: "Students", icon: Student },
-            { view: "classes", text: "Classes", icon: ChalkboardTeacher },
-            { view: "courses", text: "Library", icon: Books },
-            { view: "analytics", text: "Reports", icon: ChartPieSlice },
-            { view: "elections", text: "Elections", icon: CheckSquareOffset },
-            { view: "profile", text: "Profile", icon: UserCircle },
-        ];
-        if (userProfile?.role === "admin") {
-            items.push({ view: "monitoring", text: "Monitoring", icon: ChartLineUp });
-            items.push({ view: "admin", text: "System", icon: Gear });
-        }
-        return items;
-    }, [userProfile?.role]);
-
     // RENDER CONTENT
     const renderMainContent = () => {
-        if (loading || authLoading) return <DashboardSkeleton />;
+        if (loading) return <DashboardSkeleton />;
         if (error) {
             return (
                 <div className="glass-panel border-l-4 border-red-500 text-red-800 dark:text-red-200 p-6 rounded-2xl m-4">
@@ -1138,119 +837,9 @@ const TeacherDashboardLayout = (props) => {
                 </div>
             );
         }
-        switch (activeView) {
-            case "home":
-                return (
-                    <HomeView
-                        key={`${reloadKey}-home`}
-                        userProfile={userProfile}
-                        activeClasses={activeClasses}
-                        handleViewChange={handleViewChange}
-                        {...rest}
-                    />
-                );
-            case "lounge":
-                return (
-                    <LoungeView
-                        key={`${reloadKey}-lounge`}
-                        isPostsLoading={isLoungeLoading}
-                        publicPosts={loungePosts}
-                        usersMap={loungeUsersMap}
-                        fetchPublicPosts={fetchLoungePosts}
-                        {...loungePostUtils}
-                    />
-                );
-            case "classes":
-                return (
-                    <ClassesView
-                        key={`${reloadKey}-classes`}
-                        activeClasses={activeClasses}
-                        handleArchiveClass={props.handleArchiveClass}
-                        handleDeleteClass={props.handleDeleteClass}
-                        handleStartOnlineClass={handleStartOnlineClass}
-                        handleEndOnlineClass={handleEndOnlineClass}
-                        {...rest}
-                    />
-                );
-            case "courses":
-                return (
-                    <CoursesView
-                        key={`${reloadKey}-courses`}
-                        {...rest}
-                        userProfile={userProfile}
-                        activeSubject={activeSubject}
-                        isAiGenerating={isAiGenerating}
-                        setIsAiGenerating={setIsAiGenerating}
-                        setIsAiHubOpen={setIsAiHubOpen}
-                        activeUnit={activeUnit}
-                        onSetActiveUnit={onSetActiveUnit}
-                        courses={courses}
-                        courseCategories={courseCategories}
-                        handleEditCategory={handleEditCategory}
-                        onAddSubjectClick={handleAddSubjectWithCategory}
-                        handleInitiateDelete={handleInitiateDelete}
-                        activeClasses={activeClasses}
-                    />
-                );
-            case "studentManagement":
-                return (
-                    <StudentManagementView
-                        key={`${reloadKey}-sm`}
-                        courses={courses}
-                        activeClasses={activeClasses}
-                        {...rest}
-                    />
-                );
-            case "elections":
-                return (
-                    <div key={`${reloadKey}-elections`} className="p-6">
-                        <ElectionManager />
-                    </div>
-                );
-            case "profile":
-                return (
-                    <ProfileView
-                        key={`${reloadKey}-profile`}
-                        user={user}
-                        userProfile={userProfile}
-                        logout={logout}
-                        {...rest}
-                    />
-                );
-            case "analytics":
-                return (
-                    <AnalyticsView
-                        key={`${reloadKey}-analytics`}
-                        activeClasses={activeClasses}
-                        courses={courses}
-                    />
-                );
-            case "admin":
-                return (
-                    <div
-                        key={`${reloadKey}-admin`}
-                        className="p-4 sm:p-6 text-slate-900 dark:text-slate-100"
-                    >
-                        <AdminDashboard />
-                    </div>
-                );
-            case "monitoring":
-                return (
-                    <div key={`${reloadKey}-monitoring`} className="p-4 sm:p-6">
-                        <AdminMonitoringView teachers={adminMonitoringTeachers} />
-                    </div>
-                );
-            default:
-                return (
-                    <HomeView
-                        key={`${reloadKey}-default`}
-                        userProfile={userProfile}
-                        handleViewChange={handleViewChange}
-                        {...rest}
-                    />
-                );
-        }
+        return children;
     };
+
 
     return (
         <div
@@ -1286,11 +875,8 @@ const TeacherDashboardLayout = (props) => {
                         userProfile={userProfile}
                         activeView={activeView}
                         onLogout={handleLogoutClick}
-                        handleOpenChat={handleOpenChat}
-                        isAiThinking={isAiThinking}
                         courses={courses}
                         activeClasses={activeClasses}
-                        onNavigate={handleSearchNavigation}
                     />
                 </div>
 
@@ -1346,59 +932,40 @@ const TeacherDashboardLayout = (props) => {
                     transition={{ type: "spring", stiffness: 200, damping: 20 }}
                     className="neural-glass pointer-events-auto px-6 py-3 rounded-full flex items-center gap-6 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.4)] backdrop-blur-2xl bg-white/90 dark:bg-[#1C1C1E]/90 border border-white/20"
                 >
-                    <NavLink
-                        to="/dashboard"
-                        onClick={() => handleViewChange("home")}
-                        className="relative p-2 rounded-full transition-transform active:scale-90"
-                    >
-                        <House
-                            size={24}
-                            weight={activeView === "home" ? "fill" : "duotone"}
-                            className={
-                                activeView === "home"
-                                    ? "text-[var(--monet-primary)]"
-                                    : "text-slate-500"
-                            }
-                        />
-                        {activeView === "home" && (
-                            <motion.div
-                                layoutId="mobileDot"
-                                className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-[var(--monet-primary)] rounded-full"
+                    {navItems?.slice(0, 4).map((item) => (
+                        <NavLink
+                            key={item.view}
+                            to={item.view === "classes" ? "/dashboard" : `/dashboard/${item.view}`}
+                            onClick={() => handleViewChange(item.view)}
+                            className="relative p-2 rounded-full transition-transform active:scale-90"
+                        >
+                            <item.icon
+                                size={24}
+                                weight={activeView === item.view ? "fill" : "duotone"}
+                                className={
+                                    activeView === item.view
+                                        ? "text-[var(--monet-primary)]"
+                                        : "text-slate-500"
+                                }
                             />
-                        )}
-                    </NavLink>
-
-                    <NavLink
-                        to="/dashboard/courses"
-                        onClick={() => handleViewChange("courses")}
-                        className="relative p-2 rounded-full transition-transform active:scale-90"
-                    >
-                        <Books
-                            size={24}
-                            weight={activeView === "courses" ? "fill" : "duotone"}
-                            className={
-                                activeView === "courses"
-                                    ? "text-[var(--monet-primary)]"
-                                    : "text-slate-500"
-                            }
-                        />
-                        {activeView === "courses" && (
-                            <motion.div
-                                layoutId="mobileDot"
-                                className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-[var(--monet-primary)] rounded-full"
-                            />
-                        )}
-                    </NavLink>
+                            {activeView === item.view && (
+                                <motion.div
+                                    layoutId="mobileDot"
+                                    className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-[var(--monet-primary)] rounded-full"
+                                />
+                            )}
+                        </NavLink>
+                    ))}
 
                     <button
                         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                         className={`
                             relative flex items-center justify-center w-14 h-14 rounded-full 
                             transition-all duration-300 shadow-xl -mt-7
-                            ring-4 ring-white
+                            ring-4 ring-white dark:ring-[#1C1C1E]
                             ${isMobileMenuOpen
                                 ? "bg-slate-800 text-white rotate-90 shadow-slate-400/30"
-                                : "bg-gradient-to-br from-indigo-500 via-sky-500 to-teal-500 text-white shadow-indigo-500/40"
+                                : "bg-[var(--monet-primary)] text-white hover:scale-105 shadow-[var(--monet-primary)]/40"
                             }
                         `}
                     >
@@ -1408,50 +975,6 @@ const TeacherDashboardLayout = (props) => {
                             <SquaresFour size={22} weight="fill" />
                         )}
                     </button>
-
-                    <NavLink
-                        to="/dashboard/classes"
-                        onClick={() => handleViewChange("classes")}
-                        className="relative p-2 rounded-full transition-transform active:scale-90"
-                    >
-                        <ChalkboardTeacher
-                            size={24}
-                            weight={activeView === "classes" ? "fill" : "duotone"}
-                            className={
-                                activeView === "classes"
-                                    ? "text-[var(--monet-primary)]"
-                                    : "text-slate-500"
-                            }
-                        />
-                        {activeView === "classes" && (
-                            <motion.div
-                                layoutId="mobileDot"
-                                className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-[var(--monet-primary)] rounded-full"
-                            />
-                        )}
-                    </NavLink>
-
-                    <NavLink
-                        to="/dashboard/lounge"
-                        onClick={() => handleViewChange("lounge")}
-                        className="relative p-2 rounded-full transition-transform active:scale-90"
-                    >
-                        <Coffee
-                            size={24}
-                            weight={activeView === "lounge" ? "fill" : "duotone"}
-                            className={
-                                activeView === "lounge"
-                                    ? "text-[var(--monet-primary)]"
-                                    : "text-slate-500"
-                            }
-                        />
-                        {activeView === "lounge" && (
-                            <motion.div
-                                layoutId="mobileDot"
-                                className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-[var(--monet-primary)] rounded-full"
-                            />
-                        )}
-                    </NavLink>
                 </motion.div>
             </div>
 
@@ -1464,12 +987,7 @@ const TeacherDashboardLayout = (props) => {
                         className="fixed bottom-28 left-4 right-4 z-40 neural-glass rounded-[2rem] p-6 lg:hidden shadow-[0_0_100px_-20px_rgba(0,0,0,0.5)] bg-white/95 dark:bg-[#1C1C1E]/95"
                     >
                         <div className="grid grid-cols-4 gap-6">
-                            {navItems
-                                .filter(
-                                    (i) =>
-                                        !["home", "classes", "courses", "lounge"].includes(i.view)
-                                )
-                                .map((item) => (
+                            {navItems?.slice(4).map((item) => (
                                     <button
                                         key={item.view}
                                         onClick={() => {
@@ -1498,52 +1016,11 @@ const TeacherDashboardLayout = (props) => {
 
             {/* --- MODALS & OVERLAYS --- */}
             <Suspense fallback={null}>
-                <div className="lg:hidden">
-                    {!isChatOpen && activeView === "home" && (
-                        <div className="fixed bottom-28 right-4 z-40">
-                            <AnimatedRobot onClick={handleOpenChat} />
-                        </div>
-                    )}
-                </div>
-
-                <Suspense fallback={null}>
-                    {isCommandPaletteOpen && (
-                        <CommandPalette
-                            isOpen={isCommandPaletteOpen}
-                            onClose={() => setIsCommandPaletteOpen(false)}
-                            courses={courses}
-                            classes={activeClasses}
-                            actions={commandActions}
-                            onNavigate={handleSearchNavigation}
-                        />
-                    )}
-                </Suspense>
-
-                {isAiHubOpen && (
-                    <AiGenerationHub
-                        isOpen={isAiHubOpen}
-                        onClose={handleCloseAiHub}
-                        subjectId={activeSubject?.id}
-                        unitId={activeUnit?.id}
-                    />
-                )}
-                <ChatDialog
-                    isOpen={isChatOpen}
-                    onClose={handleCloseChat}
-                    messages={messages}
-                    onSendMessage={handleAskAiWrapper}
-                    onRetryChat={rest.handleRetryChat}
-                    isAiThinking={isAiThinking}
-                    userFirstName={userProfile?.firstName}
-                />
-
                 {rest.isArchivedModalOpen && (
                     <ArchivedClassesModal
                         isOpen={rest.isArchivedModalOpen}
                         onClose={() => rest.setIsArchivedModalOpen(false)}
                         archivedClasses={rest.archivedClasses}
-                        onUnarchive={rest.handleUnarchiveClass}
-                        onDelete={props.handleDeleteClass}
                     />
                 )}
                 {rest.isEditProfileModalOpen && (
@@ -1560,125 +1037,6 @@ const TeacherDashboardLayout = (props) => {
                     onClose={handleClosePasswordModal}
                     onSubmit={rest.handleChangePassword}
                 />
-                {categoryToEdit && (
-                    <EditCategoryModal
-                        isOpen={isEditCategoryModalOpen}
-                        onClose={() => setIsEditCategoryModalOpen(false)}
-                        categoryName={categoryToEdit.name}
-                        onSave={handleRenameCategory}
-                    />
-                )}
-                <CreateClassModal
-                    isOpen={rest.isCreateClassModalOpen}
-                    onClose={() => rest.setCreateClassModalOpen(false)}
-                    teacherId={user?.uid || user?.id}
-                    courses={courses}
-                />
-                <CreateCourseModal
-                    isOpen={rest.isCreateCourseModalOpen}
-                    onClose={() => {
-                        rest.setCreateCourseModalOpen(false);
-                        setPreselectedCategoryForCourseModal(null);
-                    }}
-                    teacherId={user?.uid || user?.id}
-                    courseCategories={courseCategories}
-                    preselectedCategory={preselectedCategoryForCourseModal}
-                />
-                <ClassOverviewModal
-                    isOpen={rest.classOverviewModal.isOpen}
-                    onClose={() => {
-                        rest.setClassOverviewModal({ isOpen: false, data: null });
-                        navigate("/dashboard/classes");
-                    }}
-                    classData={rest.classOverviewModal.data}
-                    courses={courses}
-                    onRemoveStudent={rest.handleRemoveStudentFromClass}
-                />
-                {rest.isEditClassModalOpen && (
-                    <EditClassModal
-                        isOpen={rest.isEditClassModalOpen}
-                        onClose={() => rest.setEditClassModalOpen(false)}
-                        classData={rest.classToEdit}
-                        courses={courses}
-                        onUpdate={handleUpdateClass}
-                    />
-                )}
-                {rest.isAddUnitModalOpen && (
-                    <AddUnitModal
-                        isOpen={rest.isAddUnitModalOpen}
-                        onClose={() => rest.setAddUnitModalOpen(false)}
-                        subjectId={activeSubject?.id}
-                        onCreateUnit={handleCreateUnit}
-                    />
-                )}
-                {rest.editUnitModalOpen && rest.selectedUnit && (
-                    <EditUnitModal
-                        isOpen={rest.editUnitModalOpen}
-                        onClose={() => rest.setEditUnitModalOpen(false)}
-                        unit={rest.selectedUnit}
-                    />
-                )}
-                {rest.addLessonModalOpen && rest.selectedUnit && (
-                    <AddLessonModal
-                        isOpen={rest.addLessonModalOpen}
-                        onClose={() => rest.setAddLessonModalOpen(false)}
-                        unitId={rest.selectedUnit?.id}
-                        subjectId={activeSubject?.id}
-                        setIsAiGenerating={props.setIsAiGenerating}
-                    />
-                )}
-                {rest.addQuizModalOpen && rest.selectedUnit && (
-                    <AddQuizModal
-                        isOpen={rest.addQuizModalOpen}
-                        onClose={() => rest.setAddQuizModalOpen(false)}
-                        unitId={rest.selectedUnit?.id}
-                        subjectId={activeSubject?.id}
-                    />
-                )}
-                {rest.deleteUnitModalOpen && rest.selectedUnit && (
-                    <DeleteUnitModal
-                        isOpen={rest.deleteUnitModalOpen}
-                        onClose={() => rest.setDeleteUnitModalOpen(false)}
-                        unitId={rest.selectedUnit?.id}
-                        subjectId={activeSubject?.id}
-                    />
-                )}
-                {rest.editLessonModalOpen && rest.selectedLesson && (
-                    <EditLessonModal
-                        isOpen={rest.editLessonModalOpen}
-                        onClose={() => rest.setEditLessonModalOpen(false)}
-                        lesson={rest.selectedLesson}
-                    />
-                )}
-                {rest.isShareContentModalOpen && activeSubject && (
-                    <ShareMultipleLessonsModal
-                        isOpen={rest.isShareContentModalOpen}
-                        onClose={() => rest.setShareContentModalOpen(false)}
-                        subject={activeSubject}
-                    />
-                )}
-                {isDeleteModalOpen && (
-                    <DeleteConfirmationModal
-                        isOpen={isDeleteModalOpen}
-                        onClose={() => setIsDeleteModalOpen(false)}
-                        onConfirm={handleConfirmDelete}
-                        deletingItemType={deleteTarget?.type}
-                    />
-                )}
-                {rest.isEditSubjectModalOpen && (
-                    <EditSubjectModal
-                        isOpen={rest.isEditSubjectModalOpen}
-                        onClose={() => rest.setEditSubjectModalOpen(false)}
-                        subject={rest.subjectToActOn}
-                    />
-                )}
-                {rest.isDeleteSubjectModalOpen && (
-                    <DeleteSubjectModal
-                        isOpen={rest.isDeleteSubjectModalOpen}
-                        onClose={() => rest.setDeleteSubjectModalOpen(false)}
-                        subject={rest.subjectToActOn}
-                    />
-                )}
             </Suspense>
 
             {/* --- THEME SELECTION MODAL --- */}
@@ -1836,4 +1194,4 @@ const TeacherDashboardLayout = (props) => {
     );
 };
 
-export default memo(TeacherDashboardLayout);
+export default memo(StudentDashboardLayout);

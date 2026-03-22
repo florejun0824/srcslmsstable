@@ -9,9 +9,13 @@ import {
 
 import { useBanner } from '../hooks/useBanner';
 import { useSchedule } from '../hooks/useSchedule';
+import { useSystemChangelogs } from '../../../../../hooks/useSystemChangelogs';
 import CreateAnnouncement from '../../widgets/CreateAnnouncement'; 
 
 const AdminBannerEditModal = lazy(() => import('../../widgets/AdminBannerEditModal'));
+const ChangelogTimelineModal = lazy(() => import('../../widgets/ChangelogTimelineModal'));
+const ChangelogDetailModal = lazy(() => import('../../widgets/ChangelogDetailModal'));
+const CreateChangelogModal = lazy(() => import('../../widgets/CreateChangelogModal'));
 
 // --- OPTIMIZATION 1: ISOLATED CLOCK ---
 // Only this tiny component re-renders every second, preventing the heavy 
@@ -94,12 +98,22 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
     const { bannerSettings, isBannerEditModalOpen, openBannerEditModal, closeBannerEditModal } = useBanner(showToast);
     const { currentActivity } = useSchedule(showToast, userProfile?.schoolId || 'srcs_main');
     
+    // --- CHANGELOGS DATA ---
+    const { changelogs, loading: isChangelogsLoading, addChangelog, deleteChangelog } = useSystemChangelogs(showToast);
+    
     // --- STATE & REFS ---
     const bannerRef = useRef(null);
     const [imageError, setImageError] = useState(false);
     const [greeting, setGreeting] = useState('');
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isMobileFeatureOpen, setIsMobileFeatureOpen] = useState(false);
+    
+    // Changelog Modals State
+    const [isChangelogModalOpen, setIsChangelogModalOpen] = useState(false);
+    const [isCreateChangelogModalOpen, setIsCreateChangelogModalOpen] = useState(false);
+    const [selectedChangelog, setSelectedChangelog] = useState(null);
+
+    const isAdmin = userProfile?.role === 'admin' && userProfile?.schoolId === 'srcs_main';
 
     // Initial greeting set (no interval needed here anymore)
     useEffect(() => {
@@ -169,7 +183,7 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.5 }}
-                    className="col-span-1 lg:col-span-7 lg:order-2 h-[280px] sm:h-[320px] lg:h-[374px] relative rounded-[2rem] sm:rounded-[3rem] overflow-hidden group cursor-pointer perspective-1000 shadow-xl sm:shadow-2xl dark:shadow-black/80 ring-1 ring-white/10"
+                    className="col-span-1 lg:col-span-6 lg:order-2 h-[280px] sm:h-[320px] lg:h-[374px] relative rounded-[2rem] sm:rounded-[3rem] overflow-hidden group cursor-pointer perspective-1000 shadow-xl sm:shadow-2xl dark:shadow-black/80 ring-1 ring-white/10"
                 >
                     {/* OPTIMIZED GLOW */}
                     <GlowSpot mouseX={glowX} mouseY={glowY} />
@@ -332,13 +346,13 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
                 </motion.div>
 
                 {/* --- 2. LEFT COLUMN (Action Buttons & Desktop Greeting) --- */}
-                <div className="col-span-1 lg:col-span-5 lg:order-1 flex flex-col gap-4 lg:gap-[14px] h-full">
+                <div className="col-span-1 lg:col-span-6 lg:order-1 flex flex-col gap-4 lg:gap-[14px] h-full">
                     
                     {/* DESKTOP GREETING - HEIGHT: h-[220px] */}
                     <motion.div 
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="hidden lg:flex relative group p-6 rounded-[2.5rem] bg-white dark:bg-[#121212] border border-slate-200 dark:border-white/10 overflow-hidden flex-col justify-between shadow-xl dark:shadow-black/50 h-[220px]"
+                        className="hidden lg:flex relative group p-6 rounded-[2.5rem] bg-white dark:bg-[#121212] border border-slate-200 dark:border-white/10 overflow-hidden flex-col justify-between shadow-xl dark:shadow-black/50 h-[220px] sm:h-[220px]"
                     >
                          {/* Dynamic Background Mesh */}
                          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-30 mix-blend-overlay z-10" />
@@ -369,15 +383,15 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
                          </div>
                     </motion.div>
 
-                    {/* ACTION BUTTONS - HEIGHT: h-[140px] - GRID 5 (2/3 Split) */}
-                    <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-[14px] flex-1">
+                    {/* ACTION BUTTONS - HEIGHT: h-[140px] - GRID 7 (2/2/3 Split) */}
+                    <div className="grid grid-cols-2 lg:grid-cols-7 gap-3 sm:gap-4 lg:gap-[14px] flex-1">
                         
                         {/* POST BUTTON (2 Cols) */}
                         <motion.button
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.96 }}
                             onClick={() => setIsCreateModalOpen(true)}
-                            className="relative col-span-1 lg:col-span-2 rounded-[2rem] sm:rounded-[2.5rem] bg-gradient-to-br from-[var(--monet-accent)] to-[var(--monet-accent)]/80 border border-white/20 p-5 lg:p-4 flex flex-col justify-between group overflow-hidden h-[150px] sm:h-auto lg:h-[140px] shadow-lg"
+                            className="relative col-span-1 lg:col-span-2 rounded-[2rem] sm:rounded-[2.5rem] bg-gradient-to-br from-[var(--monet-accent)] to-[var(--monet-accent)]/80 border border-white/20 p-5 lg:p-4 flex flex-col justify-between group overflow-hidden h-[150px] sm:h-[135px] lg:h-[140px] shadow-lg"
                         >
                             <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay" />
                             <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/20 blur-2xl rounded-full" />
@@ -390,12 +404,35 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
                             </div>
                         </motion.button>
 
+                        {/* CHANGELOG WIDGET (2 Cols) */}
+                        <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.96 }}
+                            onClick={() => setIsChangelogModalOpen(true)}
+                            className="relative col-span-1 lg:col-span-2 rounded-[2rem] sm:rounded-[2.5rem] bg-indigo-50 dark:bg-[#151320] border border-indigo-200/50 dark:border-indigo-500/20 p-5 lg:p-4 flex flex-col justify-between group overflow-hidden shadow-sm hover:shadow-lg transition-all h-[150px] sm:h-[135px] lg:h-[140px]"
+                        >
+                            <div className="flex items-start justify-between w-full">
+                                <div className="h-9 w-9 lg:h-8 lg:w-8 rounded-full bg-indigo-100 dark:bg-indigo-500/20 flex items-center justify-center border border-indigo-200 dark:border-indigo-500/30">
+                                    <Activity className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                                </div>
+                                {changelogs.length > 0 && changelogs[0].isMajor && (
+                                    <div className="w-2 h-2 rounded-full bg-pink-500 animate-pulse mt-2 mr-2 shadow-[0_0_8px_rgba(236,72,153,0.8)]" />
+                                )}
+                            </div>
+                            <div className="text-left relative z-10 w-full mt-auto">
+                                <span className="block text-[9px] font-bold uppercase tracking-wider text-indigo-400 dark:text-indigo-500 mb-0.5">System</span>
+                                <span className="block text-sm lg:text-sm font-black text-indigo-900 dark:text-indigo-100 leading-tight">
+                                    {changelogs.length > 0 ? `v${changelogs[0].version}` : 'Updates'}
+                                </span>
+                            </div>
+                        </motion.button>
+
                         {/* SCHEDULE WIDGET (3 Cols) */}
                         <motion.button
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.96 }}
                             onClick={onOpenScheduleModal}
-                            className="relative col-span-1 lg:col-span-3 rounded-[2rem] sm:rounded-[2.5rem] bg-slate-50 dark:bg-[#181818] border border-slate-200 dark:border-white/10 p-5 lg:p-4 flex flex-col justify-between group overflow-hidden shadow-sm hover:shadow-lg transition-all h-[150px] sm:h-auto lg:h-[140px]"
+                            className="relative col-span-2 lg:col-span-3 rounded-[2rem] sm:rounded-[2.5rem] bg-slate-50 dark:bg-[#181818] border border-slate-200 dark:border-white/10 p-5 lg:p-4 flex flex-col justify-between group overflow-hidden shadow-sm hover:shadow-lg transition-all h-[150px] sm:h-[135px] lg:h-[140px]"
                         >
                              <div className="absolute top-5 right-5 lg:top-4 lg:right-4 flex">
                                 <span className={`flex h-2 w-2 relative ${currentActivity ? 'opacity-100' : 'opacity-0'}`}>
@@ -450,6 +487,38 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
                         currentLinkLabel={bannerSettings.linkLabel}
                     />
                 )}
+                
+                {isChangelogModalOpen && (
+                    <ChangelogTimelineModal 
+                        isOpen={isChangelogModalOpen} 
+                        onClose={() => setIsChangelogModalOpen(false)}
+                        changelogs={changelogs}
+                        isLoading={isChangelogsLoading}
+                        isAdmin={isAdmin}
+                        onOpenCreate={() => { setIsChangelogModalOpen(false); setIsCreateChangelogModalOpen(true); }}
+                        onDelete={deleteChangelog}
+                        onSelectLog={(log) => setSelectedChangelog(log)}
+                    />
+                )}
+
+                {selectedChangelog && (
+                    <ChangelogDetailModal 
+                        isOpen={!!selectedChangelog}
+                        onClose={() => setSelectedChangelog(null)}
+                        log={selectedChangelog}
+                    />
+                )}
+
+                {isCreateChangelogModalOpen && (
+                    <CreateChangelogModal 
+                        isOpen={isCreateChangelogModalOpen}
+                        onClose={() => setIsCreateChangelogModalOpen(false)}
+                        onPost={async (version, content, isMajor) => {
+                            const authorName = `${userProfile?.firstName} ${userProfile?.lastName}`;
+                            return await addChangelog(version, content, isMajor, authorName);
+                        }}
+                    />
+                )}
             </Suspense>
 
             <Transition appear show={isCreateModalOpen} as={Fragment}>
@@ -466,17 +535,22 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
                                 leaveFrom="opacity-100 scale-100"
                                 leaveTo="opacity-0 scale-95"
                             >
-                                <Dialog.Panel className="w-full max-w-lg transform overflow-hidden rounded-[2.5rem] bg-white dark:bg-[#1E1E1E] p-6 sm:p-8 shadow-2xl transition-all border border-slate-200 dark:border-white/10 relative">
-                                    <div className="absolute top-0 right-0 w-64 h-64 bg-[var(--monet-accent)] blur-[80px] opacity-10 pointer-events-none" />
-                                    <div className="flex items-center justify-between mb-6 sm:mb-8 relative z-10">
-                                        <Dialog.Title as="h3" className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-white flex items-center gap-3 tracking-tight">
-                                            Compose
+                                <Dialog.Panel className="w-full max-w-4xl transform overflow-hidden rounded-[2.5rem] bg-white dark:bg-slate-900 p-6 sm:p-10 shadow-[0_0_50px_-12px_rgba(0,0,0,0.1)] dark:shadow-[0_0_60px_-15px_rgba(0,0,0,0.5)] transition-all border border-slate-200 dark:border-white/10 relative">
+                                    {/* Animated Ambient Glows */}
+                                    <div className="absolute -top-24 -left-24 w-64 h-64 bg-indigo-500/30 dark:bg-indigo-500/20 blur-[80px] rounded-full pointer-events-none mix-blend-multiply dark:mix-blend-screen" />
+                                    <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-fuchsia-500/30 dark:bg-purple-500/20 blur-[80px] rounded-full pointer-events-none mix-blend-multiply dark:mix-blend-screen" />
+                                    
+                                    <div className="flex items-center justify-between mb-8 relative z-10">
+                                        <Dialog.Title as="h3" className="text-3xl font-black bg-gradient-to-br from-slate-900 via-slate-700 to-slate-500 dark:from-white dark:via-slate-200 dark:to-slate-400 bg-clip-text text-transparent flex items-center gap-3 tracking-tight">
+                                            Create Post
                                         </Dialog.Title>
-                                        <button onClick={() => setIsCreateModalOpen(false)} className="h-10 w-10 rounded-full bg-slate-100 dark:bg-white/5 text-slate-500 hover:text-red-500 flex items-center justify-center transition-colors">
-                                            <X size={20} strokeWidth={2.5} />
+                                        <button onClick={() => setIsCreateModalOpen(false)} className="h-12 w-12 rounded-full bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 backdrop-blur-md text-slate-500 hover:text-rose-500 flex items-center justify-center transition-all">
+                                            <X size={22} strokeWidth={3} />
                                         </button>
                                     </div>
-                                    <CreateAnnouncement classes={activeClasses} onPost={handlePostAndClose} />
+                                    <div className="relative z-10">
+                                        <CreateAnnouncement classes={activeClasses} onPost={handlePostAndClose} userProfile={userProfile} />
+                                    </div>
                                 </Dialog.Panel>
                             </Transition.Child>
                         </div>

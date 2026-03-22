@@ -3,6 +3,47 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, PartyPopper, ArrowRight, Layers, Zap } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
+import ReactMarkdown from 'react-markdown';
+
+// --- UTILITY: HOLOGRAM MARKDOWN RENDERER ---
+const HologramMarkdownRenderer = React.memo(({ content, primaryColor }) => {
+    if (!content) return null;
+    return (
+        <ReactMarkdown
+            components={{
+                a: ({node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" style={{color: primaryColor}} className="hover:underline font-bold transition-colors" onClick={(e) => e.stopPropagation()} />,
+                p: ({node, ...props}) => <p {...props} className="mb-4 last:mb-0 text-sm md:text-[15px] font-medium text-slate-700 dark:text-slate-200 leading-relaxed font-sans" />,
+                h1: ({node, ...props}) => <h1 {...props} className="text-2xl md:text-3xl font-black mt-6 mb-4 text-slate-900 dark:text-white tracking-tight" />,
+                h2: ({node, ...props}) => <h2 {...props} className="text-xl md:text-2xl font-bold mt-5 mb-3 text-slate-800 dark:text-white" />,
+                h3: ({node, ...props}) => <h3 {...props} className="text-lg md:text-xl font-bold mt-4 mb-2 text-slate-800 dark:text-slate-100" />,
+                ul: ({node, ...props}) => <ul {...props} className="space-y-4 my-4" />,
+                ol: ({node, ...props}) => <ol {...props} className="list-decimal pl-5 my-4 space-y-4 text-sm md:text-[15px] font-medium text-slate-700 dark:text-slate-200" />,
+                li: ({node, ...props}) => (
+                    // Match the precise Hologram design natively without Framer Motion for performance
+                    <div 
+                        className="group flex gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/50 dark:border-white/5 hover:bg-white dark:hover:bg-white/10 transition-transform hover:scale-[1.01] hover:translate-x-1 duration-300 shadow-sm hover:shadow-md"
+                    >
+                        <div className="mt-1 flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center bg-white dark:bg-white/10 shadow-sm border border-slate-100 dark:border-white/5">
+                            <Check size={14} style={{ color: primaryColor }} strokeWidth={3} />
+                        </div>
+                        <div className="flex-1 text-sm md:text-[15px] font-medium text-slate-700 dark:text-slate-200 leading-relaxed group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
+                            {props.children}
+                        </div>
+                    </div>
+                ),
+                strong: ({node, ...props}) => <strong {...props} className="font-extrabold text-slate-900 dark:text-white" />,
+                em: ({node, ...props}) => <em {...props} className="italic text-slate-600 dark:text-slate-300" />,
+                hr: ({node, ...props}) => <hr {...props} className="my-6 border-t border-slate-200 dark:border-white/10" />,
+                blockquote: ({node, ...props}) => <blockquote {...props} className="border-l-4 pl-4 py-1 italic my-4 bg-slate-50 dark:bg-white/5 rounded-r-lg" style={{borderLeftColor: primaryColor}} />,
+                code: ({node, inline, ...props}) => inline 
+                    ? <code {...props} className="bg-slate-100 dark:bg-white/10 px-1.5 py-0.5 rounded-md text-[13px] font-mono" style={{color: primaryColor}} /> 
+                    : <pre className="bg-slate-900 dark:bg-black/50 p-4 rounded-xl overflow-x-auto text-[13px] font-mono text-slate-300 my-4 shadow-inner ring-1 ring-white/10"><code {...props} /></pre>
+            }}
+        >
+            {content}
+        </ReactMarkdown>
+    );
+});
 
 // --- CUSTOM COMPONENT: THE QUANTUM CORE ---
 // A code-only, high-performance holographic animation
@@ -88,9 +129,7 @@ export default function HologramOnboarding({ versionInfo, onClose }) {
     onClose();
   };
 
-  const notes = versionInfo.whatsNew
-    ? versionInfo.whatsNew.split("\n").filter((line) => line.trim() !== "")
-    : ["Performance improvements and bug fixes."];
+  const rawMarkdown = versionInfo.whatsNew || "Performance improvements and bug fixes.";
 
   const primaryColor = 'var(--monet-primary, #6366f1)';
 
@@ -117,7 +156,7 @@ export default function HologramOnboarding({ versionInfo, onClose }) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
       />
 
       {/* Main Card */}
@@ -129,7 +168,7 @@ export default function HologramOnboarding({ versionInfo, onClose }) {
         className={`
           relative w-full max-w-4xl mx-4 sm:mx-6 
           bg-white/80 dark:bg-[#121212]/90 
-          backdrop-blur-2xl backdrop-saturate-150
+          backdrop-blur-xl backdrop-saturate-150
           rounded-[2.5rem] shadow-2xl border border-white/40 dark:border-white/10
           overflow-hidden flex flex-col md:flex-row
           max-h-[85vh] md:h-[600px]
@@ -170,21 +209,7 @@ export default function HologramOnboarding({ versionInfo, onClose }) {
           
           <div className="flex-1 overflow-y-auto p-6 md:p-10 custom-scrollbar">
              <div className="space-y-4">
-               {notes.map((note, i) => (
-                 <motion.div 
-                   key={i}
-                   variants={itemVariants}
-                   whileHover={{ scale: 1.01, x: 4 }}
-                   className="group flex gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/50 dark:border-white/5 hover:bg-white dark:hover:bg-white/10 transition-all duration-300 shadow-sm hover:shadow-md"
-                 >
-                   <div className="mt-1 flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center bg-white dark:bg-white/10 shadow-sm border border-slate-100 dark:border-white/5">
-                     <Check size={14} style={{ color: primaryColor }} strokeWidth={3} />
-                   </div>
-                   <p className="text-sm md:text-[15px] font-medium text-slate-700 dark:text-slate-200 leading-relaxed group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
-                     {note}
-                   </p>
-                 </motion.div>
-               ))}
+               <HologramMarkdownRenderer content={rawMarkdown} primaryColor={primaryColor} />
              </div>
           </div>
 

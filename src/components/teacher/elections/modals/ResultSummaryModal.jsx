@@ -11,17 +11,16 @@ import { db } from '../../../../services/firebase';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 
-// Helper for UI candidate colors
 const getCandidateColor = (index) => {
     const colors = [
-        'bg-blue-600 text-white',
-        'bg-purple-600 text-white',
+        'bg-indigo-600 text-white',
+        'bg-violet-600 text-white',
         'bg-emerald-600 text-white',
         'bg-amber-600 text-white',
         'bg-rose-600 text-white',
-        'bg-indigo-600 text-white',
         'bg-cyan-600 text-white',
         'bg-orange-600 text-white',
+        'bg-pink-600 text-white',
     ];
     return colors[index % colors.length];
 };
@@ -48,7 +47,7 @@ const ResultSummaryModal = ({ election, isOpen, onClose }) => {
 
     if (!isOpen || !election) return null;
 
-    // --- PDF GENERATION ENGINE (Matched to LiveCanvassing) ---
+    // --- PDF GENERATION ENGINE (unchanged logic) ---
     const generateReport = async () => {
         setIsGenerating(true);
         const avatarColors = ['#2563eb', '#7c3aed', '#0891b2', '#059669', '#d97706', '#dc2626', '#db2777', '#4f46e5'];
@@ -74,7 +73,6 @@ const ResultSummaryModal = ({ election, isOpen, onClose }) => {
             const baseResults = parentData ? (parentData.results || parentData.tally || parentData.liveResults || {}) : results;
             const actualTbData = parentData ? election : tbData;
 
-            // 2. Helper to build a position's HTML table
             const buildPositionTable = (pos, tallyData, titlePrefix = '') => {
                 const posTitle = pos.title;
                 const posResults = tallyData[posTitle] || {};
@@ -159,7 +157,6 @@ const ResultSummaryModal = ({ election, isOpen, onClose }) => {
                 }
             });
 
-            // --- Winners summary ---
             const winnersList = baseElection.positions.map(pos => {
                 let posResults = baseResults[pos.title] || {};
                 let isTiedPosition = false;
@@ -207,11 +204,6 @@ const ResultSummaryModal = ({ election, isOpen, onClose }) => {
             </div>
         ` : '';
 
-            const reportDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-            const reportTime = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-            const startDate = election.startDate ? new Date(election.startDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A';
-            const endDate = election.endDate ? new Date(election.endDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A';
-
             const html = `<!DOCTYPE html><html><head><title>Election Report — ${election.title}</title>
             <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
             <style>
@@ -230,7 +222,7 @@ const ResultSummaryModal = ({ election, isOpen, onClose }) => {
                 <div style="display:flex;gap:12px;margin-bottom:28px;">
                     <div style="flex:1;background:#f0f9ff;border:1px solid #bae6fd;border-radius:14px;padding:20px;text-align:center;">
                         <div style="font-size:9px;text-transform:uppercase;letter-spacing:2px;color:#0284c7;font-weight:700;">Total Ballots</div>
-                        <div style="font-family:monospace;font-size:34px;font-weight:900;">${baseElection.totalVotes || totalVotesCast}</div>
+                        <div style="font-family:monospace;font-size:34px;font-weight:900;">${baseElection.totalVotes || 0}</div>
                     </div>
                     <div style="flex:1;background:#f5f3ff;border:1px solid #c4b5fd;border-radius:14px;padding:20px;text-align:center;">
                         <div style="font-size:9px;text-transform:uppercase;letter-spacing:2px;color:#7c3aed;font-weight:700;">Positions</div>
@@ -283,53 +275,56 @@ const ResultSummaryModal = ({ election, isOpen, onClose }) => {
         }
     };
 
+    const totalVotesCast = election?.totalVotes || 0;
+
     const modalContent = (
-        <div className="fixed inset-0 z-[9999] bg-slate-950/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
+        <div className="fixed inset-0 z-[9999] bg-slate-950/30 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
             <motion.div
                 initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-                className="bg-white dark:bg-[#1c1b1f] w-full sm:max-w-3xl max-h-[95vh] rounded-t-[32px] sm:rounded-[32px] overflow-hidden flex flex-col shadow-2xl"
+                transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                className="bg-white dark:bg-slate-900 w-full sm:max-w-3xl max-h-[95vh] rounded-t-3xl sm:rounded-2xl overflow-hidden flex flex-col shadow-xl border border-slate-200 dark:border-slate-800"
                 onClick={e => e.stopPropagation()}
             >
                 {/* Header */}
-                <div className="px-6 py-5 border-b border-slate-100 dark:border-white/5 flex items-center justify-between bg-white dark:bg-[#1c1b1f]">
+                <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900">
                     <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-lg">
+                        <div className="w-12 h-12 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
                             <ChartPieSlice weight="fill" size={24} />
                         </div>
                         <div>
-                            <h2 className="text-xl font-black text-slate-900 dark:text-white leading-tight">Election Summary</h2>
+                            <h2 className="text-xl font-bold text-slate-900 dark:text-white leading-tight">Election Summary</h2>
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Official Canvassing Record</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-slate-100 dark:hover:bg-white/5 text-slate-400 transition-colors">
+                    <button onClick={onClose} className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-colors">
                         <X weight="bold" size={20} />
                     </button>
                 </div>
 
                 {/* Scrollable Body */}
-                <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-8 bg-slate-50/50 dark:bg-black/20">
+                <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-8 bg-slate-50 dark:bg-slate-950/50">
                     
                     {/* Main Stats Card */}
-                    <div className="bg-white dark:bg-[#252429] p-8 rounded-[32px] border border-slate-200/60 dark:border-white/5 shadow-sm text-center relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-full h-1.5 bg-blue-600" />
+                    <div className="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm text-center relative overflow-hidden">
+                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 to-violet-500" />
                         <h1 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tight mb-2">{election.title}</h1>
                         <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-8">{election.organization}</p>
                         
                         <div className="grid grid-cols-3 gap-4">
-                            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100">
-                                <Users size={20} weight="duotone" className="mx-auto mb-2 text-blue-600" />
+                            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
+                                <Users size={20} weight="duotone" className="mx-auto mb-2 text-indigo-600" />
                                 <div className="text-[9px] font-black text-slate-400 uppercase">Ballots</div>
-                                <div className="text-xl font-black">{election.totalVotes?.toLocaleString() || 0}</div>
+                                <div className="text-xl font-black text-slate-800 dark:text-white">{election.totalVotes?.toLocaleString() || 0}</div>
                             </div>
-                            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100">
-                                <IdentificationCard size={20} weight="duotone" className="mx-auto mb-2 text-indigo-600" />
+                            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
+                                <IdentificationCard size={20} weight="duotone" className="mx-auto mb-2 text-violet-600" />
                                 <div className="text-[9px] font-black text-slate-400 uppercase">Positions</div>
-                                <div className="text-xl font-black">{election.positions?.length || 0}</div>
+                                <div className="text-xl font-black text-slate-800 dark:text-white">{election.positions?.length || 0}</div>
                             </div>
-                            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100">
+                            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
                                 <CalendarBlank size={20} weight="duotone" className="mx-auto mb-2 text-emerald-600" />
                                 <div className="text-[9px] font-black text-slate-400 uppercase">Date</div>
-                                <div className="text-[11px] font-black mt-1">{new Date(election.endDate).toLocaleDateString()}</div>
+                                <div className="text-[11px] font-black mt-1 text-slate-800 dark:text-white">{new Date(election.endDate).toLocaleDateString()}</div>
                             </div>
                         </div>
                     </div>
@@ -342,13 +337,13 @@ const ResultSummaryModal = ({ election, isOpen, onClose }) => {
                             const candidates = [...pos.candidates].sort((a, b) => (posResults[b.name] || 0) - (posResults[a.name] || 0));
 
                             return (
-                                <div key={pos.title} className="bg-white dark:bg-[#252429] rounded-3xl border border-slate-200/60 dark:border-white/5 overflow-hidden">
-                                    <div className="px-6 py-4 bg-slate-50/50 dark:bg-white/5 border-b border-slate-100 dark:border-white/5 flex justify-between items-center">
+                                <div key={pos.title} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                                    <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
                                         <h3 className="font-black text-sm uppercase tracking-wider text-slate-800 dark:text-slate-200">{pos.title}</h3>
                                         {pos.targetType === 'grade' ? (
-                                            <span className="text-[9px] font-black bg-indigo-100 text-indigo-600 px-2 py-1 rounded-md">GRADE {pos.targetGrade}</span>
+                                            <span className="text-[9px] font-black bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 px-2 py-1 rounded-md">GRADE {pos.targetGrade}</span>
                                         ) : (
-                                            <span className="text-[9px] font-black bg-emerald-100 text-emerald-600 px-2 py-1 rounded-md">SCHOOL WIDE</span>
+                                            <span className="text-[9px] font-black bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 px-2 py-1 rounded-md">SCHOOL WIDE</span>
                                         )}
                                     </div>
                                     <table className="w-full text-left">
@@ -359,12 +354,12 @@ const ResultSummaryModal = ({ election, isOpen, onClose }) => {
                                                 <th className="px-6 py-4 text-right">%</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-slate-50 dark:divide-white/5">
+                                        <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
                                             {candidates.map((cand, idx) => {
                                                 const votes = posResults[cand.name] || 0;
                                                 const percent = posTotal === 0 ? 0 : ((votes / posTotal) * 100).toFixed(1);
                                                 return (
-                                                    <tr key={cand.name} className={idx === 0 && votes > 0 ? 'bg-blue-600/[0.03]' : ''}>
+                                                    <tr key={cand.name} className={idx === 0 && votes > 0 ? 'bg-indigo-50/50 dark:bg-indigo-900/10' : ''}>
                                                         <td className="px-6 py-4">
                                                             <div className="flex items-center gap-3">
                                                                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black ${getCandidateColor(idx)}`}>
@@ -372,11 +367,11 @@ const ResultSummaryModal = ({ election, isOpen, onClose }) => {
                                                                 </div>
                                                                 <div className="flex flex-col">
                                                                     <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{cand.name}</span>
-                                                                    {idx === 0 && votes > 0 && <span className="text-[8px] font-black text-blue-600 uppercase flex items-center gap-0.5"><ShieldCheck weight="fill" /> Leading</span>}
+                                                                    {idx === 0 && votes > 0 && <span className="text-[8px] font-black text-indigo-600 dark:text-indigo-400 uppercase flex items-center gap-0.5"><ShieldCheck weight="fill" /> Leading</span>}
                                                                 </div>
                                                             </div>
                                                         </td>
-                                                        <td className="px-6 py-4 text-right font-mono font-bold">{votes.toLocaleString()}</td>
+                                                        <td className="px-6 py-4 text-right font-mono font-bold text-slate-800 dark:text-white">{votes.toLocaleString()}</td>
                                                         <td className="px-6 py-4 text-right font-mono text-xs text-slate-400">{percent}%</td>
                                                     </tr>
                                                 )
@@ -389,11 +384,11 @@ const ResultSummaryModal = ({ election, isOpen, onClose }) => {
 
                         {/* Round 1 History */}
                         {parentElection && (
-                            <div className="space-y-6 opacity-60 grayscale-[0.5] transition-all hover:opacity-100 hover:grayscale-0">
+                            <div className="space-y-6 opacity-60 transition-all hover:opacity-100">
                                 <div className="flex items-center gap-3 px-2">
-                                    <div className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
+                                    <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
                                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Round 1 Archive</span>
-                                    <div className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
+                                    <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
                                 </div>
                                 {parentElection.positions?.map(pos => {
                                     const parentRes = parentElection.results || parentElection.tally || {};
@@ -401,14 +396,14 @@ const ResultSummaryModal = ({ election, isOpen, onClose }) => {
                                     const candidates = [...pos.candidates].sort((a, b) => (posResults[b.name] || 0) - (posResults[a.name] || 0));
 
                                     return (
-                                        <div key={`parent-${pos.title}`} className="bg-white dark:bg-[#252429] rounded-3xl border border-slate-200/60 dark:border-white/5 overflow-hidden">
-                                            <div className="px-6 py-3 bg-slate-100 dark:bg-white/5">
+                                        <div key={`parent-${pos.title}`} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                                            <div className="px-6 py-3 bg-slate-100 dark:bg-slate-800">
                                                 <h4 className="text-[11px] font-black text-slate-500 uppercase">{pos.title}</h4>
                                             </div>
                                             <table className="w-full text-[12px]">
                                                 <tbody>
                                                     {candidates.map((cand, idx) => (
-                                                        <tr key={cand.name} className="border-t border-slate-50 dark:border-white/5">
+                                                        <tr key={cand.name} className="border-t border-slate-50 dark:border-slate-800">
                                                             <td className="px-6 py-3 flex items-center gap-3">
                                                                 <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[8px] font-black ${getCandidateColor(idx)} opacity-50`}>
                                                                     {cand.name.charAt(0)}
@@ -429,14 +424,14 @@ const ResultSummaryModal = ({ election, isOpen, onClose }) => {
                 </div>
 
                 {/* Footer */}
-                <div className="p-6 border-t border-slate-100 dark:border-white/5 flex gap-4 bg-white dark:bg-[#1c1b1f]">
-                    <button onClick={onClose} className="flex-1 py-4 font-black text-sm text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5 rounded-2xl transition-all">
+                <div className="p-6 border-t border-slate-100 dark:border-slate-800 flex gap-4 bg-white dark:bg-slate-900">
+                    <button onClick={onClose} className="flex-1 py-4 font-bold text-sm text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-all">
                         Dismiss
                     </button>
                     <button 
                         onClick={generateReport} 
                         disabled={isGenerating}
-                        className="flex-[2] py-4 bg-blue-600 text-white font-black text-sm rounded-2xl shadow-xl flex items-center justify-center gap-3 disabled:opacity-50"
+                        className="flex-[2] py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl shadow-md shadow-indigo-500/20 flex items-center justify-center gap-3 disabled:opacity-50 transition-all"
                     >
                         {isGenerating ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <FilePdf weight="fill" size={20} />}
                         {isGenerating ? 'GENERATING PDF...' : 'EXPORT OFFICIAL RETURN'}

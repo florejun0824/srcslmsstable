@@ -56,6 +56,7 @@ const initializeGapiClient = async () => {
 };
 
 // --- 2. INITIALIZE AUTH ---
+// UPDATED: Uses ux_mode 'redirect' on web for same-tab Google account selection
 const initializeAuth = async () => {
     if (Capacitor.isNativePlatform()) {
         await SocialLogin.initialize({
@@ -75,7 +76,10 @@ const initializeAuth = async () => {
         
         tokenClient = window.google.accounts.oauth2.initTokenClient({ 
             client_id: CLIENT_ID, 
-            scope: SCOPES, 
+            scope: SCOPES,
+            // UPDATED: redirect mode opens Google consent in the same tab
+            ux_mode: 'redirect',
+            redirect_uri: window.location.origin + '/dashboard',
             callback: (tokenResponse) => {
                 if (tokenResponse && tokenResponse.access_token) {
                     window.gapi.client.setToken(tokenResponse);
@@ -106,9 +110,11 @@ const ensureValidToken = async () => {
             throw new Error("User cancelled sign-in or native auth failed.");
         }
     } else {
-        // Trigger generic Auth flow (caller handles redirect/popup)
+        // UPDATED: In redirect mode, requestAccessToken will navigate away
+        // Before calling, the caller should save state to sessionStorage
         if (tokenClient) {
              tokenClient.requestAccessToken({ prompt: '' });
+             // This line may not execute in redirect mode since the page navigates away
              throw new Error("REDIRECTING_FOR_AUTH");
         }
     }

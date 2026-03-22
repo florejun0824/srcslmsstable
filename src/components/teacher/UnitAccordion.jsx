@@ -457,6 +457,7 @@ export default function UnitAccordion({ subject, onAddUnit, onInitiateDelete, us
     const [allQuizzes, setAllQuizzes] = useState([]);
     const [exportingLessonId, setExportingLessonId] = useState(null);
     const [isReordering, setIsReordering] = useState(false);
+    const [loadingContent, setLoadingContent] = useState(true);
 
     const [tutorialModalOpen, setTutorialModalOpen] = useState(false);
     const [itemToExport, setItemToExport] = useState(null);
@@ -508,10 +509,22 @@ export default function UnitAccordion({ subject, onAddUnit, onInitiateDelete, us
 
     useEffect(() => {
         if (!subject?.id) { setAllLessons([]); setAllQuizzes([]); return; }
+        setLoadingContent(true);
         const lq = query(collection(db, 'lessons'), where('subjectId', '==', subject.id));
         const qq = query(collection(db, 'quizzes'), where('subjectId', '==', subject.id));
-        const unL = onSnapshot(lq, s => setAllLessons(s.docs.map(d => ({ id: d.id, ...d.data() }))));
-        const unQ = onSnapshot(qq, s => setAllQuizzes(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+        
+        let lessonsLoaded = false;
+        let quizzesLoaded = false;
+        const checkBothLoaded = () => { if (lessonsLoaded && quizzesLoaded) setLoadingContent(false); };
+
+        const unL = onSnapshot(lq, s => {
+            setAllLessons(s.docs.map(d => ({ id: d.id, ...d.data() })));
+            lessonsLoaded = true; checkBothLoaded();
+        });
+        const unQ = onSnapshot(qq, s => {
+            setAllQuizzes(s.docs.map(d => ({ id: d.id, ...d.data() })));
+            quizzesLoaded = true; checkBothLoaded();
+        });
         return () => { unL(); unQ(); };
     }, [subject?.id]);
 
@@ -681,7 +694,17 @@ export default function UnitAccordion({ subject, onAddUnit, onInitiateDelete, us
                                     </div>
                                     <h3 className={MAT_STYLES.titleMedium}>Study Modules</h3>
                                 </div>
-                                {lessons.length > 0 ? (
+                                {loadingContent ? (
+                                    <div className="flex flex-col items-center justify-center p-12 border border-black/5 dark:border-white/5 rounded-[32px] bg-slate-50/50 dark:bg-slate-900/50 animate-pulse">
+                                        <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center mb-4">
+                                            <BookOpenIcon className="w-6 h-6 text-emerald-600 dark:text-emerald-400 animate-bounce" />
+                                        </div>
+                                        <p className="text-sm font-semibold text-slate-600 dark:text-slate-400 mb-2">Loading your lessons...</p>
+                                        <div className="w-32 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                                            <div className="w-full h-full bg-emerald-400/50 rounded-full"></div>
+                                        </div>
+                                    </div>
+                                ) : lessons.length > 0 ? (
                                     <SortableContext items={lessons.map(i => i.id)} strategy={rectSortingStrategy}>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-5">
                                             {lessons.map(item => (
@@ -707,7 +730,17 @@ export default function UnitAccordion({ subject, onAddUnit, onInitiateDelete, us
                                     </div>
                                     <h3 className={MAT_STYLES.titleMedium}>Assessments</h3>
                                 </div>
-                                {quizzes.length > 0 ? (
+                                {loadingContent ? (
+                                    <div className="flex flex-col items-center justify-center p-12 border border-black/5 dark:border-white/5 rounded-[32px] bg-slate-50/50 dark:bg-slate-900/50 animate-pulse">
+                                        <div className="w-12 h-12 rounded-full bg-rose-100 dark:bg-rose-500/20 flex items-center justify-center mb-4">
+                                            <AcademicCapIcon className="w-6 h-6 text-rose-600 dark:text-rose-400 animate-bounce" style={{ animationDelay: '0.2s' }} />
+                                        </div>
+                                        <p className="text-sm font-semibold text-slate-600 dark:text-slate-400 mb-2">Loading your assessments...</p>
+                                        <div className="w-32 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                                            <div className="w-full h-full bg-rose-400/50 rounded-full"></div>
+                                        </div>
+                                    </div>
+                                ) : quizzes.length > 0 ? (
                                     <SortableContext items={quizzes.map(i => i.id)} strategy={rectSortingStrategy}>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-5">
                                             {quizzes.map(item => (

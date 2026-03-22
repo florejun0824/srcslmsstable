@@ -1,91 +1,107 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { motion } from 'framer-motion';
 
-// 🏫 SHARED SCHOOL CONFIGURATION (Duplicated here for safety)
+// 🏫 SHARED SCHOOL CONFIGURATION
 const SCHOOL_BRANDING = {
-    'srcs_main': { name: 'SRCS LMS', logo: '/logo.png', color: 'text-blue-600' },
-    'hras_sipalay': { name: 'HRA LMS', logo: '/logos/hra.png', color: 'text-red-600' },
-    'kcc_kabankalan': { name: 'KCC LMS', logo: '/logos/kcc.png', color: 'text-green-600' },
-    'icad_dancalan': { name: 'ICA LMS', logo: '/logos/ica.png', color: 'text-yellow-600' },
-    'mchs_magballo': { name: 'MCHS LMS', logo: '/logos/mchs.png', color: 'text-indigo-600' },
-    'ichs_ilog': { name: 'ICHS LMS', logo: '/logos/ichs.png', color: 'text-orange-600' }
+    'srcs_main': { name: 'SRCS Digital Ecosystem', logo: '/logo.png', color: 'from-blue-600 to-indigo-600', shadow: 'shadow-blue-500/30' },
+    'hras_sipalay': { name: 'HRA Digital Academy', logo: '/logos/hra.png', color: 'from-red-500 to-rose-600', shadow: 'shadow-red-500/30' },
+    'kcc_kabankalan': { name: 'KCC Cyber Campus', logo: '/logos/kcc.png', color: 'from-green-500 to-emerald-600', shadow: 'shadow-green-500/30' },
+    'icad_dancalan': { name: 'ICA Learning Nexus', logo: '/logos/ica.png', color: 'from-amber-400 to-yellow-600', shadow: 'shadow-yellow-500/30' },
+    'mchs_magballo': { name: 'MCHS Portal', logo: '/logos/mchs.png', color: 'from-indigo-500 to-purple-600', shadow: 'shadow-indigo-500/30' },
+    'ichs_ilog': { name: 'ICHS Platform', logo: '/logos/ichs.png', color: 'from-orange-500 to-red-500', shadow: 'shadow-orange-500/30' }
 };
 
-const LogoLoadingScreen = ({ message = "Loading System..." }) => {
+const LogoLoadingScreen = ({ message = "Initializing Neural Core..." }) => {
     const { userProfile } = useAuth();
     const [activeBrand, setActiveBrand] = useState(SCHOOL_BRANDING['srcs_main']);
 
     useEffect(() => {
-        // 1. Try to get school from User Profile (if logged in)
         if (userProfile?.schoolId && SCHOOL_BRANDING[userProfile.schoolId]) {
             setActiveBrand(SCHOOL_BRANDING[userProfile.schoolId]);
             return;
         }
-
-        // 2. Fallback: Try to guess from LocalStorage (if app was used before)
-        // This helps show the correct logo even *before* the user profile fully loads
-        const cachedAlias = localStorage.getItem('active_app_icon_alias');
-        if (cachedAlias) {
-            // Reverse lookup: Find which school uses this alias
-            const foundSchool = Object.values(SCHOOL_BRANDING).find(b => 
-                // We assume branding object structure matches previous file, 
-                // or we simple map basic logic if aliases aren't in this object
-                // For now, simpler is better:
-                false 
-            );
-            // (Optional optimization: You could store 'active_school_id' in localStorage too)
+        const cachedAlias = localStorage.getItem('active_app_alias');
+        if (cachedAlias && SCHOOL_BRANDING[cachedAlias]) {
+            setActiveBrand(SCHOOL_BRANDING[cachedAlias]);
         }
     }, [userProfile]);
 
     return (
-        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#F2F2F2] dark:bg-[#000000] animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-slate-50 dark:bg-[#050505] overflow-hidden font-sans">
             
-            {/* ONE UI 8.5 STYLE CARD CONTAINER */}
-            <div className="relative flex flex-col items-center">
-                
-                {/* 1. Animated Logo Container */}
-                {/* 'Squircle' shape with subtle drop shadow and breathing animation */}
-                <div className="relative w-32 h-32 mb-8 bg-white dark:bg-[#1C1C1E] rounded-[40px] shadow-[0_8px_30px_rgba(0,0,0,0.08)] dark:shadow-none flex items-center justify-center p-6 animate-[breathing_3s_ease-in-out_infinite]">
-                    <img 
-                        src={activeBrand.logo} 
-                        alt="School Logo" 
-                        className="w-full h-full object-contain drop-shadow-sm"
-                    />
-                    
-                    {/* Subtle Activity Indicator Ring (OneUI Style) */}
-                    <div className="absolute inset-0 rounded-[40px] border-[3px] border-blue-500/0 border-t-blue-500/20 animate-spin duration-[2s]" />
-                </div>
-
-                {/* 2. Loading Text */}
-                <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white mb-2 animate-pulse">
-                    {activeBrand.name}
-                </h2>
-                
-                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                    {message}
-                </p>
-
-                {/* 3. Bottom Loader (Optional OneUI "Pill" Loader) */}
-                <div className="mt-12 w-16 h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-blue-600 w-1/2 animate-[shimmer_1.5s_infinite_linear] rounded-full" />
-                </div>
+            {/* --- IMMERSIVE MESH GRADIENT BACKGROUND --- */}
+            <div className="absolute inset-0 pointer-events-none opacity-40 dark:opacity-20 mix-blend-screen isolate">
+                <motion.div 
+                    animate={{ rotate: 360, scale: [1, 1.2, 1] }} 
+                    transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                    className={`absolute -top-[30%] -left-[10%] w-[70vw] h-[70vw] bg-gradient-to-tr ${activeBrand.color} rounded-full blur-[100px] opacity-30`}
+                />
+                <motion.div 
+                    animate={{ rotate: -360, scale: [1, 1.3, 1] }} 
+                    transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+                    className="absolute top-[20%] -right-[20%] w-[60vw] h-[60vw] bg-gradient-to-bl from-purple-500 to-pink-500 rounded-full blur-[120px] opacity-20"
+                />
             </div>
 
-            {/* Background Decor (Optional Glass Orbs for "Vibes") */}
-            <div className="absolute -top-20 -left-20 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute -bottom-20 -right-20 w-96 h-96 bg-indigo-400/10 rounded-full blur-3xl pointer-events-none" />
+            {/* --- PREMIUM GLASS RECEPTACLE --- */}
+            <motion.div 
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={{ duration: 0.8, ease: "easeOut" }}
+                className="relative z-10 flex flex-col items-center"
+            >
+                {/* Logo Orb */}
+                <div className="relative group perspective-1000 mb-8">
+                    {/* Glowing Aura Ring */}
+                    <div className={`absolute inset-0 rounded-[2.5rem] bg-gradient-to-tr ${activeBrand.color} blur-2xl opacity-40 group-hover:opacity-60 transition-opacity duration-700 animate-pulse`} />
+                    
+                    {/* The Glass Container */}
+                    <motion.div 
+                        animate={{ y: [-5, 5, -5] }}
+                        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                        className={`relative w-36 h-36 sm:w-44 sm:h-44 bg-white/40 dark:bg-white/5 backdrop-blur-2xl rounded-[2.5rem] border border-white/60 dark:border-white/10 shadow-2xl overflow-hidden flex items-center justify-center p-8`}
+                    >
+                        {/* Shimmer Effect */}
+                        <motion.div 
+                            animate={{ x: ['-200%', '200%'] }}
+                            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+                            className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-white/50 dark:via-white/20 to-transparent -skew-x-12"
+                        />
+                        
+                        <img 
+                            src={activeBrand.logo} 
+                            alt={`${activeBrand.name} Logo`}
+                            className="w-full h-full object-contain relative z-10 drop-shadow-md"
+                        />
+                    </motion.div>
+                </div>
 
-            <style>{`
-                @keyframes breathing {
-                    0% { transform: scale(1); }
-                    50% { transform: scale(1.03); }
-                    100% { transform: scale(1); }
-                }
-                @keyframes shimmer {
-                    0% { transform: translateX(-100%); }
-                    100% { transform: translateX(200%); }
-                }
-            `}</style>
+                {/* Typography & Status */}
+                <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3, duration: 0.6 }}
+                    className="flex flex-col items-center"
+                >
+                    <h1 className="text-2xl sm:text-3xl font-black tracking-tighter text-slate-800 dark:text-white mb-3 text-center drop-shadow-sm">
+                        {activeBrand.name}
+                    </h1>
+                    
+                    <div className="flex items-center gap-3 bg-white/50 dark:bg-white/5 px-5 py-2.5 rounded-full backdrop-blur-md border border-slate-200/50 dark:border-white/5 shadow-sm">
+                        {/* High-Tech Spinner Sequence */}
+                        <div className="flex gap-1 h-3 items-center">
+                            <motion.div animate={{ height: [4, 12, 4] }} transition={{ duration: 1, repeat: Infinity, delay: 0 }} className={`w-1 rounded-full bg-gradient-to-t ${activeBrand.color}`} />
+                            <motion.div animate={{ height: [4, 16, 4] }} transition={{ duration: 1, repeat: Infinity, delay: 0.2 }} className={`w-1 rounded-full bg-gradient-to-t ${activeBrand.color}`} />
+                            <motion.div animate={{ height: [4, 12, 4] }} transition={{ duration: 1, repeat: Infinity, delay: 0.4 }} className={`w-1 rounded-full bg-gradient-to-t ${activeBrand.color}`} />
+                        </div>
+                        <span className="text-[11px] sm:text-xs font-bold tracking-widest uppercase text-slate-600 dark:text-slate-400 mt-0.5">
+                            {message}
+                        </span>
+                    </div>
+                </motion.div>
+            </motion.div>
+            
         </div>
     );
 };

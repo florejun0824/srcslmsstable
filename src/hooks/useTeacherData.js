@@ -162,7 +162,7 @@ export const useTeacherData = (user, userProfile, activeView) => {
             // Filter Legacy Announcements Client-Side
             const filtered = data.filter(ann => {
                 const annSchool = ann.schoolId || 'srcs_main';
-                return annSchool === schoolId;
+                return annSchool === schoolId || annSchool === 'all_schools';
             });
             setTeacherAnnouncements(filtered);
         }, (err) => {

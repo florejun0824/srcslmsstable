@@ -1,8 +1,11 @@
 // src/hooks/usePresentationGenerator.js
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { callGeminiWithLimitCheck } from '../services/aiService';
 // UPDATED: Import the openTemplatePicker function
 import { createPresentationFromData, openTemplatePicker } from '../services/googleSlidesService';
+
+// Storage key for persisting slides across auth redirects
+const SLIDES_STORAGE_KEY = 'ppt_preview_data';
 
 // Helper to format notes for the final slide creation
 // UPDATED: Handles both object (AI generated) and string (User edited) formats
@@ -32,6 +35,24 @@ export const usePresentationGenerator = (showToast) => {
   const [pptStatus, setPptStatus] = useState("Initializing...");
   const [previewData, setPreviewData] = useState(null);
   const [isSavingPPT, setIsSavingPPT] = useState(false);
+
+  // --- RESTORE: Check sessionStorage on mount for slides saved before auth redirect ---
+  useEffect(() => {
+    try {
+      const savedData = sessionStorage.getItem(SLIDES_STORAGE_KEY);
+      if (savedData) {
+        const parsed = JSON.parse(savedData);
+        if (parsed && parsed.slides && parsed.slides.length > 0) {
+          setPreviewData(parsed);
+          sessionStorage.removeItem(SLIDES_STORAGE_KEY);
+          showToast("Slides restored! You can now export.", "success");
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to restore slide data from session:", err);
+      sessionStorage.removeItem(SLIDES_STORAGE_KEY);
+    }
+  }, [showToast]);
 
   // --- Logic: Generate JSON Preview from Lesson Content ---
   const generatePreview = useCallback(async (lessonIds, lessonsData = [], activeSubject, unitsData) => {
@@ -253,10 +274,18 @@ const prompt = `
 
   // --- Logic: Send JSON to Google Slides API ---
   // UPDATED: Now accepts 'editedSlides' to support WYSIWYG editing
+  // UPDATED: Saves preview data to sessionStorage before auth redirect for persistence
   const savePresentation = useCallback(async (activeSubject, editedSlides = null) => {
     if (!previewData) { 
         showToast("No preview data available.", "error"); 
         return; 
+    }
+
+    // SAVE TO SESSION STORAGE before any auth flow that might redirect
+    try {
+      sessionStorage.setItem(SLIDES_STORAGE_KEY, JSON.stringify(previewData));
+    } catch (err) {
+      console.warn("Could not save slides to session storage:", err);
     }
 
     setIsSavingPPT(true);
@@ -272,6 +301,7 @@ const prompt = `
         if (!templateId) {
             // If user cancels or closes picker
             setIsSavingPPT(false);
+            sessionStorage.removeItem(SLIDES_STORAGE_KEY); // cleanup
             return; 
         }
 
@@ -328,12 +358,18 @@ const prompt = `
 
         window.open(presentationUrl, '_blank');
         showToast("Presentation created successfully!", "success");
+        
+        // Clean up session storage on success
+        sessionStorage.removeItem(SLIDES_STORAGE_KEY);
 
     } catch (error) { 
         console.error("Presentation Creation Error:", error); 
         // Silence the "Selection cancelled" error (Google Picker specific)
         // Also handling generic "Selection cancelled" string thrown manually
-        if (error.message !== "Selection cancelled" && !error.message.includes("cancelled")) {
+        // Also silence redirect errors (user will come back and slides will restore)
+        if (error.message !== "Selection cancelled" 
+            && !error.message.includes("cancelled")
+            && error.message !== "REDIRECTING_FOR_AUTH") {
              showToast(`Creation Error: ${error.message}`, "error");
         }
     } finally { 

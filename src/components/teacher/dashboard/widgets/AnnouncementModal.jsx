@@ -25,7 +25,7 @@ import {
 } from 'firebase/firestore'
 import ReactionsBreakdownModal from './ReactionsBreakdownModal'
 import UserInitialsAvatar from '../../../common/UserInitialsAvatar'
-import Linkify from 'react-linkify'
+import ReactMarkdown from 'react-markdown'
 
 const reactionTypes = ['like', 'heart', 'haha', 'wow', 'sad', 'angry', 'care']
 
@@ -40,21 +40,36 @@ const reactionIcons = {
   care: { static: '/emojis/care.png', animated: '/emojis/care.gif', color: 'text-pink-500', label: 'Care' },
 }
 
-// Link Decorator
-const componentDecorator = (href, text, key) => (
-  <a
-    href={href}
-    key={key}
-    target="_blank"
-    rel="noopener noreferrer"
-    className="text-blue-600 dark:text-blue-400 hover:underline font-bold tracking-wide"
-    onClick={(e) => e.stopPropagation()}
-  >
-    {text}
-  </a>
-)
+// --- UTILITY: FULL MARKDOWN RENDERER ---
+const MarkdownRenderer = ({ content }) => {
+    if (!content) return null;
+    return (
+        <ReactMarkdown
+            components={{
+                a: ({node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:text-blue-500 hover:underline break-all transition-colors font-semibold" onClick={(e) => e.stopPropagation()} />,
+                p: ({node, ...props}) => <p {...props} className="mb-3 last:mb-0 leading-relaxed" />,
+                h1: ({node, ...props}) => <h1 {...props} className="text-2xl font-black mt-5 mb-3 text-slate-900 dark:text-white tracking-tight" />,
+                h2: ({node, ...props}) => <h2 {...props} className="text-xl font-bold mt-4 mb-3 text-slate-800 dark:text-slate-100" />,
+                h3: ({node, ...props}) => <h3 {...props} className="text-lg font-bold mt-4 mb-2 text-slate-800 dark:text-slate-100" />,
+                ul: ({node, ...props}) => <ul {...props} className="list-disc pl-6 mb-3 space-y-1.5 marker:text-blue-400" />,
+                ol: ({node, ...props}) => <ol {...props} className="list-decimal pl-6 mb-3 space-y-1.5 marker:text-blue-400 font-medium" />,
+                li: ({node, ...props}) => <li {...props} className="" />,
+                strong: ({node, ...props}) => <strong {...props} className="font-extrabold text-slate-900 dark:text-white" />,
+                em: ({node, ...props}) => <em {...props} className="italic text-slate-700 dark:text-slate-300" />,
+                hr: ({node, ...props}) => <hr {...props} className="my-5 border-t-2 border-slate-200/60 dark:border-white/10" />,
+                blockquote: ({node, ...props}) => <blockquote {...props} className="border-l-4 border-blue-300 dark:border-blue-500/30 pl-4 py-1 italic my-3 bg-blue-50/50 dark:bg-blue-900/10 rounded-r-lg" />,
+                code: ({node, inline, ...props}) => inline 
+                    ? <code {...props} className="bg-slate-100 dark:bg-white/10 px-1.5 py-0.5 rounded-md text-[13px] font-mono text-pink-600 dark:text-pink-400" /> 
+                    : <pre className="bg-slate-900 dark:bg-black/50 p-4 rounded-xl overflow-x-auto text-[13px] font-mono text-slate-300 my-4 shadow-inner ring-1 ring-white/10"><code {...props} /></pre>
+            }}
+        >
+            {content}
+        </ReactMarkdown>
+    );
+};
 
 // --- DELETE CONFIRMATION DIALOG (Kept same) ---
+
 const DeleteDialog = ({ isOpen, onClose, onConfirm, title, message }) => {
   if (!isOpen) return null
   return createPortal(
@@ -150,9 +165,9 @@ const CommentNode = ({
                 </div>
               </div>
             ) : (
-              <p className="text-[13px] text-slate-700 dark:text-slate-300 leading-snug whitespace-pre-wrap break-words">
-                <Linkify componentDecorator={componentDecorator}>{comment.commentText}</Linkify>
-              </p>
+              <div className="text-[14px] text-slate-800 dark:text-slate-200">
+                <MarkdownRenderer content={comment.commentText} />
+              </div>
             )}
 
             {isCurrentUserComment && !isBeingEdited && (
@@ -644,9 +659,9 @@ const AnnouncementModal = ({
                         </div>
                     </div>
                 ) : (
-                    <p className="text-sm leading-7 text-slate-700 dark:text-slate-300 whitespace-pre-wrap break-words font-medium">
-                        <Linkify componentDecorator={componentDecorator}>{announcement.content}</Linkify>
-                    </p>
+                    <div className="text-[15px] leading-7 text-slate-800 dark:text-slate-200">
+                        <MarkdownRenderer content={announcement.content} />
+                    </div>
                 )}
                 
                 {announcement.photoURL && !isEditingPost && (

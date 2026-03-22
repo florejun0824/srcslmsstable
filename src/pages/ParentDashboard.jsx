@@ -44,6 +44,7 @@ const ParentDashboard = () => {
     const [selectedChildIndex, setSelectedChildIndex] = useState(0);
     const [isLoading, setIsLoading] = useState(true);
     const [childData, setChildData] = useState(null);
+    const [isSwitchingChild, setIsSwitchingChild] = useState(false);
 
     // Link code state
     const [linkCode, setLinkCode] = useState('');
@@ -91,6 +92,7 @@ const ParentDashboard = () => {
         if (!selectedChild) return;
 
         const fetchChildData = async () => {
+            setIsSwitchingChild(true);
             try {
                 const [grades, activity, weeklyStats] = await Promise.all([
                     getStudentGrades(selectedChild.id),
@@ -102,6 +104,8 @@ const ParentDashboard = () => {
             } catch (err) {
                 console.error('Error fetching child data:', err);
                 showToast('Failed to load student data.', 'error');
+            } finally {
+                setIsSwitchingChild(false);
             }
         };
 
@@ -285,135 +289,152 @@ const ParentDashboard = () => {
                 </div>
             )}
 
-            {/* Student Overview Card */}
-            {selectedChild && (
-                <div className="px-3 sm:px-6 pb-4 pt-3 sm:pt-4">
-                    <div className="mx-auto max-w-5xl bg-gradient-to-br from-[#6750A4] via-[#7F67BE] to-[#6750A4] dark:from-[#4A4458] dark:via-[#625B71] dark:to-[#4A4458] rounded-[24px] sm:rounded-[28px] p-5 sm:p-8 text-white shadow-lg shadow-[#6750A4]/15 dark:shadow-none relative overflow-hidden">
-                        {/* Decorative circles */}
-                        <div className="absolute top-0 right-0 w-48 h-48 bg-white/[0.06] rounded-full -mr-16 -mt-16" />
-                        <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/[0.04] rounded-full -ml-8 -mb-8" />
+            {/* --- SEAMLESS TRANSITION WRAPPER --- */}
+            <div className="relative flex-1 flex flex-col">
+                {/* Overlay Loader */}
+                {isSwitchingChild && (
+                    <div className="absolute inset-0 z-40 bg-[#FEF7FF]/50 dark:bg-[#141218]/50 backdrop-blur-sm flex items-start justify-center pt-32 animate-in fade-in duration-300">
+                         <div className="flex items-center gap-3 px-5 py-3 bg-white/90 dark:bg-[#1D1B20]/90 backdrop-blur-xl rounded-full shadow-lg border border-black/5 dark:border-white/5 mx-4">
+                             <div className="w-5 h-5 border-2 border-[#6750A4]/30 border-t-[#6750A4] dark:border-[#D0BCFF]/30 dark:border-t-[#D0BCFF] rounded-full animate-spin" />
+                             <span className="text-sm font-semibold text-[#1D1B20] dark:text-[#E6E0E9]">
+                                 Syncing {selectedChild?.firstName}'s data...
+                             </span>
+                         </div>
+                    </div>
+                )}
 
-                        <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6">
-                            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full ring-3 ring-white/20 shadow-xl flex-shrink-0 overflow-hidden bg-white/10">
-                                <UserInitialsAvatar user={selectedChild} size="full" className="w-full h-full" />
-                            </div>
-                            <div className="text-center sm:text-left flex-1">
-                                <h1 className="text-xl sm:text-2xl font-bold tracking-tight mb-2">
-                                    {selectedChild.firstName} {selectedChild.lastName}
-                                </h1>
-                                {childData?.activity?.lastLogin && (
-                                    <p className="text-xs text-white/80 font-medium mb-3 flex items-center gap-1.5 justify-center sm:justify-start">
-                                        <ClockIcon className="w-3.5 h-3.5" />
-                                        Last Login: {
-                                            childData.activity.lastLogin.toDate
-                                                ? childData.activity.lastLogin.toDate().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
-                                                : new Date(childData.activity.lastLogin).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
-                                        }
-                                    </p>
-                                )}
-                                <div className="flex flex-wrap items-center gap-2 justify-center sm:justify-start">
-                                    {selectedChild.gradeLevel && (
-                                        <span className="px-3 py-1 rounded-full bg-white/15 text-[11px] font-semibold uppercase tracking-wider flex items-center gap-1.5">
-                                            <AcademicCapIcon className="w-3.5 h-3.5" />
-                                            {selectedChild.gradeLevel}
-                                        </span>
-                                    )}
-                                    {childData?.activity && (
-                                        <span className="px-3 py-1 rounded-full bg-white/15 text-[11px] font-semibold uppercase tracking-wider flex items-center gap-1.5">
-                                            <SparklesIcon className="w-3.5 h-3.5" />
-                                            Level {childData.activity.level || 1}
-                                        </span>
-                                    )}
-                                    {childData?.activity && (
-                                        <span className="px-3 py-1 rounded-full bg-white/15 text-[11px] font-semibold uppercase tracking-wider">
-                                            {childData.activity.xp || 0} XP
-                                        </span>
-                                    )}
+                <div className={`flex-1 flex flex-col transition-all duration-300 ${isSwitchingChild ? 'opacity-50 pointer-events-none blur-[2px] scale-[0.99]' : 'opacity-100'}`}>
+                    {/* Student Overview Card */}
+                    {selectedChild && (
+                        <div className="px-3 sm:px-6 pb-4 pt-3 sm:pt-4">
+                            <div className="mx-auto max-w-5xl bg-gradient-to-br from-[#6750A4] via-[#7F67BE] to-[#6750A4] dark:from-[#4A4458] dark:via-[#625B71] dark:to-[#4A4458] rounded-[24px] sm:rounded-[28px] p-5 sm:p-8 text-white shadow-lg shadow-[#6750A4]/15 dark:shadow-none relative overflow-hidden">
+                                {/* Decorative circles */}
+                                <div className="absolute top-0 right-0 w-48 h-48 bg-white/[0.06] rounded-full -mr-16 -mt-16" />
+                                <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/[0.04] rounded-full -ml-8 -mb-8" />
+
+                                <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6">
+                                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full ring-3 ring-white/20 shadow-xl flex-shrink-0 overflow-hidden bg-white/10">
+                                        <UserInitialsAvatar user={selectedChild} size="full" className="w-full h-full" />
+                                    </div>
+                                    <div className="text-center sm:text-left flex-1">
+                                        <h1 className="text-xl sm:text-2xl font-bold tracking-tight mb-2">
+                                            {selectedChild.firstName} {selectedChild.lastName}
+                                        </h1>
+                                        {childData?.activity?.lastLogin && (
+                                            <p className="text-xs text-white/80 font-medium mb-3 flex items-center gap-1.5 justify-center sm:justify-start">
+                                                <ClockIcon className="w-3.5 h-3.5" />
+                                                Last Login: {
+                                                    childData.activity.lastLogin.toDate
+                                                        ? childData.activity.lastLogin.toDate().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
+                                                        : new Date(childData.activity.lastLogin).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
+                                                }
+                                            </p>
+                                        )}
+                                        <div className="flex flex-wrap items-center gap-2 justify-center sm:justify-start">
+                                            {selectedChild.gradeLevel && (
+                                                <span className="px-3 py-1 rounded-full bg-white/15 text-[11px] font-semibold uppercase tracking-wider flex items-center gap-1.5">
+                                                    <AcademicCapIcon className="w-3.5 h-3.5" />
+                                                    {selectedChild.gradeLevel}
+                                                </span>
+                                            )}
+                                            {childData?.activity && (
+                                                <span className="px-3 py-1 rounded-full bg-white/15 text-[11px] font-semibold uppercase tracking-wider flex items-center gap-1.5">
+                                                    <SparklesIcon className="w-3.5 h-3.5" />
+                                                    Level {childData.activity.level || 1}
+                                                </span>
+                                            )}
+                                            {childData?.activity && (
+                                                <span className="px-3 py-1 rounded-full bg-white/15 text-[11px] font-semibold uppercase tracking-wider">
+                                                    {childData.activity.xp || 0} XP
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </div>
-            )}
+                    )}
 
-            {/* Weekly Stats Cards */}
-            {selectedChild && childData?.averages && (
-                <div className="px-3 sm:px-6 pb-3">
-                    <div className="mx-auto max-w-5xl grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-                        <div className="bg-white/95 dark:bg-[#1D1B20]/95 rounded-2xl p-3 sm:p-4 border border-black/[0.04] dark:border-white/[0.06] shadow-sm">
-                            <div className="flex items-center gap-1.5 mb-1">
-                                <ArrowTrendingUpIcon className="w-3.5 h-3.5 text-[#6750A4] dark:text-[#D0BCFF]" />
-                                <span className="text-[9px] sm:text-[10px] font-semibold text-[#79747E] uppercase tracking-wider">Logins/Week</span>
+                    {/* Weekly Stats Cards */}
+                    {selectedChild && childData?.averages && (
+                        <div className="px-3 sm:px-6 pb-3">
+                            <div className="mx-auto max-w-5xl grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+                                <div className="bg-white/95 dark:bg-[#1D1B20]/95 rounded-2xl p-3 sm:p-4 border border-black/[0.04] dark:border-white/[0.06] shadow-sm">
+                                    <div className="flex items-center gap-1.5 mb-1">
+                                        <ArrowTrendingUpIcon className="w-3.5 h-3.5 text-[#6750A4] dark:text-[#D0BCFF]" />
+                                        <span className="text-[9px] sm:text-[10px] font-semibold text-[#79747E] uppercase tracking-wider">Logins/Week</span>
+                                    </div>
+                                    <p className="text-lg sm:text-xl font-bold text-[#1D1B20] dark:text-[#E6E0E9]">{childData.averages.avgLoginsPerWeek}</p>
+                                </div>
+                                <div className="bg-white/95 dark:bg-[#1D1B20]/95 rounded-2xl p-3 sm:p-4 border border-black/[0.04] dark:border-white/[0.06] shadow-sm">
+                                    <div className="flex items-center gap-1.5 mb-1">
+                                        <ComputerDesktopIcon className="w-3.5 h-3.5 text-[#6750A4] dark:text-[#D0BCFF]" />
+                                        <span className="text-[9px] sm:text-[10px] font-semibold text-[#79747E] uppercase tracking-wider">Screen Time</span>
+                                    </div>
+                                    <p className="text-lg sm:text-xl font-bold text-[#1D1B20] dark:text-[#E6E0E9]">{formatDuration(childData.averages.avgScreenTimePerWeek)}</p>
+                                    <p className="text-[9px] text-[#79747E] mt-0.5">per week avg</p>
+                                </div>
+                                <div className="bg-white/95 dark:bg-[#1D1B20]/95 rounded-2xl p-3 sm:p-4 border border-black/[0.04] dark:border-white/[0.06] shadow-sm">
+                                    <div className="flex items-center gap-1.5 mb-1">
+                                        <ChartBarIcon className="w-3.5 h-3.5 text-[#6750A4] dark:text-[#D0BCFF]" />
+                                        <span className="text-[9px] sm:text-[10px] font-semibold text-[#79747E] uppercase tracking-wider">Quiz Time</span>
+                                    </div>
+                                    <p className="text-lg sm:text-xl font-bold text-[#1D1B20] dark:text-[#E6E0E9]">{formatDuration(childData.averages.avgQuizTimePerWeek)}</p>
+                                    <p className="text-[9px] text-[#79747E] mt-0.5">per week avg</p>
+                                </div>
+                                <div className="bg-white/95 dark:bg-[#1D1B20]/95 rounded-2xl p-3 sm:p-4 border border-black/[0.04] dark:border-white/[0.06] shadow-sm">
+                                    <div className="flex items-center gap-1.5 mb-1">
+                                        <ClockIcon className="w-3.5 h-3.5 text-emerald-500" />
+                                        <span className="text-[9px] sm:text-[10px] font-semibold text-[#79747E] uppercase tracking-wider">Reading</span>
+                                    </div>
+                                    <p className="text-lg sm:text-xl font-bold text-[#1D1B20] dark:text-[#E6E0E9]">{formatDuration(childData.averages.avgLessonTimePerWeek)}</p>
+                                    <p className="text-[9px] text-[#79747E] mt-0.5">per week avg</p>
+                                </div>
                             </div>
-                            <p className="text-lg sm:text-xl font-bold text-[#1D1B20] dark:text-[#E6E0E9]">{childData.averages.avgLoginsPerWeek}</p>
                         </div>
-                        <div className="bg-white/95 dark:bg-[#1D1B20]/95 rounded-2xl p-3 sm:p-4 border border-black/[0.04] dark:border-white/[0.06] shadow-sm">
-                            <div className="flex items-center gap-1.5 mb-1">
-                                <ComputerDesktopIcon className="w-3.5 h-3.5 text-[#6750A4] dark:text-[#D0BCFF]" />
-                                <span className="text-[9px] sm:text-[10px] font-semibold text-[#79747E] uppercase tracking-wider">Screen Time</span>
-                            </div>
-                            <p className="text-lg sm:text-xl font-bold text-[#1D1B20] dark:text-[#E6E0E9]">{formatDuration(childData.averages.avgScreenTimePerWeek)}</p>
-                            <p className="text-[9px] text-[#79747E] mt-0.5">per week avg</p>
-                        </div>
-                        <div className="bg-white/95 dark:bg-[#1D1B20]/95 rounded-2xl p-3 sm:p-4 border border-black/[0.04] dark:border-white/[0.06] shadow-sm">
-                            <div className="flex items-center gap-1.5 mb-1">
-                                <ChartBarIcon className="w-3.5 h-3.5 text-[#6750A4] dark:text-[#D0BCFF]" />
-                                <span className="text-[9px] sm:text-[10px] font-semibold text-[#79747E] uppercase tracking-wider">Quiz Time</span>
-                            </div>
-                            <p className="text-lg sm:text-xl font-bold text-[#1D1B20] dark:text-[#E6E0E9]">{formatDuration(childData.averages.avgQuizTimePerWeek)}</p>
-                            <p className="text-[9px] text-[#79747E] mt-0.5">per week avg</p>
-                        </div>
-                        <div className="bg-white/95 dark:bg-[#1D1B20]/95 rounded-2xl p-3 sm:p-4 border border-black/[0.04] dark:border-white/[0.06] shadow-sm">
-                            <div className="flex items-center gap-1.5 mb-1">
-                                <ClockIcon className="w-3.5 h-3.5 text-emerald-500" />
-                                <span className="text-[9px] sm:text-[10px] font-semibold text-[#79747E] uppercase tracking-wider">Reading</span>
-                            </div>
-                            <p className="text-lg sm:text-xl font-bold text-[#1D1B20] dark:text-[#E6E0E9]">{formatDuration(childData.averages.avgLessonTimePerWeek)}</p>
-                            <p className="text-[9px] text-[#79747E] mt-0.5">per week avg</p>
-                        </div>
-                    </div>
-                </div>
-            )}
+                    )}
 
-            {/* MD3 Tab Bar */}
-            <div className="px-3 sm:px-6 pb-3">
-                <div className="mx-auto max-w-5xl flex">
-                    <div className="inline-flex p-1 bg-[#E7E0EC] dark:bg-[#1D1B20] rounded-full border border-[#79747E]/15 dark:border-[#49454F]/30">
-                        {TAB_CONFIG.map(tab => {
-                            const isActive = activeTab === tab.id;
-                            const Icon = isActive ? tab.activeIcon : tab.icon;
-                            return (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => setActiveTab(tab.id)}
-                                    className={`flex items-center gap-2 px-5 sm:px-6 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 ${isActive
-                                        ? 'bg-[#6750A4] text-white dark:bg-[#D0BCFF] dark:text-[#381E72] shadow-sm'
-                                        : 'text-[#49454F] dark:text-[#CAC4D0] hover:text-[#1D1B20] dark:hover:text-[#E6E0E9]'
-                                        }`}
-                                >
-                                    <Icon className="w-4 h-4" />
-                                    {tab.label}
-                                </button>
-                            );
-                        })}
+                    {/* MD3 Tab Bar */}
+                    <div className="px-3 sm:px-6 pb-3">
+                        <div className="mx-auto max-w-5xl flex">
+                            <div className="inline-flex p-1 bg-[#E7E0EC] dark:bg-[#1D1B20] rounded-full border border-[#79747E]/15 dark:border-[#49454F]/30">
+                                {TAB_CONFIG.map(tab => {
+                                    const isActive = activeTab === tab.id;
+                                    const Icon = isActive ? tab.activeIcon : tab.icon;
+                                    return (
+                                        <button
+                                            key={tab.id}
+                                            onClick={() => setActiveTab(tab.id)}
+                                            className={`flex items-center gap-2 px-5 sm:px-6 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 ${isActive
+                                                ? 'bg-[#6750A4] text-white dark:bg-[#D0BCFF] dark:text-[#381E72] shadow-sm'
+                                                : 'text-[#49454F] dark:text-[#CAC4D0] hover:text-[#1D1B20] dark:hover:text-[#E6E0E9]'
+                                                }`}
+                                        >
+                                            <Icon className="w-4 h-4" />
+                                            {tab.label}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
                     </div>
+
+                    {/* Content */}
+                    <main className="flex-1 px-3 sm:px-6 pb-8">
+                        <div className="mx-auto max-w-5xl">
+                            {!childData ? (
+                                <div className="flex justify-center py-20">
+                                    <div className="w-10 h-10 border-4 border-[#6750A4]/30 border-t-[#6750A4] dark:border-[#D0BCFF]/30 dark:border-t-[#D0BCFF] rounded-full animate-spin"></div>
+                                </div>
+                            ) : activeTab === 'grades' ? (
+                                <ParentGradesView grades={childData.grades} classes={childData.activity?.classes || []} />
+                            ) : (
+                                <ParentActivityView activityData={childData.activity} />
+                            )}
+                        </div>
+                    </main>
                 </div>
             </div>
-
-            {/* Content */}
-            <main className="flex-1 px-3 sm:px-6 pb-8">
-                <div className="mx-auto max-w-5xl">
-                    {!childData ? (
-                        <div className="flex justify-center py-20">
-                            <Spinner size="lg" />
-                        </div>
-                    ) : activeTab === 'grades' ? (
-                        <ParentGradesView grades={childData.grades} classes={childData.activity?.classes || []} />
-                    ) : (
-                        <ParentActivityView activityData={childData.activity} />
-                    )}
-                </div>
-            </main>
         </div>
     );
 };

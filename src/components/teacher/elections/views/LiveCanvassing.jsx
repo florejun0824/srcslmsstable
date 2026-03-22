@@ -22,9 +22,9 @@ const getInitials = (name) => name.split(' ').map(n => n[0]).join('').substring(
 
 const stringToColor = (str) => {
     const colors = [
-        'bg-blue-600 text-white',
-        'bg-emerald-600 text-white',
         'bg-indigo-600 text-white',
+        'bg-emerald-600 text-white',
+        'bg-violet-600 text-white',
         'bg-amber-600 text-white',
         'bg-rose-600 text-white',
         'bg-cyan-600 text-white',
@@ -69,7 +69,7 @@ const LiveCanvassing = ({ election, onBack }) => {
         fetchParentFallback();
     }, [election]);
 
-    // --- REPORT GENERATOR ---
+    // --- REPORT GENERATOR (unchanged logic) ---
     const generateReport = async () => {
         setIsGenerating(true);
         const avatarColors = ['#2563eb', '#7c3aed', '#0891b2', '#059669', '#d97706', '#dc2626', '#db2777', '#4f46e5'];
@@ -95,7 +95,6 @@ const LiveCanvassing = ({ election, onBack }) => {
             const baseResults = parentData ? (parentData.results || parentData.tally || parentData.liveResults || {}) : results;
             const actualTbData = parentData ? election : tbData;
 
-            // 2. Helper to build a position's HTML table
             const buildPositionTable = (pos, tallyData, titlePrefix = '') => {
                 const posTitle = pos.title;
                 const posResults = tallyData[posTitle] || {};
@@ -180,7 +179,6 @@ const LiveCanvassing = ({ election, onBack }) => {
                 }
             });
 
-            // --- Winners summary ---
             const winnersList = baseElection.positions.map(pos => {
                 let posResults = baseResults[pos.title] || {};
                 let isTiedPosition = false;
@@ -231,7 +229,7 @@ const LiveCanvassing = ({ election, onBack }) => {
             const reportDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
             const reportTime = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
             const startDate = election.startDate ? new Date(election.startDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A';
-            const endDate = election.endDate ? new Date(election.endDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A';
+            const endDateStr = election.endDate ? new Date(election.endDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A';
 
             const html = `<!DOCTYPE html><html><head><title>Election Report — ${election.title}</title>
             <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -304,164 +302,167 @@ const LiveCanvassing = ({ election, onBack }) => {
         }
     };
 
-	return (
-	        <div className="w-full font-sans text-slate-900 pb-32" style={monetTheme?.variables || {}}>
-	            <div className="max-w-7xl mx-auto rounded-none lg:rounded-[28px] relative">
-	                <div className="sticky top-[2px] z-40 mx-3 md:mx-6 mb-4 mt-2">
-	                    <div className="bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border border-slate-200/50 dark:border-white/10 p-3 md:px-6 md:py-5 rounded-2xl md:rounded-[2rem] shadow-lg">
-	                        <div className="max-w-7xl mx-auto flex items-center justify-between">
-	                            <div className="flex items-center gap-2 md:gap-4 overflow-hidden">
-	                                <button onClick={onBack} className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center hover:bg-slate-100 dark:hover:bg-white/10 text-slate-500 transition-colors">
-	                                    <CaretLeft weight="bold" size={20} />
-	                                </button>
-	                                <div className="min-w-0">
-	                                    <h1 className="text-sm md:text-xl font-bold text-slate-900 dark:text-white truncate">Official Canvassing</h1>
-	                                    <p className="text-[10px] md:text-xs font-bold text-blue-600 flex items-center gap-1 uppercase tracking-wider truncate">
-	                                        <SealCheck weight="fill" size={14} /> {election.title}
-	                                    </p>
-	                                </div>
-	                            </div>
-	                            <div className="flex items-center gap-2 shrink-0">
-	                                {election.status === 'completed' && (
-	                                    <button onClick={generateReport} disabled={isGenerating} className={`flex items-center px-4 py-2 rounded-xl text-white text-xs font-bold ${isGenerating ? 'bg-blue-400' : 'bg-blue-600 shadow-md active:scale-95'}`}>
-	                                        {isGenerating ? <div className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> : <Printer weight="fill" size={18} />}
-	                                        <span className="hidden md:inline ml-2">{isGenerating ? 'Preparing...' : 'Report'}</span>
-	                                    </button>
-	                                )}
-	                                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[9px] font-bold uppercase tracking-widest ${election.status === 'completed' ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : 'bg-rose-50 border-rose-100 text-rose-600'}`}>
-	                                    <div className={`w-1.5 h-1.5 rounded-full ${election.status === 'completed' ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'}`} />
-	                                    <span>{election.status === 'completed' ? 'Finalized' : 'Live'}</span>
-	                                </div>
-	                            </div>
-	                        </div>
-	                    </div>
-	                </div>
-
-	                <div className="relative z-10 max-w-7xl mx-auto px-3 md:px-6 pt-1">
-	                    <div className="bg-white/40 dark:bg-slate-950/60 backdrop-blur-xl border border-slate-200/50 dark:border-white/10 rounded-[1.5rem] md:rounded-[2.5rem] p-3 md:p-8 shadow-xl min-h-[70vh]">
-	                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-10">
-	                            <MetricCard label="Total Returns" value={totalVotesCast.toLocaleString()} icon={Table} colorTheme="emerald" />
-	                            <MetricCard label="Positions" value={election.positions.length} icon={ChartBar} colorTheme="purple" />
-	                            <div className="col-span-2 bg-amber-50/50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-500/20 p-4 rounded-2xl flex items-center justify-between relative overflow-hidden">
-	                                <div className="relative z-10">
-	                                    <div className="text-[10px] font-bold uppercase tracking-widest text-amber-600 mb-1">Electorate Type</div>
-	                                    <div className="text-sm md:text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                                            <Buildings size={18} /> Position-Specific Eligibility
-                                        </div>
-	                                </div>
-	                                <TrendUp size={40} className="text-amber-500 opacity-10 absolute -right-2 -bottom-2" />
-	                            </div>
-	                        </div>
-
-	                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6 pb-12">
-	                            {election.positions.map((pos) => (
-	                                <OfficialTallyCard
-	                                    key={pos.title}
-	                                    title={pos.title}
-	                                    candidates={pos.candidates.sort((a, b) => (results[pos.title]?.[b.name] || 0) - (results[pos.title]?.[a.name] || 0))}
-	                                    posResults={results[pos.title] || {}}
-	                                    totalVotes={Object.values(results[pos.title] || {}).reduce((a, b) => a + b, 0)}
-	                                    isTieBreakerPos={election.isTieBreaker}
-	                                    tieBreakerStatus={election.status}
-                                        targetType={pos.targetType}
-                                        targetGrade={pos.targetGrade}
-	                                />
-	                            ))}
-	                            {parentElection && parentElection.positions.map((pos) => (
-                                    <OfficialTallyCard
-                                        key={`parent-${pos.title}`}
-                                        title={pos.title}
-                                        candidates={pos.candidates.sort((a, b) => ((parentElection.results || {})[pos.title]?.[b.name] || 0) - ((parentElection.results || {})[pos.title]?.[a.name] || 0))}
-                                        posResults={(parentElection.results || parentElection.tally || {})[pos.title] || {}}
-                                        totalVotes={Object.values((parentElection.results || parentElection.tally || {})[pos.title] || {}).reduce((a, b) => a + b, 0)}
-                                        isInherited={true}
-                                        isTiedPosition={election.tiedPositions?.includes(pos.title)}
-                                        targetType={pos.targetType}
-                                        targetGrade={pos.targetGrade}
-                                    />
-                                ))}
-	                        </div>
-	                    </div>
-	                </div>
-	            </div>
-	        </div>
-	    );
-	};
-
-	const MetricCard = ({ label, value, icon: Icon, colorTheme }) => {
-	    const themes = {
-	        emerald: { bg: 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-100 dark:border-emerald-500/20', text: 'text-emerald-600', icon: 'text-emerald-500' },
-	        purple: { bg: 'bg-purple-50 dark:bg-purple-500/10 border-purple-100 dark:border-purple-500/20', text: 'text-purple-600', icon: 'text-purple-500' }
-	    };
-	    const theme = themes[colorTheme] || { bg: 'bg-slate-50', text: 'text-slate-600', icon: 'text-slate-400' };
-	    return (
-	        <div className={`${theme.bg} border p-4 md:p-5 rounded-2xl flex items-center justify-between`}>
-	            <div>
-	                <div className={`text-[10px] font-bold uppercase tracking-widest ${theme.text} mb-1 opacity-80`}>{label}</div>
-	                <div className="text-xl md:text-2xl font-black text-slate-800 dark:text-white">{value}</div>
-	            </div>
-	            <Icon size={32} weight="duotone" className={`${theme.icon} opacity-50`} />
-	        </div>
-	    );
-	};
-
-	const OfficialTallyCard = ({ title, candidates, posResults, totalVotes, isTieBreakerPos, isInherited, tieBreakerStatus, isTiedPosition, targetType, targetGrade }) => {
-	    return (
-	        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden relative group">
-	            {isTieBreakerPos && <div className="absolute top-0 right-0 bg-amber-500 text-white text-[9px] font-bold uppercase px-3 py-1 rounded-bl-xl z-20">Round 2</div>}
-	            {isInherited && <div className="absolute top-0 right-0 bg-slate-200 dark:bg-slate-800 text-[9px] font-bold uppercase px-3 py-1 rounded-bl-xl z-20">Round 1</div>}
-
-	            <div className="bg-slate-50 dark:bg-white/5 px-4 py-4 flex flex-col gap-1">
-                    <div className="flex justify-between items-center">
-	                    <h3 className="text-xs md:text-sm font-black uppercase tracking-widest text-slate-700 dark:text-slate-300">{title}</h3>
-                        <div className="text-[9px] font-bold text-slate-400 bg-white dark:bg-black/20 px-2 py-1 rounded-md border border-slate-200 dark:border-white/5">{totalVotes} VOTES</div>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                        {targetType === 'grade' ? (
-                            <span className="text-[9px] font-bold text-indigo-600 flex items-center gap-1 uppercase bg-indigo-50 px-2 py-0.5 rounded-full"><GraduationCap weight="fill" /> Grade {targetGrade} Only</span>
-                        ) : (
-                            <span className="text-[9px] font-bold text-emerald-600 flex items-center gap-1 uppercase bg-emerald-50 px-2 py-0.5 rounded-full"><Buildings weight="fill" /> School Wide</span>
-                        )}
-                    </div>
-	            </div>
-
-	            <div className="grid grid-cols-12 px-4 py-2 border-b border-slate-100 dark:border-white/5 text-[9px] font-bold uppercase tracking-widest text-slate-400">
-	                <div className="col-span-1 text-center">#</div>
-	                <div className="col-span-7 pl-2">Candidate</div>
-	                <div className="col-span-4 text-right">Count</div>
-	            </div>
-
-	            <div className="divide-y divide-slate-100 dark:divide-white/5">
-                    {candidates.map((cand, idx) => {
-                        const votes = posResults[cand.name] || 0;
-                        const percent = totalVotes === 0 ? 0 : ((votes / totalVotes) * 100).toFixed(1);
-                        const isLeading = idx === 0 && votes > 0;
-
-                        return (
-                            <div key={cand.id} className={`grid grid-cols-12 items-center px-4 py-4 ${isLeading ? 'bg-blue-600/[0.03]' : ''}`}>
-                                <div className="col-span-1 flex justify-center text-xs font-bold text-slate-400">{idx + 1}</div>
-                                <div className="col-span-7 pl-2 flex items-center gap-3">
-                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black ${stringToColor(cand.name)}`}>{getInitials(cand.name)}</div>
-                                    <div className="truncate">
-                                        <div className={`text-xs font-bold truncate ${isLeading ? 'text-blue-600' : 'text-slate-700 dark:text-slate-200'}`}>{cand.name}</div>
-                                        {isLeading && <div className="text-[8px] font-black text-blue-500 uppercase flex items-center gap-0.5">Leading <SealCheck weight="fill" /></div>}
-                                    </div>
-                                </div>
-                                <div className="col-span-4 flex flex-col items-end">
-                                    <div className="flex items-baseline gap-1.5">
-                                        <span className={`font-mono font-bold text-sm ${isLeading ? 'text-blue-600' : 'text-slate-900 dark:text-white'}`}>{votes.toLocaleString()}</span>
-                                        <span className="text-[10px] font-bold text-slate-400">{percent}%</span>
-                                    </div>
-                                    <div className="w-full h-1 bg-slate-100 dark:bg-white/5 rounded-full mt-1 overflow-hidden">
-                                        <motion.div initial={{ width: 0 }} animate={{ width: `${percent}%` }} className={`h-full ${isLeading ? 'bg-blue-600' : 'bg-slate-300'}`} />
-                                    </div>
+    return (
+        <div className="w-full font-sans text-slate-900 dark:text-white pb-32" style={monetTheme?.variables || {}}>
+            <div className="max-w-7xl mx-auto rounded-none lg:rounded-2xl relative">
+                {/* === STICKY HEADER === */}
+                <div className="sticky top-[2px] z-40 mx-3 md:mx-6 mb-4 mt-2">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 md:px-6 md:py-4 rounded-2xl md:rounded-[1.75rem] shadow-sm">
+                        <div className="max-w-7xl mx-auto flex items-center justify-between">
+                            <div className="flex items-center gap-2 md:gap-4 overflow-hidden">
+                                <button onClick={onBack} className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors">
+                                    <CaretLeft weight="bold" size={20} />
+                                </button>
+                                <div className="min-w-0">
+                                    <h1 className="text-sm md:text-xl font-bold text-slate-900 dark:text-white truncate">Official Canvassing</h1>
+                                    <p className="text-[10px] md:text-xs font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1 uppercase tracking-wider truncate">
+                                        <SealCheck weight="fill" size={14} /> {election.title}
+                                    </p>
                                 </div>
                             </div>
-                        );
-                    })}
-	            </div>
-	        </div>
-	    );
-	};
+                            <div className="flex items-center gap-2 shrink-0">
+                                {election.status === 'completed' && (
+                                    <button onClick={generateReport} disabled={isGenerating} className={`flex items-center px-4 py-2 rounded-full text-white text-xs font-bold transition-all ${isGenerating ? 'bg-indigo-400' : 'bg-indigo-600 shadow-md shadow-indigo-500/20 hover:bg-indigo-700 active:scale-95'}`}>
+                                        {isGenerating ? <div className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> : <Printer weight="fill" size={18} />}
+                                        <span className="hidden md:inline ml-2">{isGenerating ? 'Preparing...' : 'Report'}</span>
+                                    </button>
+                                )}
+                                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[9px] font-bold uppercase tracking-widest ${election.status === 'completed' ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400' : 'bg-rose-50 dark:bg-rose-900/20 border-rose-100 dark:border-rose-800 text-rose-600 dark:text-rose-400'}`}>
+                                    <div className={`w-1.5 h-1.5 rounded-full ${election.status === 'completed' ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'}`} />
+                                    <span>{election.status === 'completed' ? 'Finalized' : 'Live'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="relative z-10 max-w-7xl mx-auto px-3 md:px-6 pt-1">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[1.5rem] md:rounded-[2rem] p-3 md:p-8 shadow-sm min-h-[70vh]">
+                        {/* METRICS ROW */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-10">
+                            <MetricCard label="Total Returns" value={totalVotesCast.toLocaleString()} icon={Table} colorTheme="emerald" />
+                            <MetricCard label="Positions" value={election.positions.length} icon={ChartBar} colorTheme="purple" />
+                            <div className="col-span-2 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-800/50 p-4 rounded-xl flex items-center justify-between relative overflow-hidden">
+                                <div className="relative z-10">
+                                    <div className="text-[10px] font-bold uppercase tracking-widest text-amber-600 mb-1">Electorate Type</div>
+                                    <div className="text-sm md:text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                                        <Buildings size={18} /> Position-Specific Eligibility
+                                    </div>
+                                </div>
+                                <TrendUp size={40} className="text-amber-400 opacity-10 absolute -right-2 -bottom-2" />
+                            </div>
+                        </div>
+
+                        {/* TALLY CARDS */}
+                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6 pb-12">
+                            {election.positions.map((pos) => (
+                                <OfficialTallyCard
+                                    key={pos.title}
+                                    title={pos.title}
+                                    candidates={pos.candidates.sort((a, b) => (results[pos.title]?.[b.name] || 0) - (results[pos.title]?.[a.name] || 0))}
+                                    posResults={results[pos.title] || {}}
+                                    totalVotes={Object.values(results[pos.title] || {}).reduce((a, b) => a + b, 0)}
+                                    isTieBreakerPos={election.isTieBreaker}
+                                    tieBreakerStatus={election.status}
+                                    targetType={pos.targetType}
+                                    targetGrade={pos.targetGrade}
+                                />
+                            ))}
+                            {parentElection && parentElection.positions.map((pos) => (
+                                <OfficialTallyCard
+                                    key={`parent-${pos.title}`}
+                                    title={pos.title}
+                                    candidates={pos.candidates.sort((a, b) => ((parentElection.results || {})[pos.title]?.[b.name] || 0) - ((parentElection.results || {})[pos.title]?.[a.name] || 0))}
+                                    posResults={(parentElection.results || parentElection.tally || {})[pos.title] || {}}
+                                    totalVotes={Object.values((parentElection.results || parentElection.tally || {})[pos.title] || {}).reduce((a, b) => a + b, 0)}
+                                    isInherited={true}
+                                    isTiedPosition={election.tiedPositions?.includes(pos.title)}
+                                    targetType={pos.targetType}
+                                    targetGrade={pos.targetGrade}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const MetricCard = ({ label, value, icon: Icon, colorTheme }) => {
+    const themes = {
+        emerald: { bg: 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-800/50', text: 'text-emerald-600', icon: 'text-emerald-500' },
+        purple: { bg: 'bg-violet-50 dark:bg-violet-900/10 border-violet-100 dark:border-violet-800/50', text: 'text-violet-600', icon: 'text-violet-500' }
+    };
+    const theme = themes[colorTheme] || { bg: 'bg-slate-50 border-slate-100', text: 'text-slate-600', icon: 'text-slate-400' };
+    return (
+        <div className={`${theme.bg} border p-4 md:p-5 rounded-xl flex items-center justify-between`}>
+            <div>
+                <div className={`text-[10px] font-bold uppercase tracking-widest ${theme.text} mb-1 opacity-80`}>{label}</div>
+                <div className="text-xl md:text-2xl font-black text-slate-800 dark:text-white">{value}</div>
+            </div>
+            <Icon size={32} weight="duotone" className={`${theme.icon} opacity-40`} />
+        </div>
+    );
+};
+
+const OfficialTallyCard = ({ title, candidates, posResults, totalVotes, isTieBreakerPos, isInherited, tieBreakerStatus, isTiedPosition, targetType, targetGrade }) => {
+    return (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden relative group">
+            {isTieBreakerPos && <div className="absolute top-0 right-0 bg-amber-500 text-white text-[9px] font-bold uppercase px-3 py-1 rounded-bl-xl z-20">Round 2</div>}
+            {isInherited && <div className="absolute top-0 right-0 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[9px] font-bold uppercase px-3 py-1 rounded-bl-xl z-20">Round 1</div>}
+
+            <div className="bg-slate-50 dark:bg-slate-800/50 px-4 py-4 flex flex-col gap-1 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex justify-between items-center">
+                    <h3 className="text-xs md:text-sm font-black uppercase tracking-widest text-slate-700 dark:text-slate-300">{title}</h3>
+                    <div className="text-[9px] font-bold text-slate-400 bg-white dark:bg-slate-800 px-2 py-1 rounded-md border border-slate-100 dark:border-slate-700">{totalVotes} VOTES</div>
+                </div>
+                <div className="flex items-center gap-1.5">
+                    {targetType === 'grade' ? (
+                        <span className="text-[9px] font-bold text-violet-600 dark:text-violet-400 flex items-center gap-1 uppercase bg-violet-50 dark:bg-violet-900/20 px-2 py-0.5 rounded-full"><GraduationCap weight="fill" /> Grade {targetGrade} Only</span>
+                    ) : (
+                        <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 uppercase bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full"><Buildings weight="fill" /> School Wide</span>
+                    )}
+                </div>
+            </div>
+
+            <div className="grid grid-cols-12 px-4 py-2 border-b border-slate-100 dark:border-slate-800 text-[9px] font-bold uppercase tracking-widest text-slate-400">
+                <div className="col-span-1 text-center">#</div>
+                <div className="col-span-7 pl-2">Candidate</div>
+                <div className="col-span-4 text-right">Count</div>
+            </div>
+
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                {candidates.map((cand, idx) => {
+                    const votes = posResults[cand.name] || 0;
+                    const percent = totalVotes === 0 ? 0 : ((votes / totalVotes) * 100).toFixed(1);
+                    const isLeading = idx === 0 && votes > 0;
+
+                    return (
+                        <div key={cand.id} className={`grid grid-cols-12 items-center px-4 py-4 transition-colors ${isLeading ? 'bg-indigo-50/50 dark:bg-indigo-900/10' : ''}`}>
+                            <div className="col-span-1 flex justify-center text-xs font-bold text-slate-400">{idx + 1}</div>
+                            <div className="col-span-7 pl-2 flex items-center gap-3">
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black ${stringToColor(cand.name)}`}>{getInitials(cand.name)}</div>
+                                <div className="truncate">
+                                    <div className={`text-xs font-bold truncate ${isLeading ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-200'}`}>{cand.name}</div>
+                                    {isLeading && <div className="text-[8px] font-black text-indigo-500 uppercase flex items-center gap-0.5">Leading <SealCheck weight="fill" /></div>}
+                                </div>
+                            </div>
+                            <div className="col-span-4 flex flex-col items-end">
+                                <div className="flex items-baseline gap-1.5">
+                                    <span className={`font-mono font-bold text-sm ${isLeading ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-900 dark:text-white'}`}>{votes.toLocaleString()}</span>
+                                    <span className="text-[10px] font-bold text-slate-400">{percent}%</span>
+                                </div>
+                                <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full mt-1 overflow-hidden">
+                                    <motion.div initial={{ width: 0 }} animate={{ width: `${percent}%` }} transition={{ duration: 0.8, ease: "easeOut" }} className={`h-full rounded-full ${isLeading ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-600'}`} />
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
 
 export default LiveCanvassing;

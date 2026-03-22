@@ -1,8 +1,47 @@
 // src/components/WhatsNewModal.jsx
-import React, { useState } from "react";
+import React, { useState, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Check, PartyPopper } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
+import ReactMarkdown from 'react-markdown';
+
+// --- UTILITY: NEO-GLASS MARKDOWN RENDERER ---
+const WhatsNewMarkdownRenderer = memo(({ content }) => {
+    if (!content) return null;
+    return (
+        <ReactMarkdown
+            components={{
+                a: ({node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 hover:underline break-all transition-colors font-semibold" onClick={(e) => e.stopPropagation()} />,
+                p: ({node, ...props}) => <p {...props} className="mb-4 last:mb-0 text-[15px] font-medium text-slate-700 dark:text-slate-300 leading-relaxed font-sans" />,
+                h1: ({node, ...props}) => <h1 {...props} className="text-2xl font-black mt-6 mb-4 text-slate-900 dark:text-white tracking-tight flex items-center gap-2" />,
+                h2: ({node, ...props}) => <h2 {...props} className="text-xl font-bold mt-5 mb-3 text-slate-800 dark:text-slate-100 flex items-center gap-2"><Sparkles className="w-5 h-5 text-indigo-500"/> {props.children}</h2>,
+                h3: ({node, ...props}) => <h3 {...props} className="text-lg font-bold mt-4 mb-2 text-slate-800 dark:text-slate-100" />,
+                ul: ({node, ...props}) => <ul {...props} className="space-y-3 my-4" />,
+                ol: ({node, ...props}) => <ol {...props} className="list-decimal pl-5 my-4 space-y-3 font-medium text-slate-700 dark:text-slate-300 marker:text-indigo-500" />,
+                li: ({node, ...props}) => (
+                    // Neo-Glass micro-card for list items
+                    <li className="flex items-start gap-4 p-4 bg-white/60 dark:bg-black/20 backdrop-blur-md rounded-2xl border border-slate-200/50 dark:border-white/5 shadow-sm group hover:scale-[1.01] hover:bg-white/80 dark:hover:bg-white/5 transition-all duration-300 ease-out">
+                        <div className="mt-0.5 flex-shrink-0 w-6 h-6 rounded-full bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center group-hover:bg-indigo-100 dark:group-hover:bg-indigo-500/20 transition-colors">
+                            <Check size={14} strokeWidth={3} className="text-indigo-600 dark:text-indigo-400" />
+                        </div>
+                        <div className="flex-1 text-[14px] sm:text-[15px] font-medium text-slate-700 dark:text-slate-300 leading-relaxed font-sans">
+                            {props.children}
+                        </div>
+                    </li>
+                ),
+                strong: ({node, ...props}) => <strong {...props} className="font-extrabold text-slate-900 dark:text-white" />,
+                em: ({node, ...props}) => <em {...props} className="italic text-slate-600 dark:text-slate-400" />,
+                hr: ({node, ...props}) => <hr {...props} className="my-6 border-t-2 border-slate-200/60 dark:border-white/10" />,
+                blockquote: ({node, ...props}) => <blockquote {...props} className="border-l-4 border-indigo-300 dark:border-indigo-500/30 pl-4 py-1 italic my-4 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-r-lg" />,
+                code: ({node, inline, ...props}) => inline 
+                    ? <code {...props} className="bg-slate-100 dark:bg-white/10 px-1.5 py-0.5 rounded-md text-[13px] font-mono text-pink-600 dark:text-pink-400" /> 
+                    : <pre className="bg-slate-900 dark:bg-black/50 p-4 rounded-xl overflow-x-auto text-[13px] font-mono text-slate-300 my-4 shadow-inner ring-1 ring-white/10"><code {...props} /></pre>
+            }}
+        >
+            {content}
+        </ReactMarkdown>
+    );
+});
 
 // --- ANIMATION VARIANTS ---
 const listVariants = {
@@ -33,12 +72,10 @@ export default function WhatsNewModal({ versionInfo, onClose }) {
     onClose();
   };
 
-  const notes = versionInfo.whatsNew
-    ? versionInfo.whatsNew.split("\n").filter((line) => line.trim() !== "")
-    : ["No details provided."];
+  const rawMarkdown = versionInfo.whatsNew || "No details provided.";
 
   // Primary Action Color (Fallback to a vibrant M3 blue if no custom theme)
-  const primaryColor = 'var(--monet-primary, #007AFF)';
+  const primaryColor = 'var(--monet-primary, #4F46E5)'; // indigo-600 baseline
 
   return (
     <AnimatePresence>
@@ -113,31 +150,13 @@ export default function WhatsNewModal({ versionInfo, onClose }) {
 
           {/* --- RELEASE NOTES LIST --- */}
           <div className="flex-1 overflow-y-auto px-6 custom-scrollbar pb-6 relative z-10">
-            <motion.ul
-              variants={listVariants}
-              initial="hidden"
-              animate="visible"
-              className="space-y-3"
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2, duration: 0.5 }}
             >
-              {notes.map((line, i) => (
-                <motion.li
-                  key={i}
-                  variants={itemVariants}
-                  className="flex items-start gap-4 px-5 py-4 bg-white/60 dark:bg-black/20 backdrop-blur-md rounded-3xl border border-slate-200/50 dark:border-white/5 shadow-sm group hover:scale-[1.01] hover:bg-white/80 dark:hover:bg-white/5 transition-all duration-300 ease-out"
-                >
-                  {/* Decorative Icon inside micro-card */}
-                  <div className="mt-0.5 flex-shrink-0 w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-100 dark:group-hover:bg-blue-500/20 transition-colors">
-                    <Check size={16} strokeWidth={3} className="text-blue-600 dark:text-blue-400" />
-                  </div>
-
-                  <div className="flex-1">
-                    <span className="text-[15px] font-medium text-slate-700 dark:text-slate-300 leading-relaxed font-sans">
-                      {line}
-                    </span>
-                  </div>
-                </motion.li>
-              ))}
-            </motion.ul>
+              <WhatsNewMarkdownRenderer content={rawMarkdown} />
+            </motion.div>
           </div>
 
           {/* --- BOTTOM ACTIONS --- */}

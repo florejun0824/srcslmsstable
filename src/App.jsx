@@ -5,6 +5,8 @@ import { StatusBar } from '@capacitor/status-bar';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { PrivacyScreen } from '@capacitor-community/privacy-screen'; // [NEW] Required to fix black screen
+import { AnimatePresence, motion } from 'framer-motion';
+import { SignalSlashIcon } from '@heroicons/react/24/outline';
 import { useAuth } from './contexts/AuthContext';
 import { useToast } from './contexts/ToastContext';
 import { handleAuthRedirect, createPresentationFromData } from './services/googleSlidesService';
@@ -27,6 +29,7 @@ if (typeof window !== "undefined") {
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const TeacherDashboard = lazy(() => import('./pages/TeacherDashboard'));
 const StudentDashboard = lazy(() => import('./pages/StudentDashboard'));
+const ParentDashboard = lazy(() => import('./pages/ParentDashboard'));
 const AdminSignup = lazy(() => import('./pages/AdminSignup'));
 const TestPage = lazy(() => import('./pages/TestPage'));
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
@@ -61,6 +64,7 @@ const AntiCheatRouteWatcher = () => {
 // --- SYSTEM STATUS LISTENER (Version + Connectivity) ---
 const SystemStatusListener = () => {
   const { showToast } = useToast();
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   useEffect(() => {
     const checkVersion = async () => {
@@ -97,20 +101,26 @@ const SystemStatusListener = () => {
     };
 
     const handleOnline = () => {
-      showToast("You are back online. Syncing data...", "success");
+      setIsOnline(true);
+      showToast("Connection restored. You are back online.", "success", 4000);
       checkVersion();
     };
 
     const handleOffline = () => {
-      showToast("You are currently working offline. Some features may be limited.", "warning");
+      setIsOnline(false);
+      showToast("Connection lost. Let's switch to offline mode.", "warning", 5000);
     };
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    checkVersion();
+    if (navigator.onLine) {
+        checkVersion();
+    }
 
-    const interval = setInterval(checkVersion, 5 * 60 * 1000);
+    const interval = setInterval(() => {
+        if (navigator.onLine) checkVersion();
+    }, 5 * 60 * 1000);
 
     return () => {
       window.removeEventListener('online', handleOnline);
@@ -119,7 +129,28 @@ const SystemStatusListener = () => {
     };
   }, [showToast]);
 
-  return null;
+  return (
+    <AnimatePresence>
+      {!isOnline && (
+        <motion.div
+          initial={{ opacity: 0, height: 0, scaleY: 0.9 }}
+          animate={{ opacity: 1, height: 'auto', scaleY: 1 }}
+          exit={{ opacity: 0, height: 0, scaleY: 0.9, transition: { duration: 0.2 } }}
+          className="bg-amber-50 dark:bg-amber-900/40 border-b border-amber-200/50 dark:border-amber-500/20 overflow-hidden relative z-[10000] origin-top"
+        >
+          <div className="absolute inset-0 bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-amber-500/10" />
+          <div className="max-w-[1920px] mx-auto px-4 py-2 sm:py-2.5 flex items-center justify-center gap-2.5 relative">
+            <div className="w-6 h-6 rounded-full bg-amber-100 dark:bg-amber-500/20 flex items-center justify-center shrink-0">
+                <SignalSlashIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600 dark:text-amber-400 stroke-[2.5]" />
+            </div>
+            <span className="text-xs sm:text-[13px] font-bold uppercase tracking-wider text-amber-900 dark:text-amber-100/90 whitespace-nowrap">
+              You are working offline
+            </span>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
 };
 
 // --- SKELETONS ---
@@ -398,7 +429,8 @@ const AppRouter = () => {
   // Helper to choose fallback during LAZY LOADING (Chunk download)
   const getSuspenseFallback = () => {
     const role = userProfile?.role || localStorage.getItem('userRole');
-    return role === 'student' ? <StudentSkeleton /> : <TeacherSkeleton />;
+    // Using StudentSkeleton for parent as well for now
+    return (role === 'student' || role === 'parent') ? <StudentSkeleton /> : <TeacherSkeleton />;
   };
 
   return (
@@ -420,7 +452,7 @@ const AppRouter = () => {
               <LoginPage />
             ) : (
               <Navigate
-                to={userProfile.role === 'student' ? "/student" : "/dashboard"}
+                to={userProfile.role === 'student' ? "/student" : userProfile.role === 'parent' ? "/parent" : "/dashboard"}
                 replace
               />
             )
@@ -437,7 +469,22 @@ const AppRouter = () => {
                 <StudentDashboard />
               </PostLoginExperience>
             ) : (
-              <Navigate to="/dashboard" replace />
+              <Navigate to={userProfile.role === 'parent' ? "/parent" : "/dashboard"} replace />
+            )
+          }
+        />
+
+        <Route
+          path="/parent/*"
+          element={
+            !userProfile ? (
+              <Navigate to="/login" replace />
+            ) : userProfile.role === 'parent' ? (
+              <PostLoginExperience>
+                <ParentDashboard />
+              </PostLoginExperience>
+            ) : (
+              <Navigate to={userProfile.role === 'student' ? "/student" : "/dashboard"} replace />
             )
           }
         />
@@ -452,7 +499,7 @@ const AppRouter = () => {
                 <TeacherDashboard />
               </PostLoginExperience>
             ) : (
-              <Navigate to="/student" replace />
+              <Navigate to={userProfile.role === 'parent' ? "/parent" : "/student"} replace />
             )
           }
         />
@@ -464,7 +511,7 @@ const AppRouter = () => {
               <Navigate to="/login" replace />
             ) : (
               <Navigate
-                to={userProfile.role === 'student' ? "/student" : "/dashboard"}
+                to={userProfile.role === 'student' ? "/student" : userProfile.role === 'parent' ? "/parent" : "/dashboard"}
                 replace
               />
             )

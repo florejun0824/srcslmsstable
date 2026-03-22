@@ -107,7 +107,7 @@ export const useTeacherActions = (userProfile, showToast, classes) => {
   }, [classes, showToast]);
 
   // --- ANNOUNCEMENTS ---
-  const handleCreateAnnouncement = useCallback(async ({ content, audience, classId, className, photoURL, caption }) => {
+  const handleCreateAnnouncement = useCallback(async ({ content, audience, classId, className, photoURL, caption, postGlobally }) => {
     if (!content.trim() && !photoURL?.trim()) { 
         showToast("Announcement must have content or a photo.", "error"); 
         return false; 
@@ -121,8 +121,9 @@ export const useTeacherActions = (userProfile, showToast, classes) => {
         createdAt: serverTimestamp(),
         photoURL: photoURL || null,
         caption: caption || null,
-        isPinned: false,
-        schoolId: userProfile?.schoolId || DEFAULT_SCHOOL_ID
+        isPinned: postGlobally ? true : false,
+        isGlobal: postGlobally || false,
+        schoolId: postGlobally ? 'all_schools' : (userProfile?.schoolId || DEFAULT_SCHOOL_ID)
     };
 
     if (audience === 'students') {

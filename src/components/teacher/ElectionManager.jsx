@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    Plus, Archive, IdentificationCard, ChartBar
+    Plus, Archive, IdentificationCard, ChartBar, MagnifyingGlass
 } from '@phosphor-icons/react';
 import { doc, updateDoc, collection, getDocs, getDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../services/firebase';
@@ -21,7 +21,7 @@ const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
         opacity: 1,
-        transition: { staggerChildren: 0.05, delayChildren: 0.1 }
+        transition: { staggerChildren: 0.06, delayChildren: 0.1 }
     }
 };
 
@@ -35,7 +35,6 @@ export default function ElectionManager() {
     const [activeTab, setActiveTab] = useState('active');
     const [selectedElectionId, setSelectedElectionId] = useState(null);
     const [summaryElection, setSummaryElection] = useState(null);
-    // Added isLoading to the modal state object
     const [confirmModal, setConfirmModal] = useState({ isOpen: false, type: null, data: null, isLoading: false });
     const [editingId, setEditingId] = useState(null);
     const [formStep, setFormStep] = useState(1);
@@ -60,12 +59,9 @@ export default function ElectionManager() {
         const active = [];
         const archived = [];
         elections.forEach(e => {
-            // Hide old parent elections that have a tie breaker
             if (e.hasTie && e.tieBreakerId) return;
-
             const endDate = new Date(e.endDate).getTime();
             const isExpired24h = now > endDate + (24 * 60 * 60 * 1000);
-
             if (isExpired24h) archived.push(e); else active.push(e);
         });
         return { activeElections: active, archivedElections: archived };
@@ -78,7 +74,7 @@ export default function ElectionManager() {
     const initiateCountdown = (election) => { setConfirmModal({ isOpen: true, type: 'countdown', title: 'Start Official Count?', message: 'This locks voting and starts the 5-min timer.', actionLabel: 'Start Timer', data: election, isLoading: false }); };
 
     const executeCountdown = async () => {
-        setConfirmModal(prev => ({ ...prev, isLoading: true })); // Trigger Spinner
+        setConfirmModal(prev => ({ ...prev, isLoading: true }));
         const election = confirmModal.data;
         try {
             const revealTime = new Date(Date.now() + 5 * 60 * 1000);
@@ -94,7 +90,7 @@ export default function ElectionManager() {
     const initiateFinalize = (election) => { setConfirmModal({ isOpen: true, type: 'finalize', title: 'Proclaim Winners?', message: 'This ends the election and publishes results.', actionLabel: 'Proclaim', data: election, isLoading: false }); };
 
     const executeFinalize = async () => {
-        setConfirmModal(prev => ({ ...prev, isLoading: true })); // Trigger Spinner
+        setConfirmModal(prev => ({ ...prev, isLoading: true }));
         const election = confirmModal.data;
         try {
             const electionRef = doc(db, 'elections', election.id);
@@ -163,7 +159,7 @@ export default function ElectionManager() {
     const initiateDelete = (e, id) => { e.stopPropagation(); setConfirmModal({ isOpen: true, type: 'delete', title: 'Delete?', message: 'Are you sure you want to delete this card? This is an Irreversible action.', actionLabel: 'Proceed', isDestructive: true, data: id, isLoading: false }); };
 
     const executeDelete = async () => {
-        setConfirmModal(prev => ({ ...prev, isLoading: true })); // Trigger Spinner
+        setConfirmModal(prev => ({ ...prev, isLoading: true }));
         try {
             await electionService.deleteElection(confirmModal.data);
             showToast("Deleted.", "success");
@@ -207,152 +203,159 @@ export default function ElectionManager() {
         { key: 'archived', label: 'Archived', icon: Archive, count: archivedElections.length },
     ];
 
-	return (
-	        <div className="relative min-h-screen pb-32">
-	            {/* === STICKY FLOATING HEADER === */}
-	            <div className="sticky top-0 z-30 mx-3 md:mx-6 mb-4 mt-2">
-	                <div className="bg-white/90 dark:bg-slate-950/90 backdrop-blur-xl border border-slate-200/50 dark:border-white/10 p-3 md:px-6 md:py-5 rounded-2xl md:rounded-[2rem] shadow-lg shadow-slate-200/20 dark:shadow-none">
-	                    <div className="max-w-7xl mx-auto">
-	                        <div className="flex flex-row items-center justify-between gap-3 md:gap-6">
+    return (
+        <div className="relative min-h-screen pb-32">
+            {/* === REFINED STICKY HEADER === */}
+            <div className="sticky top-0 z-30 mx-3 md:mx-6 mb-5 mt-2">
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2.5 md:px-5 md:py-3.5 rounded-2xl md:rounded-[1.75rem] shadow-sm shadow-slate-200/60 dark:shadow-none">
+                    <div className="max-w-7xl mx-auto">
+                        <div className="flex flex-row items-center justify-between gap-3 md:gap-5">
 
-	                            {/* TABS - Spans remaining width on mobile */}
-	                            <div className="flex-1 flex bg-slate-100 dark:bg-white/5 p-1 rounded-xl md:rounded-full">
-	                                {tabs.map((tab) => {
-	                                    const isActive = activeTab === tab.key;
-	                                    const TabIcon = tab.icon;
-	                                    return (
-	                                        <button
-	                                            key={tab.key}
-	                                            onClick={() => setActiveTab(tab.key)}
-	                                            className={`
-	                                                flex-1 flex items-center justify-center gap-1.5 px-2 py-2.5 md:px-6 md:py-2.5 rounded-lg md:rounded-full text-[11px] md:text-xs font-bold uppercase tracking-wide transition-all
-	                                                ${isActive
-	                                                    ? 'text-white bg-blue-600 shadow-md'
-	                                                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-	                                                }
-	                                            `}
-	                                        >
-	                                            <TabIcon weight={isActive ? "fill" : "regular"} size={16} />
-	                                            <span>{tab.label}</span>
-	                                            {/* Hide count on very small mobile screens to save space */}
-	                                            <span className="opacity-60 text-[10px] hidden sm:inline">({tab.count})</span>
-	                                        </button>
-	                                    );
-	                                })}
-	                            </div>
+                            {/* TABS — Animated sliding pill */}
+                            <div className="flex-1 flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl md:rounded-full relative">
+                                {tabs.map((tab) => {
+                                    const isActive = activeTab === tab.key;
+                                    const TabIcon = tab.icon;
+                                    return (
+                                        <button
+                                            key={tab.key}
+                                            onClick={() => setActiveTab(tab.key)}
+                                            className={`
+                                                flex-1 flex items-center justify-center gap-1.5 px-2 py-2.5 md:px-6 md:py-2.5 rounded-lg md:rounded-full text-[11px] md:text-xs font-bold uppercase tracking-wide transition-all duration-200 relative z-10
+                                                ${isActive
+                                                    ? 'text-white'
+                                                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                                                }
+                                            `}
+                                        >
+                                            {isActive && (
+                                                <motion.div
+                                                    layoutId="activeElectionTab"
+                                                    className="absolute inset-0 bg-indigo-600 rounded-lg md:rounded-full shadow-md shadow-indigo-500/25"
+                                                    transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                                                />
+                                            )}
+                                            <span className="relative z-10 flex items-center gap-1.5">
+                                                <TabIcon weight={isActive ? "fill" : "regular"} size={16} />
+                                                <span>{tab.label}</span>
+                                                <span className="opacity-60 text-[10px] hidden sm:inline">({tab.count})</span>
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
 
-	                            {/* NEW ELECTION BUTTON - Perfect square on mobile, expands on md+ */}
-	                            <button
-	                                onClick={startCreate}
-	                                className="shrink-0 flex items-center justify-center w-11 h-11 md:w-auto md:h-auto md:pl-4 md:pr-5 md:py-2.5 bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-xl shadow-md hover:shadow-xl active:scale-95 transition-all text-sm font-bold"
-	                            >
-	                                <Plus weight="bold" size={20} />
-	                                <span className="hidden md:inline ml-2">New Election</span>
-	                            </button>
-	                        </div>
-	                    </div>
-	                </div>
-	            </div>
+                            {/* NEW ELECTION BUTTON */}
+                            <button
+                                onClick={startCreate}
+                                className="shrink-0 flex items-center justify-center w-11 h-11 md:w-auto md:h-auto md:pl-4 md:pr-5 md:py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl md:rounded-full shadow-md shadow-indigo-500/20 active:scale-95 transition-all text-sm font-bold"
+                            >
+                                <Plus weight="bold" size={20} />
+                                <span className="hidden md:inline ml-2">New Election</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-	            <div className="relative z-10 max-w-7xl mx-auto px-3 md:px-6 pt-1">
-	                {/* === MAIN CONTENT CONTAINER === */}
-	                {/* Reduced padding and border radius for mobile */}
-	                <div className="bg-white/40 dark:bg-slate-950/60 backdrop-blur-xl border border-slate-200/50 dark:border-white/10 rounded-[1.5rem] md:rounded-[2.5rem] p-4 md:p-8 lg:p-10 shadow-xl overflow-hidden min-h-[60vh]">
+            <div className="relative z-10 max-w-7xl mx-auto px-3 md:px-6 pt-1">
+                {/* === MAIN CONTENT === */}
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[1.5rem] md:rounded-[2rem] p-4 md:p-8 lg:p-10 shadow-sm min-h-[60vh]">
 
-	                    {/* CONTENT GRID */}
-	                    <motion.div
-	                        variants={containerVariants}
-	                        initial="hidden"
-	                        animate="visible"
-	                        key={activeTab}
-	                        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-8"
-	                    >
-	                        <AnimatePresence mode="popLayout">
-	                            {displayedElections.map((election) => {
-	                                const canModify = user?.role === 'admin' || election.createdBy === user?.id;
-	                                return (
-	                                    <ElectionCard
-	                                        key={election.id}
-	                                        election={election}
-	                                        isArchived={activeTab === 'archived'}
-	                                        canModify={canModify}
-	                                        onClick={() => {
-	                                            if (election.hasTie && election.tieBreakerId) {
-	                                                showToast("This election has a Tie-Breaker. Please view the Tie-Breaker card for full results.", "info");
-	                                            } else {
-	                                                setSelectedElectionId(election.id);
-	                                            }
-	                                        }}
-	                                        onEdit={() => startEdit(election)}
-	                                        onDelete={(e) => initiateDelete(e, election.id)}
-	                                        onStartCountdown={(e) => { e.stopPropagation(); initiateCountdown(election); }}
-	                                        onFinalize={() => initiateFinalize(election)}
-	                                        onViewSummary={(e) => {
-	                                            e.stopPropagation();
-	                                            if (election.hasTie && election.tieBreakerId) {
-	                                                showToast("This election has a Tie-Breaker. Please view the Tie-Breaker card for full results.", "info");
-	                                            } else {
-	                                                setSummaryElection(election);
-	                                            }
-	                                        }}
-	                                    />
-	                                );
-	                            })}
-	                        </AnimatePresence>
-	                    </motion.div>
+                    {/* CONTENT GRID */}
+                    <motion.div
+                        variants={containerVariants}
+                        initial="hidden"
+                        animate="visible"
+                        key={activeTab}
+                        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6"
+                    >
+                        <AnimatePresence mode="popLayout">
+                            {displayedElections.map((election) => {
+                                const canModify = user?.role === 'admin' || election.createdBy === user?.id;
+                                return (
+                                    <ElectionCard
+                                        key={election.id}
+                                        election={election}
+                                        isArchived={activeTab === 'archived'}
+                                        canModify={canModify}
+                                        onClick={() => {
+                                            if (election.hasTie && election.tieBreakerId) {
+                                                showToast("This election has a Tie-Breaker. Please view the Tie-Breaker card for full results.", "info");
+                                            } else {
+                                                setSelectedElectionId(election.id);
+                                            }
+                                        }}
+                                        onEdit={() => startEdit(election)}
+                                        onDelete={(e) => initiateDelete(e, election.id)}
+                                        onStartCountdown={(e) => { e.stopPropagation(); initiateCountdown(election); }}
+                                        onFinalize={() => initiateFinalize(election)}
+                                        onViewSummary={(e) => {
+                                            e.stopPropagation();
+                                            if (election.hasTie && election.tieBreakerId) {
+                                                showToast("This election has a Tie-Breaker. Please view the Tie-Breaker card for full results.", "info");
+                                            } else {
+                                                setSummaryElection(election);
+                                            }
+                                        }}
+                                    />
+                                );
+                            })}
+                        </AnimatePresence>
+                    </motion.div>
 
-	                    {displayedElections.length === 0 && (
-	                        <motion.div
-	                            initial={{ opacity: 0, y: 20 }}
-	                            animate={{ opacity: 1, y: 0 }}
-	                            className="flex flex-col items-center justify-center py-24 text-center"
-	                        >
-	                            <div className="w-20 h-20 md:w-24 md:h-24 bg-slate-100 dark:bg-white/5 rounded-2xl md:rounded-3xl border border-slate-200/50 dark:border-white/10 flex items-center justify-center mb-6 shadow-sm">
-	                                {activeTab === 'active' ? (
-	                                    <IdentificationCard weight="duotone" className="w-10 h-10 md:w-12 md:h-12 text-slate-300" />
-	                                ) : (
-	                                    <Archive weight="duotone" className="w-10 h-10 md:w-12 md:h-12 text-slate-300" />
-	                                )}
-	                            </div>
-	                            <h3 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white mb-2">
-	                                {activeTab === 'active' ? 'No Active Elections' : 'Archive is Empty'}
-	                            </h3>
-	                            <p className="text-slate-500 dark:text-slate-400 text-xs md:text-sm max-w-sm mx-auto leading-relaxed px-4">
-	                                {activeTab === 'active'
-	                                    ? "Start building democracy in your classroom by creating your first election campaign."
-	                                    : "Completed elections will automatically move here 24 hours after they end."}
-	                            </p>
-	                            {activeTab === 'active' && (
-	                                <button
-	                                    onClick={startCreate}
-	                                    className="mt-6 px-6 py-2.5 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/25 transition-all active:scale-[0.97]"
-	                                >
-	                                    Create First Election
-	                                </button>
-	                            )}
-	                        </motion.div>
-	                    )}
-	                </div>
-	            </div>
+                    {displayedElections.length === 0 && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="flex flex-col items-center justify-center py-24 text-center"
+                        >
+                            <div className="w-20 h-20 md:w-24 md:h-24 bg-indigo-50 dark:bg-indigo-500/10 rounded-3xl border border-indigo-100 dark:border-indigo-500/20 flex items-center justify-center mb-6">
+                                {activeTab === 'active' ? (
+                                    <IdentificationCard weight="duotone" className="w-10 h-10 md:w-12 md:h-12 text-indigo-400" />
+                                ) : (
+                                    <Archive weight="duotone" className="w-10 h-10 md:w-12 md:h-12 text-slate-400" />
+                                )}
+                            </div>
+                            <h3 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white mb-2">
+                                {activeTab === 'active' ? 'No Active Elections' : 'Archive is Empty'}
+                            </h3>
+                            <p className="text-slate-500 dark:text-slate-400 text-xs md:text-sm max-w-sm mx-auto leading-relaxed px-4">
+                                {activeTab === 'active'
+                                    ? "Start building democracy in your classroom by creating your first election campaign."
+                                    : "Completed elections will automatically move here 24 hours after they end."}
+                            </p>
+                            {activeTab === 'active' && (
+                                <button
+                                    onClick={startCreate}
+                                    className="mt-6 px-6 py-2.5 rounded-full text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-500/20 transition-all active:scale-[0.97]"
+                                >
+                                    Create First Election
+                                </button>
+                            )}
+                        </motion.div>
+                    )}
+                </div>
+            </div>
 
-	            {/* === MODALS === */}
-	            <ConfirmationModal
-	                isOpen={confirmModal.isOpen}
-	                onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
-	                type={confirmModal.type}
-	                title={confirmModal.title}
-	                message={confirmModal.message}
-	                actionLabel={confirmModal.actionLabel}
-	                isDestructive={confirmModal.isDestructive}
-	                isLoading={confirmModal.isLoading}
-	                onConfirm={confirmModal.type === 'countdown' ? executeCountdown : confirmModal.type === 'finalize' ? executeFinalize : confirmModal.type === 'delete' ? executeDelete : () => { }}
-	            />
+            {/* === MODALS === */}
+            <ConfirmationModal
+                isOpen={confirmModal.isOpen}
+                onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+                type={confirmModal.type}
+                title={confirmModal.title}
+                message={confirmModal.message}
+                actionLabel={confirmModal.actionLabel}
+                isDestructive={confirmModal.isDestructive}
+                isLoading={confirmModal.isLoading}
+                onConfirm={confirmModal.type === 'countdown' ? executeCountdown : confirmModal.type === 'finalize' ? executeFinalize : confirmModal.type === 'delete' ? executeDelete : () => { }}
+            />
 
-	            <ResultSummaryModal
-	                election={summaryElection}
-	                isOpen={!!summaryElection}
-	                onClose={() => setSummaryElection(null)}
-	            />
-	        </div>
-	    );
+            <ResultSummaryModal
+                election={summaryElection}
+                isOpen={!!summaryElection}
+                onClose={() => setSummaryElection(null)}
+            />
+        </div>
+    );
 }

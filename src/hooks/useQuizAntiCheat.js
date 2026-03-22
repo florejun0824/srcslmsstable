@@ -272,11 +272,16 @@ export default function useQuizAntiCheat({
         if (isTeacherView || !isOpen || score !== null || isLocked || hasSubmitted) return;
 
         const handleClipboardAction = (e) => {
-            e.preventDefault();
-            if (e.type === 'paste' && warnOnPaste) {
-                showToast("Pasting is disabled during the quiz.", "warning");
-                issueWarning('paste');
+            if (e.type === 'paste') {
+                // Only block paste when warnOnPaste is explicitly enabled
+                if (warnOnPaste) {
+                    e.preventDefault();
+                    showToast("Pasting is disabled during the quiz.", "warning");
+                    issueWarning('paste');
+                }
+                // If warnOnPaste is off, let paste through normally
             } else if (e.type === 'copy' || e.type === 'cut') {
+                e.preventDefault();
                 showToast("Copying/Cutting is disabled during the quiz.", "warning");
             }
         };

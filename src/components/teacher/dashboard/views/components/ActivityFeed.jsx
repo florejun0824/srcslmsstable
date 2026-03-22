@@ -9,6 +9,7 @@ import { db } from '../../../../../services/firebase';
 // FIX: Ensure you import doc and updateDoc correctly
 import { doc, updateDoc } from 'firebase/firestore';
 import UserInitialsAvatar from '../../../../../components/common/UserInitialsAvatar';
+import ReactMarkdown from 'react-markdown';
 
 const AnnouncementModal = lazy(() => import('../../widgets/AnnouncementModal'));
 const ReactionsBreakdownModal = lazy(() => import('../../widgets/ReactionsBreakdownModal'));
@@ -29,33 +30,57 @@ const formatDateDetails = (createdAt) => {
     }
 };
 
-// --- UTILITY: LINK DETECTOR ---
-const LinkifiedText = memo(({ text, className = "" }) => {
-    if (!text) return null;
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
-    const parts = text.split(urlRegex);
-
+// --- UTILITY: FULL MARKDOWN RENDERER ---
+const MarkdownRenderer = memo(({ content }) => {
+    if (!content) return null;
     return (
-        <span className={className}>
-            {parts.map((part, i) => {
-                if (part.match(urlRegex)) {
-                    return (
-                        <a
-                            key={i}
-                            href={part}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="inline-flex items-center gap-0.5 text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 underline decoration-indigo-400/30 hover:decoration-indigo-500 break-all transition-colors z-20 relative"
-                        >
-                            {part}
-                            <ExternalLink size={10} className="inline opacity-70" />
-                        </a>
-                    );
-                }
-                return part;
-            })}
-        </span>
+        <ReactMarkdown
+            components={{
+                a: ({node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 hover:underline break-all transition-colors z-20 relative font-semibold" onClick={(e) => e.stopPropagation()} />,
+                p: ({node, ...props}) => <p {...props} className="mb-3 last:mb-0 leading-relaxed" />,
+                h1: ({node, ...props}) => <h1 {...props} className="text-2xl font-black mt-5 mb-3 text-slate-900 dark:text-white tracking-tight" />,
+                h2: ({node, ...props}) => <h2 {...props} className="text-xl font-bold mt-4 mb-3 text-slate-800 dark:text-slate-100" />,
+                h3: ({node, ...props}) => <h3 {...props} className="text-lg font-bold mt-4 mb-2 text-slate-800 dark:text-slate-100" />,
+                ul: ({node, ...props}) => <ul {...props} className="list-disc pl-6 mb-3 space-y-1.5 marker:text-indigo-400" />,
+                ol: ({node, ...props}) => <ol {...props} className="list-decimal pl-6 mb-3 space-y-1.5 marker:text-indigo-400 font-medium" />,
+                li: ({node, ...props}) => <li {...props} className="" />,
+                strong: ({node, ...props}) => <strong {...props} className="font-extrabold text-slate-900 dark:text-white" />,
+                em: ({node, ...props}) => <em {...props} className="italic text-slate-700 dark:text-slate-300" />,
+                hr: ({node, ...props}) => <hr {...props} className="my-5 border-t-2 border-slate-200/60 dark:border-white/10" />,
+                blockquote: ({node, ...props}) => <blockquote {...props} className="border-l-4 border-indigo-300 dark:border-indigo-500/30 pl-4 py-1 italic my-3 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-r-lg" />,
+                code: ({node, inline, ...props}) => inline 
+                    ? <code {...props} className="bg-slate-100 dark:bg-white/10 px-1.5 py-0.5 rounded-md text-[13px] font-mono text-pink-600 dark:text-pink-400" /> 
+                    : <pre className="bg-slate-900 dark:bg-black/50 p-4 rounded-xl overflow-x-auto text-[13px] font-mono text-slate-300 my-4 shadow-inner ring-1 ring-white/10"><code {...props} /></pre>
+            }}
+        >
+            {content}
+        </ReactMarkdown>
+    );
+});
+
+// --- UTILITY: TIMELINE MARKDOWN RENDERER ---
+const CompactMarkdownRenderer = memo(({ content }) => {
+    if (!content) return null;
+    return (
+        <ReactMarkdown
+            components={{
+                a: ({node, ...props}) => <span className="text-indigo-600 dark:text-indigo-400 font-semibold">{props.children}</span>,
+                p: ({node, ...props}) => <span className="inline mr-2" {...props} />,
+                h1: ({node, ...props}) => <span className="inline font-bold mr-2 w-full truncate" {...props}>{props.children}</span>,
+                h2: ({node, ...props}) => <span className="inline font-bold mr-2 w-full truncate" {...props}>{props.children}</span>,
+                h3: ({node, ...props}) => <span className="inline font-bold mr-2 w-full truncate" {...props}>{props.children}</span>,
+                ul: ({node, ...props}) => <span className="inline line-clamp-1" {...props}>{props.children}</span>,
+                ol: ({node, ...props}) => <span className="inline line-clamp-1" {...props}>{props.children}</span>,
+                li: ({node, ...props}) => <span className="inline mr-2" {...props}>• {props.children}</span>,
+                strong: ({node, ...props}) => <strong className="font-extrabold text-slate-900 dark:text-white" {...props} />,
+                em: ({node, ...props}) => <em className="italic text-slate-700 dark:text-slate-300" {...props} />,
+                hr: () => <span className="mx-2 text-slate-400">|</span>,
+                blockquote: ({node, ...props}) => <span className="inline italic text-slate-500" {...props}>&quot;{props.children}&quot;</span>,
+                code: ({node, inline, ...props}) => <span className="font-mono text-pink-600 dark:text-pink-400" {...props} />
+            }}
+        >
+            {content}
+        </ReactMarkdown>
     );
 });
 
@@ -121,8 +146,8 @@ const PrismCard = memo(({ post, authorProfile, onClick, onTogglePin, theme }) =>
                 </div>
 
                 <div className="mb-6">
-                    <div className="text-lg font-medium text-slate-800 dark:text-slate-200 leading-relaxed line-clamp-3 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
-                        <LinkifiedText text={post.content} />
+                    <div className="text-[14px] sm:text-[15px] font-medium text-slate-800 dark:text-slate-200 transition-colors line-clamp-3 sm:line-clamp-3 overflow-hidden leading-relaxed">
+                        <CompactMarkdownRenderer content={post.content} />
                     </div>
                 </div>
 
@@ -195,8 +220,8 @@ const FrostedSlab = memo(({ post, authorProfile, onClick, onTogglePin, theme, in
                     </div>
                 </div>
 
-                <div className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-3 sm:line-clamp-2">
-                    <LinkifiedText text={post.content} />
+                <div className="text-[13px] sm:text-[14px] text-slate-600 dark:text-slate-400 leading-relaxed line-clamp-3 sm:line-clamp-3 overflow-hidden font-medium">
+                    <CompactMarkdownRenderer content={post.content} />
                 </div>
 
                 {post.imageUrls && post.imageUrls.length > 0 && (

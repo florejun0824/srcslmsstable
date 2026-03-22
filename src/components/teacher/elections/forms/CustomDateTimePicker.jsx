@@ -3,7 +3,6 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 
 const CustomDateTimePicker = ({ value, onChange, minDate }) => {
-    // Detect Desktop vs Mobile to toggle the portal UI
     const [isMobile, setIsMobile] = useState(false);
 
     useEffect(() => {
@@ -16,11 +15,9 @@ const CustomDateTimePicker = ({ value, onChange, minDate }) => {
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
 
-    // Parse the current value safely
     const parsedDate = value ? new Date(value) : null;
     const isValidDate = parsedDate && !isNaN(parsedDate.getTime());
 
-    // --- UNIFIED HANDLERS ---
     const handleDateChange = (date) => {
         if (!date) return onChange('');
         
@@ -62,27 +59,24 @@ const CustomDateTimePicker = ({ value, onChange, minDate }) => {
         onChange(`${year}-${month}-${day}T${strH}:${strM}`);
     };
 
-    // Calculate current display values for the custom dropdowns
     const displayHour = isValidDate ? (parsedDate.getHours() % 12 === 0 ? 12 : parsedDate.getHours() % 12) : 12;
     const displayMinute = isValidDate ? parsedDate.getMinutes() : 0;
     const displayAmPm = isValidDate && parsedDate.getHours() >= 12 ? 'PM' : 'AM';
 
     return (
         <div className="flex flex-col gap-3 relative w-full custom-datepicker-wrapper">
-             {/* Styles adjusted to ensure the portal looks good on mobile */}
              <style dangerouslySetInnerHTML={{
                 __html: `
                 .custom-datepicker-wrapper .react-datepicker-wrapper { display: block; width: 100%; }
-                .react-datepicker { border-radius: 12px; font-family: inherit; border: 1px solid #e2e8f0; border: none; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); }
-                .react-datepicker__header { background-color: #f8fafc; border-bottom: 1px solid #e2e8f0; border-top-left-radius: 12px; border-top-right-radius: 12px; }
-                .react-datepicker__day--selected { background-color: #2563eb !important; border-radius: 999px; }
+                .react-datepicker { border-radius: 16px; font-family: inherit; border: none; box-shadow: 0 10px 40px -5px rgb(0 0 0 / 0.1), 0 4px 12px -4px rgb(0 0 0 / 0.06); }
+                .react-datepicker__header { background-color: #f8fafc; border-bottom: 1px solid #e2e8f0; border-top-left-radius: 16px; border-top-right-radius: 16px; }
+                .react-datepicker__day--selected { background-color: #4f46e5 !important; border-radius: 999px; }
+                .react-datepicker__day:hover { background-color: #eef2ff !important; border-radius: 999px; }
                 .react-datepicker-popper[data-placement^="bottom"] .react-datepicker__triangle { display: none; }
-                /* Make tap targets larger on mobile portal */
                 .react-datepicker__day { margin: 0.2rem; padding: 0.2rem; }
                 `
             }} />
 
-            {/* Unified Date Picker */}
             <div className="w-full">
                 <DatePicker
                     selected={isValidDate ? parsedDate : null}
@@ -90,18 +84,17 @@ const CustomDateTimePicker = ({ value, onChange, minDate }) => {
                     dateFormat="MMM d, yyyy"
                     placeholderText="Select date"
                     minDate={minDate ? new Date(minDate) : undefined}
-                    withPortal={isMobile} // Turns into a centered modal on mobile!
-                    className="w-full bg-slate-100/50 px-4 py-3 rounded-xl font-mono text-sm font-semibold outline-none text-slate-900 cursor-pointer placeholder:text-slate-400 focus:ring-2 focus:ring-blue-600/20 transition-all border border-transparent focus:border-blue-600/30"
+                    withPortal={isMobile}
+                    className="w-full bg-slate-50 dark:bg-slate-900 px-4 py-3 rounded-xl font-mono text-sm font-semibold outline-none text-slate-900 dark:text-white cursor-pointer placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500/20 transition-all border border-slate-200 dark:border-slate-700 focus:border-indigo-500"
                 />
             </div>
 
-            {/* Unified Time Controls */}
             {isValidDate && (
                 <div className="flex gap-2 w-full">
                     <select
                         value={displayHour}
                         onChange={e => handleTimeChange('hour', e.target.value)}
-                        className="flex-1 bg-slate-100/50 px-2 py-3 rounded-xl font-mono text-sm font-semibold outline-none text-slate-900 cursor-pointer text-center appearance-none"
+                        className="flex-1 bg-slate-50 dark:bg-slate-900 px-2 py-3 rounded-xl font-mono text-sm font-semibold outline-none text-slate-900 dark:text-white cursor-pointer text-center appearance-none border border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all"
                     >
                         {Array.from({ length: 12 }, (_, i) => i + 1).map(h => (
                             <option key={h} value={h}>{String(h).padStart(2, '0')}</option>
@@ -113,7 +106,7 @@ const CustomDateTimePicker = ({ value, onChange, minDate }) => {
                     <select
                         value={displayMinute}
                         onChange={e => handleTimeChange('minute', e.target.value)}
-                        className="flex-1 bg-slate-100/50 px-2 py-3 rounded-xl font-mono text-sm font-semibold outline-none text-slate-900 cursor-pointer text-center appearance-none"
+                        className="flex-1 bg-slate-50 dark:bg-slate-900 px-2 py-3 rounded-xl font-mono text-sm font-semibold outline-none text-slate-900 dark:text-white cursor-pointer text-center appearance-none border border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all"
                     >
                         {Array.from({ length: 60 }, (_, i) => i).map(m => (
                             <option key={m} value={m}>{String(m).padStart(2, '0')}</option>
@@ -123,7 +116,7 @@ const CustomDateTimePicker = ({ value, onChange, minDate }) => {
                     <select
                         value={displayAmPm}
                         onChange={e => handleTimeChange('ampm', e.target.value)}
-                        className="flex-1 bg-slate-100/50 px-2 py-3 rounded-xl font-mono text-sm font-semibold outline-none text-slate-900 cursor-pointer text-center appearance-none"
+                        className="flex-1 bg-slate-50 dark:bg-slate-900 px-2 py-3 rounded-xl font-mono text-sm font-semibold outline-none text-slate-900 dark:text-white cursor-pointer text-center appearance-none border border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all"
                     >
                         <option value="AM">AM</option>
                         <option value="PM">PM</option>
