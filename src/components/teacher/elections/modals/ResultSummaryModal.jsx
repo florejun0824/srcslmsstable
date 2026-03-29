@@ -278,163 +278,205 @@ const ResultSummaryModal = ({ election, isOpen, onClose }) => {
     const totalVotesCast = election?.totalVotes || 0;
 
     const modalContent = (
-        <div className="fixed inset-0 z-[9999] bg-slate-950/30 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
+        <div className="fixed inset-0 z-[9999] bg-slate-950/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
             <motion.div
-                initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-                transition={{ type: "spring", stiffness: 350, damping: 30 }}
-                className="bg-white dark:bg-slate-900 w-full sm:max-w-3xl max-h-[95vh] rounded-t-3xl sm:rounded-2xl overflow-hidden flex flex-col shadow-xl border border-slate-200 dark:border-slate-800"
+                initial={{ y: "100%", opacity: 0.5 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: "100%", opacity: 0 }}
+                transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                className="bg-white dark:bg-slate-900 w-full sm:max-w-3xl max-h-[95dvh] sm:max-h-[90dvh] rounded-t-[2rem] sm:rounded-[2rem] overflow-hidden flex flex-col shadow-2xl border border-slate-200/50 dark:border-slate-800"
                 onClick={e => e.stopPropagation()}
             >
-                {/* Header */}
-                <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
-                            <ChartPieSlice weight="fill" size={24} />
+                {/* === MODAL HEADER === */}
+                <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 to-violet-700 px-5 sm:px-7 pt-6 pb-5">
+                    {/* Decorative circles */}
+                    <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/5 rounded-full" />
+                    <div className="absolute -bottom-6 right-20 w-24 h-24 bg-violet-400/10 rounded-full" />
+
+                    <div className="relative flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center">
+                                    <ChartPieSlice weight="fill" size={18} className="text-white" />
+                                </div>
+                                <span className="text-[10px] font-black text-indigo-200 uppercase tracking-[3px]">Official Canvassing Record</span>
+                            </div>
+                            <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight leading-tight line-clamp-2">{election.title}</h2>
+                            <p className="text-indigo-300 text-sm font-medium mt-1 truncate">{election.organization}</p>
                         </div>
-                        <div>
-                            <h2 className="text-xl font-bold text-slate-900 dark:text-white leading-tight">Election Summary</h2>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Official Canvassing Record</p>
+                        <button
+                            onClick={onClose}
+                            className="shrink-0 w-9 h-9 rounded-xl flex items-center justify-center bg-white/10 hover:bg-white/20 text-white transition-colors active:scale-95"
+                        >
+                            <X weight="bold" size={18} />
+                        </button>
+                    </div>
+
+                    {/* Stats row */}
+                    <div className="flex items-center gap-2 sm:gap-3 mt-4">
+                        <div className="flex items-center gap-2 px-3 py-2 bg-white/10 rounded-xl border border-white/10">
+                            <Users weight="fill" size={14} className="text-indigo-200" />
+                            <span className="text-white font-black tabular-nums text-sm">{election.totalVotes?.toLocaleString() || 0}</span>
+                            <span className="text-indigo-300 text-[10px] font-bold">Ballots</span>
+                        </div>
+                        <div className="flex items-center gap-2 px-3 py-2 bg-white/10 rounded-xl border border-white/10">
+                            <IdentificationCard weight="fill" size={14} className="text-indigo-200" />
+                            <span className="text-white font-black tabular-nums text-sm">{election.positions?.length || 0}</span>
+                            <span className="text-indigo-300 text-[10px] font-bold">Positions</span>
+                        </div>
+                        <div className="hidden sm:flex items-center gap-2 px-3 py-2 bg-white/10 rounded-xl border border-white/10">
+                            <CalendarBlank weight="fill" size={14} className="text-indigo-200" />
+                            <span className="text-white font-bold text-xs">{new Date(election.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                         </div>
                     </div>
-                    <button onClick={onClose} className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-colors">
-                        <X weight="bold" size={20} />
-                    </button>
                 </div>
 
                 {/* Scrollable Body */}
-                <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-8 bg-slate-50 dark:bg-slate-950/50">
-                    
-                    {/* Main Stats Card */}
-                    <div className="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm text-center relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 to-violet-500" />
-                        <h1 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tight mb-2">{election.title}</h1>
-                        <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-8">{election.organization}</p>
-                        
-                        <div className="grid grid-cols-3 gap-4">
-                            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
-                                <Users size={20} weight="duotone" className="mx-auto mb-2 text-indigo-600" />
-                                <div className="text-[9px] font-black text-slate-400 uppercase">Ballots</div>
-                                <div className="text-xl font-black text-slate-800 dark:text-white">{election.totalVotes?.toLocaleString() || 0}</div>
-                            </div>
-                            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
-                                <IdentificationCard size={20} weight="duotone" className="mx-auto mb-2 text-violet-600" />
-                                <div className="text-[9px] font-black text-slate-400 uppercase">Positions</div>
-                                <div className="text-xl font-black text-slate-800 dark:text-white">{election.positions?.length || 0}</div>
-                            </div>
-                            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
-                                <CalendarBlank size={20} weight="duotone" className="mx-auto mb-2 text-emerald-600" />
-                                <div className="text-[9px] font-black text-slate-400 uppercase">Date</div>
-                                <div className="text-[11px] font-black mt-1 text-slate-800 dark:text-white">{new Date(election.endDate).toLocaleDateString()}</div>
-                            </div>
-                        </div>
-                    </div>
+                <div className="flex-1 overflow-y-auto">
 
-                    {/* Positions Grid */}
-                    <div className="space-y-10">
-                        {election.positions?.map(pos => {
-                            const posResults = results[pos.title] || {};
-                            const posTotal = Object.values(posResults).reduce((a, b) => a + b, 0);
-                            const candidates = [...pos.candidates].sort((a, b) => (posResults[b.name] || 0) - (posResults[a.name] || 0));
-
-                            return (
-                                <div key={pos.title} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-                                    <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                                        <h3 className="font-black text-sm uppercase tracking-wider text-slate-800 dark:text-slate-200">{pos.title}</h3>
-                                        {pos.targetType === 'grade' ? (
-                                            <span className="text-[9px] font-black bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 px-2 py-1 rounded-md">GRADE {pos.targetGrade}</span>
-                                        ) : (
-                                            <span className="text-[9px] font-black bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 px-2 py-1 rounded-md">SCHOOL WIDE</span>
-                                        )}
-                                    </div>
-                                    <table className="w-full text-left">
-                                        <thead>
-                                            <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                                <th className="px-6 py-4">Candidate</th>
-                                                <th className="px-6 py-4 text-right">Votes</th>
-                                                <th className="px-6 py-4 text-right">%</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                                            {candidates.map((cand, idx) => {
-                                                const votes = posResults[cand.name] || 0;
-                                                const percent = posTotal === 0 ? 0 : ((votes / posTotal) * 100).toFixed(1);
-                                                return (
-                                                    <tr key={cand.name} className={idx === 0 && votes > 0 ? 'bg-indigo-50/50 dark:bg-indigo-900/10' : ''}>
-                                                        <td className="px-6 py-4">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black ${getCandidateColor(idx)}`}>
-                                                                    {cand.name.charAt(0)}
-                                                                </div>
-                                                                <div className="flex flex-col">
-                                                                    <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{cand.name}</span>
-                                                                    {idx === 0 && votes > 0 && <span className="text-[8px] font-black text-indigo-600 dark:text-indigo-400 uppercase flex items-center gap-0.5"><ShieldCheck weight="fill" /> Leading</span>}
-                                                                </div>
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-right font-mono font-bold text-slate-800 dark:text-white">{votes.toLocaleString()}</td>
-                                                        <td className="px-6 py-4 text-right font-mono text-xs text-slate-400">{percent}%</td>
-                                                    </tr>
-                                                )
-                                            })}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            )
-                        })}
-
-                        {/* Round 1 History */}
-                        {parentElection && (
-                            <div className="space-y-6 opacity-60 transition-all hover:opacity-100">
-                                <div className="flex items-center gap-3 px-2">
-                                    <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Round 1 Archive</span>
-                                    <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
-                                </div>
-                                {parentElection.positions?.map(pos => {
-                                    const parentRes = parentElection.results || parentElection.tally || {};
-                                    const posResults = parentRes[pos.title] || {};
+                    {/* Winner Summary Cards */}
+                    {election.positions?.length > 0 && (
+                        <div className="px-5 sm:px-7 pt-5 pb-3">
+                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                <div className="h-px flex-1 bg-slate-100 dark:bg-slate-800" />
+                                Positions Overview
+                                <div className="h-px flex-1 bg-slate-100 dark:bg-slate-800" />
+                            </div>
+                            <div className="grid grid-cols-1 gap-4 sm:gap-5">
+                                {election.positions?.map(pos => {
+                                    const posResults = results[pos.title] || {};
+                                    const posTotal = Object.values(posResults).reduce((a, b) => a + b, 0);
                                     const candidates = [...pos.candidates].sort((a, b) => (posResults[b.name] || 0) - (posResults[a.name] || 0));
+                                    const winner = candidates[0];
+                                    const winnerVotes = winner ? (posResults[winner.name] || 0) : 0;
+                                    const winnerPct = posTotal === 0 ? 0 : ((winnerVotes / posTotal) * 100).toFixed(1);
 
                                     return (
-                                        <div key={`parent-${pos.title}`} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-                                            <div className="px-6 py-3 bg-slate-100 dark:bg-slate-800">
-                                                <h4 className="text-[11px] font-black text-slate-500 uppercase">{pos.title}</h4>
+                                        <div key={pos.title} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+                                            {/* Position header */}
+                                            <div className="flex justify-between items-center px-4 sm:px-5 py-3 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-800">
+                                                <h3 className="font-black text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300">{pos.title}</h3>
+                                                {pos.targetType === 'grade' ? (
+                                                    <span className="text-[9px] font-black bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 px-2 py-1 rounded-lg border border-violet-100 dark:border-violet-800/40">Grade {pos.targetGrade}</span>
+                                                ) : (
+                                                    <span className="text-[9px] font-black bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 px-2 py-1 rounded-lg border border-emerald-100 dark:border-emerald-800/40">School Wide</span>
+                                                )}
                                             </div>
-                                            <table className="w-full text-[12px]">
-                                                <tbody>
-                                                    {candidates.map((cand, idx) => (
-                                                        <tr key={cand.name} className="border-t border-slate-50 dark:border-slate-800">
-                                                            <td className="px-6 py-3 flex items-center gap-3">
-                                                                <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[8px] font-black ${getCandidateColor(idx)} opacity-50`}>
+
+                                            {/* Candidate rows */}
+                                            <div className="divide-y divide-slate-50 dark:divide-slate-800">
+                                                {candidates.map((cand, idx) => {
+                                                    const votes = posResults[cand.name] || 0;
+                                                    const percent = posTotal === 0 ? 0 : ((votes / posTotal) * 100).toFixed(1);
+                                                    const isWinner = idx === 0 && votes > 0;
+                                                    return (
+                                                        <div key={cand.name} className={`px-4 sm:px-5 py-3.5 ${isWinner ? 'bg-amber-50/60 dark:bg-amber-900/5' : ''}`}>
+                                                            <div className="flex items-center gap-3">
+                                                                {/* Rank */}
+                                                                <div className={`flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black ${
+                                                                    isWinner
+                                                                        ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-white'
+                                                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
+                                                                }`}>{isWinner ? '★' : idx + 1}</div>
+                                                                {/* Avatar */}
+                                                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-black text-white flex-shrink-0 ${getCandidateColor(idx)}`}>
+                                                                    {cand.name.charAt(0).toUpperCase()}
+                                                                </div>
+                                                                {/* Info + bar */}
+                                                                <div className="flex-1 min-w-0">
+                                                                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                                                                        <div className="min-w-0">
+                                                                            <span className={`text-sm font-bold block truncate ${
+                                                                                isWinner ? 'text-amber-700 dark:text-amber-300' : 'text-slate-700 dark:text-slate-300'
+                                                                            }`}>{cand.name}</span>
+                                                                            {isWinner && (
+                                                                                <span className="text-[9px] font-black text-amber-600 dark:text-amber-400 flex items-center gap-0.5">
+                                                                                    <ShieldCheck weight="fill" size={10} /> Winner
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                        <div className="flex items-baseline gap-1 shrink-0">
+                                                                            <span className={`font-mono font-black text-sm ${
+                                                                                isWinner ? 'text-amber-700 dark:text-amber-300' : 'text-slate-800 dark:text-white'
+                                                                            }`}>{votes.toLocaleString()}</span>
+                                                                            <span className="text-[10px] text-slate-400 font-bold">{percent}%</span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                                                        <motion.div
+                                                                            initial={{ width: 0 }}
+                                                                            animate={{ width: `${percent}%` }}
+                                                                            transition={{ duration: 0.8, ease: 'easeOut', delay: idx * 0.05 }}
+                                                                            className={`h-full rounded-full ${
+                                                                                isWinner
+                                                                                    ? 'bg-gradient-to-r from-amber-400 to-orange-400'
+                                                                                    : 'bg-slate-300 dark:bg-slate-600'
+                                                                            }`}
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+
+                                {/* Round 1 History */}
+                                {parentElection && (
+                                    <div className="space-y-3 opacity-60 hover:opacity-100 transition-opacity">
+                                        <div className="flex items-center gap-3 px-1">
+                                            <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Round 1 Archive</span>
+                                            <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
+                                        </div>
+                                        {parentElection.positions?.map(pos => {
+                                            const parentRes = parentElection.results || parentElection.tally || {};
+                                            const posResults = parentRes[pos.title] || {};
+                                            const candidates = [...pos.candidates].sort((a, b) => (posResults[b.name] || 0) - (posResults[a.name] || 0));
+                                            return (
+                                                <div key={`parent-${pos.title}`} className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden">
+                                                    <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
+                                                        <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-wider">{pos.title}</h4>
+                                                    </div>
+                                                    <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                                                        {candidates.map((cand, idx) => (
+                                                            <div key={cand.name} className="flex items-center gap-3 px-4 py-3">
+                                                                <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-[9px] font-black ${getCandidateColor(idx)} opacity-60`}>
                                                                     {cand.name.charAt(0)}
                                                                 </div>
-                                                                <span className="text-slate-600 dark:text-slate-400 font-bold">{cand.name}</span>
-                                                            </td>
-                                                            <td className="px-6 py-3 text-right font-mono text-slate-400">{posResults[cand.name]?.toLocaleString() || 0}</td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    )
-                                })}
+                                                                <span className="flex-1 text-sm text-slate-600 dark:text-slate-400 font-medium">{cand.name}</span>
+                                                                <span className="font-mono text-sm text-slate-500 font-bold tabular-nums">{posResults[cand.name]?.toLocaleString() || 0}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
-                        )}
-                    </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Footer */}
-                <div className="p-6 border-t border-slate-100 dark:border-slate-800 flex gap-4 bg-white dark:bg-slate-900">
-                    <button onClick={onClose} className="flex-1 py-4 font-bold text-sm text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-all">
-                        Dismiss
-                    </button>
-                    <button 
-                        onClick={generateReport} 
-                        disabled={isGenerating}
-                        className="flex-[2] py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl shadow-md shadow-indigo-500/20 flex items-center justify-center gap-3 disabled:opacity-50 transition-all"
+                <div className="p-4 sm:p-5 border-t border-slate-100 dark:border-slate-800 flex gap-3 bg-white dark:bg-slate-900">
+                    <button
+                        onClick={onClose}
+                        className="flex-1 py-3.5 font-bold text-sm text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-all active:scale-[0.98] border border-slate-200 dark:border-slate-700"
                     >
-                        {isGenerating ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <FilePdf weight="fill" size={20} />}
-                        {isGenerating ? 'GENERATING PDF...' : 'EXPORT OFFICIAL RETURN'}
+                        Close
+                    </button>
+                    <button
+                        onClick={generateReport}
+                        disabled={isGenerating}
+                        className="flex-[2] py-3.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold text-sm rounded-xl shadow-md shadow-indigo-500/20 flex items-center justify-center gap-2.5 transition-all active:scale-[0.98]"
+                    >
+                        {isGenerating ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <FilePdf weight="fill" size={18} />}
+                        {isGenerating ? 'Generating PDF...' : 'Export Official Return'}
                     </button>
                 </div>
             </motion.div>

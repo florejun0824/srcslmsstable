@@ -22,6 +22,10 @@ export default function QuizQuestionFeedback() {
         handleSubmit,
         answerStreak,
         questionStartTime,
+        setCurrentQ,
+        setQuestionResult,
+        setMatchingResult,
+        setCurrentQuestionAttempted
     } = useQuiz();
 
     // --- Sound Hooks ---
@@ -66,6 +70,25 @@ export default function QuizQuestionFeedback() {
 
 
     if (!question) return null;
+
+    // --- Helper for Unanswered Questions ---
+    const checkIsAnswered = (idx) => {
+        const ans = userAnswers[idx];
+        if (ans === undefined || ans === null) return false;
+        if (typeof ans === 'string' && ans.trim() === '') return false;
+        if (Array.isArray(ans) && ans.length === 0) return false;
+        if (typeof ans === 'object' && Object.keys(ans).length === 0) return false;
+        return true;
+    };
+
+    const firstUnansweredQ = (() => {
+        for (let i = 0; i < totalQuestions; i++) {
+            if (!checkIsAnswered(i)) return i;
+        }
+        return -1;
+    })();
+
+    const allAnswered = firstUnansweredQ === -1;
 
     // --- Reusable Components for macOS Look ---
 
@@ -138,6 +161,18 @@ export default function QuizQuestionFeedback() {
                  <div className="mt-8">
                      {currentQ < totalQuestions - 1 ? (
                          <SecondaryButton onClick={handleNextQuestion}>Continue</SecondaryButton>
+                     ) : !allAnswered ? (
+                         <button 
+                             onClick={() => {
+                                 setCurrentQuestionAttempted(false);
+                                 setQuestionResult(null);
+                                 setMatchingResult(null);
+                                 setCurrentQ(firstUnansweredQ);
+                             }} 
+                             className="group relative w-full px-6 py-3.5 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white font-semibold text-lg tracking-tight shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 transition-all duration-300 ease-spring"
+                         >
+                             Unanswered Questions (Go to Q{firstUnansweredQ + 1})
+                         </button>
                      ) : (
                          <PrimaryButton onClick={handleSubmit}>Submit Quiz</PrimaryButton>
                      )}
@@ -185,6 +220,18 @@ export default function QuizQuestionFeedback() {
                 <div className="mt-6">
                      {currentQ < totalQuestions - 1 ? (
                          <SecondaryButton onClick={handleNextQuestion}>Next Question</SecondaryButton>
+                     ) : !allAnswered ? (
+                        <button 
+                            onClick={() => {
+                                setCurrentQuestionAttempted(false);
+                                setQuestionResult(null);
+                                setMatchingResult(null);
+                                setCurrentQ(firstUnansweredQ);
+                            }} 
+                            className="group relative w-full px-6 py-3.5 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white font-semibold text-lg tracking-tight shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 transition-all duration-300 ease-spring"
+                        >
+                            Unanswered Questions (Go to Q{firstUnansweredQ + 1})
+                        </button>
                      ) : (
                          <PrimaryButton onClick={handleSubmit}>Submit Quiz</PrimaryButton>
                      )}
@@ -291,6 +338,18 @@ export default function QuizQuestionFeedback() {
             <div className="mt-8">
                  {currentQ < totalQuestions - 1 ? (
                      <SecondaryButton onClick={handleNextQuestion}>Next Question</SecondaryButton>
+                 ) : !allAnswered ? (
+                    <button 
+                        onClick={() => {
+                            setCurrentQuestionAttempted(false);
+                            setQuestionResult(null);
+                            setMatchingResult(null);
+                            setCurrentQ(firstUnansweredQ);
+                        }} 
+                        className="group relative w-full px-6 py-3.5 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white font-semibold text-lg tracking-tight shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 transition-all duration-300 ease-spring"
+                    >
+                        Unanswered Questions (Go to Q{firstUnansweredQ + 1})
+                    </button>
                  ) : (
                      <PrimaryButton onClick={handleSubmit}>Submit Quiz</PrimaryButton>
                  )}

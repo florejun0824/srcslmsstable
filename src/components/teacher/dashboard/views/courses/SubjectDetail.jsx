@@ -6,7 +6,7 @@ import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import {
     PencilSquareIcon, TrashIcon, PlusCircleIcon, SparklesIcon,
     PresentationChartBarIcon, ArrowPathIcon, XMarkIcon, CheckCircleIcon,
-    BookOpenIcon
+    BookOpenIcon, ShareIcon
 } from '@heroicons/react/24/outline';
 import UnitAccordion from '../../../UnitAccordion';
 import Spinner from '../../../../../components/common/Spinner';
@@ -100,23 +100,27 @@ const SubjectDetail = memo((props) => {
                     />
                 </div>
 
-                <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+                <div className="flex items-center gap-2 sm:gap-3 w-full md:w-auto justify-end flex-wrap md:flex-nowrap">
                     {!activeUnit && (
-                        <div className="hidden md:flex items-center bg-white dark:bg-slate-800 rounded-full p-1.5 shadow-sm border border-slate-200/50 dark:border-white/10">
+                        <div className="hidden lg:flex items-center bg-white dark:bg-slate-800 rounded-full p-1.5 shadow-sm border border-slate-200/50 dark:border-white/10 shrink-0">
                             <button onClick={() => handleOpenEditSubject(activeSubject)} className="p-2.5 rounded-full hover:bg-slate-100 dark:hover:bg-white/10 transition-all text-slate-500 dark:text-slate-400" title="Edit"><PencilSquareIcon className="w-4 h-4 md:w-5 md:h-5 stroke-2" /></button>
                             <button onClick={() => handleInitiateDelete('subject', activeSubject.id, activeSubject.title)} className="p-2.5 rounded-full hover:bg-red-50 dark:hover:bg-red-500/10 transition-all text-slate-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400" title="Delete"><TrashIcon className="w-4 h-4 md:w-5 md:h-5 stroke-2" /></button>
                         </div>
                     )}
 
+                    <button onClick={() => { if (setShareContentModalOpen) setShareContentModalOpen(true); }} className={`${MATERIAL_STYLES.btnFilled} bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-blue-500/25 border border-blue-400/30 flex-1 md:flex-none justify-center shrink-0 px-3 md:px-5 shrink-0`}>
+                        <ShareIcon className="w-4 h-4 md:w-5 md:h-5 stroke-2" />
+                        <span>Share</span>
+                    </button>
+
                     {!activeUnit ? (
-                        <button onClick={() => setAddUnitModalOpen(true)} className={`${MATERIAL_STYLES.btnFilled} bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-indigo-500/25 border border-indigo-400/30 w-full md:w-auto hidden md:flex`}>
-                            <PlusCircleIcon className="w-5 h-5 md:w-5 md:h-5 stroke-2" />
+                        <button onClick={() => setAddUnitModalOpen(true)} className={`${MATERIAL_STYLES.btnFilled} bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-indigo-500/25 border border-indigo-400/30 flex-1 md:flex-none hidden md:flex justify-center shrink-0 px-3 md:px-5 shrink-0`}>
+                            <PlusCircleIcon className="w-4 h-4 md:w-5 md:h-5 stroke-2" />
                             <span className="hidden sm:inline">Add Unit</span>
-                            <span className="sm:hidden">Add</span>
                         </button>
                     ) : (
-                        <button onClick={() => setIsAiHubOpen(true)} className={`${MATERIAL_STYLES.btnFilled} bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-emerald-500/25 border border-emerald-400/30 w-full md:w-auto`}>
-                            <SparklesIcon className="w-5 h-5 md:w-5 md:h-5 stroke-2" />
+                        <button onClick={() => setIsAiHubOpen(true)} className={`${MATERIAL_STYLES.btnFilled} bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-emerald-500/25 border border-emerald-400/30 flex-1 md:flex-none justify-center shrink-0 px-3 md:px-5 shrink-0`}>
+                            <SparklesIcon className="w-4 h-4 md:w-5 md:h-5 stroke-2" />
                             <span>AI Tools</span>
                         </button>
                     )}

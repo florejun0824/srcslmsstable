@@ -4,6 +4,81 @@ import { CheckCircleIcon, PencilSquareIcon, StarIcon, ClockIcon, ArrowPathIcon }
 import { ClockIcon as ClockOutlineIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import Confetti from 'react-confetti';
 
+// --- SCORE COUNT-UP HOOK ---
+function useCountUp(target, duration = 1200) {
+    const [count, setCount] = useState(0);
+    useEffect(() => {
+        if (target === 0) { setCount(0); return; }
+        let start = 0;
+        const step = target / (duration / 16);
+        const timer = setInterval(() => {
+            start += step;
+            if (start >= target) { setCount(target); clearInterval(timer); }
+            else setCount(Math.floor(start));
+        }, 16);
+        return () => clearInterval(timer);
+    }, [target, duration]);
+    return count;
+}
+
+// --- SVG PERCENTAGE RING ---
+function ScoreRing({ score, total, size = 150 }) {
+    const pct = total > 0 ? Math.round((score / total) * 100) : 0;
+    const radius = (size - 16) / 2;
+    const circumference = 2 * Math.PI * radius;
+    const [offset, setOffset] = useState(circumference);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setOffset(circumference - (pct / 100) * circumference);
+        }, 200);
+        return () => clearTimeout(timer);
+    }, [pct, circumference]);
+
+    const ringColor = pct >= 90 ? '#22C55E' : pct >= 75 ? '#3B82F6' : pct >= 50 ? '#F59E0B' : '#EF4444';
+
+    return (
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="mx-auto">
+            <circle
+                cx={size / 2} cy={size / 2} r={radius}
+                fill="none" stroke="currentColor" strokeWidth="8"
+                className="text-slate-200 dark:text-white/10"
+            />
+            <circle
+                cx={size / 2} cy={size / 2} r={radius}
+                fill="none" stroke={ringColor} strokeWidth="8"
+                strokeLinecap="round"
+                strokeDasharray={circumference}
+                strokeDashoffset={offset}
+                transform={`rotate(-90 ${size / 2} ${size / 2})`}
+                style={{ transition: 'stroke-dashoffset 1.2s cubic-bezier(0.4,0,0.2,1)' }}
+            />
+            <text
+                x="50%" y="50%" dominantBaseline="middle" textAnchor="middle"
+                fill={ringColor} fontSize="22" fontWeight="800" fontFamily="inherit"
+            >
+                {pct}%
+            </text>
+        </svg>
+    );
+}
+
+// --- PERFORMANCE BADGE ---
+function PerformanceBadge({ pct }) {
+    const config =
+        pct >= 90 ? { emoji: '🏆', label: 'Excellent!', bg: 'bg-yellow-50 dark:bg-yellow-400/10', text: 'text-yellow-700 dark:text-yellow-300' } :
+        pct >= 75 ? { emoji: '⭐', label: 'Great Job!', bg: 'bg-blue-50 dark:bg-blue-400/10', text: 'text-blue-700 dark:text-blue-300' } :
+        pct >= 50 ? { emoji: '👍', label: 'Good Effort!', bg: 'bg-emerald-50 dark:bg-emerald-400/10', text: 'text-emerald-700 dark:text-emerald-300' } :
+                    { emoji: '💪', label: 'Keep Practicing!', bg: 'bg-rose-50 dark:bg-rose-400/10', text: 'text-rose-700 dark:text-rose-300' };
+
+    return (
+        <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-bold text-sm ${config.bg} ${config.text} mb-4`}>
+            <span className="text-base">{config.emoji}</span>
+            <span>{config.label}</span>
+        </div>
+    );
+}
+
 export default function QuizResultsView() {
     const {
         latestSubmission,
@@ -25,6 +100,9 @@ export default function QuizResultsView() {
     const totalPossiblePoints = latestSubmission?.totalItems ?? questionNumbering.totalItems;
     const xpToShow = xpGained > 0 ? xpGained : (latestSubmission?.xpGained || 0);
     const attemptsLeft = maxAttempts - attemptsTaken;
+    const pct = totalPossiblePoints > 0 ? Math.round((finalScore / totalPossiblePoints) * 100) : 0;
+
+    const animatedScore = useCountUp(finalScore, 1200);
 
     const sortedSubmissions = [...allSubmissions].sort((a, b) => (a.attemptNumber || 0) - (b.attemptNumber || 0));
 
@@ -70,15 +148,17 @@ export default function QuizResultsView() {
     const StatusIcon = ({ status }) => {
         const isPending = status === 'pending_ai_grading' || status === 'pending_review';
         return (
-            <div className={`mx-auto h-20 w-20 sm:h-24 sm:w-24 flex items-center justify-center rounded-full 
+            <div className={`mx-auto h-16 w-16 sm:h-20 sm:w-20 flex items-center justify-center rounded-full 
                 ${isPending 
                     ? 'bg-blue-50 text-blue-500 dark:bg-blue-500/10 shadow-[0_0_40px_-10px_rgba(59,130,246,0.3)]' 
                     : 'bg-green-50 text-green-500 dark:bg-green-500/10 shadow-[0_0_40px_-10px_rgba(34,197,94,0.3)]'
-                } backdrop-blur-md mb-6 border border-white/40 dark:border-white/20`}>
-                {isPending ? <ClockIcon className="h-10 w-10 sm:h-12 sm:w-12" /> : <CheckCircleIcon className="h-10 w-10 sm:h-12 sm:w-12" />}
+                } backdrop-blur-md mb-4 border border-white/40 dark:border-white/20`}>
+                {isPending ? <ClockIcon className="h-8 w-8 sm:h-10 sm:w-10" /> : <CheckCircleIcon className="h-8 w-8 sm:h-10 sm:w-10" />}
             </div>
         );
     };
+
+    const isPending = submissionStatus === 'pending_ai_grading' || submissionStatus === 'pending_review';
 
     return (
         <GlassContainer>
@@ -86,37 +166,49 @@ export default function QuizResultsView() {
 
             <StatusIcon status={submissionStatus} />
 
-            <h3 className="text-2xl sm:text-4xl font-bold text-gray-900 dark:text-white tracking-tight mb-2">
-                {submissionStatus === 'pending_ai_grading' || submissionStatus === 'pending_review'
-                    ? "Submission Received"
-                    : "Quiz Completed"
-                }
+            <h3 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white tracking-tight mb-1">
+                {isPending ? "Submission Received" : "Quiz Completed"}
             </h3>
 
-            <div className="mt-6 mb-8">
-                <div className="flex items-baseline justify-center gap-1 text-gray-900 dark:text-white">
-                    <span className="text-7xl sm:text-8xl font-black tracking-tighter">
-                        {finalScore}
-                    </span>
-                    <span className="text-2xl sm:text-3xl font-bold text-gray-400 dark:text-gray-500">
-                        /{totalPossiblePoints}
-                    </span>
-                </div>
-                <p className="text-sm font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mt-2">
-                    Total Score
-                </p>
+            {/* Score Ring + Animated Counter */}
+            <div className="mt-6 mb-2 flex flex-col items-center">
+                {!isPending ? (
+                    <>
+                        <ScoreRing score={finalScore} total={totalPossiblePoints} size={150} />
+                        <div className="mt-3 flex items-baseline justify-center gap-1 text-gray-900 dark:text-white">
+                            <span className="text-6xl sm:text-7xl font-black tracking-tighter tabular-nums">
+                                {animatedScore}
+                            </span>
+                            <span className="text-xl sm:text-2xl font-bold text-gray-400 dark:text-gray-500">
+                                /{totalPossiblePoints}
+                            </span>
+                        </div>
+                        <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mt-1 mb-3">
+                            Total Score
+                        </p>
+                        <PerformanceBadge pct={pct} />
+                    </>
+                ) : (
+                    <div className="mt-4 mb-8">
+                        <div className="flex items-baseline justify-center gap-1 text-gray-900 dark:text-white">
+                            <span className="text-7xl sm:text-8xl font-black tracking-tighter">{finalScore}</span>
+                            <span className="text-2xl sm:text-3xl font-bold text-gray-400 dark:text-gray-500">/{totalPossiblePoints}</span>
+                        </div>
+                        <p className="text-sm font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mt-2">Total Score</p>
+                    </div>
+                )}
             </div>
 
             {xpToShow > 0 && (
                 <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full 
                     bg-yellow-50 dark:bg-yellow-400/10 border border-yellow-200 dark:border-yellow-400/20 
-                    shadow-[0_0_20px_-5px_rgba(234,179,8,0.2)] mb-8">
+                    shadow-[0_0_20px_-5px_rgba(234,179,8,0.2)] mb-6">
                     <StarIcon className="w-5 h-5 text-yellow-500" />
                     <span className="font-bold text-yellow-600 dark:text-yellow-400">+{xpToShow} XP Earned</span>
                 </div>
             )}
 
-            {(submissionStatus === 'pending_ai_grading' || submissionStatus === 'pending_review') && (
+            {isPending && (
                 <div className={`mt-2 mb-8 p-4 rounded-2xl text-left flex items-start gap-4 border shadow-sm
                     ${submissionStatus === 'pending_review' 
                         ? 'bg-orange-50 border-orange-200 text-orange-800 dark:bg-orange-500/10 dark:border-orange-500/20 dark:text-orange-200' 

@@ -77,7 +77,18 @@ export default function QuizContent() {
     if (!question) return <div className="flex justify-center items-center h-full min-h-[300px]"><Spinner /></div>;
 
     const isAutoGraded = ['multiple-choice', 'true-false', 'identification', 'exactAnswer', 'matching-type', 'image-labeling'].includes(question.type);
-    const isDisabled = isTeacherView || (isAutoGraded && currentQuestionAttempted && question.type !== 'matching-type');
+    
+    // Check if there is already a saved answer for this question
+    const ans = userAnswers[currentQ];
+    const isAnswerSaved = ans !== undefined && ans !== null && 
+        (typeof ans === 'string' ? ans.trim() !== '' : 
+        (Array.isArray(ans) ? ans.length > 0 : 
+        (typeof ans === 'object' ? Object.keys(ans).length > 0 : true)));
+
+    // Disabled if teacher, auto-graded taking current attempt, OR returned to an already answered question
+    const isDisabled = isTeacherView || 
+                       (isAutoGraded && currentQuestionAttempted && question.type !== 'matching-type') ||
+                       (!isTeacherView && isAnswerSaved && !currentQuestionAttempted);
 
     // --- HANDLERS ---
     const handleLabelInput = (partIndex, value) => {
@@ -353,18 +364,32 @@ export default function QuizContent() {
     }
 
     // --- STANDARD QUESTIONS (Multiple Choice, T/F, Identification) ---
+    // Question-type accent colors
+    const typeAccent = {
+        'multiple-choice': 'bg-blue-500',
+        'true-false': 'bg-purple-500',
+        'identification': 'bg-teal-500',
+        'exactAnswer': 'bg-teal-500',
+        'essay': 'bg-orange-400',
+        'matching-type': 'bg-indigo-500',
+        'image-labeling': 'bg-rose-500',
+    }[question.type] || 'bg-slate-400';
+
     return (
         <div className="max-w-3xl mx-auto space-y-4 sm:space-y-6 py-2 sm:py-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
             
-            {/* Tonal Question Card */}
-            <div className={`p-6 sm:p-10 rounded-[32px] ${monet ? monet.bg : 'bg-[#F0F4F8] dark:bg-[#1E1E1E]'}`}>
-                <div className="flex justify-between items-start mb-4">
-                     <span className="text-[12px] font-bold text-[#74777F] dark:text-[#8E9099] uppercase tracking-widest">
-                        {question.points || 1} Point{question.points !== 1 ? 's' : ''}
-                    </span>
-                </div>
-                <div className={`text-[16px] sm:text-[22px] font-medium leading-relaxed ${monet ? monet.text : 'text-[#1A1C1E] dark:text-[#E3E2E6]'}`}>
-                    <ContentRenderer text={question.text || question.question || "Question Text Missing"} />
+            {/* Tonal Question Card with accent bar */}
+            <div className={`overflow-hidden rounded-[32px] ${monet ? monet.bg : 'bg-[#F0F4F8] dark:bg-[#1E1E1E]'}`}>
+                <div className={`h-1.5 w-full ${monet ? monet.accent : typeAccent}`} />
+                <div className="p-6 sm:p-10">
+                    <div className="flex justify-between items-start mb-4">
+                        <span className="text-[12px] font-bold text-[#74777F] dark:text-[#8E9099] uppercase tracking-widest">
+                            {question.points || 1} Point{question.points !== 1 ? 's' : ''}
+                        </span>
+                    </div>
+                    <div className={`text-[18px] sm:text-[22px] font-medium leading-relaxed ${monet ? monet.text : 'text-[#1A1C1E] dark:text-[#E3E2E6]'}`}>
+                        <ContentRenderer text={question.text || question.question || "Question Text Missing"} />
+                    </div>
                 </div>
             </div>
 
@@ -373,11 +398,12 @@ export default function QuizContent() {
                 
                 {question.type === 'multiple-choice' && (question.options || []).map((option, idx) => {
                     const isSelected = userAnswers[currentQ] === idx;
+                    const letter = ['A','B','C','D','E','F','G','H'][idx] ?? String(idx + 1);
                     return (
                         <label 
                             key={idx} 
                             className={`
-                                group relative flex items-center p-4 sm:p-6 rounded-[28px] sm:rounded-[32px] cursor-pointer transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)]
+                                group relative flex items-center p-4 sm:p-5 rounded-[28px] sm:rounded-[32px] cursor-pointer transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)]
                                 ${isDisabled ? 'cursor-not-allowed opacity-70' : 'active:scale-[0.97] hover:-translate-y-0.5'}
                                 ${isSelected 
                                     ? (monet ? `${monet.selected}` : 'bg-[#D3E3FD] dark:bg-[#004A77]') 
@@ -387,15 +413,13 @@ export default function QuizContent() {
                         >
                             <input type="radio" name={`q-${currentQ}`} value={idx} checked={isSelected} onChange={() => handleAnswer(idx, 'multiple-choice')} disabled={isDisabled} className="hidden" />
                             
-                            {/* Material You Radio Circle */}
-                            <div className={`relative flex-shrink-0 w-6 h-6 sm:w-7 sm:h-7 rounded-full border-2 mr-4 sm:mr-5 flex items-center justify-center transition-colors duration-300 ${
-                                isSelected ? 'border-transparent' : 'border-[#74777F] dark:border-[#8E9099] group-hover:border-[#1A1C1E] dark:group-hover:border-[#E3E2E6]'
+                            {/* Letter Badge */}
+                            <div className={`flex-shrink-0 w-8 h-8 sm:w-9 sm:h-9 rounded-[14px] mr-4 sm:mr-5 flex items-center justify-center text-[13px] sm:text-[14px] font-black transition-all duration-300 ${
+                                isSelected 
+                                    ? (monet ? `${monet.accent} text-white` : 'bg-[#005AC1] dark:bg-[#D3E3FD] text-white dark:text-[#001C38]') 
+                                    : 'bg-[#E1E6EB] dark:bg-[#44474A] text-[#44474A] dark:text-[#C2C7CF] group-hover:bg-[#C7CDD3] dark:group-hover:bg-[#52575C]'
                             }`}>
-                                <div className={`absolute inset-0 rounded-full transition-transform duration-300 ease-[cubic-bezier(0.2,0,0,1)] flex items-center justify-center ${
-                                    isSelected ? 'scale-100' : 'scale-0'
-                                } ${monet ? monet.text : 'bg-[#005AC1] dark:bg-[#D3E3FD]'}`}>
-                                    <CheckIcon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[3px] ${monet ? 'text-white' : 'text-white dark:text-[#001C38]'}`} />
-                                </div>
+                                {letter}
                             </div>
 
                             <span className={`text-[14px] sm:text-[16px] font-medium flex-1 leading-snug transition-colors duration-300 ${
@@ -433,24 +457,24 @@ export default function QuizContent() {
                 )}
 
                 {question.type === 'identification' && (
-                    <div className="relative mt-2">
-                         <input
+                    <div className="relative mt-2 group">
+                        <input
                             type="text"
-                            placeholder="Type your answer..."
+                            placeholder="Type your answer here..."
                             value={userAnswers[currentQ] || ''}
                             onChange={e => setUserAnswers({ ...userAnswers, [currentQ]: e.target.value })}
                             disabled={isDisabled}
                             className={`
-                                w-full p-5 sm:p-8 rounded-[32px] text-[15px] sm:text-[18px] font-medium transition-all duration-300
+                                w-full p-5 sm:p-8 rounded-[32px] text-[16px] sm:text-[20px] font-medium transition-all duration-300
                                 bg-white dark:bg-[#2D3033] text-[#1A1C1E] dark:text-[#E3E2E6] placeholder-[#74777F] dark:placeholder-[#8E9099]
-                                border-none outline-none ring-0
-                                ${monet ? monet.ring : 'focus:ring-4 focus:ring-[#D3E3FD] dark:focus:ring-[#004A77]'}
+                                border-2 border-transparent outline-none
+                                ${monet ? `focus:border-transparent ${monet.ring} focus:ring-4` : 'focus:ring-4 focus:ring-[#D3E3FD] dark:focus:ring-[#004A77] focus:border-[#005AC1] dark:focus:border-[#D3E3FD]'}
                             `}
                         />
                         {!isDisabled && (
                             <button 
                                 onClick={() => handleAnswer(userAnswers[currentQ] || '', 'identification')}
-                                className={`absolute right-2.5 sm:right-4 top-2.5 sm:top-4 bottom-2.5 sm:bottom-4 px-6 sm:px-8 font-bold rounded-[24px] transition-all duration-300 active:scale-95 text-[14px] sm:text-[16px] text-white ${monet ? monet.accent : 'bg-[#005AC1] hover:bg-[#004A77] dark:bg-[#D3E3FD] dark:text-[#001C38] dark:hover:bg-[#A8C7FA]'}`}
+                                className={`absolute right-2.5 sm:right-3 top-2.5 sm:top-3 bottom-2.5 sm:bottom-3 px-5 sm:px-7 font-bold rounded-[24px] transition-all duration-300 active:scale-95 text-[14px] sm:text-[15px] text-white shadow-md ${monet ? monet.accent : 'bg-[#005AC1] hover:bg-[#004A77] dark:bg-[#D3E3FD] dark:text-[#001C38] dark:hover:bg-[#A8C7FA]'}`}
                             >
                                 Submit
                             </button>

@@ -21,7 +21,7 @@ const PRIMARY_CONFIGS = [
         service: 'openrouter',
         url: `${API_BASE}/api/openrouter`,
         name: 'Arcee Trinity',
-        model: 'arcee-ai/trinity-large-preview:free',
+        model: 'nvidia/nemotron-3-super-120b-a12b:free',
         tier: 'primary' // <--- Forces backend to use Key #1
     },
 ];
@@ -43,28 +43,28 @@ const FALLBACK_CONFIGS = [
         service: 'openrouter',
         url: `${API_BASE}/api/openrouter`,
         name: 'Trinity Backup 1',
-        model: 'arcee-ai/trinity-large-preview:free', // Correct OpenRouter Model ID
+        model: 'nvidia/nemotron-3-super-120b-a12b:free', // Correct OpenRouter Model ID
         tier: 'backup' // <--- Forces backend to use Keys #2-5
     },
     {
         service: 'openrouter',
         url: `${API_BASE}/api/openrouter`,
         name: 'Trinity Backup 2',
-        model: 'arcee-ai/trinity-large-preview:free',
+        model: 'nvidia/nemotron-3-super-120b-a12b:free',
         tier: 'backup'
     },
     {
         service: 'openrouter',
         url: `${API_BASE}/api/openrouter`,
         name: 'Trinity Backup 3',
-        model: 'arcee-ai/trinity-large-preview:free',
+        model: 'nvidia/nemotron-3-super-120b-a12b:free',
         tier: 'backup'
     },
     {
         service: 'openrouter',
         url: `${API_BASE}/api/openrouter`,
         name: 'Trinity Backup 4',
-        model: 'arcee-ai/trinity-large-preview:free',
+        model: 'nvidia/nemotron-3-super-120b-a12b:free',
         tier: 'backup'
     },
 ];

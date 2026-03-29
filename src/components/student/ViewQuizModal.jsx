@@ -40,6 +40,7 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
     const [attemptsTaken, setAttemptsTaken] = useState(0);
     const [loading, setLoading] = useState(true);
     const [showReview, setShowReview] = useState(false);
+    const [lockedQuestions, setLockedQuestions] = useState(new Set());
 
     // --- Security State ---
     const [warnings, setWarnings] = useState(0);
@@ -230,6 +231,7 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
             setScore(null);
             setShowReview(false);
             hasSubmitted.current = false;
+            setLockedQuestions(new Set());
             
             // Initialize security features
             const savedWarnings = localStorage.getItem(warningKey);
@@ -272,6 +274,62 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
     }, [isOpen, quiz, warningKey, shuffleKey, fetchSubmission, userProfile]);
 
 
+    const isAnswered = useCallback((index) => {
+        const answer = userAnswers[index];
+        return answer !== undefined && answer !== null && (typeof answer === 'string' ? answer.trim() !== '' : true);
+    }, [userAnswers]);
+
+    const getNextAvailable = useCallback(() => {
+        let nextQ = currentQ + 1;
+        while (nextQ < shuffledQuestions.length) {
+            if (!lockedQuestions.has(nextQ)) return nextQ;
+            nextQ++;
+        }
+        return null;
+    }, [currentQ, shuffledQuestions.length, lockedQuestions]);
+
+    const getUnansweredQuestionsCount = useCallback(() => {
+        let count = 0;
+        for (let i = 0; i < shuffledQuestions.length; i++) {
+            if (!lockedQuestions.has(i) && !isAnswered(i)) {
+                count++;
+            }
+        }
+        return count;
+    }, [lockedQuestions, isAnswered, shuffledQuestions.length]);
+
+    const getPreviousAvailable = useCallback(() => {
+        let prevQ = currentQ - 1;
+        while (prevQ >= 0) {
+            if (!lockedQuestions.has(prevQ)) return prevQ;
+            prevQ--;
+        }
+        return null;
+    }, [currentQ, lockedQuestions]);
+
+    const handleNext = useCallback(() => {
+        if (isAnswered(currentQ)) {
+            setLockedQuestions(prev => new Set(prev).add(currentQ));
+        }
+        const nextQ = getNextAvailable();
+        if (nextQ !== null) setCurrentQ(nextQ);
+    }, [currentQ, getNextAvailable, isAnswered]);
+
+    const handlePrevious = useCallback(() => {
+        if (isAnswered(currentQ)) {
+            setLockedQuestions(prev => new Set(prev).add(currentQ));
+        }
+        const prevQ = getPreviousAvailable();
+        if (prevQ !== null) setCurrentQ(prevQ);
+    }, [currentQ, getPreviousAvailable, isAnswered]);
+
+    const handleSubmitClick = useCallback(() => {
+        if (isAnswered(currentQ)) {
+            setLockedQuestions(prev => new Set(prev).add(currentQ));
+        }
+        handleSubmit();
+    }, [currentQ, handleSubmit, isAnswered]);
+
     const totalQuestions = shuffledQuestions.length;
     const hasAttemptsLeft = attemptsTaken < MAX_WARNINGS; // Assuming 3 attempts total for a normal quiz
 
@@ -308,21 +366,21 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
         const question = shuffledQuestions[currentQ];
         if(!question) return null;
         return (
-            <div>
-                <div className="font-medium mb-2">
+            <div className="pb-12 sm:pb-6">
+                <div className="font-medium mb-4 text-gray-800 text-base sm:text-lg">
                     <ContentRenderer text={question.question || question.text} />
                 </div>
                 {question.type === 'multiple-choice' ? (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                         {question.options.map((option, idx) => (
-                            <label key={idx} className="flex items-center space-x-2 cursor-pointer p-2 border rounded hover:bg-gray-50">
-                                <input type="radio" name={`question-${currentQ}`} checked={userAnswers[currentQ] === idx} onChange={() => setUserAnswers({ ...userAnswers, [currentQ]: idx })} />
-                                <span><ContentRenderer text={option.text || option} /></span>
+                            <label key={idx} className="flex items-center space-x-3 cursor-pointer p-3 sm:p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                                <input type="radio" name={`question-${currentQ}`} checked={userAnswers[currentQ] === idx} onChange={() => setUserAnswers({ ...userAnswers, [currentQ]: idx })} className="w-4 h-4 text-blue-600 focus:ring-blue-500" />
+                                <span className="text-gray-700 text-sm sm:text-base"><ContentRenderer text={option.text || option} /></span>
                             </label>
                         ))}
                     </div>
                 ) : (
-                    <TextInput placeholder="Type your answer" value={userAnswers[currentQ] || ''} onChange={e => setUserAnswers({ ...userAnswers, [currentQ]: e.target.value })} />
+                    <TextInput placeholder="Type your answer" value={userAnswers[currentQ] || ''} onChange={e => setUserAnswers({ ...userAnswers, [currentQ]: e.target.value })} className="mt-2" />
                 )}
             </div>
         );
@@ -425,21 +483,28 @@ export default function ViewQuizModal({ isOpen, onClose, quiz, userProfile, clas
                         {renderContent()}
                     </div>
                     {hasAttemptsLeft && score === null && !isLocked &&(
-                        <div className="flex-shrink-0 flex justify-between items-center pt-4 mt-4 border-t">
-                            <Button icon={ArrowLeftIcon} onClick={() => setCurrentQ(currentQ - 1)} disabled={currentQ === 0}>Previous</Button>
-                            <div className="text-center">
+                        <div className="flex-shrink-0 flex justify-between items-center pt-4 mt-4 border-t flex-wrap sm:flex-nowrap gap-3">
+                            <Button icon={ArrowLeftIcon} onClick={handlePrevious} disabled={getPreviousAvailable() === null} className="w-auto">Previous</Button>
+                            
+                            <div className="text-center w-full sm:w-auto order-last sm:order-none pb-8 sm:pb-0">
                                 <span className="text-sm font-medium text-gray-600">{`Question ${currentQ + 1} of ${totalQuestions}`}</span>
                                 <span className="block text-xs text-gray-500">Attempt {attemptsTaken + 1} of 3</span>
                             </div>
-                            {currentQ < totalQuestions - 1 ? (
-                                <Button icon={ArrowRightIcon} iconPosition="right" onClick={() => setCurrentQ(currentQ + 1)}>Next</Button>
+                            
+                            {getNextAvailable() !== null ? (
+                                <Button icon={ArrowRightIcon} iconPosition="right" onClick={handleNext} className="w-auto">Next</Button>
+                            ) : getUnansweredQuestionsCount() > 0 ? (
+                                <div className="text-xs sm:text-sm font-medium text-orange-700 bg-orange-100 flex-1 sm:flex-none px-3 py-2 rounded-lg text-center shadow-sm">
+                                    <span className="hidden sm:inline">Please answer</span> 
+                                    <span className="sm:hidden">Answer</span> the remaining {getUnansweredQuestionsCount()} question(s)
+                                </div>
                             ) : (
-                                <Button onClick={handleSubmit}>Submit Quiz</Button>
+                                <Button onClick={handleSubmitClick} color="green" className="w-auto">Submit Quiz</Button>
                             )}
                         </div>
                     )}
-                    <div className="flex justify-end gap-2 mt-4">
-                        <Button variant="primary" onClick={handleClose}>Close</Button>
+                    <div className="flex justify-end gap-2 mt-4 pb-4">
+                        <Button variant="secondary" onClick={handleClose}>Close</Button>
                     </div>
                 </DialogPanel>
             </Dialog>

@@ -10,65 +10,64 @@ import {
   Flower2,
   Rocket,
   Sun,
-  Moon
+  Moon,
+  Info // Added Info icon for the notice
 } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // --- THEME CONFIGURATION ---
-// Refined gradients for a sleeker "Glass Pill" look
 const THEME_STYLES = {
   none: {
     label: 'Default',
-    from: '#64748b', to: '#94a3b8', // Slate
+    from: '#64748b', to: '#94a3b8', 
     bg: 'bg-slate-500',
     ring: 'ring-slate-500'
   },
   christmas: {
     label: 'Holiday',
-    from: '#10b981', to: '#059669', // Emerald
+    from: '#10b981', to: '#059669', 
     bg: 'bg-emerald-600',
     ring: 'ring-emerald-500'
   },
   valentines: {
     label: 'Love',
-    from: '#ec4899', to: '#e11d48', // Pink/Rose
+    from: '#ec4899', to: '#e11d48', 
     bg: 'bg-pink-500',
     ring: 'ring-pink-500'
   },
   graduation: {
     label: 'Grad',
-    from: '#f59e0b', to: '#d97706', // Amber
+    from: '#f59e0b', to: '#d97706', 
     bg: 'bg-amber-500',
     ring: 'ring-amber-500'
   },
   rainy: {
     label: 'Rainy',
-    from: '#3b82f6', to: '#0ea5e9', // Blue/Cyan
+    from: '#3b82f6', to: '#0ea5e9', 
     bg: 'bg-blue-500',
     ring: 'ring-blue-500'
   },
   cyberpunk: {
     label: 'Cyber',
-    from: '#fbbf24', to: '#b45309', // Amber (formerly Fuchsia)
+    from: '#fbbf24', to: '#b45309', 
     bg: 'bg-amber-500',
     ring: 'ring-amber-500'
   },
   spring: {
     label: 'Spring',
-    from: '#14b8a6', to: '#22c55e', // Teal/Green
+    from: '#14b8a6', to: '#22c55e', 
     bg: 'bg-teal-500',
     ring: 'ring-teal-500'
   },
   space: {
     label: 'Cosmos',
-    from: '#38bdf8', to: '#0284c7', // Sky (formerly Indigo)
+    from: '#38bdf8', to: '#0284c7', 
     bg: 'bg-sky-500',
     ring: 'ring-sky-500'
   },
 };
 
-// Subtle icon animations retained but smoothed out
 const iconVariants = {
   idle: { rotate: 0, scale: 1, y: 0 },
   hover: { scale: 1.1, rotate: 5 },
@@ -113,7 +112,7 @@ const ThemeToggle = ({ onRequestThemeChange }) => {
 
   return (
     <div className="w-full px-1 pb-1">
-      {/* Dark Mode Toggle */}
+      {/* Dark Mode Toggle (Always Enabled) */}
       <motion.button
         whileHover={{ scale: 1.01 }}
         whileTap={{ scale: 0.98 }}
@@ -172,9 +171,19 @@ const ThemeToggle = ({ onRequestThemeChange }) => {
         </div>
       </motion.button>
 
+      {/* Temporary Notice */}
+      <div className="mb-3 flex items-start gap-2.5 p-3 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20">
+        <Info size={16} className="text-indigo-500 shrink-0 mt-0.5" />
+        <p className="text-[10px] leading-relaxed font-medium text-indigo-700 dark:text-indigo-300">
+          Theme features are currently disabled for bug fixing and will be back soon with fresh updates. Default theme and Light/Dark mode remain available.
+        </p>
+      </div>
+
       {/* 2-Column Grid of Pills */}
       <div className="grid grid-cols-2 gap-2">
         {overlayOptions.map((opt) => {
+          const isDefault = opt.name === 'none';
+          const isDisabled = !isDefault; // Disable all except the default theme
           const isActive = activeOverlay === opt.name;
           const style = THEME_STYLES[opt.name];
           const Icon = opt.icon;
@@ -183,21 +192,23 @@ const ThemeToggle = ({ onRequestThemeChange }) => {
             <motion.button
               key={opt.name}
               initial="idle"
-              whileHover="hover"
-              whileTap="tap"
-              onClick={(e) => handleThemeClick(e, opt.name)}
+              whileHover={isDisabled ? "idle" : "hover"}
+              whileTap={isDisabled ? "idle" : "tap"}
+              onClick={(e) => !isDisabled && handleThemeClick(e, opt.name)}
+              disabled={isDisabled}
               className={`
-                group relative flex items-center gap-3 px-3 py-2.5 rounded-xl overflow-hidden transition-all duration-300
-                border 
-                ${isActive
-                  ? `border-transparent shadow-md shadow-${style.bg}/20`
-                  : 'border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 hover:border-slate-300 dark:hover:border-white/20'
+                group relative flex items-center gap-3 px-3 py-2.5 rounded-xl overflow-hidden transition-all duration-300 border 
+                ${isDisabled 
+                  ? 'opacity-40 cursor-not-allowed grayscale-[30%]' 
+                  : isActive
+                    ? `border-transparent shadow-md shadow-${style.bg}/20`
+                    : 'border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 hover:border-slate-300 dark:hover:border-white/20'
                 }
               `}
             >
-              {/* Background Gradient (Only visible when active) */}
+              {/* Background Gradient (Only visible when active & not disabled) */}
               <AnimatePresence>
-                {isActive && (
+                {isActive && !isDisabled && (
                   <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -210,8 +221,8 @@ const ThemeToggle = ({ onRequestThemeChange }) => {
                 )}
               </AnimatePresence>
 
-              {/* Hover Glow Effect (Only visible when NOT active) */}
-              {!isActive && (
+              {/* Hover Glow Effect (Only visible when NOT active & not disabled) */}
+              {!isActive && !isDisabled && (
                 <div
                   className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-300"
                   style={{ backgroundColor: style.from }}
@@ -222,13 +233,12 @@ const ThemeToggle = ({ onRequestThemeChange }) => {
               <div className="relative z-10 flex-shrink-0">
                 <motion.div
                   variants={iconVariants}
-                  animate={isActive ? opt.name : (opt.name === 'space' || opt.name === 'spring' ? 'idle' : 'idle')}
-                // Note: Constant animation on idle can be distracting, so mostly limited to active
+                  animate={isActive && !isDisabled ? opt.name : 'idle'}
                 >
                   <Icon
                     size={16}
                     strokeWidth={2.5}
-                    className={`transition-colors duration-300 ${isActive ? 'text-white' : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200'}`}
+                    className={`transition-colors duration-300 ${isActive && !isDisabled ? 'text-white' : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200'}`}
                   />
                 </motion.div>
               </div>
@@ -237,14 +247,14 @@ const ThemeToggle = ({ onRequestThemeChange }) => {
               <span
                 className={`
                   relative z-10 text-xs font-bold tracking-wide transition-colors duration-300
-                  ${isActive ? 'text-white' : 'text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white'}
+                  ${isActive && !isDisabled ? 'text-white' : 'text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white'}
                 `}
               >
                 {style.label}
               </span>
 
               {/* Active Dot Indicator (Subtle) */}
-              {isActive && (
+              {isActive && !isDisabled && (
                 <motion.div
                   layoutId="activeThemeDot"
                   className="absolute right-2 w-1.5 h-1.5 rounded-full bg-white shadow-sm z-10"

@@ -304,31 +304,61 @@ const LiveCanvassing = ({ election, onBack }) => {
 
     return (
         <div className="w-full font-sans text-slate-900 dark:text-white pb-32" style={monetTheme?.variables || {}}>
-            <div className="max-w-7xl mx-auto rounded-none lg:rounded-2xl relative">
+            <div className="max-w-7xl mx-auto relative">
+
                 {/* === STICKY HEADER === */}
-                <div className="sticky top-[2px] z-40 mx-3 md:mx-6 mb-4 mt-2">
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 md:px-6 md:py-4 rounded-2xl md:rounded-[1.75rem] shadow-sm">
-                        <div className="max-w-7xl mx-auto flex items-center justify-between">
-                            <div className="flex items-center gap-2 md:gap-4 overflow-hidden">
-                                <button onClick={onBack} className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors">
+                <div className="sticky top-0 z-40 mx-3 md:mx-6 mb-4 mt-2">
+                    <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 p-3 md:px-6 md:py-4 rounded-2xl shadow-lg shadow-slate-200/30 dark:shadow-none">
+                        <div className="flex items-center justify-between gap-2 md:gap-4">
+                            {/* Back + Title */}
+                            <div className="flex items-center gap-2 md:gap-3 overflow-hidden min-w-0">
+                                <button
+                                    onClick={onBack}
+                                    className="shrink-0 w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors active:scale-95"
+                                >
                                     <CaretLeft weight="bold" size={20} />
                                 </button>
-                                <div className="min-w-0">
-                                    <h1 className="text-sm md:text-xl font-bold text-slate-900 dark:text-white truncate">Official Canvassing</h1>
-                                    <p className="text-[10px] md:text-xs font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1 uppercase tracking-wider truncate">
-                                        <SealCheck weight="fill" size={14} /> {election.title}
-                                    </p>
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-1.5 mb-0.5">
+                                        <SealCheck weight="fill" size={13} className="text-indigo-500 shrink-0" />
+                                        <p className="text-[10px] md:text-xs font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest truncate">
+                                            {election.title}
+                                        </p>
+                                    </div>
+                                    <h1 className="text-sm md:text-lg font-black text-slate-900 dark:text-white tracking-tight truncate">
+                                        Official Canvassing
+                                    </h1>
                                 </div>
                             </div>
+
+                            {/* Right actions */}
                             <div className="flex items-center gap-2 shrink-0">
                                 {election.status === 'completed' && (
-                                    <button onClick={generateReport} disabled={isGenerating} className={`flex items-center px-4 py-2 rounded-full text-white text-xs font-bold transition-all ${isGenerating ? 'bg-indigo-400' : 'bg-indigo-600 shadow-md shadow-indigo-500/20 hover:bg-indigo-700 active:scale-95'}`}>
-                                        {isGenerating ? <div className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> : <Printer weight="fill" size={18} />}
-                                        <span className="hidden md:inline ml-2">{isGenerating ? 'Preparing...' : 'Report'}</span>
+                                    <button
+                                        onClick={generateReport}
+                                        disabled={isGenerating}
+                                        className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-xl text-white text-xs font-bold transition-all active:scale-95 ${
+                                            isGenerating
+                                                ? 'bg-indigo-400 cursor-wait'
+                                                : 'bg-indigo-600 shadow-md shadow-indigo-500/20 hover:bg-indigo-700'
+                                        }`}
+                                    >
+                                        {isGenerating
+                                            ? <div className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full" />
+                                            : <Printer weight="fill" size={16} />
+                                        }
+                                        <span className="hidden sm:inline">{isGenerating ? 'Preparing...' : 'Export Report'}</span>
                                     </button>
                                 )}
-                                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[9px] font-bold uppercase tracking-widest ${election.status === 'completed' ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400' : 'bg-rose-50 dark:bg-rose-900/20 border-rose-100 dark:border-rose-800 text-rose-600 dark:text-rose-400'}`}>
-                                    <div className={`w-1.5 h-1.5 rounded-full ${election.status === 'completed' ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'}`} />
+
+                                <div className={`flex items-center gap-1.5 px-2.5 md:px-3 py-1.5 rounded-xl border text-[10px] font-bold uppercase tracking-widest ${
+                                    election.status === 'completed'
+                                        ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400'
+                                        : 'bg-rose-50 dark:bg-rose-900/20 border-rose-100 dark:border-rose-800 text-rose-600 dark:text-rose-400'
+                                }`}>
+                                    <div className={`w-1.5 h-1.5 rounded-full ${
+                                        election.status === 'completed' ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'
+                                    }`} />
                                     <span>{election.status === 'completed' ? 'Finalized' : 'Live'}</span>
                                 </div>
                             </div>
@@ -336,25 +366,28 @@ const LiveCanvassing = ({ election, onBack }) => {
                     </div>
                 </div>
 
-                <div className="relative z-10 max-w-7xl mx-auto px-3 md:px-6 pt-1">
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[1.5rem] md:rounded-[2rem] p-3 md:p-8 shadow-sm min-h-[70vh]">
-                        {/* METRICS ROW */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-10">
-                            <MetricCard label="Total Returns" value={totalVotesCast.toLocaleString()} icon={Table} colorTheme="emerald" />
+                {/* === MAIN BODY === */}
+                <div className="relative z-10 max-w-7xl mx-auto px-3 md:px-6">
+                    <div className="space-y-4 md:space-y-6">
+
+                        {/* METRICS GRID */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <MetricCard label="Total Ballots" value={totalVotesCast.toLocaleString()} icon={Table} colorTheme="emerald" />
                             <MetricCard label="Positions" value={election.positions.length} icon={ChartBar} colorTheme="purple" />
-                            <div className="col-span-2 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-800/50 p-4 rounded-xl flex items-center justify-between relative overflow-hidden">
+                            <div className="col-span-2 bg-gradient-to-br from-indigo-50 to-violet-50 dark:from-indigo-900/20 dark:to-violet-900/10 border border-indigo-100 dark:border-indigo-800/50 p-4 md:p-5 rounded-xl flex items-center justify-between relative overflow-hidden">
                                 <div className="relative z-10">
-                                    <div className="text-[10px] font-bold uppercase tracking-widest text-amber-600 mb-1">Electorate Type</div>
+                                    <div className="text-[10px] font-black uppercase tracking-widest text-indigo-500 mb-1">Electorate Scope</div>
                                     <div className="text-sm md:text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                                        <Buildings size={18} /> Position-Specific Eligibility
+                                        <Buildings size={17} weight="duotone" className="text-indigo-400" />
+                                        Position-Specific Eligibility
                                     </div>
                                 </div>
-                                <TrendUp size={40} className="text-amber-400 opacity-10 absolute -right-2 -bottom-2" />
+                                <TrendUp size={40} className="text-indigo-300 dark:text-indigo-600 opacity-30 absolute -right-2 -bottom-2" />
                             </div>
                         </div>
 
                         {/* TALLY CARDS */}
-                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6 pb-12">
+                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-5 pb-12">
                             {election.positions.map((pos) => (
                                 <OfficialTallyCard
                                     key={pos.title}
@@ -391,75 +424,127 @@ const LiveCanvassing = ({ election, onBack }) => {
 
 const MetricCard = ({ label, value, icon: Icon, colorTheme }) => {
     const themes = {
-        emerald: { bg: 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-800/50', text: 'text-emerald-600', icon: 'text-emerald-500' },
-        purple: { bg: 'bg-violet-50 dark:bg-violet-900/10 border-violet-100 dark:border-violet-800/50', text: 'text-violet-600', icon: 'text-violet-500' }
+        emerald: {
+            bg: 'bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/15 dark:to-green-900/10 border-emerald-100 dark:border-emerald-800/50',
+            text: 'text-emerald-700 dark:text-emerald-400',
+            icon: 'text-emerald-500 dark:text-emerald-400'
+        },
+        purple: {
+            bg: 'bg-gradient-to-br from-violet-50 to-indigo-50 dark:from-violet-900/15 dark:to-indigo-900/10 border-violet-100 dark:border-violet-800/50',
+            text: 'text-violet-700 dark:text-violet-400',
+            icon: 'text-violet-500 dark:text-violet-400'
+        }
     };
-    const theme = themes[colorTheme] || { bg: 'bg-slate-50 border-slate-100', text: 'text-slate-600', icon: 'text-slate-400' };
+    const theme = themes[colorTheme] || { bg: 'bg-slate-50 border-slate-100 dark:border-slate-700', text: 'text-slate-600', icon: 'text-slate-400' };
     return (
-        <div className={`${theme.bg} border p-4 md:p-5 rounded-xl flex items-center justify-between`}>
-            <div>
-                <div className={`text-[10px] font-bold uppercase tracking-widest ${theme.text} mb-1 opacity-80`}>{label}</div>
-                <div className="text-xl md:text-2xl font-black text-slate-800 dark:text-white">{value}</div>
+        <div className={`${theme.bg} border p-4 md:p-5 rounded-xl flex items-center justify-between relative overflow-hidden`}>
+            <div className="relative z-10">
+                <div className={`text-[10px] font-black uppercase tracking-widest ${theme.text} mb-1 opacity-80`}>{label}</div>
+                <div className="text-2xl md:text-3xl font-black text-slate-800 dark:text-white tabular-nums">{value}</div>
             </div>
-            <Icon size={32} weight="duotone" className={`${theme.icon} opacity-40`} />
+            <Icon size={36} weight="duotone" className={`${theme.icon} opacity-25 absolute -right-2 -bottom-2`} />
         </div>
     );
 };
 
 const OfficialTallyCard = ({ title, candidates, posResults, totalVotes, isTieBreakerPos, isInherited, tieBreakerStatus, isTiedPosition, targetType, targetGrade }) => {
     return (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden relative group">
-            {isTieBreakerPos && <div className="absolute top-0 right-0 bg-amber-500 text-white text-[9px] font-bold uppercase px-3 py-1 rounded-bl-xl z-20">Round 2</div>}
-            {isInherited && <div className="absolute top-0 right-0 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[9px] font-bold uppercase px-3 py-1 rounded-bl-xl z-20">Round 1</div>}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden relative shadow-sm hover:shadow-md dark:shadow-none transition-shadow">
+            {isTieBreakerPos && <div className="absolute top-0 right-0 bg-amber-500 text-white text-[9px] font-black uppercase px-3 py-1 rounded-bl-xl z-20 tracking-wider">Round 2</div>}
+            {isInherited && <div className="absolute top-0 right-0 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[9px] font-black uppercase px-3 py-1 rounded-bl-xl z-20 tracking-wider">Round 1</div>}
 
-            <div className="bg-slate-50 dark:bg-slate-800/50 px-4 py-4 flex flex-col gap-1 border-b border-slate-100 dark:border-slate-800">
-                <div className="flex justify-between items-center">
-                    <h3 className="text-xs md:text-sm font-black uppercase tracking-widest text-slate-700 dark:text-slate-300">{title}</h3>
-                    <div className="text-[9px] font-bold text-slate-400 bg-white dark:bg-slate-800 px-2 py-1 rounded-md border border-slate-100 dark:border-slate-700">{totalVotes} VOTES</div>
-                </div>
-                <div className="flex items-center gap-1.5">
-                    {targetType === 'grade' ? (
-                        <span className="text-[9px] font-bold text-violet-600 dark:text-violet-400 flex items-center gap-1 uppercase bg-violet-50 dark:bg-violet-900/20 px-2 py-0.5 rounded-full"><GraduationCap weight="fill" /> Grade {targetGrade} Only</span>
-                    ) : (
-                        <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 uppercase bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full"><Buildings weight="fill" /> School Wide</span>
-                    )}
-                </div>
-            </div>
-
-            <div className="grid grid-cols-12 px-4 py-2 border-b border-slate-100 dark:border-slate-800 text-[9px] font-bold uppercase tracking-widest text-slate-400">
-                <div className="col-span-1 text-center">#</div>
-                <div className="col-span-7 pl-2">Candidate</div>
-                <div className="col-span-4 text-right">Count</div>
-            </div>
-
-            <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                {candidates.map((cand, idx) => {
-                    const votes = posResults[cand.name] || 0;
-                    const percent = totalVotes === 0 ? 0 : ((votes / totalVotes) * 100).toFixed(1);
-                    const isLeading = idx === 0 && votes > 0;
-
-                    return (
-                        <div key={cand.id} className={`grid grid-cols-12 items-center px-4 py-4 transition-colors ${isLeading ? 'bg-indigo-50/50 dark:bg-indigo-900/10' : ''}`}>
-                            <div className="col-span-1 flex justify-center text-xs font-bold text-slate-400">{idx + 1}</div>
-                            <div className="col-span-7 pl-2 flex items-center gap-3">
-                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black ${stringToColor(cand.name)}`}>{getInitials(cand.name)}</div>
-                                <div className="truncate">
-                                    <div className={`text-xs font-bold truncate ${isLeading ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-200'}`}>{cand.name}</div>
-                                    {isLeading && <div className="text-[8px] font-black text-indigo-500 uppercase flex items-center gap-0.5">Leading <SealCheck weight="fill" /></div>}
-                                </div>
-                            </div>
-                            <div className="col-span-4 flex flex-col items-end">
-                                <div className="flex items-baseline gap-1.5">
-                                    <span className={`font-mono font-bold text-sm ${isLeading ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-900 dark:text-white'}`}>{votes.toLocaleString()}</span>
-                                    <span className="text-[10px] font-bold text-slate-400">{percent}%</span>
-                                </div>
-                                <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full mt-1 overflow-hidden">
-                                    <motion.div initial={{ width: 0 }} animate={{ width: `${percent}%` }} transition={{ duration: 0.8, ease: "easeOut" }} className={`h-full rounded-full ${isLeading ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-600'}`} />
-                                </div>
-                            </div>
+            {/* Card Header */}
+            <div className="bg-gradient-to-r from-slate-50 to-slate-100/50 dark:from-slate-800/80 dark:to-slate-800/40 px-4 sm:px-5 py-4 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex justify-between items-start gap-3">
+                    <div className="min-w-0">
+                        <h3 className="text-xs sm:text-sm font-black uppercase tracking-widest text-slate-700 dark:text-slate-200 truncate">{title}</h3>
+                        <div className="flex items-center gap-1.5 mt-1">
+                            {targetType === 'grade' ? (
+                                <span className="text-[9px] font-bold text-violet-600 dark:text-violet-400 flex items-center gap-1 bg-violet-50 dark:bg-violet-900/20 px-2 py-0.5 rounded-full">
+                                    <GraduationCap weight="fill" size={10} /> Grade {targetGrade} Only
+                                </span>
+                            ) : (
+                                <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full">
+                                    <Buildings weight="fill" size={10} /> School Wide
+                                </span>
+                            )}
                         </div>
-                    );
-                })}
+                    </div>
+                    <div className="shrink-0 px-2.5 py-1 bg-white dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700 text-[10px] font-black text-slate-500 dark:text-slate-400 tabular-nums">
+                        {totalVotes.toLocaleString()} votes
+                    </div>
+                </div>
+            </div>
+
+            {/* Candidate Rows */}
+            <div className="divide-y divide-slate-50 dark:divide-slate-800/80">
+                {(() => {
+                    const maxVotes = candidates.length > 0 ? (posResults[candidates[0].name] || 0) : 0;
+                    const tiedCandidatesCount = candidates.filter(c => (posResults[c.name] || 0) === maxVotes).length;
+
+                    return candidates.map((cand, idx) => {
+                        const votes = posResults[cand.name] || 0;
+                        const percent = totalVotes === 0 ? 0 : ((votes / totalVotes) * 100).toFixed(1);
+                        const isTop = votes > 0 && votes === maxVotes;
+                        const isTied = isTop && tiedCandidatesCount > 1;
+                        const isLeading = isTop && !isTied;
+
+                        return (
+                            <div key={cand.id} className={`px-4 sm:px-5 py-3.5 transition-colors ${(isLeading || isTied) ? 'bg-indigo-50/60 dark:bg-indigo-900/10' : ''}`}>
+                                <div className="flex items-center gap-3">
+                                    {/* Rank badge */}
+                                    <div className={`flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black ${
+                                        (isLeading || isTied)
+                                            ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-sm shadow-amber-400/30'
+                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
+                                    }`}>
+                                        {(isLeading || isTied) ? '★' : idx + 1}
+                                    </div>
+
+                                    {/* Avatar */}
+                                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-[11px] font-black flex-shrink-0 ${stringToColor(cand.name)}`}>
+                                        {getInitials(cand.name)}
+                                    </div>
+
+                                    {/* Name + bar */}
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                                            <div className="min-w-0">
+                                                <span className={`text-xs sm:text-sm font-bold truncate block ${
+                                                    (isLeading || isTied) ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-700 dark:text-slate-200'
+                                                }`}>{cand.name}</span>
+                                                {(isLeading || isTied) && (
+                                                    <span className={`text-[9px] font-black ${isTied ? 'text-amber-600 dark:text-amber-400' : 'text-indigo-500 dark:text-indigo-400'} uppercase flex items-center gap-0.5`}>
+                                                        <SealCheck weight="fill" size={10} /> {isTied ? 'Tied' : 'Leading'}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="flex items-baseline gap-1.5 shrink-0">
+                                                <span className={`font-mono font-black text-sm sm:text-base ${
+                                                    (isLeading || isTied) ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-800 dark:text-white'
+                                                }`}>{votes.toLocaleString()}</span>
+                                                <span className="text-[10px] font-bold text-slate-400">{percent}%</span>
+                                            </div>
+                                        </div>
+                                        {/* Progress bar */}
+                                        <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                            <motion.div
+                                                initial={{ width: 0 }}
+                                                animate={{ width: `${percent}%` }}
+                                                transition={{ duration: 0.9, ease: 'easeOut', delay: idx * 0.05 }}
+                                                className={`h-full rounded-full ${
+                                                    (isLeading || isTied)
+                                                        ? 'bg-gradient-to-r from-indigo-500 to-violet-500'
+                                                        : 'bg-slate-300 dark:bg-slate-600'
+                                                }`}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    });
+                })()}
             </div>
         </div>
     );
