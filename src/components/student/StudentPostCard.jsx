@@ -249,7 +249,7 @@ const StudentPostCard = ({
     // --- CHECK FOR SYSTEM POSTS (COUNTDOWN OR RESULTS) ---
     if (post.type === 'system_countdown') {
         return (
-            <motion.div layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-6 w-full">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-6 w-full">
                 <LiveCountdown targetTime={post.targetTime} />
             </motion.div>
         );
@@ -258,8 +258,7 @@ const StudentPostCard = ({
     if (post.type === 'election_result') {
         return (
             <motion.div
-                layout
-                initial={{ opacity: 0, scale: 0.95 }}
+                initial={{ opacity: 0, scale: 0.98 }}
                 animate={{ opacity: 1, scale: 1 }}
                 className="mb-6 w-full rounded-[24px] overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
             >
@@ -271,11 +270,10 @@ const StudentPostCard = ({
     // --- STANDARD POST CARD RENDER ---
     return (
         <motion.div
-            layout
-            initial={{ opacity: 0, y: 30, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.5, type: "spring", bounce: 0.3 }}
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
             style={!isStandardTheme ? monetTheme?.glassStyle : {}}
             className={`
                 relative group mb-5
@@ -310,7 +308,7 @@ const StudentPostCard = ({
                             </h3>
                         </Link>
                         <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-400 dark:text-slate-500">
-                            <span>{post.createdAt ? new Date(post.createdAt.toDate()).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Now'}</span>
+                            <span>{post.createdAt ? new Date(post.createdAt.toDate ? post.createdAt.toDate() : (post.createdAt.seconds ? post.createdAt.seconds * 1000 : post.createdAt)).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Now'}</span>
                             <span className="w-0.5 h-0.5 rounded-full bg-slate-300 dark:bg-slate-600"></span>
 
                             {post.audience === 'Public' ? (
@@ -330,21 +328,19 @@ const StudentPostCard = ({
 
                 {/* Actions */}
                 {isAuthor && (
-                    <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0">
-                        <motion.button
-                            whileHover={{ scale: 1.1, backgroundColor: "rgba(255,255,255,0.8)" }} whileTap={{ scale: 0.9 }}
+                    <div className="flex items-center gap-1.5 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all duration-300">
+                        <button
                             onClick={(e) => { e.stopPropagation(); onStartEdit(post); }}
-                            className="p-2 rounded-full bg-white/40 dark:bg-white/5 text-slate-500 hover:text-indigo-600 backdrop-blur-md shadow-sm transition-colors"
+                            className="p-2 rounded-full bg-slate-100 dark:bg-white/5 text-slate-500 hover:text-indigo-600 transition-colors"
                         >
                             <PencilIcon className="w-3.5 h-3.5" />
-                        </motion.button>
-                        <motion.button
-                            whileHover={{ scale: 1.1, backgroundColor: "rgba(255,255,255,0.8)" }} whileTap={{ scale: 0.9 }}
+                        </button>
+                        <button
                             onClick={(e) => { e.stopPropagation(); onDelete(post.id); }}
-                            className="p-2 rounded-full bg-white/40 dark:bg-white/5 text-slate-500 hover:text-red-600 backdrop-blur-md shadow-sm transition-colors"
+                            className="p-2 rounded-full bg-slate-100 dark:bg-white/5 text-slate-500 hover:text-red-600 transition-colors"
                         >
                             <TrashIcon className="w-3.5 h-3.5" />
-                        </motion.button>
+                        </button>
                     </div>
                 )}
             </div>

@@ -241,21 +241,21 @@ const EditStudentProfileModal = ({
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.9, opacity: 0, y: 30 }}
           transition={{ type: 'spring', stiffness: 260, damping: 25 }}
-          className="relative w-full max-w-md sm:max-w-lg md:max-w-2xl bg-neumorphic-base shadow-neumorphic rounded-3xl dark:bg-neumorphic-base-dark dark:shadow-lg overflow-hidden max-h-[90vh] flex flex-col"
+          className="relative w-full max-w-md sm:max-w-lg md:max-w-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-3xl shadow-2xl rounded-[2.5rem] overflow-hidden max-h-[90vh] flex flex-col border border-white/40 dark:border-white/10"
         >
           <button 
               onClick={onClose} 
-              className="absolute top-4 right-4 p-2 rounded-full bg-neumorphic-base shadow-neumorphic transition-shadow hover:shadow-neumorphic-inset active:shadow-neumorphic-inset dark:bg-neumorphic-base-dark dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark dark:active:shadow-neumorphic-inset-dark z-20"
+              className="absolute top-4 right-4 p-2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all z-20"
               aria-label="Close"
           >
-              <XMarkIcon className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+              <XMarkIcon className="w-5 h-5" />
           </button>
           
-          <div className="pt-8 pb-4 px-6 text-center border-b border-slate-300/50 dark:border-slate-700 flex-shrink-0">
-              <h2 id="modal-title" className="text-2xl font-bold text-slate-900 leading-tight dark:text-slate-100">
+          <div className="pt-8 pb-4 px-6 text-center border-b border-slate-100 dark:border-slate-800 flex-shrink-0">
+              <h2 id="modal-title" className="text-2xl font-black text-slate-900 leading-tight dark:text-white">
                 Edit Profile
               </h2>
-              <p className="text-sm text-slate-600 mt-1 dark:text-slate-300">
+              <p className="text-sm font-medium text-slate-500 mt-1 dark:text-slate-400">
                 Update your personal information.
               </p>
           </div>
@@ -284,7 +284,7 @@ const EditStudentProfileModal = ({
                           </div>
                           <label 
                               htmlFor="profile-photo-upload" 
-                              className="cursor-pointer px-4 py-2 rounded-xl bg-neumorphic-base dark:bg-neumorphic-base-dark text-gray-700 dark:text-slate-200 shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark transition-all text-sm font-medium"
+                              className="cursor-pointer px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all text-sm font-bold shadow-sm"
                           >
                               <span className="flex items-center gap-2"><ArrowUpTrayIcon className="w-4 h-4" /> Upload Photo</span>
                               <input 
@@ -318,7 +318,7 @@ const EditStudentProfileModal = ({
                       </label>
                       <div 
                           ref={coverPhotoRef}
-                          className={`relative w-full h-32 rounded-xl bg-neumorphic-base shadow-neumorphic-inset dark:bg-neumorphic-base-dark dark:shadow-neumorphic-inset-dark overflow-hidden transition-shadow ${coverPhotoURL && !isUploadingCover ? 'cursor-grab' : ''} ${isDraggingCover ? 'cursor-grabbing' : ''}`}
+                          className={`relative w-full h-32 rounded-2xl bg-slate-100 dark:bg-slate-800 overflow-hidden border border-slate-200 dark:border-white/5 ${coverPhotoURL && !isUploadingCover ? 'cursor-grab' : ''} ${isDraggingCover ? 'cursor-grabbing' : ''}`}
                           onMouseDown={handleCoverDragStart}
                       >
                           {coverPhotoURL && !isUploadingCover && (
@@ -341,10 +341,10 @@ const EditStudentProfileModal = ({
                           )}
                           <label 
                               htmlFor="cover-photo-upload" 
-                              className="absolute z-10 bottom-2 right-2 p-2 rounded-full bg-neumorphic-base shadow-neumorphic transition-all hover:shadow-neumorphic-inset active:shadow-neumorphic-inset dark:bg-neumorphic-base-dark dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark dark:active:shadow-neumorphic-inset-dark cursor-pointer"
+                              className="absolute z-10 bottom-2 right-2 p-2 rounded-full bg-white dark:bg-slate-700 shadow-lg text-slate-700 dark:text-slate-200 cursor-pointer hover:scale-110 transition-transform"
                               onMouseDown={(e) => e.stopPropagation()} 
                           >
-                              <ArrowUpTrayIcon className="w-5 h-5 text-slate-700 dark:text-slate-300" />
+                              <ArrowUpTrayIcon className="w-5 h-5" />
                               <input 
                                   id="cover-photo-upload" 
                                   type="file" 
@@ -381,7 +381,7 @@ const EditStudentProfileModal = ({
                     onChange={(e) => setFirstName(e.target.value)}
                     required
                     // --- MODIFIED: Added responsive text size ---
-                    className="w-full p-3 rounded-xl bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark text-gray-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-500 transition-all text-sm sm:text-base"
+                    className="w-full p-3.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white transition-all text-sm sm:text-base font-medium placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500/20 outline-none"
                   />
                 </div>
 
@@ -396,7 +396,7 @@ const EditStudentProfileModal = ({
                     onChange={(e) => setLastName(e.target.value)}
                     required
                     // --- MODIFIED: Added responsive text size ---
-                    className="w-full p-3 rounded-xl bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark text-gray-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-500 transition-all text-sm sm:text-base"
+                    className="w-full p-3.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white transition-all text-sm sm:text-base font-medium placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500/20 outline-none"
                   />
                 </div>
               </div>
@@ -411,7 +411,7 @@ const EditStudentProfileModal = ({
                   value={gender}
                   onChange={(e) => setGender(e.target.value)}
                   // --- MODIFIED: Added responsive text size ---
-                  className="w-full p-3 rounded-xl bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark text-gray-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-500 transition-all text-sm sm:text-base"
+                  className="w-full p-3.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white transition-all text-sm sm:text-base font-medium focus:ring-2 focus:ring-indigo-500/20 outline-none"
                 >
                   <option value="Not specified">Not specified</option>
                   <option value="Male">Male</option>
@@ -426,7 +426,7 @@ const EditStudentProfileModal = ({
                   <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-2">
                     Custom Bio (Lvl 15+)
                   </label>
-                  <div className="neumorphic-quill-editor rounded-xl overflow-hidden shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark bg-neumorphic-base dark:bg-neumorphic-base-dark">
+                  <div className="rounded-xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus-within:ring-2 focus-within:ring-indigo-500/20">
                     <ReactQuill
                       theme="snow"
                       value={customBio}
@@ -440,8 +440,8 @@ const EditStudentProfileModal = ({
 
               {/* "About Me" Fields (Conditional) */}
               {canUpdateInfo && (
-                  <div className="space-y-4 pt-4 border-t border-slate-300/50 dark:border-slate-700">
-                      <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-200">
+                  <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                      <h3 className="text-lg font-black text-slate-900 dark:text-white">
                           About Me (Lvl 20+)
                       </h3>
                       
@@ -582,7 +582,7 @@ const EditStudentProfileModal = ({
                                   onChange={(e) => setRelationshipPartner(e.target.value)}
                                   placeholder="e.g., Jane Doe"
                                   // --- MODIFIED: Added responsive text size ---
-                                  className="w-full p-3 rounded-xl bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark text-gray-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-500 transition-all text-sm sm:text-base"
+                                  className="w-full p-3.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white transition-all text-sm sm:text-base font-medium placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500/20 outline-none"
                               />
                           </div>
                       )}
@@ -615,7 +615,7 @@ const EditStudentProfileModal = ({
                     type="button" 
                     onClick={onClose}
                     disabled={isLoading || isUploadingCover || isUploadingProfile}
-                    className="px-5 py-2 rounded-xl bg-neumorphic-base dark:bg-neumorphic-base-dark text-gray-700 dark:text-slate-200 shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark transition-all disabled:opacity-50"
+                    className="px-6 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all disabled:opacity-50"
                   >
                     Cancel
                   </button>
@@ -623,7 +623,7 @@ const EditStudentProfileModal = ({
                     type="button"
                     onClick={handleSubmit}
                     disabled={isLoading || isUploadingCover || isUploadingProfile}
-                    className="flex items-center justify-center min-w-[140px] px-5 py-2 rounded-xl bg-indigo-500 text-white shadow-md hover:bg-indigo-600 active:shadow-inner transition-all disabled:opacity-70 disabled:bg-indigo-400"
+                    className="flex items-center justify-center min-w-[140px] px-6 py-2.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold shadow-lg hover:shadow-xl hover:scale-105 transition-all disabled:opacity-70 disabled:bg-slate-800 dark:disabled:bg-slate-200"
                   >
                     {isLoading ? <Spinner size="sm" /> : 'Save Changes'}
                   </button>

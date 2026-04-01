@@ -25,12 +25,12 @@ const CreateClassAnnouncementForm = ({ classId, onAnnouncementPosted }) => {
 
         setIsSubmitting(true);
         try {
-            // CRITICAL CHANGE: Saving 'classId' as a string directly, not an array
-            await addDoc(collection(db, 'studentAnnouncements'), {
-                classId: classId, // Store classId as a string field
+            // CRITICAL CHANGE: Saving 'classIds' as an array for consistency
+            await addDoc(collection(db, 'classAnnouncements'), {
+                classIds: [classId], // Store classId in an array field
                 teacherId: userProfile.id,
-                teacherName: userProfile.displayName,
-                teacherPhotoURL: userProfile.photoURL || null, // FIX: Save the user's profile picture URL
+                teacherName: `${userProfile?.firstName} ${userProfile?.lastName}`,
+                teacherPhotoURL: userProfile.photoURL || null, 
                 content,
                 createdAt: serverTimestamp(),
             });

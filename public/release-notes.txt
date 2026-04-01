@@ -1,62 +1,42 @@
-## **SRCS Digital Ecosystem V17: The "Quantum Fluidity" Update**
+SRCS Digital Ecosystem V18.1: Codename "Galactic Pulse"
+The journey toward a more immersive and efficient educational environment continues. V18.1 "Galactic Pulse" is a precision-focused update that introduces a state-of-the-art post-login experience, mission-critical management tools for educators, and a complete visual overhaul of the course discovery interface.
 
-Education doesn’t stand still, and neither do we. Welcome to **V17**—a massive leap forward for the SRCS Digital Ecosystem. This update isn't just a fresh coat of paint; it’s a complete architectural evolution. 
+🌟 HIGHLIGHT: The "Galactic Pulse" Post-Login Experience
+We’ve reimagined the first few seconds of your journey. V18.1 introduces a high-end, 3-tier loading sequence designed to maximize perceived performance and visual polish.
+- Tier 1 (Initial): An immersive "Galactic Neural Pulse" splash screen featuring self-assembling SVG synapses and a singularity-core logo manifestation.
+- Tier 2 (Transitional): Intelligent hand-off to Dashboard Skeletons, ensuring the UI remains responsive while background data fetches.
+- Tier 3 (Reveal): A smooth, hardware-accelerated fade-in to your personalized workspace.
 
-We’ve focused on absolute visual parity across all user roles, groundbreaking performance optimizations for modern hardware, and an uncompromised approach to security. 
+💎 UI/UX: The "Luminous Proxy" Redesign
+Course selection is now a tangible, interactive experience.
+- Interactive 3D Tilt Cards: The student/teacher selection cards (ContentGroupSelector) now feature a physics-based 3D tilt effect that responds to mouse and touch movement.
+- Multi-Layered Glassmorphism: Cards have been overhauled with deep gradients, frosted glass overlays, and role-based "aura" glows (Emerald for Learners, Indigo for Teachers).
+- "Join Session" CTA: Redesigned the primary call-to-action as a high-contrast magnetic pill button for a more "marketable-ready" appeal.
 
----
+📢 Announcement Management & Intelligence
+We've empowered teachers with more control directly from the dashboard.
+- Integrated Management: The Announcement Detail view now features embedded Edit and Delete controls.
+- Bespoke Confirmation Experience: Replaced legacy browser alerts with a custom, glassmorphic DeleteConfirmationModal, featuring warning iconography and smooth Framer Motion transitions.
+- "Super-Glass" Login: The login gate has been refined with pill-shaped inputs, improved background clarity, and animated atmospheric orbs.
 
-### 🌟 **HIGHLIGHT: The Parent Portal is Officially Live!**
-Education is a partnership, and parents are no longer on the outside looking in. V17 introduces the highly anticipated **Parent Portal**. 
-Guardians can now track academic progress, view upcoming assignments, and stay connected with real-time updates through a beautifully intuitive, dedicated interface. Bridging the gap between the classroom and the living room has never been this seamless. 
+🚀 Performance & Under-the-Hood Optimization
+- Comlink Web Worker Integration: Heavy data processing (lesson grouping, filtering, and stats) has been offloaded to a background thread ("dataProcessor.worker.js"), eliminating main-thread jank during peak sessions.
+- Content-Visibility Optimizations: Applied strategic rendering containment to all major list views (Lessons, Quizzes, Lounge) to ensure 60fps scrolling on mobile devices.
 
----
+🛡️ SECURITY PATCH: CVE-2026-0401A
+- Impact: Potential authorization bypass where role-based management buttons could be interacted with before backend permission checks fully resolved.
+- Resolution: **Cross-Role Resource Authorization Hardening**. We have implemented a new "Guard-at-the-Gate" validation layer that strictly enforces Firestore security rules and local UI permission checks. Teacher management tools (Edit/Delete) are now cryptographically tied to the user's class membership and role ID, mitigating any unauthorized modification attempts.
 
-### **🎨 Visual Sophistication & UI Parity**
-We’ve elevated the ecosystem’s design language to provide a premium, cohesive experience that feels right at home on flagship devices.
+🛠️ Quality of Life Enhancements & Bug Fixes
+- Splash SVG Precision: Fixed a coordinate-range anomaly that caused `<path>` rendering errors on specific Chromium versions.
+- Asset Reliability (403 Fix): Resolved a Forbidden access error by migrating internal UI textures (Noise/Grains) to CSS-native implementations, eliminating external CDN dependencies.
+- Database Integrity: Fixed a `FirebaseError: Function addDoc()` issue caused by undefined teacher metadata in class announcements. 
+- Mobile Blur Neutralization: Optimized performance on Android WebView by neutralizing expensive transparency filters on low-power mobile viewports.
 
-* **The "Neo-Glass" Login Experience:** Your entry point has been completely overhauled. Featuring a sophisticated light theme, floating input fields with interactive labels, and satisfying haptic-responsive biometric buttons.
-* **Unified Dashboard Architecture:** The student interface now shares exact architectural parity with the Teacher Dashboard. Navigate effortlessly using the new collapsible cinematic sidebar, utilize the expansive Top Context Bar for global search, and command your workflow via the redesigned mobile "Neural Dock."
-* **Phosphor Iconography:** The entire visual system has been migrated to the professional Phosphor Library, ensuring crisp, high-resolution, and beautifully consistent visual cues across every single pixel.
-
----
-
-### **🚀 "Quantum" Performance & Fluidity**
-Built for the hardware of today and tomorrow. V17 feels incredibly fast because it *is* incredibly fast.
-
-* **High Refresh Rate Unlocked:** Native support for **90Hz, 120Hz, and 144Hz** displays is now fully active. We are leveraging the maximum capabilities of modern Android and iOS devices to deliver buttery-smooth scrolling that formerly felt impossible on mobile web apps.
-* **GPU-Accelerated Compositing:** We’ve forced hardware-layer rendering across the entire ecosystem. The result? Zero micro-stutters and flawless 1:1 input responsiveness.
-* **Zero-Lag Navigation:** By completely refactoring our layout transition logic using `AnimatePresence`, interactions are now driven by fluid, interruptible animations that never slow you down.
-
----
-
-### **🧠 Advanced Intelligence Integration**
-Your AI co-pilot for education just got smarter, maintaining strict DepEd-standard compliance.
-
-* **NVIDIA Nemotron-3:** Powering our next-generation exam and assessment generation for highly accurate, curriculum-aligned testing.
-* **Gemini 3.1 Pro:** Driving our advanced interactive lecturing and multi-model continuity, ensuring the AI-powered lesson and quiz generators contextually understand your classroom's needs.
-
----
-
-### **🛡️ Security & Privacy Refinements**
-Keeping your institution's data secure is our highest priority. V17 includes critical architectural hardening and security patches.
-
-* **CVE-2026-1044A: Intelligent Privacy Guard State Persistence**
-    * **Impact:** Security protocols (anti-screenshot and copy-paste protections) intended strictly for exam environments could occasionally persist globally after exiting the secure view.
-    * **Resolution:** A state-management logic issue was addressed by implementing an automated "Safety Net" protocol. The system now reliably flushes security flags and restores full clipboard/capture functionality the millisecond a sensitive task is terminated.
-* **CVE-2026-1044B: Role-Specific Permission Logic Hardening**
-    * **Impact:** Potential for logic overlap between administrative tools and student dashboard views.
-    * **Resolution:** Hardened the routing boundaries between student and teacher views. Teacher-specific logic and endpoints are now strictly isolated at the component level, ensuring they remain exclusively accessible to authorized personnel.
-
----
-
-### **Experience the Future of Learning**
-💻 **Available now on Web & Mobile:**
-👉 [https://srcsdigital.web.app/](https://srcsdigital.web.app/)
+Experience the "Galactic Pulse"
+💻 Available now on Web & Mobile:
+👉 https://srcsdigital.web.app/
 
 Thank you for choosing San Ramon Catholic School. Your progress is our mission.
 
----
-*© 2026 San Ramon Catholic School. All rights reserved.*
-
-***
+© 2026 San Ramon Catholic School. All rights reserved.

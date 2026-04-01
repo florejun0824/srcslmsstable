@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { getWorker } from '../../workers/workerApi';
 import { 
   BookOpenIcon, 
   ArrowPathIcon, 
@@ -161,46 +162,26 @@ const StudentLessonsTab = ({
   const location = useLocation();
   const navigate = useNavigate();
 
-  // --- DERIVED STATE: Group Lessons ---
-  const lessonsByClass = useMemo(() => {
-    if (!lessons.length) return {};
+  // --- DERIVED STATE: Group Lessons (offloaded to Web Worker) ---
+  const [lessonsByClass, setLessonsByClass] = useState({});
 
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  useEffect(() => {
+    if (!lessons.length) { setLessonsByClass({}); return; }
 
-    const grouped = lessons.reduce((acc, lesson) => {
-      const className = lesson.className || 'Uncategorized Class';
-      if (!acc[className]) {
-        acc[className] = { 
-            id: lesson.classId, 
-            name: className, 
-            lessons: [],
-            hasNewContent: false
-        };
-      }
-      
-      acc[className].lessons.push(lesson);
+    let cancelled = false;
+    // Serialize Firestore Timestamps to plain numbers before sending to worker
+    const serialized = lessons.map(l => ({
+      ...l,
+      createdAt: l.createdAt
+        ? (l.createdAt.toDate ? l.createdAt.toDate().getTime() : new Date(l.createdAt).getTime())
+        : null,
+    }));
 
-      if (!acc[className].hasNewContent && lesson?.createdAt) {
-          const createdAtDate = lesson.createdAt.toDate ? lesson.createdAt.toDate() : new Date(lesson.createdAt);
-          if (createdAtDate > sevenDaysAgo) {
-              acc[className].hasNewContent = true;
-          }
-      }
-
-      return acc;
-    }, {});
-
-    Object.keys(grouped).forEach(className => {
-      grouped[className].lessons.sort((a, b) => {
-        const orderA = a.order ?? Infinity;
-        const orderB = b.order ?? Infinity;
-        if (orderA !== orderB) return orderA - orderB;
-        return a.title.localeCompare(b.title, 'en-US', { numeric: true });
-      });
+    getWorker().groupLessonsByClass(serialized).then(result => {
+      if (!cancelled) setLessonsByClass(result);
     });
 
-    return grouped;
+    return () => { cancelled = true; };
   }, [lessons]);
 
   // --- ROUTING LOGIC ---

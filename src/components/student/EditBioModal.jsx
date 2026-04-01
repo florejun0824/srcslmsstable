@@ -26,7 +26,7 @@ const EditBioModal = ({ currentBio, onSubmit, onClose, isLoading, error, success
               maxLength={100}
               rows={4}
               placeholder="Write something about yourself..."
-              className="w-full p-3 rounded-xl bg-neumorphic-base dark:bg-neumorphic-base-dark shadow-neumorphic-inset dark:shadow-neumorphic-inset-dark text-gray-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-500 transition-all"
+              className="w-full p-3.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white transition-all text-sm sm:text-base font-medium placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500/20 outline-none"
             />
             <p className="text-right text-xs text-slate-500 dark:text-slate-400 mt-1">
               {bio.length} / 100
@@ -54,14 +54,14 @@ const EditBioModal = ({ currentBio, onSubmit, onClose, isLoading, error, success
               type="button"
               onClick={onClose}
               disabled={isLoading}
-              className="px-5 py-2 rounded-xl bg-neumorphic-base dark:bg-neumorphic-base-dark text-gray-700 dark:text-slate-200 shadow-neumorphic dark:shadow-neumorphic-dark hover:shadow-neumorphic-inset dark:hover:shadow-neumorphic-inset-dark active:shadow-neumorphic-inset dark:active:shadow-neumorphic-inset-dark transition-all disabled:opacity-50"
+              className="px-6 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isLoading}
-              className="flex items-center justify-center min-w-[120px] px-5 py-2 rounded-xl bg-indigo-500 text-white shadow-md hover:bg-indigo-600 active:shadow-inner transition-all disabled:opacity-70 disabled:bg-indigo-400"
+              className="flex items-center justify-center min-w-[120px] px-6 py-2.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold shadow-lg hover:shadow-xl hover:scale-105 transition-all disabled:opacity-70 disabled:bg-slate-800 dark:disabled:bg-slate-200"
             >
               {isLoading ? <Spinner size="sm" /> : 'Save Bio'}
             </button>

@@ -71,16 +71,30 @@ function classNames(...classes) {
 }
 
 // Monet Style Generator
-const getMonetStyle = (activeOverlay) => {
-    switch (activeOverlay) {
-        case 'christmas': return { background: 'rgba(15, 23, 66, 0.85)', borderColor: 'rgba(100, 116, 139, 0.2)' };
-        case 'valentines': return { background: 'rgba(60, 10, 20, 0.85)', borderColor: 'rgba(255, 100, 100, 0.15)' };
-        case 'graduation': return { background: 'rgba(30, 25, 10, 0.85)', borderColor: 'rgba(255, 215, 0, 0.15)' };
-        case 'rainy': return { background: 'rgba(20, 35, 20, 0.85)', borderColor: 'rgba(100, 150, 100, 0.2)' };
-        case 'cyberpunk': return { background: 'rgba(35, 5, 45, 0.85)', borderColor: 'rgba(180, 0, 255, 0.2)' };
-        case 'spring': return { background: 'rgba(50, 10, 20, 0.85)', borderColor: 'rgba(255, 150, 180, 0.2)' };
-        case 'space': return { background: 'rgba(5, 5, 10, 0.85)', borderColor: 'rgba(100, 100, 255, 0.15)' };
-        default: return { background: 'rgba(15, 23, 42, 0.75)', borderColor: 'rgba(255, 255, 255, 0.1)' };
+const getMonetStyle = (activeOverlay, isDarkMode) => {
+    if (isDarkMode) {
+        switch (activeOverlay) {
+            case 'christmas': return { background: 'rgba(15, 23, 66, 0.85)', borderColor: 'rgba(100, 116, 139, 0.3)' };
+            case 'valentines': return { background: 'rgba(60, 10, 20, 0.85)', borderColor: 'rgba(255, 100, 100, 0.2)' };
+            case 'graduation': return { background: 'rgba(30, 25, 10, 0.85)', borderColor: 'rgba(255, 215, 0, 0.2)' };
+            case 'rainy': return { background: 'rgba(20, 35, 20, 0.85)', borderColor: 'rgba(100, 150, 100, 0.3)' };
+            case 'cyberpunk': return { background: 'rgba(35, 5, 45, 0.85)', borderColor: 'rgba(180, 0, 255, 0.3)' };
+            case 'spring': return { background: 'rgba(50, 10, 20, 0.85)', borderColor: 'rgba(255, 150, 180, 0.3)' };
+            case 'space': return { background: 'rgba(5, 5, 10, 0.85)', borderColor: 'rgba(100, 100, 255, 0.2)' };
+            default: return { background: 'rgba(15, 23, 42, 0.8)', borderColor: 'rgba(255, 255, 255, 0.1)' };
+        }
+    } else {
+        // Light Mode Defaults
+        switch (activeOverlay) {
+            case 'christmas': return { background: 'rgba(232, 245, 233, 0.9)', borderColor: 'rgba(74, 124, 89, 0.15)' };
+            case 'valentines': return { background: 'rgba(252, 228, 236, 0.9)', borderColor: 'rgba(225, 116, 150, 0.15)' };
+            case 'graduation': return { background: 'rgba(255, 248, 225, 0.9)', borderColor: 'rgba(212, 175, 55, 0.15)' };
+            case 'rainy': return { background: 'rgba(224, 242, 241, 0.9)', borderColor: 'rgba(77, 182, 172, 0.15)' };
+            case 'cyberpunk': return { background: 'rgba(243, 229, 245, 0.9)', borderColor: 'rgba(149, 117, 205, 0.15)' };
+            case 'spring': return { background: 'rgba(251, 233, 231, 0.9)', borderColor: 'rgba(255, 138, 101, 0.15)' };
+            case 'space': return { background: 'rgba(232, 234, 246, 0.9)', borderColor: 'rgba(121, 134, 203, 0.15)' };
+            default: return { background: 'rgba(255, 255, 255, 0.85)', borderColor: 'rgba(203, 213, 225, 0.4)' };
+        }
     }
 };
 
@@ -88,11 +102,12 @@ const scrollbarStyles = `
   .glass-panel {
     backdrop-filter: blur(40px) saturate(180%);
     -webkit-backdrop-filter: blur(40px) saturate(180%);
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.06);
+    box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.08); /* Softer, larger shadow for light mode */
     transition: background-color 0.5s ease, border-color 0.5s ease;
   }
   .dark .glass-panel { box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4); }
-  .xp-bar-glow { box-shadow: 0 0 15px rgba(59, 130, 246, 0.6); }
+  .xp-bar-glow { box-shadow: 0 0 15px rgba(59, 130, 246, 0.4); }
+  .dark .xp-bar-glow { box-shadow: 0 0 20px rgba(59, 130, 246, 0.6); }
   .bio-content-display p, .bio-content-display ol, .bio-content-display ul { margin-bottom: 0.5rem; }
   .bio-content-display p:last-child { margin-bottom: 0; }
   .bio-content-display a { color: #3B82F6; text-decoration: underline; }
@@ -143,10 +158,10 @@ const InfoRowCompact = React.memo(({ icon: Icon, label, value }) => (
 const StudentProfilePage = () => {
     const { user, userProfile, refreshUserProfile, loading: authLoading } = useAuth();
     const { showToast } = useToast();
-    const { activeOverlay } = useTheme();
+    const { activeOverlay, isDarkMode } = useTheme();
 
     // Memoized styles
-    const monetStyle = useMemo(() => getMonetStyle(activeOverlay), [activeOverlay]);
+    const monetStyle = useMemo(() => getMonetStyle(activeOverlay, isDarkMode), [activeOverlay, isDarkMode]);
 
     // Modal States
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -365,8 +380,8 @@ const StudentProfilePage = () => {
                 <div className="relative z-10 w-full max-w-[1920px] mx-auto">
 
                     {/* 1. Cover Photo */}
-                    <div className="relative w-full h-64 md:h-96 overflow-hidden rounded-b-[3rem] shadow-2xl group">
-                        <div className="absolute inset-0 bg-slate-300 dark:bg-slate-800 animate-pulse z-0"></div>
+                    <div className="relative w-full h-64 md:h-96 overflow-hidden rounded-b-[3rem] shadow-2xl group border-b border-white/20">
+                        <div className="absolute inset-0 bg-slate-200 dark:bg-slate-800 animate-pulse z-0"></div>
 
                         {userProfile?.canUploadCover && userProfile?.coverPhotoURL ? (
                             <div
@@ -385,7 +400,7 @@ const StudentProfilePage = () => {
                                 )}
                             </div>
                         )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent z-10"></div>
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent z-10"></div>
                     </div>
 
                     {/* 2. Profile Header Island */}
@@ -459,7 +474,7 @@ const StudentProfilePage = () => {
 
                                 <div className="mb-6">
                                     {canSetBio && bioMarkup ? (
-                                        <div className="bg-slate-100/50 dark:bg-black/20 p-4 rounded-2xl text-center border border-slate-200 dark:border-white/5">
+                                        <div className="bg-white/60 dark:bg-black/20 p-4 rounded-2xl text-center border border-slate-200/50 dark:border-white/5">
                                             <div
                                                 className="text-sm text-slate-700 dark:text-slate-300 bio-content-display break-words"
                                                 dangerouslySetInnerHTML={bioMarkup}

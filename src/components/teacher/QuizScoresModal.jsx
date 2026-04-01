@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import Modal from '../common/Modal';
+import { getWorker } from '../../workers/workerApi';
 import {
     AcademicCapIcon,
     ChartBarIcon,
@@ -162,70 +163,29 @@ const QuizScoresModal = ({
         };
     }, [isOpen, quiz?.id, classData?.id]);
 
-    // --- PROCESSING DATA ---
-    const { processedStudents, summaryStats, hasPendingEssays, hasFailedEssays } = useMemo(() => {
-        if (!classData?.students) return { processedStudents: [], summaryStats: {}, hasPendingEssays: false, hasFailedEssays: false };
+    // --- PROCESSING DATA (Worker) ---
+    const [processedData, setProcessedData] = useState({
+        processedStudents: [], summaryStats: {}, hasPendingEssays: false, hasFailedEssays: false
+    });
+    const { processedStudents, summaryStats, hasPendingEssays, hasFailedEssays } = processedData;
 
-        const maxAttempts = quiz?.settings?.maxAttempts ?? 1;
+    useEffect(() => {
+        if (!classData?.students) {
+            setProcessedData({ processedStudents: [], summaryStats: {}, hasPendingEssays: false, hasFailedEssays: false });
+            return;
+        }
+
+        let cancelled = false;
+        const serializedStudents = classData.students.map(s => ({ ...s }));
+        const serializedScores = fetchedScores.map(q => ({ ...q }));
+        const serializedLocks = fetchedLocks.map(l => ({ ...l }));
         
-        let pending = false;
-        let failed = false;
+        getWorker().processStudentScores(serializedStudents, serializedScores, serializedLocks, quiz, searchTerm)
+            .then(result => {
+                if (!cancelled) setProcessedData(result);
+            });
 
-        const students = classData.students.map(student => {
-            const myScores = fetchedScores.filter(s => s.studentId === student.id)
-                .sort((a, b) => (a.attemptNumber || 0) - (b.attemptNumber || 0));
-
-            const lockRecord = fetchedLocks.find(l => l.studentId === student.id);
-            const isLocked = !!lockRecord;
-
-            let status = 'Not Started';
-            let bestScore = null;
-
-            if (myScores.length > 0) {
-                const latest = myScores[myScores.length - 1];
-                status = latest.status || 'graded';
-                
-                if (latest.status === 'pending_ai_grading' || latest.hasPendingEssays) pending = true;
-                if (latest.answers?.some(a => a.status === 'grading_failed')) failed = true;
-
-                const bestAttempt = myScores.reduce((max, curr) => (curr.score ?? -1) >= (max.score ?? -1) ? curr : max, { score: -1 });
-                bestScore = bestAttempt.score;
-            } else if (isLocked) {
-                status = 'Locked';
-            }
-
-            return {
-                ...student,
-                attempts: myScores,
-                bestScore,
-                status,
-                isLocked,
-                lockId: lockRecord?.id 
-            };
-        });
-
-        const filtered = searchTerm 
-            ? students.filter(s => `${s.firstName} ${s.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()))
-            : students;
-
-        const attemptedCount = students.filter(s => s.attempts.length > 0).length;
-        const validScores = students.filter(s => s.bestScore !== null).map(s => s.bestScore);
-        const avgScore = validScores.length ? (validScores.reduce((a, b) => a + b, 0) / validScores.length) : 0;
-        const highestScore = validScores.length ? Math.max(...validScores) : 0;
-        
-        const totalPoints = quiz?.questions?.reduce((sum, q) => sum + (Number(q.points) || 1), 0) || 1;
-
-        return {
-            processedStudents: filtered,
-            hasPendingEssays: pending,
-            hasFailedEssays: failed,
-            summaryStats: {
-                attempted: attemptedCount,
-                totalStudents: students.length,
-                avg: (avgScore / totalPoints) * 100,
-                high: (highestScore / totalPoints) * 100
-            }
-        };
+        return () => { cancelled = true; };
     }, [classData, fetchedScores, fetchedLocks, quiz, searchTerm]);
 
     // --- ACTIONS ---
@@ -318,8 +278,8 @@ const QuizScoresModal = ({
 
                     <div className="flex flex-wrap gap-4">
                         <StatCard icon={UsersIcon} title="Submitted" value={`${summaryStats.attempted}/${summaryStats.totalStudents}`} color="blue" monet={monet} />
-                        <StatCard icon={AcademicCapIcon} title="Average" value={`${summaryStats.avg.toFixed(0)}%`} color="teal" monet={monet} />
-                        <StatCard icon={SparklesIcon} title="Highest" value={`${summaryStats.high.toFixed(0)}%`} color="purple" monet={monet} />
+                        <StatCard icon={AcademicCapIcon} title="Average" value={`${summaryStats.avg?.toFixed(0) || 0}%`} color="teal" monet={monet} />
+                        <StatCard icon={SparklesIcon} title="Highest" value={`${summaryStats.high?.toFixed(0) || 0}%`} color="purple" monet={monet} />
                     </div>
                 </div>
 
@@ -361,7 +321,7 @@ const QuizScoresModal = ({
                     {isLoadingData ? (
                         <div className="h-full flex items-center justify-center"><Spinner /></div>
                     ) : (
-                        <div className="space-y-4">
+                        <div className="space-y-4 content-visibility-auto">
                             {/* Desktop Header */}
                             <div className="hidden sm:grid grid-cols-12 gap-4 px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-slate-400">
                                 <div className="col-span-4">Student</div>

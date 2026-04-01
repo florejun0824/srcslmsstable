@@ -7,45 +7,45 @@ import { AtSign, Lock, Eye, EyeOff, Fingerprint, ArrowRight } from 'lucide-react
 import { BiometricAuth, BiometryErrorType } from '@aparajita/capacitor-biometric-auth';
 import { Preferences } from '@capacitor/preferences';
 
-const FONT = 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif';
+const FONT = '"Outfit", "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif';
 
-// --- PREMIUM NEUMORPHIC / GLASS INPUT WITH FLOATING LABEL ---
+// --- UNIQUE SUPER-GLASS INPUT WITH MORPHING ICON ---
 const PremiumInput = ({ icon: Icon, isPassword, togglePassword, showPassword, label, id, ...props }) => (
-    <div className="relative group mb-6">
-        <div className="absolute inset-y-0 left-0 flex items-center pl-5 pointer-events-none transition-colors duration-300 text-white/40 group-focus-within:text-indigo-400">
-            <Icon className="w-5 h-5" strokeWidth={1.5} />
-        </div>
-
-        {/* The input uses Tailwind's "peer" class so the label can react to its state */}
-        <input
-            id={id}
-            {...props}
-            type={isPassword && !showPassword ? 'password' : 'text'}
-            // We use placeholder-transparent so the actual placeholder doesn't show, but :placeholder-shown still works for the CSS trick
-            placeholder=" "
-            className="peer w-full h-[60px] bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl pl-[3.25rem] pr-12 text-[15px] text-white focus:bg-white/[0.06] focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all duration-300"
-            style={{ fontFamily: FONT }}
-        />
-
-        {/* Floating Label */}
+    <div className="relative group mb-8">
+        {/* Floating Label (More unique positioning) */}
         <label
             htmlFor={id}
-            className="absolute left-[3.25rem] top-1/2 -translate-y-1/2 text-white/40 text-[15px] pointer-events-none transition-all duration-300
-                       peer-focus:-translate-y-[26px] peer-focus:-translate-x-3 peer-focus:text-[11px] peer-focus:font-bold peer-focus:tracking-widest peer-focus:uppercase peer-focus:text-indigo-400
-                       peer-[:not(:placeholder-shown)]:-translate-y-[26px] peer-[:not(:placeholder-shown)]:-translate-x-3 peer-[:not(:placeholder-shown)]:text-[11px] peer-[:not(:placeholder-shown)]:font-bold peer-[:not(:placeholder-shown)]:tracking-widest peer-[:not(:placeholder-shown)]:uppercase peer-[:not(:placeholder-shown)]:text-white/70"
+            className="absolute left-6 -top-3 px-2 py-0.5 bg-white/40 backdrop-blur-md rounded-md text-[11px] font-black uppercase tracking-[0.2em] text-indigo-700 pointer-events-none transition-all duration-300 opacity-0 group-focus-within:opacity-100 group-focus-within:-translate-y-1 transform z-30"
         >
             {label}
         </label>
 
-        {isPassword && (
-            <button
-                type="button"
-                onClick={togglePassword}
-                className="absolute inset-y-0 right-0 flex items-center pr-5 text-white/40 hover:text-white/80 transition-colors focus:outline-none"
-            >
-                {showPassword ? <EyeOff className="w-5 h-5" strokeWidth={1.5} /> : <Eye className="w-5 h-5" strokeWidth={1.5} />}
-            </button>
-        )}
+        <div className="relative flex items-center">
+            {/* Morphing Icon Container */}
+            <div className="absolute left-2 w-12 h-12 flex items-center justify-center transition-all duration-500 z-20">
+                <div className="absolute inset-0 bg-indigo-50/50 rounded-2xl group-focus-within:bg-indigo-600 group-focus-within:rotate-12 transition-all duration-500 shadow-sm group-focus-within:shadow-indigo-200 group-focus-within:shadow-xl" />
+                <Icon className="w-5 h-5 text-slate-400 group-focus-within:text-white transition-colors duration-500 relative z-10" strokeWidth={2} />
+            </div>
+
+            <input
+                id={id}
+                {...props}
+                type={isPassword && !showPassword ? 'password' : 'text'}
+                placeholder={label}
+                className="w-full h-[64px] bg-white/40 hover:bg-white/60 backdrop-blur-xl border-2 border-white/80 rounded-[24px] pl-16 pr-12 text-[16px] text-slate-800 font-semibold placeholder:text-slate-400/60 focus:bg-white/80 focus:border-indigo-500/30 focus:ring-[8px] focus:ring-indigo-500/5 outline-none transition-all duration-500 shadow-[0_8px_30px_rgb(0,0,0,0.02)]"
+                style={{ fontFamily: FONT }}
+            />
+
+            {isPassword && (
+                <button
+                    type="button"
+                    onClick={togglePassword}
+                    className="absolute right-5 p-2 rounded-xl text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 transition-all focus:outline-none"
+                >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+            )}
+        </div>
     </div>
 );
 
@@ -124,53 +124,55 @@ const LoginPage = () => {
 
     return (
         <div
-            className="relative min-h-[100dvh] w-full overflow-hidden flex items-center justify-center bg-[#0B0910]"
+            className="relative min-h-[100dvh] w-full overflow-hidden flex items-center justify-center bg-white"
             style={{ fontFamily: FONT }}
         >
-            {/* --- GLOBAL DARK BACKGROUND & MESH GRADIENTS --- */}
+            {/* --- GLOBAL IMMERSIVE BACKGROUND --- */}
             <div className="absolute inset-0 z-0">
                 <div
-                    className="absolute inset-0 opacity-40 mix-blend-luminosity scale-105"
+                    className="absolute inset-0 opacity-[0.45] scale-105 transition-transform duration-[20s] animate-pulse-slow"
                     style={{
                         backgroundImage: "url('/srcs.jpg')",
                         backgroundSize: 'cover',
                         backgroundPosition: 'center',
                     }}
                 />
-                <div className="absolute inset-0 bg-gradient-to-br from-[#0B0910]/95 via-[#0B0910]/80 to-[#1A1525]/95 backdrop-blur-sm" />
-
-                {/* Decorative Glowing Orbs */}
-                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/20 rounded-full blur-[120px] pointer-events-none" />
-                <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/20 rounded-full blur-[120px] pointer-events-none" />
+                
+                {/* Dynamic Surface Layer */}
+                <div className="absolute inset-0 bg-gradient-to-tr from-white/80 via-white/40 to-transparent backdrop-blur-[1px]" />
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-indigo-50/60 via-transparent to-transparent" />
+                
+                {/* Decorative Elements */}
+                <div className="absolute -top-[20%] -left-[10%] w-[60%] h-[60%] bg-indigo-500/10 rounded-full blur-[140px] animate-float" />
+                <div className="absolute -bottom-[20%] -right-[10%] w-[60%] h-[60%] bg-blue-400/10 rounded-full blur-[140px] animate-float-delayed" />
             </div>
 
-            {/* --- MAIN GLASS CARD --- */}
-            <div className="relative z-20 w-full max-w-[1050px] mx-4 lg:mx-8 flex flex-col lg:flex-row rounded-[2.5rem] lg:rounded-[3rem] border border-white/[0.08] shadow-[0_30px_100px_rgba(0,0,0,0.4)] overflow-hidden bg-white/[0.02] backdrop-blur-3xl">
+            {/* --- MAIN LOGIN VESSEL --- */}
+            <div className="relative z-20 w-full max-w-[1100px] mx-4 lg:mx-8 flex flex-col lg:flex-row rounded-[40px] border border-white/60 bg-white/30 backdrop-blur-3xl shadow-[0_32px_120px_-20px_rgba(30,41,59,0.15)] overflow-hidden transition-all duration-700">
 
-                {/* LEFT: Branding & Aesthetics (Desktop Only) */}
-                <div className="hidden lg:flex lg:w-[45%] relative flex-col justify-between p-14 border-r border-white/[0.08]">
-
-                    {/* Inner subtle gradient map */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent pointer-events-none" />
-
+                {/* LEFT: Experience Side */}
+                <div className="hidden lg:flex lg:w-[45%] relative flex-col justify-between p-16 overflow-hidden">
+                    {/* Animated Background for Branding */}
+                    <div className="absolute inset-0 bg-slate-900/5 group-hover:bg-slate-900/10 transition-all duration-700" />
+                    
                     <div className="relative z-10">
-                        <div className="w-16 h-16 rounded-2xl bg-white/[0.05] border border-white/10 flex items-center justify-center mb-16 shadow-[0_0_30px_rgba(255,255,255,0.05)] backdrop-blur-md">
-                            <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain drop-shadow-lg" />
+                        <div className="w-20 h-20 rounded-3xl bg-white shadow-2xl flex items-center justify-center mb-16 rotate-3 hover:rotate-0 transition-transform duration-500">
+                            <img src="/logo.png" alt="Logo" className="w-12 h-12 object-contain" />
                         </div>
 
-                        <h1 className="text-[3.5rem] font-[900] tracking-tight text-white leading-[1] mb-6 drop-shadow-md">
-                            SRCS<br />
-                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">Digital</span>
+                        <h1 className="text-[4rem] font-[1000] tracking-tighter leading-[0.9] text-slate-900 mb-8 animate-fade-in">
+                            SRCS Digital<br />
+                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-indigo-400">Ecosystem</span>
                         </h1>
-                        <p className="text-[16px] text-white/60 font-medium leading-relaxed max-w-[280px]">
-                            Next-generation learning ecosystem. Boundless intelligence, unified precision.
+                        <p className="text-[18px] text-slate-600 font-bold leading-relaxed max-w-[320px] opacity-80">
+                            Precision-engineered learning at your fingertips.
                         </p>
                     </div>
 
-                    <div className="relative z-10">
-                        <div className="flex flex-wrap gap-3">
-                            {['AI-Powered', 'Real-time Analytics', 'Zero-Trust Security'].map(tag => (
-                                <span key={tag} className="px-4 py-2 rounded-xl bg-white/[0.03] border border-white/10 text-[11px] font-bold text-white/80 uppercase tracking-widest backdrop-blur-md">
+                    <div className="relative z-10 flex flex-col gap-4">
+                        <div className="flex gap-2">
+                            {['Adaptive', 'Fluid', 'Elite'].map(tag => (
+                                <span key={tag} className="px-4 py-2 rounded-2xl bg-white/40 border border-white/60 text-[10px] font-black text-slate-900 uppercase tracking-widest shadow-sm">
                                     {tag}
                                 </span>
                             ))}
@@ -178,33 +180,23 @@ const LoginPage = () => {
                     </div>
                 </div>
 
-                {/* RIGHT: Login Form */}
-                <div className="w-full lg:w-[55%] p-8 sm:p-12 lg:p-16 relative">
-
-                    {/* Subtle top glow ring in form area */}
-                    <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-
-                    {/* Mobile Logo & Header */}
-                    <div className="lg:hidden flex flex-col items-center text-center mb-10 mt-2 relative z-10">
-                        <div className="w-20 h-20 rounded-[1.25rem] bg-white/[0.05] border border-white/10 flex items-center justify-center shadow-xl mb-6 backdrop-blur-md relative overflow-hidden">
-                            <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/20 to-transparent" />
-                            <img src="/logo.png" alt="Logo" className="w-12 h-12 object-contain relative z-10" />
+                {/* RIGHT: Form Side */}
+                <div className="w-full lg:w-[55%] p-10 sm:p-14 lg:p-20 bg-white/20 relative">
+                    
+                    {/* Floating Branding (Mobile) */}
+                    <div className="lg:hidden flex flex-col items-center mb-12">
+                        <div className="w-20 h-20 rounded-3xl bg-white shadow-xl flex items-center justify-center mb-6">
+                            <img src="/logo.png" alt="Logo" className="w-12 h-12 object-contain" />
                         </div>
-                        <h1 className="text-3xl font-[900] tracking-tight text-white mb-2">
-                            SRCS Digital
-                        </h1>
-                        <p className="text-white/50 font-medium text-[14px]">Access your intelligence hub</p>
+                        <h2 className="text-4xl font-black text-slate-900 tracking-tighter">Login</h2>
                     </div>
 
-                    {/* Desktop Header */}
-                    <div className="hidden lg:block mb-12 relative z-10">
-                        <h2 className="text-[32px] font-[800] text-white tracking-tight leading-tight">
-                            Sign In
-                        </h2>
-                        <p className="text-white/50 font-medium text-[15px] mt-2">Access your personalized learning hub</p>
+                    {/* Desktop Subtitle */}
+                    <div className="hidden lg:block mb-14">
+                        <h2 className="text-[14px] font-black text-indigo-600 uppercase tracking-[0.3em] mb-4">Authentication</h2>
+                        <h3 className="text-4xl font-[900] text-slate-900 tracking-tight">Welcome back</h3>
                     </div>
 
-                    {/* Form */}
                     <form onSubmit={handleSubmit} className="flex flex-col relative z-10">
                         <PremiumInput
                             id="email"
@@ -227,77 +219,68 @@ const LoginPage = () => {
                             required
                         />
 
-                        {/* Error */}
+                        {/* Error Message */}
                         <div className={`overflow-hidden transition-all duration-300 ${error ? 'max-h-20 mb-6 opacity-100' : 'max-h-0 mb-0 opacity-0'}`}>
-                            <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center gap-3">
-                                <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse" />
-                                <p className="text-[13px] font-semibold text-red-400">{error}</p>
+                            <div className="p-4 rounded-2xl bg-red-50 border border-red-100 flex items-center gap-3">
+                                <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                                <p className="text-[13px] font-bold text-red-600">{error}</p>
                             </div>
                         </div>
 
-                        {/* Submit Button */}
                         <button
                             type="submit"
                             disabled={isLoading}
-                            className="w-full h-[60px] mt-2 rounded-2xl font-bold text-white text-[16px] tracking-wide bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 active:scale-[0.98] transition-all duration-300 disabled:opacity-50 disabled:active:scale-100 flex items-center justify-center gap-3 relative overflow-hidden group shadow-[0_0_40px_-10px_rgba(79,70,229,0.5)] hover:shadow-[0_0_60px_-15px_rgba(79,70,229,0.7)]"
+                            className="w-full h-[68px] mt-4 rounded-[28px] font-[900] text-white text-[17px] bg-slate-900 hover:bg-indigo-600 hover:scale-[1.02] active:scale-95 transition-all duration-500 shadow-[0_20px_40px_-10px_rgba(15,23,42,0.3)] disabled:opacity-50 flex items-center justify-center gap-4 group"
                         >
-                            {/* Inner shine effect */}
-                            <div className="absolute inset-0 w-1/2 translate-x-[-150%] skew-x-[-30deg] bg-gradient-to-r from-transparent via-white/20 to-transparent group-hover:animate-[shine_1.5s_ease-in-out]" />
-
                             {isLoading ? (
-                                <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                                <svg className="animate-spin h-6 w-6" fill="none" viewBox="0 0 24 24">
                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                                 </svg>
                             ) : (
-                                <>Sign In <ArrowRight className="w-5 h-5 group-hover:translate-x-1.5 transition-transform duration-300" /></>
+                                <>Sign In <ArrowRight className="w-5 h-5 group-hover:translate-x-2 transition-transform duration-500" /></>
                             )}
                         </button>
 
-                        {/* Terms */}
-                        <div className="mt-8 text-center">
-                            <p className="text-[13px] text-white/40 font-medium">
-                                By signing in, you agree to the{' '}
-                                <Link to="/terms" state={{ formData: currentFormData }} className="text-white/70 hover:text-white transition-colors font-semibold">Terms</Link>
+                        <div className="mt-10 text-center">
+                            <p className="text-[14px] text-slate-500 font-bold">
+                                New here? Check our{' '}
+                                <Link to="/terms" state={{ formData: currentFormData }} className="text-indigo-600 hover:text-indigo-400 transition-colors underline decoration-2 underline-offset-4">Terms</Link>
                                 {' '}&{' '}
-                                <Link to="/privacy" state={{ formData: currentFormData }} className="text-white/70 hover:text-white transition-colors font-semibold">Privacy</Link>
+                                <Link to="/privacy" state={{ formData: currentFormData }} className="text-indigo-600 hover:text-indigo-400 transition-colors underline decoration-2 underline-offset-4">Privacy</Link>
                             </p>
                         </div>
                     </form>
 
-                    {/* Biometric Spacer / Divider */}
                     {showBiometricButton && (
-                        <div className="mt-8 pt-8 relative">
-                            <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-                            <div className="flex justify-center relative z-10">
-                                <button
-                                    onClick={handleBiometricLogin}
-                                    className="flex items-center gap-3 px-8 py-3.5 rounded-2xl bg-white/[0.03] border border-white/10 hover:bg-white/[0.08] hover:border-indigo-500/30 transition-all duration-300 group shadow-[0_0_20px_rgba(255,255,255,0.02)] active:scale-95"
-                                >
-                                    <Fingerprint className="w-5 h-5 text-indigo-400 group-hover:scale-110 group-hover:text-indigo-300 transition-all duration-300" />
-                                    <span className="text-[14px] font-bold text-white/90">Use Biometrics</span>
-                                </button>
-                            </div>
+                        <div className="mt-10 pt-10 border-t border-slate-900/5">
+                            <button
+                                onClick={handleBiometricLogin}
+                                className="w-full h-[64px] flex items-center justify-center gap-4 rounded-[24px] bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-all font-black uppercase text-[12px] tracking-widest"
+                            >
+                                <Fingerprint className="w-6 h-6" />
+                                Quick Biometric Login
+                            </button>
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* Global Keyframes & Custom Autofill Styles to override browser defaults and keep the dark sleek look */}
             <style>{`
-                @keyframes shine {
-                    0% { transform: translateX(-150%) skewX(-30deg); }
-                    100% { transform: translateX(250%) skewX(-30deg); }
+                @keyframes float {
+                    0%, 100% { transform: translateY(0) scale(1); }
+                    50% { transform: translateY(-30px) scale(1.1); }
+                }
+                .animate-float { animation: float 10s ease-in-out infinite; }
+                .animate-float-delayed { animation: float 12s ease-in-out infinite; animation-delay: 2s; }
+                .animate-pulse-slow { animation: pulse 8s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+                
+                input:-webkit-autofill {
+                    -webkit-box-shadow: 0 0 0 50px white inset !important;
+                    -webkit-text-fill-color: #0f172a !important;
                 }
                 
-                input:-webkit-autofill,
-                input:-webkit-autofill:hover, 
-                input:-webkit-autofill:focus, 
-                input:-webkit-autofill:active {
-                    -webkit-box-shadow: 0 0 0 30px #13111A inset !important;
-                    -webkit-text-fill-color: white !important;
-                    transition: background-color 5000s ease-in-out 0s;
-                }
+                @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap');
             `}</style>
         </div>
     );

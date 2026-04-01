@@ -1,22 +1,33 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { updateDoc, doc, deleteDoc } from 'firebase/firestore';
-import { db } from '@/services/firebase'; // Using the '@' alias is best practice!
+import { db } from '@/services/firebase';
+import { getWorker } from '@/workers/workerApi';
 
 export const useAnnouncements = (initialAnnouncements, showToast) => {
     const [editingAnnId, setEditingAnnId] = useState(null);
     const [editingAnnText, setEditingAnnText] = useState('');
     const [expandedAnnouncements, setExpandedAnnouncements] = useState({});
 
-    const sortedAnnouncements = useMemo(() => {
-        if (!Array.isArray(initialAnnouncements)) return [];
-        // Create a new array to avoid mutating the original prop
-        return [...initialAnnouncements].sort((a, b) => {
-            if (a.isPinned && !b.isPinned) return -1;
-            if (!a.isPinned && b.isPinned) return 1;
-            const dateA = a.createdAt?.toDate() || 0;
-            const dateB = b.createdAt?.toDate() || 0;
-            return dateB - dateA;
-        });
+    const [sortedAnnouncements, setSortedAnnouncements] = useState([]);
+
+    useEffect(() => {
+        const processAnnouncements = async () => {
+            if (!initialAnnouncements || !Array.isArray(initialAnnouncements)) {
+                setSortedAnnouncements([]);
+                return;
+            }
+            try {
+                const worker = await getWorker();
+                const sorted = await worker.sortAnnouncements(initialAnnouncements);
+                setSortedAnnouncements(sorted);
+            } catch (error) {
+                console.error("Error sorting announcements in worker:", error);
+                // Fallback to basic copy if worker fails
+                setSortedAnnouncements([...initialAnnouncements]);
+            }
+        };
+
+        processAnnouncements();
     }, [initialAnnouncements]);
 
     const handleStartEditAnn = useCallback((post) => {

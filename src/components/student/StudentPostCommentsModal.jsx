@@ -423,8 +423,8 @@ const StudentPostCommentsModal = ({
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        transition={{ type: "spring", bounce: 0.3, duration: 0.5 }}
+        exit={{ opacity: 0, scale: 0.98, y: 10 }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
         style={activeOverlay !== 'none' ? monetTheme?.glassStyle : {}} // [Applied Theme Style]
         className={`
                 relative w-full max-w-2xl h-[85vh] flex flex-col overflow-hidden
@@ -645,10 +645,7 @@ const CommentItem = ({
 }) => {
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-      className="flex gap-3 group"
-    >
+    <div className="flex gap-3 group">
       <div className="flex-shrink-0 mt-1">
         <UserInitialsAvatar user={author} size="sm" className="rounded-full shadow-sm ring-2 ring-white dark:ring-slate-800" />
       </div>
@@ -757,7 +754,7 @@ const CommentItem = ({
           </div>
         )}
       </div>
-    </motion.div>
+    </div>
   );
 };
 

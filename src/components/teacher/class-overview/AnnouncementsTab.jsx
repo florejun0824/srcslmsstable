@@ -14,6 +14,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext'; 
 import CreateClassAnnouncementForm from '../CreateClassAnnouncementForm'; 
 import AnnouncementViewModal from '../../common/AnnouncementViewModal'; 
+import DeleteConfirmationModal from '../../common/DeleteConfirmationModal'; 
 import { 
     ChatBubbleBottomCenterTextIcon, 
     TrashIcon, 
@@ -145,6 +146,8 @@ const AnnouncementsTab = ({ classData, isActive }) => {
     const [editingId, setEditingId] = useState(null);
     const [editContent, setEditContent] = useState('');
     const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
+    const [deleteId, setDeleteId] = useState(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     // Fetch Logic
     useEffect(() => {
@@ -152,8 +155,8 @@ const AnnouncementsTab = ({ classData, isActive }) => {
 
         setLoading(true);
         const q = query(
-            collection(db, "studentAnnouncements"), 
-            where("classId", "==", classData.id), 
+            collection(db, "classAnnouncements"), 
+            where("classIds", "array-contains", classData.id), 
             orderBy("createdAt", "desc")
         );
 
@@ -174,7 +177,7 @@ const AnnouncementsTab = ({ classData, isActive }) => {
         if (!trimmed) return showToast("Content cannot be empty.", "error");
         
         try {
-            await updateDoc(doc(db, 'studentAnnouncements', id), { content: trimmed });
+            await updateDoc(doc(db, 'classAnnouncements', id), { content: trimmed });
             setEditingId(null);
             setEditContent('');
             showToast("Announcement updated.", "success");
@@ -185,20 +188,26 @@ const AnnouncementsTab = ({ classData, isActive }) => {
     };
 
     const handleDeleteClick = (id) => {
-        if (window.confirm("Are you sure you want to delete this announcement?")) {
-             deleteAnnouncement(id);
-        }
+        setDeleteId(id);
     };
 
-    const deleteAnnouncement = async (id) => {
+    const confirmDelete = async () => {
+        if (!deleteId) return;
+        setIsDeleting(true);
         try {
-            await deleteDoc(doc(db, 'studentAnnouncements', id));
+            await deleteDoc(doc(db, 'classAnnouncements', deleteId));
             showToast("Announcement deleted.", "success");
+            setDeleteId(null);
+            setSelectedAnnouncement(null); // Close detail view if it was open
         } catch (e) {
             console.error(e);
             showToast("Failed to delete.", "error");
+        } finally {
+            setIsDeleting(false);
         }
     };
+
+
 
     if (!isActive && announcements.length === 0) return null;
 
@@ -220,6 +229,7 @@ const AnnouncementsTab = ({ classData, isActive }) => {
                             <div className="bg-zinc-100 dark:bg-zinc-800/80 p-5 md:p-6 rounded-[32px]">
                                 <CreateClassAnnouncementForm 
                                     classId={classData.id} 
+                                    teacherName={`${userProfile?.firstName} ${userProfile?.lastName}`}
                                     onAnnouncementPosted={() => setShowAddForm(false)} 
                                 />
                                 <div className="mt-4 flex justify-end">
@@ -249,7 +259,7 @@ const AnnouncementsTab = ({ classData, isActive }) => {
                                 <AnnouncementListItem 
                                     key={post.id} 
                                     post={post} 
-                                    isOwn={userProfile?.id === post.teacherId}
+                                    isOwn={userProfile?.id === post.teacherId || userProfile?.id === classData?.teacherId || userProfile?.role === 'admin'}
                                     onEdit={() => { setEditingId(post.id); setEditContent(post.content); }}
                                     onDelete={() => handleDeleteClick(post.id)}
                                     isEditing={editingId === post.id} 
@@ -294,7 +304,20 @@ const AnnouncementsTab = ({ classData, isActive }) => {
                 isOpen={!!selectedAnnouncement} 
                 onClose={() => setSelectedAnnouncement(null)} 
                 announcement={selectedAnnouncement} 
+                onEdit={(ann) => {
+                    setEditingId(ann.id);
+                    setEditContent(ann.content);
+                }}
+                onDelete={handleDeleteClick}
                 className="z-[150]" 
+            />
+
+            {/* Delete Confirmation Modal */}
+            <DeleteConfirmationModal
+                isOpen={!!deleteId}
+                onClose={() => setDeleteId(null)}
+                onConfirm={confirmDelete}
+                isDeleting={isDeleting}
             />
         </div>
     );

@@ -263,6 +263,15 @@ const DashboardSkeleton = memo(() => (
 
 // --- COMPONENT: Neural Icon with "Alive" Pulse ---
 const AestheticIcon = memo(({ Icon, isActive }) => {
+    const [isDesktop, setIsDesktop] = useState(true);
+
+    useEffect(() => {
+        const mq = window.matchMedia('(min-width: 1024px)');
+        setIsDesktop(mq.matches);
+        const handler = (e) => setIsDesktop(e.matches);
+        mq.addEventListener('change', handler);
+        return () => mq.removeEventListener('change', handler);
+    }, []);
     return (
         <div className="relative flex items-center justify-center w-12 h-12">
             <AnimatePresence>
@@ -276,12 +285,14 @@ const AestheticIcon = memo(({ Icon, isActive }) => {
                             transition={{ type: "spring", stiffness: 300, damping: 25 }}
                             className="absolute inset-0 rounded-2xl bg-gradient-to-tr from-[var(--monet-primary)]/20 to-[var(--monet-primary)]/5"
                         />
-                        <motion.div
-                            initial={{ scale: 0.8, opacity: 1 }}
-                            animate={{ scale: 1.5, opacity: 0 }}
-                            transition={{ duration: 1.5, repeat: Infinity }}
-                            className="absolute inset-0 rounded-2xl bg-[var(--monet-primary)]/20 z-0"
-                        />
+                        {isDesktop && (
+                            <motion.div
+                                initial={{ scale: 0.8, opacity: 1 }}
+                                animate={{ scale: 1.5, opacity: 0 }}
+                                transition={{ duration: 1.5, repeat: Infinity }}
+                                className="absolute inset-0 rounded-2xl bg-[var(--monet-primary)]/20 z-0"
+                            />
+                        )}
                     </>
                 )}
             </AnimatePresence>

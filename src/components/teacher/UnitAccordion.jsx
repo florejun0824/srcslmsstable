@@ -45,6 +45,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useToast } from '../../contexts/ToastContext';
+import { getWorker } from '../../workers/workerApi';
 
 // --- MATERIAL YOU (M3) STYLES ---
 const MAT_STYLES = {
@@ -585,11 +586,22 @@ export default function UnitAccordion({ subject, onAddUnit, onInitiateDelete, us
         }
     };
 
-    const { lessons, quizzes } = useMemo(() => {
-        if (!activeUnit) return { lessons: [], quizzes: [] };
-        const unitLessons = allLessons.filter(l => l.unitId === activeUnit.id).map(l => ({ ...l, type: 'lesson' })).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-        const unitQuizzes = allQuizzes.filter(q => q.unitId === activeUnit.id).map(q => ({ ...q, type: 'quiz' })).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-        return { lessons: unitLessons, quizzes: unitQuizzes };
+    const [filteredContent, setFilteredContent] = useState({ lessons: [], quizzes: [] });
+    // Use the fetched filtered content locally
+    const { lessons, quizzes } = filteredContent;
+
+    useEffect(() => {
+        if (!activeUnit) {
+            setFilteredContent({ lessons: [], quizzes: [] });
+            return;
+        }
+        let cancelled = false;
+        
+        getWorker().filterAndSortByUnit(allLessons, allQuizzes, activeUnit.id).then(result => {
+            if (!cancelled) setFilteredContent(result);
+        });
+
+        return () => { cancelled = true; };
     }, [activeUnit, allLessons, allQuizzes]);
 
     const handleDragEnd = async (e) => {
@@ -706,7 +718,7 @@ export default function UnitAccordion({ subject, onAddUnit, onInitiateDelete, us
                                     </div>
                                 ) : lessons.length > 0 ? (
                                     <SortableContext items={lessons.map(i => i.id)} strategy={rectSortingStrategy}>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-5">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-5 content-visibility-auto">
                                             {lessons.map(item => (
                                                 <SortablePageItem
                                                     key={item.id} item={item} isReordering={isReordering} onAction={handleAction}
@@ -742,7 +754,7 @@ export default function UnitAccordion({ subject, onAddUnit, onInitiateDelete, us
                                     </div>
                                 ) : quizzes.length > 0 ? (
                                     <SortableContext items={quizzes.map(i => i.id)} strategy={rectSortingStrategy}>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-5">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-5 content-visibility-auto">
                                             {quizzes.map(item => (
                                                 <SortablePageItem
                                                     key={item.id} item={item} isReordering={isReordering} onAction={handleAction}
@@ -777,7 +789,7 @@ export default function UnitAccordion({ subject, onAddUnit, onInitiateDelete, us
 
                         {units.length > 0 ? (
                             <SortableContext items={units.map(u => u.id)} strategy={rectSortingStrategy}>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 content-visibility-auto">
                                     {units.map((unit, idx) => (
                                         <SortableBookItem key={unit.id} unit={unit} index={idx} onSelect={onSetActiveUnit} onAction={handleAction} isReordering={isReordering} />
                                     ))}

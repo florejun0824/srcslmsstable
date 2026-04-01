@@ -1,6 +1,7 @@
 // src/components/teacher/ScoresTab.jsx
 
-import React, { useState, useMemo, memo } from 'react';
+import React, { useState, useEffect, memo } from 'react';
+import { getWorker } from '../../workers/workerApi';
 import { 
     ChartBarIcon, 
     ChevronDownIcon, 
@@ -9,7 +10,7 @@ import {
     UsersIcon, 
     LockClosedIcon,
     ExclamationCircleIcon,
-    DocumentChartBarIcon // <--- Imported Icon
+    DocumentChartBarIcon
 } from '@heroicons/react/24/solid';
 
 const ScoresTab = ({
@@ -17,7 +18,7 @@ const ScoresTab = ({
     quizScores = [],
     sharedContentPosts = [],
     quizLocks = [],
-    setIsReportModalOpen, // <--- Already available here
+    setIsReportModalOpen,
     setSelectedQuizForScores,
     setScoresDetailModalOpen,
 }) => {
@@ -25,47 +26,36 @@ const ScoresTab = ({
     const [expandedPosts, setExpandedPosts] = useState(new Set());
     const [expandedUnits, setExpandedUnits] = useState(new Set());
 
-    // --- OPTIMIZATION 1: High-Performance Stat Calculation ---
-    const quizStatsMap = useMemo(() => {
-        const stats = {};
-        if (!quizScores || quizScores.length === 0) return stats;
-
-        quizScores.forEach(submission => {
-            const qId = submission.quizId;
-            if (!stats[qId]) {
-                stats[qId] = { count: 0, uniqueStudents: new Set(), totalScore: 0 };
-            }
-            stats[qId].count += 1;
-            stats[qId].uniqueStudents.add(submission.studentId);
-            stats[qId].totalScore += (submission.score || 0);
+    // --- OPTIMIZATION 1: High-Performance Stat Calculation (Worker) ---
+    const [quizStatsMap, setQuizStatsMap] = useState({});
+    useEffect(() => {
+        if (!quizScores || quizScores.length === 0) {
+            setQuizStatsMap({});
+            return;
+        }
+        let cancelled = false;
+        getWorker().computeQuizStats(quizScores).then(result => {
+            if (!cancelled) setQuizStatsMap(result);
         });
-        return stats;
+        return () => { cancelled = true; };
     }, [quizScores]);
 
-    // --- OPTIMIZATION 2: Data Grouping & Sorting ---
-    const sortedPostEntries = useMemo(() => {
-        if (!sharedContentPosts) return [];
-
-        const grouped = sharedContentPosts.reduce((acc, post) => {
-            const postQuizzes = post.quizzes || [];
-            if (postQuizzes.length === 0) return acc;
-
-            const unitsInPost = {};
-            postQuizzes.forEach(quiz => {
-                const unitName = units[quiz.unitId] || 'Uncategorized';
-                if (!unitsInPost[unitName]) unitsInPost[unitName] = [];
-                unitsInPost[unitName].push(quiz);
-            });
-
-            acc.push({
-                post,
-                units: unitsInPost,
-                timestamp: post.createdAt?.seconds || Date.now()
-            });
-            return acc;
-        }, []);
-
-        return grouped.sort((a, b) => b.timestamp - a.timestamp);
+    // --- OPTIMIZATION 2: Data Grouping & Sorting (Worker) ---
+    const [sortedPostEntries, setSortedPostEntries] = useState([]);
+    useEffect(() => {
+        if (!sharedContentPosts) {
+            setSortedPostEntries([]);
+            return;
+        }
+        let cancelled = false;
+        const serializedPosts = sharedContentPosts.map(p => ({
+            ...p,
+            createdAt: p.createdAt ? { seconds: p.createdAt.seconds || (p.createdAt.toDate ? Math.floor(p.createdAt.toDate().getTime() / 1000) : Date.now() / 1000) } : null
+        }));
+        getWorker().groupPostsByUnit(serializedPosts, units).then(result => {
+             if (!cancelled) setSortedPostEntries(result);
+        });
+        return () => { cancelled = true; };
     }, [sharedContentPosts, units]);
 
     // --- HANDLERS ---
@@ -98,9 +88,6 @@ const ScoresTab = ({
         setScoresDetailModalOpen(true);
     };
 
-    // --- NEW HANDLER: Open Report Modal directly ---
-    // Note: Since GenerateReportModal handles selection internally, 
-    // this simply opens it. The user can then select the specific quiz.
     const handleOpenReport = (e) => {
         e.stopPropagation();
         setIsReportModalOpen(true);
@@ -132,9 +119,8 @@ const ScoresTab = ({
 
     // --- MAIN RENDER ---
     return (
-        <div className="space-y-4 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="space-y-4 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ contentVisibility: 'auto' }}>
             
-            {/* --- NEW HEADER SECTION --- */}
             <div className="flex justify-between items-center px-1 mb-2">
                 <h2 className="text-lg font-bold text-slate-900 dark:text-white">
                     Performance Summary
@@ -153,7 +139,6 @@ const ScoresTab = ({
                 const sortedUnitKeys = Object.keys(unitsInPost).sort(customUnitSort);
                 const quizzesInPost = post.quizzes || [];
                 
-                // Status Logic
                 const hasActiveLocks = quizzesInPost.some(q => quizLocks.some(lock => lock.quizId === q.id));
                 let isOverdue = false;
                 let untilDateLabel = null;
@@ -219,8 +204,8 @@ const ScoresTab = ({
                                             {isUnitExpanded && (
                                                 <div className="divide-y divide-slate-100 dark:divide-white/5 border-t border-slate-100 dark:border-white/5">
                                                     {quizzes.map(quiz => {
-                                                        const stats = quizStatsMap[quiz.id] || { count: 0, uniqueStudents: new Set() };
-                                                        const studentCount = stats.uniqueStudents.size;
+                                                        const stats = quizStatsMap[quiz.id] || { count: 0, uniqueStudentIds: [] };
+                                                        const studentCount = stats.uniqueStudentIds ? stats.uniqueStudentIds.length : 0;
                                                         
                                                         return (
                                                             <div key={quiz.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors">
@@ -240,7 +225,6 @@ const ScoresTab = ({
                                                                 </div>
                                                                 
                                                                 <div className="flex gap-2 w-full sm:w-auto">
-                                                                    {/* --- NEW BUTTON: Individual Report Button --- */}
                                                                     <button
                                                                         onClick={handleOpenReport}
                                                                         title="Generate Report for this Quiz"

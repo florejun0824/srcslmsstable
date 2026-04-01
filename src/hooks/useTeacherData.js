@@ -10,6 +10,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../services/firebase'; // Adjust path if needed based on your folder structure
 import { DEFAULT_SCHOOL_ID } from '../contexts/AuthContext'; // Adjust path
+import { getWorker } from '../workers/workerApi';
 
 export const useTeacherData = (user, userProfile, activeView) => {
     // --- State Definitions ---
@@ -83,39 +84,34 @@ export const useTeacherData = (user, userProfile, activeView) => {
                 where('audience', '==', 'Public'),
                 orderBy('createdAt', 'desc')
             );
-            const snapshot = await getDocs(postsQuery);
 
-            // 2. Filter Client-Side 
-            const userSchoolId = userProfile.schoolId || 'srcs_main';
-
-            const posts = snapshot.docs
-                .map(doc => ({ id: doc.id, ...doc.data() }))
-                .filter(post => {
-                    const postSchool = post.schoolId || 'srcs_main';
-                    return postSchool === userSchoolId;
+            const unsubscribeLounge = onSnapshot(postsQuery, (snapshot) => {
+                const fetchedPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                
+                getWorker().filterBySchool(fetchedPosts, schoolId, 'schoolId').then(result => {
+                    setLoungePosts(result);
+                    
+                    // Find users we haven't fetched yet
+                    const userIds = result.map(p => p.authorId);
+                    result.forEach(p => {
+                        if (p.likes) userIds.push(...p.likes);
+                        if (p.comments) p.comments.forEach(c => userIds.push(c.authorId));
+                    });
+                    
+                    fetchMissingLoungeUsers(userIds).finally(() => {
+                        setIsLoungeLoading(false);
+                        setHasLoungeFetched(true);
+                    });
                 });
-
-            setLoungePosts(posts);
-
-            // 3. Gather User IDs for authors and reactions
-            const userIdsToFetch = new Set();
-            posts.forEach(post => {
-                userIdsToFetch.add(post.authorId);
-                if (post.reactions) {
-                    Object.keys(post.reactions).forEach(userId => userIdsToFetch.add(userId));
-                }
+            }, (err) => {
+                console.error("Error fetching public posts:", err);
+                setIsLoungeLoading(false);
             });
-
-            await fetchMissingLoungeUsers(Array.from(userIdsToFetch));
 
         } catch (error) {
             console.error("Error fetching public posts:", error);
-            // We handle the toast in the UI component based on error state if needed
-        } finally {
-            setIsLoungeLoading(false);
-            setHasLoungeFetched(true);
         }
-    }, [userProfile, fetchMissingLoungeUsers]);
+    }, [userProfile, schoolId, fetchMissingLoungeUsers]);
 
     // --- Effect: Main Data Subscriptions ---
     useEffect(() => {
@@ -128,7 +124,7 @@ export const useTeacherData = (user, userProfile, activeView) => {
         const teacherId = user.uid || user.id;
 
         // 1. Classes: Fetches by TeacherID
-        const classesQuery = query(collection(db, "classes"), where("teacherId", "==", teacherId));
+        const classesQuery = query(collection(db, "classes"));
 
         // 2. Courses: Shared Content
         const coursesQuery = query(collection(db, "courses"));
@@ -144,7 +140,16 @@ export const useTeacherData = (user, userProfile, activeView) => {
 
         // Subscriptions
         const unsubClasses = onSnapshot(classesQuery, snapshot => {
-            setClasses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            const fetchedClasses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            
+            // Keep the filtered view for the sidebar
+            const userClasses = fetchedClasses.filter(c => c.teacherId === teacherId);
+            setClasses(userClasses);
+
+            // Offload school filtering to worker for the import modal
+            getWorker().filterBySchool(fetchedClasses, schoolId, 'schoolId').then(result => {
+                setAllLmsClasses(result);
+            });
         }, err => {
             console.error("Firestore (classes) error:", err);
             setError("Failed to load class data.");
@@ -158,13 +163,10 @@ export const useTeacherData = (user, userProfile, activeView) => {
         });
 
         const unsubAnnouncements = onSnapshot(announcementsQuery, (snapshot) => {
-            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            // Filter Legacy Announcements Client-Side
-            const filtered = data.filter(ann => {
-                const annSchool = ann.schoolId || 'srcs_main';
-                return annSchool === schoolId || annSchool === 'all_schools';
+            const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            getWorker().filterBySchool(fetched, schoolId, 'targetSchool').then(result => {
+                setTeacherAnnouncements(result);
             });
-            setTeacherAnnouncements(filtered);
         }, (err) => {
             console.error("Firestore (announcements) error:", err);
         });
@@ -175,10 +177,6 @@ export const useTeacherData = (user, userProfile, activeView) => {
             console.error("Firestore (categories) error:", err);
         });
 
-        // OPTIMIZATION: Removed blocking Promise.all([getDocs...]) 
-        // to allow the UI to mount immediately with Skeletons!
-        // The snapshots above will independently populate the data in real-time.
-        // We add a tiny artificial delay just to smooth the transition from the global spinner.
         const loadingTimer = setTimeout(() => {
             setLoading(false);
         }, 300);
@@ -191,40 +189,6 @@ export const useTeacherData = (user, userProfile, activeView) => {
             clearTimeout(loadingTimer);
         };
     }, [user, userProfile, schoolId]);
-
-    // --- Effect: Import Classes List (On Demand) ---
-    useEffect(() => {
-        if (activeView === 'studentManagement' && userProfile?.schoolId) {
-            setIsImportViewLoading(true);
-            const fetchAllClassesForImport = async () => {
-                try {
-                    // Fetch ALL classes sorted by name
-                    const q = query(
-                        collection(db, "classes"),
-                        orderBy("name")
-                    );
-                    const querySnapshot = await getDocs(q);
-                    const allRawClasses = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-                    // Filter Client-Side for Legacy Support
-                    const userSchoolId = userProfile.schoolId || 'srcs_main';
-                    const filteredClasses = allRawClasses.filter(cls => {
-                        const clsSchool = cls.schoolId || 'srcs_main';
-                        return clsSchool === userSchoolId;
-                    });
-
-                    setAllLmsClasses(filteredClasses);
-                } catch (err) {
-                    console.error("Error fetching all classes:", err);
-                    setError("Failed to load class list for import.");
-                } finally {
-                    setIsImportViewLoading(false);
-                }
-            };
-
-            fetchAllClassesForImport();
-        }
-    }, [activeView, userProfile]);
 
     // --- Effect: Sync Current User to Lounge Map ---
     useEffect(() => {

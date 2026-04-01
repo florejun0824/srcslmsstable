@@ -113,7 +113,7 @@ export const useTeacherActions = (userProfile, showToast, classes) => {
         return false; 
     }
 
-    const collectionName = audience === 'teachers' ? 'teacherAnnouncements' : 'studentAnnouncements';
+    const collectionName = audience === 'teachers' ? 'teacherAnnouncements' : 'classAnnouncements';
     const announcementData = {
         content,
         teacherId: userProfile?.id,
@@ -131,7 +131,7 @@ export const useTeacherActions = (userProfile, showToast, classes) => {
             showToast("Please select a class for the student announcement.", "error"); 
             return false; 
         }
-        announcementData.classId = classId;
+        announcementData.classIds = [classId];
         announcementData.className = className;
     }
 

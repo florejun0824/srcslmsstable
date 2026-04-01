@@ -97,8 +97,8 @@ const StudentClassDetailView = ({ selectedClass, onBack }) => {
         try {
             // Firestore Composite Index Requirement: classId (Asc/Desc) + createdAt (Desc)
             const annQuery = query(
-                collection(db, "studentAnnouncements"), 
-                where("classId", "==", selectedClass.id), 
+                collection(db, "classAnnouncements"), 
+                where("classIds", "array-contains", selectedClass.id), 
                 orderBy("createdAt", "desc")
             );
             

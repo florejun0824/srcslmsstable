@@ -1,4 +1,5 @@
 import React, { useState, useRef, useMemo, useCallback, useEffect, memo } from 'react';
+import { getWorker } from '../../workers/workerApi';
 import {
   BookOpenIcon,
   SparklesIcon,
@@ -304,30 +305,32 @@ const LessonsByUnitView = ({
     return () => { cancelled = true; };
   }, [lessons]);
 
-  const lessonsByUnit = useMemo(() => {
-    if (lessons.length === 0 && units.length === 0) return {};
+  // --- DERIVED STATE: Group Lessons by Unit (offloaded to Web Worker) ---
+  const [lessonsByUnit, setLessonsByUnit] = useState({});
 
-    const unitsMap = new Map(units.map((unit) => [unit.id, unit]));
-    const grouped = lessons.reduce((acc, lesson) => {
-      const unit = unitsMap.get(lesson.unitId);
-      const unitTitle = unit ? unit.title : 'Uncategorized';
-      const unitCreatedAt = unit ? unit.createdAt : null;
+  useEffect(() => {
+    if (lessons.length === 0 && units.length === 0) { setLessonsByUnit({}); return; }
 
-      if (!acc[unitTitle]) {
-        acc[unitTitle] = { lessons: [], createdAt: unitCreatedAt };
-      }
-      acc[unitTitle].lessons.push(lesson);
-      return acc;
-    }, {});
+    let cancelled = false;
+    // Serialize Firestore Timestamps before sending to worker
+    const serializedLessons = lessons.map(l => ({
+      ...l,
+      createdAt: l.createdAt
+        ? (l.createdAt.toDate ? l.createdAt.toDate().getTime() : new Date(l.createdAt).getTime())
+        : null,
+    }));
+    const serializedUnits = units.map(u => ({
+      ...u,
+      createdAt: u.createdAt
+        ? (u.createdAt.toDate ? u.createdAt.toDate().getTime() : new Date(u.createdAt).getTime())
+        : null,
+    }));
 
-    Object.keys(grouped).forEach((unitTitle) => {
-      grouped[unitTitle].lessons.sort((a, b) => {
-        const orderA = a.order ?? Infinity;
-        const orderB = b.order ?? Infinity;
-        return orderA !== orderB ? orderA - orderB : a.title.localeCompare(b.title);
-      });
+    getWorker().groupLessonsByUnit(serializedLessons, serializedUnits).then(result => {
+      if (!cancelled) setLessonsByUnit(result);
     });
-    return grouped;
+
+    return () => { cancelled = true; };
   }, [lessons, units]);
 
   const sortedUnitTitles = useMemo(() => {
@@ -498,7 +501,7 @@ const LessonsByUnitView = ({
                 initial="hidden"
                 animate="show"
                 exit={{ opacity: 0, x: -20 }}
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4"
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 content-visibility-auto"
               >
                 {sortedUnitTitles.map((unitTitle, index) => {
                   const unitData = lessonsByUnit[unitTitle];

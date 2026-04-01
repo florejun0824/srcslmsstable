@@ -1,6 +1,7 @@
 // src/components/teacher/dashboard/views/courses/ContentGroupSelector.jsx
 import React, { memo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { motion, AnimatePresence, useMotionValue, useTransform, useSpring } from "framer-motion";
 import { UsersIcon as LearnerIcon, AcademicCapIcon as TeacherIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { MATERIAL_STYLES, getSchoolLogo } from './coursesStyles';
 
@@ -15,32 +16,92 @@ const ContentGroupSelector = memo((props) => {
     const schoolLogoUrl = userProfile?.schoolId ? getSchoolLogo(userProfile.schoolId) : '/logo.png';
     const firstName = userProfile?.firstName || 'Back';
 
-    const SelectionCard = ({ to, title, subtitle, themeClass, icon: Icon, borderClass, gradientClass }) => (
-        <Link to={to} className={`group relative overflow-hidden rounded-[32px] md:rounded-[40px] p-6 md:p-10 h-[280px] md:h-[340px] flex flex-col justify-between transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.3)] shadow-lg border backdrop-blur-md ${themeClass} ${borderClass}`}>
-            {/* Background mesh glow */}
-            <div className={`absolute -right-16 -bottom-16 w-48 h-48 md:w-64 md:h-64 rounded-full blur-3xl opacity-50 group-hover:scale-150 group-hover:opacity-70 transition-all duration-700 ${gradientClass}`}></div>
-            <div className={`absolute -left-16 -top-16 w-32 h-32 md:w-48 md:h-48 rounded-full blur-3xl opacity-30 group-hover:scale-125 transition-transform duration-700 ${gradientClass}`}></div>
+    const SelectionCard = ({ to, title, subtitle, auraColor, icon: Icon, secondaryColor }) => {
+        const x = useMotionValue(0);
+        const y = useMotionValue(0);
+        const rotateX = useSpring(useTransform(y, [-100, 100], [10, -10]), { stiffness: 150, damping: 20 });
+        const rotateY = useSpring(useTransform(x, [-100, 100], [-10, 10]), { stiffness: 150, damping: 20 });
 
-            <div className="relative z-10">
-                <div className="w-16 h-16 md:w-20 md:h-20 rounded-[24px] md:rounded-[28px] flex items-center justify-center mb-6 md:mb-8 bg-white/10 dark:bg-white/5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] border border-white/20 dark:border-white/10 group-hover:rotate-3 group-hover:scale-110 transition-all duration-500 backdrop-blur-md">
-                    <Icon className="w-8 h-8 md:w-10 md:h-10 text-white drop-shadow-md" />
-                </div>
-                <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight mb-2 md:mb-3 text-white drop-shadow-sm">{title}</h2>
-                <p className="text-sm md:text-lg font-medium text-white/90 max-w-sm leading-relaxed">{subtitle}</p>
-            </div>
+        function handleMouse(event) {
+            const rect = event.currentTarget.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            x.set(event.clientX - centerX);
+            y.set(event.clientY - centerY);
+        }
 
-            <div className="relative z-10 flex items-center">
-                <div className="px-5 py-2.5 md:px-6 md:py-3 rounded-[20px] bg-white/10 font-bold text-white text-xs md:text-sm group-hover:bg-white/25 transition-all duration-300 flex items-center gap-2 border border-white/30 backdrop-blur-md shadow-sm group-hover:shadow-[0_4px_12px_rgba(0,0,0,0.1)] group-hover:pr-4 md:group-hover:pr-5">
-                    Enter Portal 
-                    <div className="w-5 h-5 flex items-center justify-center translate-x-0 group-hover:translate-x-1.5 transition-transform duration-300">
-                         <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                         </svg>
+        function handleMouseLeave() {
+            x.set(0);
+            y.set(0);
+        }
+
+        return (
+            <motion.div
+                style={{ rotateX, rotateY, perspective: 1000 }}
+                onMouseMove={handleMouse}
+                onMouseLeave={handleMouseLeave}
+                className="relative group h-[300px] md:h-[400px]"
+            >
+                <Link 
+                    to={to} 
+                    className={`relative block w-full h-full p-8 md:p-12 overflow-hidden rounded-[40px] border border-white/20 shadow-2xl transition-all duration-500 bg-gradient-to-br ${secondaryColor}`}
+                >
+                    {/* Glass Overlay (The Gleam) */}
+                    <div className="absolute inset-0 bg-white/10 backdrop-blur-[2px] opacity-50 pointer-events-none" />
+                    
+                    {/* Animated Aura */}
+                    <motion.div
+                        animate={{ 
+                            scale: [1, 1.2, 1],
+                            opacity: [0.3, 0.6, 0.3],
+                            rotate: [0, 90, 0]
+                        }}
+                        transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+                        className={`absolute -right-24 -top-24 w-96 h-96 rounded-full blur-[100px] pointer-events-none ${auraColor} mix-blend-screen opacity-40`}
+                    />
+                    
+                    {/* Floating Proxy Icon */}
+                    <div className="absolute -right-8 -bottom-8 opacity-20 group-hover:opacity-30 transition-all duration-700 pointer-events-none group-hover:scale-110 group-hover:-rotate-12">
+                        <Icon className="w-48 h-48 md:w-64 md:h-64 text-white" />
                     </div>
-                </div>
-            </div>
-        </Link>
-    );
+
+                    {/* Content Layer */}
+                    <div className="relative z-10 h-full flex flex-col justify-between">
+                        <div>
+                            {/* Role Badge */}
+                            <motion.div 
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-black/20 backdrop-blur-xl border border-white/10 text-[10px] font-black uppercase tracking-[0.25em] text-white mb-6"
+                            >
+                                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                                {title} Portal
+                            </motion.div>
+
+                            <h2 className="text-4xl md:text-6xl font-black text-white tracking-tighter mb-4 drop-shadow-2xl leading-[0.9]">
+                                {title}
+                            </h2>
+                            <p className="text-sm md:text-lg font-medium text-white/80 max-w-[300px] leading-tight mb-8">
+                                {subtitle}
+                            </p>
+                        </div>
+
+                        {/* CTA Portal Button */}
+                        <div className="flex items-center">
+                            <div className="group/btn relative px-10 py-5 rounded-2xl bg-white text-slate-950 font-black text-xs md:text-sm uppercase tracking-widest overflow-hidden transition-all duration-500 hover:scale-105 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.3)]">
+                                <span className="relative z-10 flex items-center gap-3">
+                                    Join Session
+                                    <svg className="w-5 h-5 transition-transform duration-300 group-hover/btn:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                                    </svg>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </Link>
+            </motion.div>
+        );
+    };
 
     return (
         <div className={`min-h-[calc(100vh-6rem)] flex flex-col items-center justify-center p-4 md:p-6 ${MATERIAL_STYLES.bgScaffold} relative overflow-hidden bg-gradient-to-br from-slate-50 to-zinc-100/50 dark:from-slate-950 dark:to-slate-900 border-none sm:border-solid`}>
@@ -63,18 +124,16 @@ const ContentGroupSelector = memo((props) => {
                     to="learner"
                     title="Learner"
                     subtitle="Access your assignments, modules, and student resources."
-                    themeClass="bg-gradient-to-br from-[#059669] via-[#047857] to-[#064e3b]"
-                    borderClass="border-emerald-400/30"
-                    gradientClass="bg-emerald-300/40"
+                    auraColor="bg-emerald-500/30"
+                    secondaryColor="from-emerald-500 to-teal-600"
                     icon={LearnerIcon}
                 />
                 <SelectionCard
                     to="teacher"
                     title="Teacher"
                     subtitle="Manage curriculum, grading tools, and student tracking."
-                    themeClass="bg-gradient-to-br from-[#4f46e5] via-[#4338ca] to-[#312e81]"
-                    borderClass="border-indigo-400/30"
-                    gradientClass="bg-indigo-300/40"
+                    auraColor="bg-indigo-500/30"
+                    secondaryColor="from-indigo-600 to-blue-700"
                     icon={TeacherIcon}
                 />
             </div>

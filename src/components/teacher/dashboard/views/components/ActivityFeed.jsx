@@ -1,15 +1,14 @@
-// src/components/teacher/dashboard/views/components/ActivityFeed.jsx
-import React, { useState, lazy, Suspense, memo, useCallback, useMemo } from 'react';
+import React, { useState, lazy, Suspense, memo, useCallback, useMemo, useEffect } from 'react';
 import { Megaphone, Activity, Sparkles, ArrowRight, ExternalLink, Pin, PinOff } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAnnouncements } from '../hooks/useAnnouncements';
 import { useReactions } from '../hooks/useReactions';
 import { useTheme } from '../../../../../contexts/ThemeContext';
 import { db } from '../../../../../services/firebase';
-// FIX: Ensure you import doc and updateDoc correctly
 import { doc, updateDoc } from 'firebase/firestore';
 import UserInitialsAvatar from '../../../../../components/common/UserInitialsAvatar';
 import ReactMarkdown from 'react-markdown';
+import { getWorker } from '../../../../../workers/workerApi';
 
 const AnnouncementModal = lazy(() => import('../../widgets/AnnouncementModal'));
 const ReactionsBreakdownModal = lazy(() => import('../../widgets/ReactionsBreakdownModal'));
@@ -272,17 +271,31 @@ const ActivityFeed = ({ userProfile, teacherAnnouncements, showToast }) => {
         }
     }, [showToast]);
 
-    // Data Splitting
-    const { pinnedPosts, timelinePosts } = useMemo(() => {
-        const pinned = [];
-        const timeline = [];
-        if (sortedAnnouncements) {
-            sortedAnnouncements.forEach(post => {
-                if (post.isPinned) pinned.push(post);
-                else timeline.push(post);
-            });
-        }
-        return { pinnedPosts: pinned, timelinePosts: timeline };
+    const [{ pinnedPosts, timelinePosts }, setSplitPosts] = useState({ pinnedPosts: [], timelinePosts: [] });
+
+    useEffect(() => {
+        const processFeed = async () => {
+            if (!sortedAnnouncements || sortedAnnouncements.length === 0) {
+                setSplitPosts({ pinnedPosts: [], timelinePosts: [] });
+                return;
+            }
+            try {
+                const worker = await getWorker();
+                const result = await worker.splitActivityFeed(sortedAnnouncements);
+                setSplitPosts(result);
+            } catch (error) {
+                console.error("Error splitting feed in worker:", error);
+                // Fallback logic
+                const pinned = [];
+                const timeline = [];
+                sortedAnnouncements.forEach(post => {
+                    if (post.isPinned) pinned.push(post);
+                    else timeline.push(post);
+                });
+                setSplitPosts({ pinnedPosts: pinned, timelinePosts: timeline });
+            }
+        };
+        processFeed();
     }, [sortedAnnouncements]);
 
     // Modals
@@ -307,7 +320,7 @@ const ActivityFeed = ({ userProfile, teacherAnnouncements, showToast }) => {
     }, []);
 
     return (
-        <div className="w-full relative z-10 pb-8 min-h-[400px]">
+        <div className="w-full relative z-10 pb-8 min-h-[400px]" style={{ contentVisibility: 'auto', containIntrinsicSize: '0 400px' }}>
             {/* Header Area */}
             <div className="flex flex-col mb-6 sm:mb-8 px-2">
                 <div className="flex items-center gap-3 mb-1">

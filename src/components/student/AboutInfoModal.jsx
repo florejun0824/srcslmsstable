@@ -37,24 +37,29 @@ const secondaryButton = `
 `;
 
 // --- [ADDED] Helper: Monet/Theme Background Extraction ---
-const getThemeModalStyle = (activeOverlay) => {
-    switch (activeOverlay) {
-        case 'christmas': 
-            return { background: 'linear-gradient(to bottom, rgba(15, 23, 66, 0.95), rgba(15, 23, 66, 0.9))', borderColor: 'rgba(100, 116, 139, 0.2)' };
-        case 'valentines': 
-            return { background: 'linear-gradient(to bottom, rgba(60, 10, 20, 0.95), rgba(60, 10, 20, 0.9))', borderColor: 'rgba(255, 100, 100, 0.15)' };
-        case 'graduation': 
-            return { background: 'linear-gradient(to bottom, rgba(30, 25, 10, 0.95), rgba(30, 25, 10, 0.9))', borderColor: 'rgba(255, 215, 0, 0.15)' };
-        case 'rainy': 
-            return { background: 'linear-gradient(to bottom, rgba(20, 35, 20, 0.95), rgba(20, 35, 20, 0.9))', borderColor: 'rgba(100, 150, 100, 0.2)' };
-        case 'cyberpunk': 
-            return { background: 'linear-gradient(to bottom, rgba(35, 5, 45, 0.95), rgba(35, 5, 45, 0.9))', borderColor: 'rgba(180, 0, 255, 0.2)' };
-        case 'spring': 
-            return { background: 'linear-gradient(to bottom, rgba(50, 10, 20, 0.95), rgba(50, 10, 20, 0.9))', borderColor: 'rgba(255, 150, 180, 0.2)' };
-        case 'space': 
-            return { background: 'linear-gradient(to bottom, rgba(5, 5, 10, 0.95), rgba(5, 5, 10, 0.9))', borderColor: 'rgba(100, 100, 255, 0.15)' };
-        default: 
-            return {}; 
+const getThemeModalStyle = (activeOverlay, isDarkMode) => {
+    if (isDarkMode) {
+        switch (activeOverlay) {
+            case 'christmas': return { background: 'linear-gradient(to bottom, rgba(15, 23, 66, 0.95), rgba(15, 23, 66, 0.9))', borderColor: 'rgba(100, 116, 139, 0.2)' };
+            case 'valentines': return { background: 'linear-gradient(to bottom, rgba(60, 10, 20, 0.95), rgba(60, 10, 20, 0.9))', borderColor: 'rgba(255, 100, 100, 0.15)' };
+            case 'graduation': return { background: 'linear-gradient(to bottom, rgba(30, 25, 10, 0.95), rgba(30, 25, 10, 0.9))', borderColor: 'rgba(255, 215, 0, 0.15)' };
+            case 'rainy': return { background: 'linear-gradient(to bottom, rgba(20, 35, 20, 0.95), rgba(20, 35, 20, 0.9))', borderColor: 'rgba(100, 150, 100, 0.2)' };
+            case 'cyberpunk': return { background: 'linear-gradient(to bottom, rgba(35, 5, 45, 0.95), rgba(35, 5, 45, 0.9))', borderColor: 'rgba(180, 0, 255, 0.2)' };
+            case 'spring': return { background: 'linear-gradient(to bottom, rgba(50, 10, 20, 0.95), rgba(50, 10, 20, 0.9))', borderColor: 'rgba(255, 150, 180, 0.2)' };
+            case 'space': return { background: 'linear-gradient(to bottom, rgba(5, 5, 10, 0.95), rgba(5, 5, 10, 0.9))', borderColor: 'rgba(100, 100, 255, 0.15)' };
+            default: return {}; 
+        }
+    } else {
+        switch (activeOverlay) {
+            case 'christmas': return { background: 'rgba(232, 245, 233, 0.95)', borderColor: 'rgba(74, 124, 89, 0.15)' };
+            case 'valentines': return { background: 'rgba(252, 228, 236, 0.95)', borderColor: 'rgba(225, 116, 150, 0.15)' };
+            case 'graduation': return { background: 'rgba(255, 248, 225, 0.95)', borderColor: 'rgba(212, 175, 55, 0.15)' };
+            case 'rainy': return { background: 'rgba(224, 242, 241, 0.95)', borderColor: 'rgba(77, 182, 172, 0.15)' };
+            case 'cyberpunk': return { background: 'rgba(243, 229, 245, 0.95)', borderColor: 'rgba(149, 117, 205, 0.15)' };
+            case 'spring': return { background: 'rgba(251, 233, 231, 0.95)', borderColor: 'rgba(255, 138, 101, 0.15)' };
+            case 'space': return { background: 'rgba(232, 234, 246, 0.95)', borderColor: 'rgba(121, 134, 203, 0.15)' };
+            default: return {}; 
+        }
     }
 };
 
@@ -81,8 +86,8 @@ const InfoRow = ({ icon: Icon, label, value }) => {
 const AboutInfoModal = ({ isOpen, onClose, userProfile }) => {
     
     // [Added] Theme Context
-    const { activeOverlay } = useTheme(); //
-    const dynamicThemeStyle = getThemeModalStyle(activeOverlay);
+    const { activeOverlay, isDarkMode } = useTheme(); //
+    const dynamicThemeStyle = getThemeModalStyle(activeOverlay, isDarkMode);
 
     // Format the relationship status to include the partner
     let relationshipValue = userProfile?.relationship_status;

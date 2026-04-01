@@ -1,8 +1,9 @@
 // src/components/student/LoungeView.jsx
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { AnimatePresence, motion } from 'framer-motion';
+import { getWorker } from '../../workers/workerApi';
 
 // Import the post components
 import StudentPostCard from './StudentPostCard';
@@ -112,32 +113,37 @@ const LoungeView = ({
   
   const theme = useMemo(() => getThemeStyles(activeOverlay), [activeOverlay]);
 
-  // --- FILTERING LOGIC ---
   const userSchoolId = userProfile?.schoolId || 'srcs_main';
-  
-  const displayPosts = sortedPosts?.filter(post => {
-      // 1. ALWAYS SHOW SYSTEM POSTS (Elections & Results)
-      // This ensures results appear even if School IDs don't perfectly match
-      if (post.type === 'system_countdown' || post.type === 'election_result') {
-          return true;
-      }
+  const [displayPosts, setDisplayPosts] = useState([]);
 
-      // 2. Standard School Filtering
-      const postSchoolId = post.schoolId || 'srcs_main'; 
-      const isMatch = postSchoolId === userSchoolId;
-
-      // DEBUG: Log if we are hiding a post unexpectedly
-      if (!isMatch && (post.authorId === 'system' || post.type?.includes('election'))) {
-         console.warn(`LoungeView: Hiding system post due to mismatch. User: ${userSchoolId}, Post: ${postSchoolId}`);
-      }
-
-      return isMatch;
-  }) || [];
+  useEffect(() => {
+      const processLoungePosts = async () => {
+          if (!sortedPosts || sortedPosts.length === 0) {
+              setDisplayPosts([]);
+              return;
+          }
+          try {
+              const worker = await getWorker();
+              const filtered = await worker.filterLoungePosts(sortedPosts, userSchoolId);
+              setDisplayPosts(filtered);
+          } catch (error) {
+              console.error("Error filtering lounge posts in worker:", error);
+              // Fallback logic
+              const filtered = sortedPosts.filter(post => {
+                  if (post.type === 'system_countdown' || post.type === 'election_result') return true;
+                  const postSchoolId = post.schoolId || 'srcs_main'; 
+                  return postSchoolId === userSchoolId;
+              });
+              setDisplayPosts(filtered);
+          }
+      };
+      processLoungePosts();
+  }, [sortedPosts, userSchoolId]);
 
   return (
     <>
       {/* Container with EXPANDED WIDTH for desktop to use full space */}
-      <div className="max-w-[1600px] mx-auto w-full space-y-6 px-4 md:px-8 pb-40 lg:pb-12 relative z-10">
+      <div className="max-w-[1600px] mx-auto w-full space-y-6 px-4 md:px-8 pb-40 lg:pb-12 relative z-10" style={{ contentVisibility: 'auto', containIntrinsicSize: '0 800px' }}>
         
         {/* --- 1. SOCIAL CONTROL DECK --- */}
         <div className={`

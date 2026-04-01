@@ -1,63 +1,39 @@
-SRCS Digital Ecosystem V18: The "Democratic Evolution" Update
-Education doesn’t stand still, and neither do we. Welcome to V18—a massive leap forward for the SRCS Digital Ecosystem. For this release, we completely reimagined how student organizations handle leadership transitions, while relentlessly optimizing the platform's visual rendering, assessment interfaces, and database interactions to handle high-concurrency traffic effortlessly.
+SRCS Digital Ecosystem V18.1: Codename "Galactic Pulse"
+The journey toward a more immersive and efficient educational environment continues. V18.1 "Galactic Pulse" is a precision-focused update that introduces a state-of-the-art post-login experience, mission-critical management tools for educators, and a complete visual overhaul of the course discovery interface.
 
-🌟 HIGHLIGHT: The Next-Generation Election Manager is Live!
-Student leadership is a cornerstone of the campus experience. V18 introduces a completely overhauled Election Manager, bringing absolute precision and a stunning visual experience to campus voting.
+🌟 HIGHLIGHT: The "Galactic Pulse" Post-Login Experience
+We’ve reimagined the first few seconds of your journey. V18.1 introduces a high-end, 3-tier loading sequence designed to maximize perceived performance and visual polish.
+- Tier 1 (Initial): An immersive "Galactic Neural Pulse" splash screen featuring self-assembling SVG synapses and a singularity-core logo manifestation.
+- Tier 2 (Transitional): Intelligent hand-off to Dashboard Skeletons, ensuring the UI remains responsive while background data fetches.
+- Tier 3 (Reveal): A smooth, hardware-accelerated fade-in to your personalized workspace.
 
-The "Floating Island" Dashboard: We've introduced a responsive, fully rounded UI paradigm. The interface now gracefully adapts to any screen, featuring an ultra-compact desktop view that maximizes data visibility without feeling cluttered.
+💎 UI/UX: The "Luminous Proxy" Redesign
+Course selection is now a tangible, interactive experience.
+- Interactive 3D Tilt Cards: The student/teacher selection cards (ContentGroupSelector) now feature a physics-based 3D tilt effect that responds to mouse and touch movement.
+- Multi-Layered Glassmorphism: Cards have been overhauled with deep gradients, frosted glass overlays, and role-based "aura" glows (Emerald for Learners, Indigo for Teachers).
+- "Join Session" CTA: Redesigned the primary call-to-action as a high-contrast magnetic pill button for a more "marketable-ready" appeal.
 
-Intelligent Tie Detection & Absolute Transparency: We’ve massively upgraded the algorithmic logic behind the Live Canvassing view. The system now features dynamic tie detection that instantly highlights deadlocked races in real-time. We playfully retired the old "first alphabetical" sorting bug. If candidates are tied, the system now proudly and accurately displays them as deadlocked, ensuring absolute electoral transparency until the final vote is cast.
+📢 Announcement Management & Intelligence
+We've empowered teachers with more control directly from the dashboard.
+- Integrated Management: The Announcement Detail view now features embedded Edit and Delete controls.
+- Bespoke Confirmation Experience: Replaced legacy browser alerts with a custom, glassmorphic DeleteConfirmationModal, featuring warning iconography and smooth Framer Motion transitions.
+- "Super-Glass" Login: The login gate has been refined with pill-shaped inputs, improved background clarity, and animated atmospheric orbs.
 
-📝 Assessment & Intelligence Evolution
-We are making exams smarter, more flexible, and highly secure.
+🚀 Performance & Under-the-Hood Optimization
+- Comlink Web Worker Integration: Heavy data processing (lesson grouping, filtering, and stats) has been offloaded to a background thread ("dataProcessor.worker.js"), eliminating main-thread jank during peak sessions.
+- Content-Visibility Optimizations: Applied strategic rendering containment to all major list views (Lessons, Quizzes, Lounge) to ensure 60fps scrolling on mobile devices.
 
-Redesigned Quiz Interface & Strategic Skipping: We've completely overhauled the quiz UI. Students now have the tactical flexibility to skip questions and return to them later—provided the instructor has disabled the strict sequential-answering security feature.
-
-Answer-Lock Security Measure: To maintain absolute academic integrity during flexible assessments, a new anti-tampering measure has been implemented. Once a student submits an answer for a specific number, the options are instantly disabled and locked, ensuring answers cannot be retroactively changed.
-
-Gemini 3.1 Pro Integration: Arcee AI has been officially replaced with Gemini 3.1 Pro to power all lesson, quiz, exam, and document creation, ensuring highly accurate, deeply contextual, and curriculum-aligned generation.
-
-Gemini 3.1 Flash Chatbot: The platform's built-in chatbot assistance has been upgraded to utilize Gemini 3.1 Flash, delivering lightning-fast, conversational support and guidance for both teachers and students.
-
-Intelligent AI Throttling & Queueing: To maintain absolute ecosystem stability and prevent service timeouts during peak hours, we've implemented a smart throttling system for simultaneous AI use. Document, lesson, and quiz creation might take slightly longer during high-traffic periods, but rest assured your generation tasks are securely queued and will process reliably.
-
-🚀 "Blistering" Native Performance & Fluidity
-We rebuilt the rendering pipeline to ensure that even during peak traffic, the ecosystem doesn't just survive—it flies.
-
-Canvas-Level GPU Acceleration: We are now forcing hardware-layer rendering across the entire application. By offloading heavy visual lifting directly to the device's GPU, animations and transitions are incredibly crisp.
-
-120Hz Hardware-Layer Rendering: The interface now perfectly syncs with high-refresh-rate displays. Combined with strict memory management that completely eliminates WebView memory bloat, scrolling through long student masterlists or election results is completely stutter-free.
-
-OEM High Refresh Rate Optimization: Resolved critical UI lag issues on devices from specific manufacturers (Samsung, Xiaomi, Huawei, Oppo, Realme, and Google). Device-specific rendering bottlenecks have been cleared to ensure the UI actually takes full advantage of the hardware's high refresh rate capabilities.
-
-🛡️ Zero-Trust Security & Hardening
-Keeping your institution's data secure is our highest priority. V18 includes critical architectural hardening specifically engineered for high-stakes digital environments.
-
-Cross-Campus Data Isolation (Guardrail Implementation): Fixed a routing anomaly that caused occasional leakage of lounge posts and updates across different school communities. We have implemented strict, multi-tenant data guardrails. All community data is now fully isolated, highly secured, and has been securely restored to its proper environment to prevent any future crossover.
-
-CVE-2026-0329A: High-Traffic Election Race Conditions
-
-Impact: During massive, simultaneous voting events, database write-collisions could theoretically drop votes if hundreds of students submitted exactly at the same millisecond.
-
-Resolution: We implemented strict atomic transaction protocols within the database layer. Vote increments are now mathematically secured and queued flawlessly, ensuring 100% accuracy even during absolute peak load.
-
-CVE-2026-0329B: Privilege Escalation Prevention for Archived Modifications
-
-Impact: Potential loophole where finalized or archived election data could be theoretically altered through direct API manipulation.
-
-Resolution: Hardened the zero-trust security model. Once an election's countdown hits zero and enters the 'archived' state, the system instantly revokes all write access, locking the results into an immutable state that prevents any unauthorized privilege escalation.
+🛡️ SECURITY PATCH: CVE-2026-0401A
+- Impact: Potential authorization bypass where role-based management buttons could be interacted with before backend permission checks fully resolved.
+- Resolution: **Cross-Role Resource Authorization Hardening**. We have implemented a new "Guard-at-the-Gate" validation layer that strictly enforces Firestore security rules and local UI permission checks. Teacher management tools (Edit/Delete) are now cryptographically tied to the user's class membership and role ID, mitigating any unauthorized modification attempts.
 
 🛠️ Quality of Life Enhancements & Bug Fixes
-Share Button Restored: We fixed an issue where the Share Button for lessons and exams was accidentally removed in a previous update. It is now back in its rightful place, allowing seamless resource distribution.
+- Splash SVG Precision: Fixed a coordinate-range anomaly that caused `<path>` rendering errors on specific Chromium versions.
+- Asset Reliability (403 Fix): Resolved a Forbidden access error by migrating internal UI textures (Noise/Grains) to CSS-native implementations, eliminating external CDN dependencies.
+- Database Integrity: Fixed a `FirebaseError: Function addDoc()` issue caused by undefined teacher metadata in class announcements. 
+- Mobile Blur Neutralization: Optimized performance on Android WebView by neutralizing expensive transparency filters on low-power mobile viewports.
 
-Z-Index Layering Refinements: Fixed an issue where critical warning layers and the assessment modals would occasionally hide behind parent components. Overlays now strictly respect architectural priority.
-
-Temporary Theme Engine Suspension (Teacher Portal): To ensure overall UI stability while we address minor visual rendering bugs, the custom theming feature has been temporarily disabled on the teacher's end. It will return fully polished in an upcoming patch.
-
-⚠️ System Requirements & Deprecation Notice
-Notice for Android Users: As we continue to push the boundaries of native performance and hardware acceleration, future updates to the Android app will officially drop support for Android 6. We highly recommend updating older devices to ensure continued access to the latest features and security patches.
-
-Experience the Future of Learning
+Experience the "Galactic Pulse"
 💻 Available now on Web & Mobile:
 👉 https://srcsdigital.web.app/
 
