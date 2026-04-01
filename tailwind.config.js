@@ -198,6 +198,10 @@ export default {
   ],
   plugins: [
     require('@tailwindcss/typography'),
+    function({ addVariant }) {
+      // Custom variant that triggers when html or body has the '.is-android' class
+      addVariant('is-android', '.is-android &');
+    }
     // Line-clamp is now built-in to Tailwind v3.3+, no plugin needed
   ],
 };

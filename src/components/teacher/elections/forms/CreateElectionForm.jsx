@@ -7,21 +7,20 @@ import {
     TextAa, IdentificationCard, LockKey, Eye, Globe
 } from '@phosphor-icons/react';
 
-// --- ANIMATION VARIANTS ---
+// --- PREMIUM ANIMATION VARIANTS ---
 const containerVariants = {
-    hidden: { opacity: 0, scale: 0.98 },
+    hidden: { opacity: 0, y: 30, scale: 0.96 },
     visible: {
-        opacity: 1,
-        scale: 1,
-        transition: { type: "spring", duration: 0.5, bounce: 0.3 }
+        opacity: 1, y: 0, scale: 1,
+        transition: { type: "spring", stiffness: 300, damping: 30 }
     },
-    exit: { opacity: 0, scale: 0.95, transition: { duration: 0.2 } }
+    exit: { opacity: 0, scale: 0.96, transition: { duration: 0.2 } }
 };
 
 const formSectionVariants = {
-    hidden: { opacity: 0, x: 20 },
-    visible: { opacity: 1, x: 0, transition: { duration: 0.4, ease: "easeOut" } },
-    exit: { opacity: 0, x: -20, transition: { duration: 0.2 } }
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } },
+    exit: { opacity: 0, y: -15, transition: { duration: 0.2 } }
 };
 
 const CreateElectionForm = ({
@@ -35,35 +34,46 @@ const CreateElectionForm = ({
         <motion.div
             variants={containerVariants}
             initial="hidden" animate="visible" exit="exit"
-            className="flex flex-col h-full bg-white dark:bg-slate-900 rounded-none lg:rounded-2xl lg:border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden relative"
+            className="flex flex-col h-full bg-white/70 dark:bg-slate-950/70 backdrop-blur-3xl rounded-[32px] md:rounded-[40px] border border-white/80 dark:border-slate-800/50 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] overflow-hidden relative"
         >
-            {/* === TOP APP BAR === */}
-            <div className="flex-none flex items-center justify-between px-4 py-4 md:px-6 md:py-5 relative z-20 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
-                <div className="flex items-center gap-3">
+            {/* Ambient Animated Orb Background */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-[32px] md:rounded-[40px] z-0">
+                <motion.div 
+                    animate={{ 
+                        x: formStep === 1 ? '0%' : '-50%',
+                        backgroundColor: formStep === 1 ? 'rgba(99, 102, 241, 0.15)' : 'rgba(16, 185, 129, 0.15)'
+                    }}
+                    transition={{ duration: 1, ease: "easeInOut" }}
+                    className="absolute top-[-20%] right-[-10%] w-[60vw] h-[60vw] rounded-full blur-[100px] mix-blend-multiply dark:mix-blend-screen" 
+                />
+            </div>
+
+            {/* === ELEGANT APP BAR === */}
+            <div className="flex-none flex items-center justify-between px-5 py-5 md:px-8 md:py-8 relative z-20">
+                <div className="flex items-center gap-4 md:gap-5 w-full">
                     <button
                         onClick={onCancel}
-                        className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
+                        className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-[18px] md:rounded-[20px] bg-white/50 dark:bg-slate-800/50 backdrop-blur-md text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-700 border border-white/60 dark:border-slate-700 shadow-sm active:scale-95 transition-all duration-300 shrink-0"
                     >
-                        <X weight="bold" className="w-5 h-5" />
+                        <X weight="bold" className="w-4 h-4 md:w-5 md:h-5" />
                     </button>
-                    <div>
-                        <h2 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white tracking-tight">
+                    
+                    <div className="flex-1">
+                        <h2 className="text-xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-none mb-1 md:mb-2">
                             {editingId ? 'Edit Ballot' : 'New Election'}
                         </h2>
-                        <div className="flex items-center gap-3 mt-1.5">
-                            {/* Animated progress bar */}
-                            <div className="flex gap-1.5 items-center">
-                                <div className="relative w-16 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                    <motion.div
-                                        className="absolute left-0 top-0 h-full bg-indigo-600 rounded-full"
-                                        initial={false}
-                                        animate={{ width: formStep >= 1 ? (formStep >= 2 ? '100%' : '50%') : '0%' }}
-                                        transition={{ duration: 0.4, ease: "easeOut" }}
-                                    />
-                                </div>
+                        <div className="flex items-center gap-3">
+                            {/* Animated Progress Bar */}
+                            <div className="flex-1 max-w-[120px] md:max-w-[160px] h-1.5 md:h-2 bg-slate-200/50 dark:bg-slate-800/50 rounded-full overflow-hidden shadow-inner">
+                                <motion.div
+                                    className="h-full bg-gradient-to-r from-indigo-500 to-indigo-600 dark:from-indigo-400 dark:to-indigo-500 rounded-full"
+                                    initial={false}
+                                    animate={{ width: formStep === 1 ? '50%' : '100%' }}
+                                    transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                                />
                             </div>
-                            <span className="text-[10px] md:text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                                Step {formStep}/2
+                            <span className="text-[10px] md:text-xs font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">
+                                Step {formStep} of 2
                             </span>
                         </div>
                     </div>
@@ -71,106 +81,110 @@ const CreateElectionForm = ({
             </div>
 
             {/* === SCROLLABLE CONTENT === */}
-            <div className="flex-1 overflow-y-auto relative z-10 p-4 md:p-8 bg-slate-50/50 dark:bg-slate-950/50">
+            <div className="flex-1 overflow-y-auto relative z-10 px-5 md:px-10 pb-5 md:pb-10 custom-scrollbar">
                 <AnimatePresence mode="wait">
                     {formStep === 1 && (
                         <motion.div
                             key="step1"
                             variants={formSectionVariants}
                             initial="hidden" animate="visible" exit="exit"
-                            className="space-y-8 max-w-3xl mx-auto pb-6"
+                            className="space-y-6 md:space-y-8 max-w-2xl mx-auto"
                         >
-                            {/* 1. TITLE & ORG */}
-                            <div className="space-y-5">
-                                <div className="group">
-                                    <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 block pl-1">Election Title</label>
-                                    <div className="relative">
-                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-600 group-focus-within:text-indigo-600 transition-colors">
-                                            <TextAa size={22} weight="duotone" />
-                                        </div>
-                                        <input
-                                            type="text"
-                                            className="w-full pl-12 pr-4 py-4 text-xl md:text-2xl font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none text-slate-900 dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-600 transition-all"
-                                            placeholder="e.g., Student Council 2025"
-                                            value={formData.title}
-                                            onChange={e => setFormData({ ...formData, title: e.target.value })}
-                                            autoFocus
-                                        />
-                                    </div>
-                                </div>
-                                <div className="group">
-                                    <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 block pl-1">Organization</label>
-                                    <div className="relative">
-                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-600 group-focus-within:text-violet-500 transition-colors">
-                                            <IdentificationCard size={22} weight="duotone" />
-                                        </div>
-                                        <input
-                                            type="text"
-                                            className="w-full pl-12 pr-4 py-4 text-lg font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 outline-none text-slate-700 dark:text-slate-300 placeholder:text-slate-300 dark:placeholder:text-slate-600 transition-all"
-                                            placeholder="Department / Organization"
-                                            value={formData.organization}
-                                            onChange={e => setFormData({ ...formData, organization: e.target.value })}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
+							{/* 1. TITLE & ORG */}
+							                            <div className="space-y-4 md:space-y-6">
+							                                <div className="group relative">
+							                                    <label className="text-[10px] md:text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 md:mb-3 block pl-4">Election Title</label>
+							                                    <div className="relative flex items-center">
+							                                        <div className="absolute left-5 w-10 h-10 rounded-[14px] bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center text-slate-400 group-focus-within:text-indigo-500 group-focus-within:bg-indigo-50 dark:group-focus-within:bg-indigo-500/20 transition-all duration-300">
+							                                            <TextAa size={20} weight="bold" />
+							                                        </div>
+							                                        <input
+							                                            type="text"
+							                                            /* CHANGED: pl-18 to pl-20 */
+							                                            className="w-full pl-20 pr-6 py-4 md:py-5 text-lg md:text-xl font-bold bg-white/50 dark:bg-slate-900/40 border border-white/80 dark:border-slate-700/50 rounded-[24px] focus:bg-white dark:focus:bg-slate-900 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 outline-none text-slate-900 dark:text-white placeholder:text-slate-400/70 transition-all duration-300 shadow-inner"
+							                                            placeholder="e.g., Student Council 2026"
+							                                            value={formData.title}
+							                                            onChange={e => setFormData({ ...formData, title: e.target.value })}
+							                                            autoFocus
+							                                        />
+							                                    </div>
+							                                </div>
+
+							                                <div className="group relative">
+							                                    <label className="text-[10px] md:text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 md:mb-3 block pl-4">Organization</label>
+							                                    <div className="relative flex items-center">
+							                                        <div className="absolute left-5 w-10 h-10 rounded-[14px] bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center text-slate-400 group-focus-within:text-indigo-500 group-focus-within:bg-indigo-50 dark:group-focus-within:bg-indigo-500/20 transition-all duration-300">
+							                                            <IdentificationCard size={20} weight="bold" />
+							                                        </div>
+							                                        <input
+							                                            type="text"
+							                                            /* CHANGED: pl-18 to pl-20 */
+							                                            className="w-full pl-20 pr-6 py-4 md:py-5 text-base md:text-lg font-bold bg-white/50 dark:bg-slate-900/40 border border-white/80 dark:border-slate-700/50 rounded-[24px] focus:bg-white dark:focus:bg-slate-900 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 outline-none text-slate-800 dark:text-slate-200 placeholder:text-slate-400/70 transition-all duration-300 shadow-inner"
+							                                            placeholder="Department or Group"
+							                                            value={formData.organization}
+							                                            onChange={e => setFormData({ ...formData, organization: e.target.value })}
+							                                        />
+							                                    </div>
+							                                </div>
+							                            </div>
 
                             {/* 2. VISIBILITY TOGGLE */}
-                            <div className="space-y-3">
-                                <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider pl-1">Dashboard Visibility</label>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-3 md:space-y-4 pt-2">
+                                <label className="text-[10px] md:text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest pl-4 block">Dashboard Visibility</label>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                                     <button
                                         onClick={() => setFormData({ ...formData, visibility: 'private' })}
-                                        className={`relative p-5 rounded-2xl border-2 text-left transition-all duration-300 flex items-start gap-4 overflow-hidden active:scale-[0.98]
+                                        className={`relative p-4 md:p-5 rounded-[24px] border transition-all duration-300 flex items-center gap-4 overflow-hidden outline-none text-left
                                             ${formData.visibility === 'private'
-                                                ? 'bg-rose-50 dark:bg-rose-900/20 border-rose-500'
-                                                : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750'
+                                                ? 'bg-white dark:bg-slate-800 border-indigo-500 ring-4 ring-indigo-500/10 shadow-[0_8px_20px_rgba(99,102,241,0.15)]'
+                                                : 'bg-white/40 dark:bg-slate-900/30 border-white/60 dark:border-slate-700/50 hover:bg-white/80 dark:hover:bg-slate-800/80'
                                             }`}
                                     >
-                                        <div className={`p-3 rounded-xl transition-colors ${formData.visibility === 'private' ? 'bg-rose-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}>
-                                            <LockKey size={24} weight="duotone" />
+                                        <div className={`w-12 h-12 flex items-center justify-center rounded-[16px] transition-all duration-300 shadow-inner ${formData.visibility === 'private' ? 'bg-indigo-500 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>
+                                            <LockKey weight="fill" className="w-6 h-6" />
                                         </div>
                                         <div>
-                                            <span className={`block text-base font-semibold mb-0.5 ${formData.visibility === 'private' ? 'text-slate-900 dark:text-white' : 'text-slate-500'}`}>Private</span>
-                                            <span className="text-sm text-slate-400 font-medium">Only you and Admins.</span>
+                                            <span className={`block text-sm md:text-base font-black mb-0.5 ${formData.visibility === 'private' ? 'text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-400'}`}>Private Event</span>
+                                            <span className="block text-[10px] md:text-xs font-medium text-slate-400">Only you and Admins.</span>
                                         </div>
                                     </button>
 
                                     <button
                                         onClick={() => setFormData({ ...formData, visibility: 'public' })}
-                                        className={`relative p-5 rounded-2xl border-2 text-left transition-all duration-300 flex items-start gap-4 overflow-hidden active:scale-[0.98]
+                                        className={`relative p-4 md:p-5 rounded-[24px] border transition-all duration-300 flex items-center gap-4 overflow-hidden outline-none text-left
                                             ${formData.visibility === 'public'
-                                                ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-500'
-                                                : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750'
+                                                ? 'bg-white dark:bg-slate-800 border-indigo-500 ring-4 ring-indigo-500/10 shadow-[0_8px_20px_rgba(99,102,241,0.15)]'
+                                                : 'bg-white/40 dark:bg-slate-900/30 border-white/60 dark:border-slate-700/50 hover:bg-white/80 dark:hover:bg-slate-800/80'
                                             }`}
                                     >
-                                        <div className={`p-3 rounded-xl transition-colors ${formData.visibility === 'public' ? 'bg-emerald-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}>
-                                            <Eye size={24} weight="duotone" />
+                                        <div className={`w-12 h-12 flex items-center justify-center rounded-[16px] transition-all duration-300 shadow-inner ${formData.visibility === 'public' ? 'bg-indigo-500 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>
+                                            <Eye weight="fill" className="w-6 h-6" />
                                         </div>
                                         <div>
-                                            <span className={`block text-base font-semibold mb-0.5 ${formData.visibility === 'public' ? 'text-slate-900 dark:text-white' : 'text-slate-500'}`}>Public</span>
-                                            <span className="text-sm text-slate-400 font-medium">Other teachers can see results.</span>
+                                            <span className={`block text-sm md:text-base font-black mb-0.5 ${formData.visibility === 'public' ? 'text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-400'}`}>Public Event</span>
+                                            <span className="block text-[10px] md:text-xs font-medium text-slate-400">Others can view results.</span>
                                         </div>
                                     </button>
                                 </div>
                             </div>
 
                             {/* 3. DATES */}
-                            <div className="space-y-3">
-                                <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider pl-1">Event Duration</label>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 group focus-within:border-emerald-500 transition-all">
-                                        <label className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2 group-focus-within:text-emerald-600 transition-colors uppercase tracking-wider">
-                                            <CalendarBlank className="w-4 h-4 text-emerald-500" weight="fill" /> Starts
+                            <div className="space-y-3 md:space-y-4 pt-2">
+                                <label className="text-[10px] md:text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest pl-4 block">Event Duration</label>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+                                    <div className="bg-white/60 dark:bg-slate-900/40 p-5 rounded-[24px] border border-white/80 dark:border-slate-700/50 shadow-inner group focus-within:bg-white dark:focus-within:bg-slate-900 focus-within:border-indigo-400 focus-within:ring-4 focus-within:ring-indigo-500/10 transition-all">
+                                        <label className="flex items-center gap-2 text-[10px] md:text-xs font-black text-slate-400 mb-3 uppercase tracking-widest group-focus-within:text-indigo-500 transition-colors">
+                                            <CalendarBlank weight="bold" className="w-4 h-4" /> Start Time
                                         </label>
+                                        {/* Assuming CustomDateTimePicker has transparent/clean styles internally */}
                                         <CustomDateTimePicker
                                             value={formData.startDate}
                                             onChange={val => setFormData({ ...formData, startDate: val })}
                                         />
                                     </div>
-                                    <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 group focus-within:border-rose-500 transition-all">
-                                        <label className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2 group-focus-within:text-rose-500 transition-colors uppercase tracking-wider">
-                                            <CalendarBlank className="w-4 h-4 text-rose-500" weight="fill" /> Ends
+                                    <div className="bg-white/60 dark:bg-slate-900/40 p-5 rounded-[24px] border border-white/80 dark:border-slate-700/50 shadow-inner group focus-within:bg-white dark:focus-within:bg-slate-900 focus-within:border-indigo-400 focus-within:ring-4 focus-within:ring-indigo-500/10 transition-all">
+                                        <label className="flex items-center gap-2 text-[10px] md:text-xs font-black text-slate-400 mb-3 uppercase tracking-widest group-focus-within:text-indigo-500 transition-colors">
+                                            <CalendarBlank weight="bold" className="w-4 h-4" /> End Time
                                         </label>
                                         <CustomDateTimePicker
                                             value={formData.endDate}
@@ -187,11 +201,11 @@ const CreateElectionForm = ({
                             key="step2"
                             variants={formSectionVariants}
                             initial="hidden" animate="visible" exit="exit"
-                            className="space-y-6 max-w-3xl mx-auto pb-6"
+                            className="space-y-6 md:space-y-8 max-w-2xl mx-auto"
                         >
-                            <div className="text-center mb-6">
-                                <h3 className="text-xl font-bold text-slate-900 dark:text-white">Ballot Configuration</h3>
-                                <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Assign voters per position and add candidates.</p>
+                            <div className="text-center mb-4 md:mb-8">
+                                <h3 className="text-2xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight">Configure Ballot</h3>
+                                <p className="text-slate-500 dark:text-slate-400 text-sm md:text-base font-medium mt-2">Structure your election by adding positions and candidates.</p>
                             </div>
 
                             <LayoutGroup>
@@ -200,91 +214,104 @@ const CreateElectionForm = ({
                                         <motion.div
                                             layout
                                             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
+                                            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
                                             key={pos.id}
-                                            className="bg-white dark:bg-slate-800 rounded-2xl p-5 md:p-6 border border-slate-200 dark:border-slate-700 relative group overflow-hidden"
+                                            className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-md rounded-[32px] p-5 md:p-8 border border-white/80 dark:border-slate-700/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative group"
                                         >
                                             {/* Position Header & Delete */}
-                                            <div className="flex justify-between items-start mb-6">
+                                            <div className="flex justify-between items-start mb-6 md:mb-8">
                                                 <div className="flex-1 mr-4">
-                                                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5 block">Position Title</label>
+                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 md:mb-3 block pl-2">Position Title</label>
                                                     <input
                                                         type="text" placeholder="e.g., President"
-                                                        className="text-xl md:text-2xl font-bold bg-transparent w-full outline-none text-slate-900 dark:text-white placeholder:text-slate-200 dark:placeholder:text-white/10"
+                                                        className="text-2xl md:text-4xl font-black bg-transparent w-full outline-none text-slate-900 dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-700 transition-colors border-b-2 border-slate-200 dark:border-slate-800 focus:border-indigo-500 pb-2"
                                                         value={pos.title}
                                                         onChange={e => updatePosition(pIdx, 'title', e.target.value)}
                                                     />
                                                 </div>
                                                 <button
                                                     onClick={() => removePosition(pIdx)}
-                                                    className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-50 dark:bg-slate-700 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
+                                                    className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-[18px] md:rounded-[20px] bg-white dark:bg-slate-800 text-slate-400 hover:text-rose-500 shadow-sm border border-slate-100 dark:border-slate-700 hover:border-rose-200 dark:hover:border-rose-900 hover:bg-rose-50 dark:hover:bg-rose-500/10 active:scale-95 transition-all duration-300"
+                                                    title="Remove Position"
                                                 >
-                                                    <Trash weight="bold" size={18} />
+                                                    <Trash weight="fill" className="w-5 h-5" />
                                                 </button>
                                             </div>
 
                                             {/* --- POSITION AUDIENCE TARGETING --- */}
-                                            <div className="mb-8 p-4 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700">
-                                                <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3 block">Who can vote for this position?</label>
-                                                <div className="flex flex-wrap gap-2">
-                                                    <button
-                                                        onClick={() => updatePosition(pIdx, 'targetType', 'school')}
-                                                        className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-2 border ${
-                                                            pos.targetType === 'school' || !pos.targetType 
-                                                            ? 'bg-indigo-600 border-indigo-600 text-white' 
-                                                            : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500'
-                                                        }`}
-                                                    >
-                                                        <Globe weight="fill" /> Entire School
-                                                    </button>
-                                                    <button
-                                                        onClick={() => updatePosition(pIdx, 'targetType', 'grade')}
-                                                        className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-2 border ${
-                                                            pos.targetType === 'grade' 
-                                                            ? 'bg-violet-600 border-violet-600 text-white' 
-                                                            : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500'
-                                                        }`}
-                                                    >
-                                                        <GraduationCap weight="fill" /> Specific Grade
-                                                    </button>
+                                            <div className="mb-6 md:mb-8 bg-slate-50/80 dark:bg-slate-950/50 p-4 md:p-5 rounded-[24px] border border-white dark:border-slate-800 shadow-inner">
+                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-3 pl-2">Eligible Voters</label>
+                                                <div className="flex flex-col sm:flex-row gap-2 md:gap-3">
+                                                    <div className="flex bg-slate-200/50 dark:bg-slate-800/80 p-1 md:p-1.5 rounded-[20px] flex-1">
+                                                        <button
+                                                            onClick={() => updatePosition(pIdx, 'targetType', 'school')}
+                                                            className={`flex-1 px-4 py-2.5 rounded-[16px] text-xs md:text-sm font-bold transition-all duration-300 flex items-center justify-center gap-2 ${
+                                                                pos.targetType === 'school' || !pos.targetType 
+                                                                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' 
+                                                                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                                                            }`}
+                                                        >
+                                                            <Globe weight="bold" className="w-4 h-4" /> Entire School
+                                                        </button>
+                                                        <button
+                                                            onClick={() => updatePosition(pIdx, 'targetType', 'grade')}
+                                                            className={`flex-1 px-4 py-2.5 rounded-[16px] text-xs md:text-sm font-bold transition-all duration-300 flex items-center justify-center gap-2 ${
+                                                                pos.targetType === 'grade' 
+                                                                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' 
+                                                                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                                                            }`}
+                                                        >
+                                                            <GraduationCap weight="bold" className="w-4 h-4" /> Specific Grade
+                                                        </button>
+                                                    </div>
                                                     
                                                     {pos.targetType === 'grade' && (
-                                                        <select
-                                                            value={pos.targetGrade || 7}
-                                                            onChange={e => updatePosition(pIdx, 'targetGrade', e.target.value)}
-                                                            className="ml-auto bg-white dark:bg-slate-800 border border-violet-300 dark:border-violet-600/30 rounded-lg px-3 py-1.5 text-xs font-bold text-violet-600 dark:text-violet-400 outline-none"
-                                                        >
-                                                            {[7, 8, 9, 10, 11, 12].map(g => <option key={g} value={g}>Grade {g}</option>)}
-                                                        </select>
+                                                        <div className="sm:w-32 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-[20px] px-4 py-2 flex items-center shadow-sm">
+                                                            <select
+                                                                value={pos.targetGrade || 7}
+                                                                onChange={e => updatePosition(pIdx, 'targetGrade', e.target.value)}
+                                                                className="w-full bg-transparent text-sm font-bold text-slate-800 dark:text-slate-200 outline-none appearance-none"
+                                                            >
+                                                                {[7, 8, 9, 10, 11, 12].map(g => <option key={g} value={g}>Grade {g}</option>)}
+                                                            </select>
+                                                        </div>
                                                     )}
                                                 </div>
                                             </div>
 
                                             {/* Candidates List */}
                                             <div className="space-y-3">
-                                                <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block pl-1">Candidates</label>
-                                                {pos.candidates.map((cand, cIdx) => (
-                                                    <div key={cand.id} className="flex items-center gap-3 group/cand">
-                                                        <div className="flex-1 relative">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 pl-2">Candidates</label>
+                                                <AnimatePresence>
+                                                    {pos.candidates.map((cand, cIdx) => (
+                                                        <motion.div 
+                                                            key={cand.id} 
+                                                            initial={{ opacity: 0, height: 0 }}
+                                                            animate={{ opacity: 1, height: 'auto' }}
+                                                            exit={{ opacity: 0, height: 0 }}
+                                                            className="flex items-center gap-3 relative"
+                                                        >
                                                             <input
-                                                                type="text" placeholder={`Candidate name...`}
-                                                                className="w-full pl-4 pr-10 py-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none font-medium text-slate-900 dark:text-white transition-all"
+                                                                type="text" placeholder="Enter candidate name"
+                                                                className="w-full pl-5 pr-14 py-4 rounded-[20px] text-sm md:text-base font-bold bg-white/80 dark:bg-slate-900/80 border border-white dark:border-slate-700 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 outline-none text-slate-900 dark:text-white transition-all shadow-sm"
                                                                 value={cand.name}
                                                                 onChange={e => updateCandidate(pIdx, cIdx, e.target.value)}
                                                             />
                                                             <button
                                                                 onClick={() => removeCandidate(pIdx, cIdx)}
-                                                                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-300 hover:text-rose-500 transition-colors"
+                                                                className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 flex items-center justify-center rounded-[14px] text-slate-400 hover:bg-rose-50 hover:text-rose-500 dark:hover:bg-rose-500/20 transition-all"
                                                             >
-                                                                <X weight="bold" size={14} />
+                                                                <X weight="bold" size={16} />
                                                             </button>
-                                                        </div>
-                                                    </div>
-                                                ))}
+                                                        </motion.div>
+                                                    ))}
+                                                </AnimatePresence>
+                                                
                                                 <button
                                                     onClick={() => addCandidate(pIdx)}
-                                                    className="mt-2 text-xs font-bold text-indigo-600 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-colors"
+                                                    className="mt-4 text-xs font-bold text-indigo-600 dark:text-indigo-400 flex items-center justify-center gap-2 w-full md:w-auto px-6 py-4 rounded-[20px] border-2 border-dashed border-indigo-200 dark:border-indigo-500/30 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 hover:border-indigo-400 dark:hover:border-indigo-400 transition-all duration-300"
                                                 >
-                                                    <Plus weight="bold" size={14} /> Add Candidate
+                                                    <Plus weight="bold" size={16} /> Add Candidate
                                                 </button>
                                             </div>
                                         </motion.div>
@@ -294,22 +321,24 @@ const CreateElectionForm = ({
 
                             <button
                                 onClick={handleAddPosition}
-                                className="w-full py-8 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 text-slate-400 hover:border-indigo-500 hover:text-indigo-600 transition-all flex flex-col items-center justify-center gap-2 group bg-white dark:bg-slate-800/50"
+                                className="w-full py-10 md:py-12 rounded-[32px] border-2 border-dashed border-slate-300/80 dark:border-slate-700 text-slate-500 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all duration-300 flex flex-col items-center justify-center gap-3 bg-white/30 hover:bg-white/60 dark:bg-slate-900/20 dark:hover:bg-slate-900/60 shadow-inner group active:scale-[0.99]"
                             >
-                                <ListNumbers weight="bold" size={28} />
-                                <span className="font-bold text-sm">Add New Position</span>
+                                <div className="p-4 rounded-[20px] bg-white dark:bg-slate-800 shadow-sm group-hover:scale-110 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-500/20 transition-all duration-300">
+                                    <ListNumbers weight="bold" className="w-6 h-6 md:w-8 md:h-8" />
+                                </div>
+                                <span className="font-bold text-sm md:text-base">Add Another Position</span>
                             </button>
                         </motion.div>
                     )}
                 </AnimatePresence>
             </div>
 
-            {/* === FOOTER ACTIONS === */}
-            <div className="flex-none p-4 md:p-6 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 z-20 flex gap-3">
+            {/* === ACTION FOOTER === */}
+            <div className="flex-none px-5 py-5 md:px-8 md:py-6 border-t border-white/60 dark:border-slate-800/50 bg-white/40 dark:bg-slate-900/60 backdrop-blur-2xl z-20 flex flex-col sm:flex-row items-center gap-3 md:gap-4">
                 {formStep > 1 && (
                     <button
                         onClick={() => setFormStep(1)}
-                        className="px-8 py-4 rounded-full font-bold text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-all"
+                        className="w-full sm:w-auto px-8 py-4 md:py-5 rounded-[24px] font-bold text-sm md:text-base text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200/80 dark:border-slate-700 shadow-sm hover:shadow active:scale-95 transition-all duration-300"
                     >
                         Back
                     </button>
@@ -317,16 +346,16 @@ const CreateElectionForm = ({
                 <button
                     onClick={() => formStep === 1 ? (canProceed && setFormStep(2)) : onSubmit()}
                     disabled={formStep === 1 && !canProceed}
-                    className={`flex-1 px-8 py-4 rounded-full font-bold text-sm flex items-center justify-center gap-2 transition-all
+                    className={`flex-1 w-full px-8 py-4 md:py-5 rounded-[24px] font-bold text-sm md:text-base flex items-center justify-center gap-3 transition-all duration-300
                         ${formStep === 1 && !canProceed
-                            ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
-                            : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20'
+                            ? 'bg-white/50 dark:bg-slate-800/50 text-slate-400 dark:text-slate-600 cursor-not-allowed border border-slate-200/50 dark:border-slate-700/50'
+                            : 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:scale-[1.02] active:scale-95 shadow-[0_8px_20px_rgba(0,0,0,0.15)] dark:shadow-[0_8px_20px_rgba(255,255,255,0.15)]'
                         }`}
                 >
                     {formStep === 1 ? (
-                        <>Configure Ballot <CaretRight weight="bold" /></>
+                        <>Continue to Ballot <CaretRight weight="bold" className="w-5 h-5" /></>
                     ) : (
-                        editingId ? <>Save Changes <CheckCircle weight="fill" /></> : <>Launch Election <CheckCircle weight="fill" /></>
+                        editingId ? <>Save Changes <CheckCircle weight="fill" className="w-5 h-5" /></> : <>Launch Election <CheckCircle weight="fill" className="w-5 h-5" /></>
                     )}
                 </button>
             </div>

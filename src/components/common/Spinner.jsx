@@ -137,15 +137,17 @@ const Spinner = () => {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9, y: 10 }}
         transition={{ type: "spring", stiffness: 300, damping: 25 }}
-        className="
+        className={`
           flex w-[320px] max-w-[90%] items-center gap-5 
           rounded-[28px] pr-8 pl-5 py-4
-          bg-white/75 dark:bg-[#1c1c1e]/80 
-          backdrop-blur-2xl backdrop-saturate-150
           shadow-[0_20px_50px_-12px_rgba(0,0,0,0.2)] dark:shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)]
           border border-white/40 dark:border-white/10
           ring-1 ring-black/5 dark:ring-white/5
-        "
+          ${document.documentElement.classList.contains('is-android')
+            ? 'bg-white/90 dark:bg-[#1c1c1e]/95'
+            : 'bg-white/75 dark:bg-[#1c1c1e]/80 backdrop-blur-2xl backdrop-saturate-150'
+          }
+        `}
       >
         {/* Pass the dynamic logo to the rings */}
         <SpinningRings logo={activeBrand.logo} />

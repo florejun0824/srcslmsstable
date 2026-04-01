@@ -12,6 +12,9 @@ const SCHOOL_BRANDING = {
     'ichs_ilog': { name: 'ICHS Platform', logo: '/logos/ichs.png', color: 'from-orange-500 to-red-500', shadow: 'shadow-orange-500/30' }
 };
 
+// Detect Android once
+const IS_ANDROID = typeof document !== 'undefined' && document.documentElement.classList.contains('is-android');
+
 const LogoLoadingScreen = ({ message = "Initializing Neural Core..." }) => {
     const { userProfile } = useAuth();
     const [activeBrand, setActiveBrand] = useState(SCHOOL_BRANDING['srcs_main']);
@@ -31,17 +34,27 @@ const LogoLoadingScreen = ({ message = "Initializing Neural Core..." }) => {
         <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-slate-50 dark:bg-[#050505] overflow-hidden font-sans">
             
             {/* --- IMMERSIVE MESH GRADIENT BACKGROUND --- */}
+            {/* Android: no blur, opacity-only colored divs | Desktop: full blur blobs */}
             <div className="absolute inset-0 pointer-events-none opacity-40 dark:opacity-20 mix-blend-screen isolate">
-                <motion.div 
-                    animate={{ rotate: 360, scale: [1, 1.2, 1] }} 
-                    transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                    className={`absolute -top-[30%] -left-[10%] w-[70vw] h-[70vw] bg-gradient-to-tr ${activeBrand.color} rounded-full blur-[100px] opacity-30`}
-                />
-                <motion.div 
-                    animate={{ rotate: -360, scale: [1, 1.3, 1] }} 
-                    transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-                    className="absolute top-[20%] -right-[20%] w-[60vw] h-[60vw] bg-gradient-to-bl from-purple-500 to-pink-500 rounded-full blur-[120px] opacity-20"
-                />
+                {IS_ANDROID ? (
+                    <>
+                        <div className={`absolute -top-[30%] -left-[10%] w-[70vw] h-[70vw] bg-gradient-to-tr ${activeBrand.color} rounded-full opacity-20`} />
+                        <div className="absolute top-[20%] -right-[20%] w-[60vw] h-[60vw] bg-gradient-to-bl from-purple-500 to-pink-500 rounded-full opacity-15" />
+                    </>
+                ) : (
+                    <>
+                        <motion.div 
+                            animate={{ rotate: 360, scale: [1, 1.2, 1] }} 
+                            transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                            className={`absolute -top-[30%] -left-[10%] w-[70vw] h-[70vw] bg-gradient-to-tr ${activeBrand.color} rounded-full blur-[100px] opacity-30`}
+                        />
+                        <motion.div 
+                            animate={{ rotate: -360, scale: [1, 1.3, 1] }} 
+                            transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+                            className="absolute top-[20%] -right-[20%] w-[60vw] h-[60vw] bg-gradient-to-bl from-purple-500 to-pink-500 rounded-full blur-[120px] opacity-20"
+                        />
+                    </>
+                )}
             </div>
 
             {/* --- PREMIUM GLASS RECEPTACLE --- */}
@@ -53,16 +66,20 @@ const LogoLoadingScreen = ({ message = "Initializing Neural Core..." }) => {
             >
                 {/* Logo Orb */}
                 <div className="relative group perspective-1000 mb-8">
-                    {/* Glowing Aura Ring */}
-                    <div className={`absolute inset-0 rounded-[2.5rem] bg-gradient-to-tr ${activeBrand.color} blur-2xl opacity-40 group-hover:opacity-60 transition-opacity duration-700 animate-pulse`} />
+                    {/* Glowing Aura Ring — Android: no blur-2xl, just opacity */}
+                    <div className={`absolute inset-0 rounded-[2.5rem] bg-gradient-to-tr ${activeBrand.color} ${IS_ANDROID ? 'opacity-30' : 'blur-2xl opacity-40 group-hover:opacity-60'} transition-opacity duration-700 animate-pulse`} />
                     
-                    {/* The Glass Container */}
+                    {/* The Glass Container — Android: solid bg | Desktop: backdrop-blur */}
                     <motion.div 
                         animate={{ y: [-5, 5, -5] }}
                         transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                        className={`relative w-36 h-36 sm:w-44 sm:h-44 bg-white/40 dark:bg-white/5 backdrop-blur-2xl rounded-[2.5rem] border border-white/60 dark:border-white/10 shadow-2xl overflow-hidden flex items-center justify-center p-8`}
+                        className={`relative w-36 h-36 sm:w-44 sm:h-44 rounded-[2.5rem] border shadow-2xl overflow-hidden flex items-center justify-center p-8 ${
+                            IS_ANDROID
+                                ? 'bg-white/90 dark:bg-white/15 border-white/60 dark:border-white/10'
+                                : 'bg-white/40 dark:bg-white/5 backdrop-blur-2xl border-white/60 dark:border-white/10'
+                        }`}
                     >
-                        {/* Shimmer Effect */}
+                        {/* Shimmer Effect — lightweight, keep on all platforms */}
                         <motion.div 
                             animate={{ x: ['-200%', '200%'] }}
                             transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: 1 }}
@@ -88,7 +105,12 @@ const LogoLoadingScreen = ({ message = "Initializing Neural Core..." }) => {
                         {activeBrand.name}
                     </h1>
                     
-                    <div className="flex items-center gap-3 bg-white/50 dark:bg-white/5 px-5 py-2.5 rounded-full backdrop-blur-md border border-slate-200/50 dark:border-white/5 shadow-sm">
+                    {/* Status pill — Android: solid bg | Desktop: backdrop-blur */}
+                    <div className={`flex items-center gap-3 px-5 py-2.5 rounded-full border shadow-sm ${
+                        IS_ANDROID
+                            ? 'bg-white/80 dark:bg-white/10 border-slate-200/50 dark:border-white/5'
+                            : 'bg-white/50 dark:bg-white/5 backdrop-blur-md border-slate-200/50 dark:border-white/5'
+                    }`}>
                         {/* High-Tech Spinner Sequence */}
                         <div className="flex gap-1 h-3 items-center">
                             <motion.div animate={{ height: [4, 12, 4] }} transition={{ duration: 1, repeat: Infinity, delay: 0 }} className={`w-1 rounded-full bg-gradient-to-t ${activeBrand.color}`} />

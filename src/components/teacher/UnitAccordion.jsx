@@ -49,27 +49,27 @@ import { getWorker } from '../../workers/workerApi';
 
 // --- MATERIAL YOU (M3) STYLES ---
 const MAT_STYLES = {
-    // Containers: Large rounded corners, tonal surface colors, soft squish physics
-    cardUnit: "relative group overflow-hidden rounded-[28px] md:rounded-[32px] transition-all duration-300 active:scale-[0.98] border border-black/5 dark:border-white/10 hover:shadow-md",
+    // Containers: Premium rounded corners, clean surface colors
+    cardUnit: "relative group overflow-hidden rounded-[24px] sm:rounded-[32px] transition-all duration-300 bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800/50 shadow-sm hover:shadow-md hover:-translate-y-0.5",
 
-    // Content Items: Mobile (List Tile), Desktop (Elevated Card)
-    cardContent: "relative group overflow-hidden rounded-[24px] bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/50 border border-black/[0.03] dark:border-white/10 transition-all duration-250 hover:shadow-[0_4px_12px_rgba(0,0,0,0.05)] active:scale-[0.98]",
+    // Content Items: Clean cards
+    cardContent: "relative group overflow-hidden rounded-[20px] md:rounded-[24px] bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800/50 transition-all duration-250 hover:shadow-lg hover:border-slate-300 dark:hover:border-slate-700 active:scale-[0.98]",
 
-    // Top App Bar: Frosted glass effect, seamless integration
-    stickyHeader: "sticky top-0 z-40 pb-4 pt-2 md:pt-4 md:mb-4 bg-white/85 dark:bg-slate-950/80 backdrop-blur-2xl transition-all duration-300 rounded-[24px] md:rounded-[32px] mt-0.5 border border-black/5 dark:border-white/10 shadow-sm",
+    // Top App Bar: Premium Lite Frosted Glass
+    stickyHeader: "sticky top-[124px] xl:top-[84px] origin-top z-[60] p-2 md:p-3 bg-white/95 dark:bg-slate-900/95 md:bg-white/70 md:dark:bg-slate-900/70 md:backdrop-blur-2xl border border-white/80 dark:border-slate-700/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] rounded-[24px] md:rounded-[32px] mx-0 mb-4 md:mb-8 transition-all duration-300",
 
-    // Typography: Google Sans equivalent styling
-    displayLarge: "text-2xl md:text-4xl font-normal text-slate-900 dark:text-white tracking-tight",
-    titleMedium: "text-base md:text-lg font-medium text-slate-900 dark:text-white tracking-tight",
-    bodySmall: "text-xs md:text-sm font-medium text-slate-600 dark:text-slate-400",
+    // Typography
+    displayLarge: "text-2xl md:text-3xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight",
+    titleMedium: "text-lg md:text-xl font-bold text-slate-900 dark:text-white tracking-tight",
+    bodySmall: "text-xs md:text-sm font-medium text-slate-500 dark:text-slate-400",
 
-    // Actions: Circular & Pill-shaped (Extended FAB)
-    btnIcon: "w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-full hover:bg-black/10 dark:hover:bg-white/10 active:scale-90 transition-all text-slate-700 dark:text-slate-300",
-    btnFab: "flex items-center justify-center gap-2.5 px-5 py-3.5 rounded-full font-medium text-sm transition-all duration-300 shadow-[0_4px_14px_rgba(0,0,0,0.12)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.18)] active:scale-[0.96]",
+    // Actions
+    btnIcon: "p-2.5 rounded-[16px] hover:bg-slate-100 dark:hover:bg-slate-800 transition-all text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white shadow-sm hover:shadow-md border border-transparent hover:border-slate-200 dark:hover:border-slate-600 active:scale-95 flex-shrink-0 cursor-pointer",
+    btnFab: "flex items-center justify-center gap-2 px-5 py-3 md:py-3.5 rounded-[20px] md:rounded-[24px] font-bold text-sm shadow-[0_8px_20px_rgba(99,102,241,0.3)] border-t border-white/20 active:scale-95 transition-all flex-shrink-0",
 
-    // Menus: M3 Floating rounded menus
-    menuContainer: "fixed z-[9999] bg-white dark:bg-slate-900 rounded-[24px] shadow-[0_12px_32px_rgba(0,0,0,0.1)] ring-1 ring-black/5 dark:ring-white/10 p-2 animate-in fade-in zoom-in-95 duration-200 min-w-[220px] flex flex-col gap-1",
-    menuItem: "flex items-center w-full px-4 py-3.5 text-sm font-medium rounded-[16px] transition-colors text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 active:scale-[0.98]",
+    // Menus
+    menuContainer: "fixed z-[9999] bg-white/98 dark:bg-slate-900/98 backdrop-blur-xl rounded-[24px] shadow-[0_24px_64px_-12px_rgba(0,0,0,0.3)] border border-slate-200/50 dark:border-slate-700 p-2 animate-in fade-in zoom-in-95 duration-200 min-w-[220px] flex flex-col gap-1",
+    menuItem: "flex items-center w-full px-4 py-3 text-sm font-semibold rounded-[16px] transition-colors text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-[0.98]",
 
     // Section Headers
     sectionHeader: "flex items-center gap-3 mb-4 md:mb-6 px-1 md:px-2",
@@ -216,9 +216,9 @@ const AddContentButton = ({ onAddLesson, onAddQuiz, className }) => {
 
     return (
         <>
-            <button ref={buttonRef} onClick={handleToggle} className={`${MAT_STYLES.btnFab} bg-[#006A60] text-white hover:bg-[#00554D] ${className || ''}`}>
-                <PlusIcon className="w-5 h-5 stroke-[2.5]" />
-                <span className="hidden md:inline font-semibold">Create</span>
+            <button ref={buttonRef} onClick={handleToggle} className={`${MAT_STYLES.btnFab} bg-gradient-to-b from-indigo-500 to-purple-600 text-white ${className || ''}`}>
+                <PlusIcon className="w-4 h-4 md:w-5 md:h-5 stroke-[2.5]" />
+                <span className="hidden md:inline font-bold">Create</span>
             </button>
             {isOpen && (
                 <MenuPortal menuStyle={menuStyle} onClose={() => setIsOpen(false)}>
@@ -245,7 +245,7 @@ const MobileToolsMenu = ({ onSortToggle, isReordering, renderPptButton, activeUn
 
     return (
         <>
-            <button ref={buttonRef} onClick={handleToggle} className={`${MAT_STYLES.btnFab} bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 !px-4 md:hidden border border-transparent dark:border-white/10`}>
+            <button ref={buttonRef} onClick={handleToggle} className={`${MAT_STYLES.btnFab} bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 !px-4 md:hidden border-transparent shadow-none`}>
                 <WrenchScrewdriverIcon className="w-5 h-5" />
             </button>
             {isOpen && (
@@ -257,9 +257,9 @@ const MobileToolsMenu = ({ onSortToggle, isReordering, renderPptButton, activeUn
                     />
                     {renderPptButton && (
                         <div className="border-t border-black/5 dark:border-white/10 p-2 mt-1">
-                            <div className="flex items-center gap-3 px-3 py-3 rounded-[16px] hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer active:scale-95">
+                            <div className="flex items-center gap-3 px-3 py-3 rounded-[16px] hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer active:scale-95" onClickCapture={() => setIsOpen(false)}>
                                 <PresentationChartLineIcon className="w-5 h-5 text-slate-500 dark:text-slate-400" />
-                                <div className="flex-1" onClick={(e) => { e.stopPropagation(); setIsOpen(false); }}>
+                                <div className="flex-1 pr-1">
                                     {renderPptButton(activeUnit)}
                                 </div>
                             </div>
@@ -408,19 +408,19 @@ const SortablePageItem = memo(({ item, isReordering, onAction, exportingLessonId
 
     return (
         <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="h-full">
-            <div onClick={() => !isReordering && onAction('view', item)} className={`${MAT_STYLES.cardContent} p-4 h-full flex flex-row md:flex-col items-center md:items-start md:min-h-[160px] gap-4 md:gap-0 md:justify-between ${containerClass}`}>
+            <div onClick={() => !isReordering && onAction('view', item)} className={`${MAT_STYLES.cardContent} p-3 md:p-4 h-full flex flex-row md:flex-col items-center md:items-start md:min-h-[160px] gap-3 md:gap-0 md:justify-between ${containerClass}`}>
 
                 {/* Leading Icon */}
-                <div className={`w-12 h-12 md:w-14 md:h-14 flex-shrink-0 flex items-center justify-center rounded-full ${theme.iconBg} ${theme.iconColor} md:mb-4`}>
-                    <theme.icon className="w-6 h-6 md:w-7 md:h-7" />
+                <div className={`w-10 h-10 md:w-14 md:h-14 flex-shrink-0 flex items-center justify-center rounded-full ${theme.iconBg} ${theme.iconColor} md:mb-4`}>
+                    <theme.icon className="w-5 h-5 md:w-7 md:h-7" />
                 </div>
 
                 {/* Content Body */}
                 <div className="flex-1 min-w-0 flex flex-col justify-center">
-                    <h4 className={`text-[15px] md:text-[17px] font-semibold leading-snug text-slate-900 dark:text-white line-clamp-2 md:line-clamp-3 mb-1`}>
+                    <h4 className={`text-[14px] md:text-[17px] font-semibold leading-snug text-slate-900 dark:text-white line-clamp-2 md:line-clamp-3 mb-0.5 md:mb-1`}>
                         {item.title || 'Untitled'}
                     </h4>
-                    <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest truncate">
+                    <span className="text-[10px] md:text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest truncate">
                         {isLesson ? (item.contentType === 'teacherGuide' ? 'Unit Plan' : 'Module') : 'Assessment'}
                     </span>
                 </div>
@@ -639,7 +639,7 @@ export default function UnitAccordion({ subject, onAddUnit, onInitiateDelete, us
     };
 
     return (
-        <div className="animate-in fade-in duration-300">
+        <div className="w-full h-full relative">
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 {activeUnit ? (
                     // --- INSIDE A UNIT (CONTENT VIEW) ---
@@ -649,15 +649,18 @@ export default function UnitAccordion({ subject, onAddUnit, onInitiateDelete, us
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-1 md:px-2">
 
                                 {/* Header Text Group */}
-                                {/* ADDED: flex-1 min-w-0 to allow the parent flex box to shrink safely */}
                                 <div className="flex-1 min-w-0 w-full flex justify-between items-start md:block">
-                                    <div className="flex-1 min-w-0 mr-4 md:mr-6">
-                                        <h2 className={`text-2xl md:text-3xl font-normal text-slate-900 dark:text-white tracking-tight leading-tight truncate`} title={activeUnit.title}>
+                                    <div className="flex-1 min-w-0 mr-3 md:mr-6 px-2 md:px-3">
+                                        <h2 className={MAT_STYLES.displayLarge} title={activeUnit.title}>
                                             {activeUnit.title}
                                         </h2>
-                                        <div className="flex items-center gap-2 mt-2 text-sm font-medium text-slate-600 dark:text-slate-400">
-                                            <span className="flex items-center gap-1.5 bg-slate-100 dark:bg-white/5 px-2.5 py-1 rounded-full border border-transparent dark:border-white/10"><BookOpenIcon className="w-4 h-4" /> {lessons.length} Modules</span>
-                                            <span className="flex items-center gap-1.5 bg-slate-100 dark:bg-white/5 px-2.5 py-1 rounded-full border border-transparent dark:border-white/10"><ClockIcon className="w-4 h-4" /> {quizzes.length} Quizzes</span>
+                                        <div className="flex items-center gap-1.5 md:gap-2 mt-1 md:mt-2 text-[11px] md:text-xs font-semibold text-slate-500 dark:text-slate-400 font-mono tracking-tight">
+                                            <span className="flex items-center gap-1 px-2.5 py-1 rounded-[8px] bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                                                <BookOpenIcon className="w-3.5 h-3.5 shrink-0" /> {lessons.length} Modules
+                                            </span>
+                                            <span className="flex items-center gap-1 px-2.5 py-1 rounded-[8px] bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                                                <ClockIcon className="w-3.5 h-3.5 shrink-0" /> {quizzes.length} Quizzes
+                                            </span>
                                         </div>
                                     </div>
 
@@ -680,11 +683,11 @@ export default function UnitAccordion({ subject, onAddUnit, onInitiateDelete, us
 
                                 {/* Desktop Actions Row */}
                                 {/* ADDED: flex-shrink-0 to guarantee the buttons keep their width on desktop */}
-                                <div className="hidden md:flex items-center gap-3 flex-shrink-0">
+                                <div className="hidden md:flex items-center gap-2 flex-shrink-0">
                                     {renderGeneratePptButton && renderGeneratePptButton(activeUnit)}
 
-                                    <button onClick={() => setIsReordering(!isReordering)} className={`${MAT_STYLES.btnFab} ${isReordering ? 'bg-indigo-600 dark:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'bg-white dark:bg-white/5 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/10 shadow-sm hover:bg-slate-50 dark:hover:bg-white/10'} transition-all duration-200`}>
-                                        <ArrowsUpDownIcon className="w-5 h-5 stroke-2" />
+                                    <button onClick={() => setIsReordering(!isReordering)} className={`${MAT_STYLES.btnFab} ${isReordering ? 'bg-indigo-600 dark:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 border-t border-white/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-none shadow-none hover:bg-slate-200 dark:hover:bg-slate-700'} transition-all duration-200`}>
+                                        <ArrowsUpDownIcon className="w-4 h-4 md:w-5 md:h-5 stroke-2" />
                                         <span>{isReordering ? 'Done' : 'Reorder'}</span>
                                     </button>
 
@@ -718,7 +721,7 @@ export default function UnitAccordion({ subject, onAddUnit, onInitiateDelete, us
                                     </div>
                                 ) : lessons.length > 0 ? (
                                     <SortableContext items={lessons.map(i => i.id)} strategy={rectSortingStrategy}>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-5 content-visibility-auto">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 md:gap-5 content-visibility-auto">
                                             {lessons.map(item => (
                                                 <SortablePageItem
                                                     key={item.id} item={item} isReordering={isReordering} onAction={handleAction}
@@ -754,7 +757,7 @@ export default function UnitAccordion({ subject, onAddUnit, onInitiateDelete, us
                                     </div>
                                 ) : quizzes.length > 0 ? (
                                     <SortableContext items={quizzes.map(i => i.id)} strategy={rectSortingStrategy}>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-5 content-visibility-auto">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 md:gap-5 content-visibility-auto">
                                             {quizzes.map(item => (
                                                 <SortablePageItem
                                                     key={item.id} item={item} isReordering={isReordering} onAction={handleAction}

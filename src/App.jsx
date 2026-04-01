@@ -24,6 +24,14 @@ if (typeof window !== "undefined") {
     window.QUOTE = '"';
   }
   // NOTE: Buffer polyfill is now handled automatically by vite.config.js
+
+  // --- Android GPU Optimization: Apply .is-android class ---
+  // This activates CSS overrides that replace heavy blur effects with solid backgrounds
+  try {
+    if (Capacitor.getPlatform() === 'android') {
+      document.documentElement.classList.add('is-android');
+    }
+  } catch (e) { /* Capacitor not available in pure web */ }
 }
 
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -158,14 +166,14 @@ const TeacherSkeleton = () => (
   <div className="min-h-screen w-full bg-[#dae0f2] dark:bg-[#0a0c10] font-sans overflow-hidden flex relative z-10">
     {/* Ambient Loading Background */}
     <div className="fixed inset-0 pointer-events-none z-0">
-      <div className="absolute top-[-10%] left-[-10%] w-[60vw] h-[60vw] bg-indigo-300/30 dark:bg-indigo-900/20 rounded-full blur-[120px]" />
-      <div className="absolute top-[10%] right-[-10%] w-[50vw] h-[50vw] bg-blue-300/30 dark:bg-blue-900/20 rounded-full blur-[120px]" />
-      <div className="absolute bottom-[-10%] left-[20%] w-[50vw] h-[50vw] bg-sky-300/30 dark:bg-sky-900/20 rounded-full blur-[120px]" />
+      <div className="absolute top-[-10%] left-[-10%] w-[60vw] h-[60vw] bg-indigo-300/30 dark:bg-indigo-900/20 rounded-full blur-[120px] is-android:blur-none is-android:bg-indigo-100 dark:is-android:bg-indigo-950/50" />
+      <div className="absolute top-[10%] right-[-10%] w-[50vw] h-[50vw] bg-blue-300/30 dark:bg-blue-900/20 rounded-full blur-[120px] is-android:blur-none is-android:bg-blue-100 dark:is-android:bg-blue-950/50" />
+      <div className="absolute bottom-[-10%] left-[20%] w-[50vw] h-[50vw] bg-sky-300/30 dark:bg-sky-900/20 rounded-full blur-[120px] is-android:blur-none is-android:bg-sky-100 dark:is-android:bg-sky-950/50" />
     </div>
 
     {/* Sidebar Skeleton (Matching AestheticSidebar) */}
     <div className="hidden lg:block relative h-[calc(100vh-32px)] my-4 ml-4 w-[88px] shrink-0 z-50">
-      <div className="absolute top-0 left-0 bottom-0 flex flex-col w-full rounded-[32px] overflow-hidden bg-white/65 dark:bg-[#121215]/65 backdrop-blur-[24px] border border-white/50 dark:border-white/10 shadow-lg">
+      <div className="absolute top-0 left-0 bottom-0 flex flex-col w-full rounded-[32px] overflow-hidden bg-white/65 dark:bg-[#121215]/65 backdrop-blur-[24px] is-android:backdrop-blur-none is-android:bg-white/95 dark:is-android:bg-[#121215]/95 border border-white/50 dark:border-white/10 shadow-lg">
         {/* Logo Area */}
         <div className="h-28 flex items-center px-6 overflow-hidden shrink-0">
           <div className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-700/50 flex-shrink-0 animate-pulse" />
@@ -215,7 +223,7 @@ const TeacherSkeleton = () => (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-[14px]">
 
           {/* 1. Hero Banner (Right side on desktop) */}
-          <div className="col-span-1 lg:col-span-7 lg:order-2 h-[280px] sm:h-[320px] lg:h-[374px] rounded-[2rem] sm:rounded-[3rem] bg-indigo-900/40 dark:bg-indigo-900/20 backdrop-blur-md border border-white/10 shadow-xl overflow-hidden relative animate-pulse flex flex-col justify-end p-5 sm:p-12 lg:p-8">
+          <div className="col-span-1 lg:col-span-7 lg:order-2 h-[280px] sm:h-[320px] lg:h-[374px] rounded-[2rem] sm:rounded-[3rem] bg-indigo-900/40 dark:bg-indigo-900/20 backdrop-blur-md is-android:backdrop-blur-none is-android:bg-indigo-100 dark:is-android:bg-indigo-950 border border-white/10 shadow-xl overflow-hidden relative animate-pulse flex flex-col justify-end p-5 sm:p-12 lg:p-8">
             <div className="absolute inset-0 bg-gradient-to-br from-indigo-800/20 to-transparent" />
             {/* Desktop Draggable Card Mock */}
             <div className="hidden lg:flex flex-col gap-2 w-full max-w-[360px] bg-white/10 backdrop-blur-md rounded-[2rem] p-5 shadow-inner border border-white/10">
@@ -234,7 +242,7 @@ const TeacherSkeleton = () => (
           <div className="col-span-1 lg:col-span-5 lg:order-1 flex flex-col gap-4 lg:gap-[14px] h-full">
 
             {/* Desktop Greeting Block */}
-            <div className="hidden lg:flex h-[220px] p-6 rounded-[2.5rem] bg-white/40 dark:bg-[#121212]/40 backdrop-blur-2xl border border-slate-200/50 dark:border-white/5 flex-col justify-between shadow-lg animate-pulse">
+            <div className="hidden lg:flex h-[220px] p-6 rounded-[2.5rem] bg-white/40 dark:bg-[#121212]/40 backdrop-blur-2xl is-android:backdrop-blur-none is-android:bg-white/95 dark:is-android:bg-[#121212]/95 border border-slate-200/50 dark:border-white/5 flex-col justify-between shadow-lg animate-pulse">
               <div className="flex justify-between items-start">
                 <div className="flex flex-col gap-2 w-32">
                   <div className="h-12 w-full bg-slate-200 dark:bg-white/10 rounded-lg" />
@@ -252,7 +260,7 @@ const TeacherSkeleton = () => (
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-[14px] flex-1">
 
               {/* Post Button */}
-              <div className="col-span-1 lg:col-span-2 h-[150px] sm:h-auto lg:h-[140px] rounded-[2rem] sm:rounded-[2.5rem] bg-indigo-100/50 dark:bg-indigo-900/20 backdrop-blur-md p-5 lg:p-4 flex flex-col justify-between border border-indigo-200/50 dark:border-indigo-500/20 animate-pulse relative overflow-hidden">
+              <div className="col-span-1 lg:col-span-2 h-[150px] sm:h-auto lg:h-[140px] rounded-[2rem] sm:rounded-[2.5rem] bg-indigo-100/50 dark:bg-indigo-900/20 backdrop-blur-md is-android:backdrop-blur-none is-android:bg-indigo-50 dark:is-android:bg-indigo-950/80 p-5 lg:p-4 flex flex-col justify-between border border-indigo-200/50 dark:border-indigo-500/20 animate-pulse relative overflow-hidden">
                 <div className="h-9 w-9 lg:h-8 lg:w-8 rounded-full bg-indigo-200/50 dark:bg-indigo-400/20" />
                 <div className="flex flex-col gap-1 mt-auto">
                   <div className="h-3 w-10 bg-indigo-200/50 dark:bg-indigo-400/20 rounded-full" />
@@ -261,7 +269,7 @@ const TeacherSkeleton = () => (
               </div>
 
               {/* Schedule Widget */}
-              <div className="col-span-1 lg:col-span-3 h-[150px] sm:h-auto lg:h-[140px] rounded-[2rem] sm:rounded-[2.5rem] bg-white/40 dark:bg-[#181818]/40 backdrop-blur-md p-5 lg:p-4 flex flex-col justify-between border border-slate-200/50 dark:border-white/5 animate-pulse relative">
+              <div className="col-span-1 lg:col-span-3 h-[150px] sm:h-auto lg:h-[140px] rounded-[2rem] sm:rounded-[2.5rem] bg-white/40 dark:bg-[#181818]/40 backdrop-blur-md is-android:backdrop-blur-none is-android:bg-white/95 dark:is-android:bg-[#181818]/95 p-5 lg:p-4 flex flex-col justify-between border border-slate-200/50 dark:border-white/5 animate-pulse relative">
                 <div className="flex justify-between items-start">
                   <div className="h-9 w-9 lg:h-8 lg:w-8 rounded-full bg-slate-200 dark:bg-white/10" />
                   <div className="h-3 w-16 bg-slate-200 dark:bg-white/10 rounded-full mt-1" />
@@ -290,7 +298,7 @@ const TeacherSkeleton = () => (
           {/* Prism Cards (Pinned) Row */}
           <div className="flex gap-4 sm:gap-6 overflow-hidden px-4">
             {[1, 2, 3].map(i => (
-              <div key={i} className="flex-shrink-0 w-[85vw] sm:w-96 min-h-[200px] p-6 rounded-[2rem] bg-white/40 dark:bg-white/5 backdrop-blur-xl border border-slate-200/50 dark:border-white/5 animate-pulse flex flex-col justify-between">
+              <div key={i} className="flex-shrink-0 w-[85vw] sm:w-96 min-h-[200px] p-6 rounded-[2rem] bg-white/40 dark:bg-white/5 backdrop-blur-xl is-android:backdrop-blur-none is-android:bg-white/95 dark:is-android:bg-[#1c1c1e] border border-slate-200/50 dark:border-white/5 animate-pulse flex flex-col justify-between">
                 <div className="flex justify-between items-start mb-6">
                   <div className="h-5 w-20 bg-slate-200 dark:bg-white/10 rounded-full" />
                   <div className="h-4 w-24 bg-slate-200 dark:bg-white/10 rounded-full" />
@@ -343,7 +351,7 @@ const TeacherSkeleton = () => (
 const StudentSkeleton = () => (
   <div className="min-h-screen font-sans bg-slate-50 dark:bg-slate-950 overflow-hidden flex flex-col">
     <div className="sticky top-0 z-50 px-4 pt-4 pb-2">
-      <div className="mx-auto max-w-[1920px] h-16 rounded-[1.5rem] bg-white/50 dark:bg-white/10 backdrop-blur-xl shadow-lg flex items-center justify-between px-4 animate-pulse">
+      <div className="mx-auto max-w-[1920px] h-16 rounded-[1.5rem] bg-white/50 dark:bg-white/10 backdrop-blur-xl is-android:backdrop-blur-none is-android:bg-white/95 dark:is-android:bg-[#1c1c1e] shadow-lg flex items-center justify-between px-4 animate-pulse">
         <div className="w-24 h-6 bg-slate-300 dark:bg-white/20 rounded-md"></div>
         <div className="hidden lg:block w-96 h-10 bg-slate-300 dark:bg-white/20 rounded-full"></div>
         <div className="w-10 h-10 bg-slate-300 dark:bg-white/20 rounded-full"></div>

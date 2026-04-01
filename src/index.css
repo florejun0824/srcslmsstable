@@ -18,6 +18,9 @@ html, body {
    Spinner Component Styles (macOS 16 / VisionOS Glass Aesthetics)
    ========================================================================== */
 :root {
+  /* --- Android GPU Optimization Flag --- */
+  --is-android: 0;
+
   --spinner-size: 80px;
   --spinner-thickness: 10px;
   /* OPTIMIZED: Reduced from 32px to 12px for GPU performance */
@@ -28,6 +31,11 @@ html, body {
   --spinner-gradient-mid: #EC4899;   /* Pink-500 */
   --spinner-gradient-end: #8B5CF6;   /* Purple-500 */
   --spinner-overlay-bg: rgba(5, 5, 10, 0.65); /* Darker to compensate for less blur */
+}
+
+/* Applied by JS when running on Android (Capacitor) */
+:root.is-android {
+  --is-android: 1;
 }
 
 .spinner-overlay {
@@ -282,8 +290,10 @@ html, body {
   }
 
   .btn-secondary {
-    @apply btn px-4 py-2 text-slate-700 backdrop-blur-md;
+    @apply btn px-4 py-2 text-slate-700;
     background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border: 1px solid rgba(0, 0, 0, 0.05);
     box-shadow: 0 2px 5px rgba(0,0,0,0.03);
   }
@@ -958,6 +968,91 @@ html, body {
 .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
+}
+
+/* ==========================================================================
+   Android GPU Optimization Overrides
+   When .is-android is on <html>, all blur() > 4px is replaced with
+   solid/semi-transparent backgrounds to save GPU cycles.
+   ========================================================================== */
+
+/* --- Edge-to-Edge Safe Area Padding (Android 16+) --- */
+.is-android body {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* Spinner Overlay: backdrop-filter blur(12px) → none */
+.is-android .spinner-overlay {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background-color: rgba(5, 5, 10, 0.85);
+  will-change: opacity;
+  transition: opacity 0.3s ease;
+}
+
+/* Spinner Container: backdrop-filter blur(16px) → none */
+.is-android .spinner-container {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(255, 255, 255, 0.92);
+}
+.is-android.dark .spinner-container,
+.is-android .dark .spinner-container {
+  background: rgba(30, 32, 40, 0.92);
+}
+
+/* Spinner Inner: filter blur(12px) → none + reduced opacity */
+.is-android .spinner-inner {
+  filter: none !important;
+  opacity: 0.6;
+}
+
+/* Btn Secondary: backdrop-filter blur(12px) → none */
+.is-android .btn-secondary {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(255, 255, 255, 0.65);
+}
+.is-android .dark .btn-secondary {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Input Field: backdrop-filter blur(8px) → none */
+.is-android .input-field {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(255, 255, 255, 0.75);
+}
+.is-android .dark .input-field {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+/* DatePicker: backdrop-filter blur(12px) → none */
+.is-android .react-datepicker {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background-color: rgba(255, 255, 255, 0.95) !important;
+}
+.is-android .dark .react-datepicker {
+  background-color: rgba(30, 41, 59, 0.95) !important;
+}
+
+/* Profile Backgrounds: backdrop-filter blur(12px) → none */
+.is-android .profile-bg-pattern-1,
+.is-android .profile-bg-pattern-2,
+.is-android .profile-bg-elite,
+.is-android .profile-bg-legendary {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Dark Aurora Ribbon: filter blur(50px) → none + opacity */
+.is-android .dark .profile-bg-pattern-1::before {
+  filter: none !important;
+  opacity: 0.5;
 }
 
 @media print {

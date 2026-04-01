@@ -102,39 +102,39 @@ const ElectionResultCard = ({ election }) => {
                         : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'}
             `}
         >
-            <div className="relative z-10 mb-4 border-b border-slate-100 dark:border-slate-800 pb-3">
-                <div className="flex justify-between items-start gap-3">
+            <div className="relative z-10 mb-3 md:mb-4 border-b border-slate-100 dark:border-slate-800 pb-2.5 md:pb-3">
+                <div className="flex justify-between items-start gap-2 md:gap-3">
                     <div className="flex-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                        <div className="flex flex-wrap items-center gap-1.5 md:gap-2 mb-1.5">
                             {isCalculating ? (
-                                <span className="flex items-center gap-1 bg-amber-500 text-white px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest animate-pulse">
-                                    <ArrowPathIcon className="w-3 h-3 animate-spin" /> Consolidating
+                                <span className="flex items-center gap-1 bg-amber-500 text-white px-2 py-0.5 md:px-2.5 md:py-1 rounded-full text-[9px] md:text-[10px] font-bold uppercase tracking-widest animate-pulse">
+                                    <ArrowPathIcon className="w-2.5 h-2.5 md:w-3 md:h-3 animate-spin" /> Consolidating
                                 </span>
                             ) : isActive ? (
-                                <div className="flex items-center gap-2">
-                                    <span className="flex items-center gap-1 bg-orange-500 text-white px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest animate-pulse">
-                                        <SignalIcon className="w-3 h-3" /> Live
+                                <div className="flex items-center gap-1.5 md:gap-2">
+                                    <span className="flex items-center gap-1 bg-orange-500 text-white px-2 py-0.5 md:px-2.5 md:py-1 rounded-full text-[9px] md:text-[10px] font-bold uppercase tracking-widest animate-pulse">
+                                        <SignalIcon className="w-2.5 h-2.5 md:w-3 md:h-3" /> Live
                                     </span>
-                                    <span className="text-[9px] font-semibold text-orange-500/60 dark:text-orange-400/60 uppercase">
+                                    <span className="text-[8px] md:text-[9px] font-semibold text-orange-500/60 dark:text-orange-400/60 uppercase">
                                         Updated {formatLastUpdated(election.lastLiveUpdate)}
                                     </span>
                                 </div>
                             ) : (
-                                <span className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-1">
-                                    <CheckBadgeIcon className="w-3 h-3" /> Official Results
+                                <span className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 px-2 py-0.5 md:px-2.5 md:py-1 rounded-full text-[9px] md:text-[10px] font-bold uppercase tracking-widest flex items-center gap-1">
+                                    <CheckBadgeIcon className="w-2.5 h-2.5 md:w-3 md:h-3" /> Official
                                 </span>
                             )}
-                            <span className="bg-slate-100 dark:bg-slate-800 text-slate-500 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-1">
-                                <BuildingLibraryIcon className="w-3 h-3" /> Multi-Target Ballot
+                            <span className="bg-slate-100 dark:bg-slate-800 text-slate-500 px-2 py-0.5 md:px-2.5 md:py-1 rounded-full text-[9px] md:text-[10px] font-bold uppercase tracking-widest flex items-center gap-1">
+                                <BuildingLibraryIcon className="w-2.5 h-2.5 md:w-3 md:h-3" /> Multi-Target
                             </span>
                         </div>
-                        <h2 className="text-xl font-bold text-slate-900 dark:text-white leading-tight truncate">
+                        <h2 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white leading-tight truncate">
                             {election.title}
                         </h2>
-                        <div className="text-xs font-medium text-slate-400 mt-1 flex items-center gap-2">
+                        <div className="text-[10px] md:text-xs font-medium text-slate-400 mt-0.5 md:mt-1 flex items-center gap-1.5 md:gap-2">
                             <span>{election.organization}</span>
                             <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600"></span>
-                            <span className="tabular-nums">{totalProcessed.toLocaleString()} Votes Cast</span>
+                            <span className="tabular-nums">{totalProcessed.toLocaleString()} Votes</span>
                         </div>
                     </div>
                 </div>
@@ -167,32 +167,32 @@ const ElectionResultCard = ({ election }) => {
                         const hiddenCount = candidates.length - 3;
 
                         return (
-                            <div key={pos.id} className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700/50">
-                                <div className="flex justify-between items-center mb-3">
-                                    <h3 className="font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2 text-xs uppercase tracking-wide">
+                            <div key={pos.id} className="bg-slate-50 dark:bg-slate-800/50 p-3 md:p-4 rounded-xl border border-slate-100 dark:border-slate-700/50">
+                                <div className="flex justify-between items-center mb-2.5 md:mb-3">
+                                    <h3 className="font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 md:gap-2 text-[10px] md:text-xs uppercase tracking-wide">
                                         <span className={`w-1.5 h-1.5 rounded-full ${isCompleted ? 'bg-emerald-500' : 'bg-orange-400 animate-pulse'}`}></span>
                                         {pos.title}
                                     </h3>
-                                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-white dark:bg-slate-900 text-slate-400 uppercase border border-slate-100 dark:border-slate-700">
+                                    <span className="text-[8px] md:text-[9px] font-bold px-1.5 md:px-2 py-0.5 rounded-full bg-white dark:bg-slate-900 text-slate-400 uppercase border border-slate-100 dark:border-slate-700">
                                         {pos.targetType === 'grade' ? `Grade ${pos.targetGrade}` : 'School Wide'}
                                     </span>
                                 </div>
 
-                                <div className="space-y-2.5">
+                                <div className="space-y-2 md:space-y-2.5">
                                     {visibleCandidates.map((cand, idx) => {
                                         const isLeader = idx === 0 && cand.count > 0;
                                         const percent = Math.round((cand.count / maxVotes) * 100);
 
                                         return (
                                             <div key={idx} className="relative group">
-                                                <div className="flex justify-between text-[11px] font-bold mb-1 z-10 relative">
+                                                <div className="flex justify-between text-[10px] md:text-[11px] font-bold mb-0.5 md:mb-1 z-10 relative">
                                                     <span className={`flex items-center gap-1.5 truncate max-w-[75%] ${isLeader ? (isCompleted ? 'text-emerald-600 dark:text-emerald-400' : 'text-orange-600 dark:text-orange-400') : 'text-slate-600 dark:text-slate-400'}`}>
-                                                        {isLeader && isCompleted && <StarIcon className="w-3 h-3 text-amber-500" />}
+                                                        {isLeader && isCompleted && <StarIcon className="w-2.5 h-2.5 md:w-3 md:h-3 text-amber-500" />}
                                                         {cand.name}
                                                     </span>
-                                                    <span className="text-slate-900 dark:text-white tabular-nums bg-white dark:bg-slate-900 px-1.5 rounded-md border border-slate-100 dark:border-slate-700">{cand.count}</span>
+                                                    <span className="text-slate-900 dark:text-white tabular-nums bg-white dark:bg-slate-900 px-1 md:px-1.5 text-[9px] md:text-[11px] rounded-md border border-slate-100 dark:border-slate-700">{cand.count}</span>
                                                 </div>
-                                                <div className="h-2 w-full bg-white dark:bg-slate-900 rounded-full overflow-hidden border border-slate-100 dark:border-slate-700">
+                                                <div className="h-1.5 md:h-2 w-full bg-white dark:bg-slate-900 rounded-full overflow-hidden border border-slate-100 dark:border-slate-700">
                                                     <motion.div
                                                         initial={{ width: 0 }}
                                                         whileInView={{ width: `${percent}%` }}
@@ -211,9 +211,9 @@ const ElectionResultCard = ({ election }) => {
                                 {candidates.length > 3 && (
                                     <button
                                         onClick={() => togglePosition(pos.id)}
-                                        className="w-full py-2 mt-2 flex items-center justify-center gap-1 text-[10px] font-bold text-slate-400 hover:text-indigo-500 hover:bg-white dark:hover:bg-slate-900 rounded-lg transition-all"
+                                        className="w-full py-1.5 md:py-2 mt-2 flex items-center justify-center gap-1 text-[9px] md:text-[10px] font-bold text-slate-400 hover:text-indigo-500 hover:bg-white dark:hover:bg-slate-900 rounded-lg transition-all"
                                     >
-                                        {isExpanded ? <>Show Less <ChevronUpIcon className="w-3 h-3" /></> : <>Show {hiddenCount} More <ChevronDownIcon className="w-3 h-3" /></>}
+                                        {isExpanded ? <>Show Less <ChevronUpIcon className="w-2 h-2 md:w-3 md:h-3" /></> : <>Show {hiddenCount} More <ChevronDownIcon className="w-2 h-2 md:w-3 md:h-3" /></>}
                                     </button>
                                 )}
                             </div>
@@ -332,16 +332,16 @@ const VotingWizard = ({ election, user, onBack, onSuccess }) => {
     );
 
     if (viewState === 'countdown') return (
-        <div className="flex flex-col items-center justify-center h-full p-10 text-center bg-white dark:bg-slate-900 rounded-[2rem]">
-            <div className="w-20 h-20 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl flex items-center justify-center mb-6 border border-indigo-100 dark:border-indigo-800">
-                <ClockIcon className="w-10 h-10 text-indigo-400 animate-pulse" />
+        <div className="flex flex-col items-center justify-center h-full p-6 md:p-10 text-center bg-white dark:bg-slate-900 rounded-2xl md:rounded-[2rem]">
+            <div className="w-16 h-16 md:w-20 md:h-20 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl flex items-center justify-center mb-4 md:mb-6 border border-indigo-100 dark:border-indigo-800">
+                <ClockIcon className="w-8 h-8 md:w-10 md:h-10 text-indigo-400 animate-pulse" />
             </div>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">Polls Open Soon</h2>
-            <div className="font-mono text-2xl font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-6 py-3 rounded-xl tabular-nums tracking-wider border border-indigo-100 dark:border-indigo-800">
+            <h2 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white mb-2 md:mb-3">Polls Open Soon</h2>
+            <div className="font-mono text-xl md:text-2xl font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-4 md:px-6 py-2.5 md:py-3 rounded-xl tabular-nums tracking-wider border border-indigo-100 dark:border-indigo-800">
                 {countdownText || '...'}
             </div>
-            <p className="text-xs text-slate-400 mt-3 font-medium">Opens {new Date(election.startDate).toLocaleString()}</p>
-            <button onClick={onBack} className="mt-8 text-sm font-bold text-indigo-600 hover:underline">Go Back</button>
+            <p className="text-[10px] md:text-xs text-slate-400 mt-3 font-medium">Opens {new Date(election.startDate).toLocaleString()}</p>
+            <button onClick={onBack} className="mt-6 md:mt-8 text-xs md:text-sm font-bold text-indigo-600 hover:underline">Go Back</button>
         </div>
     );
 
@@ -431,27 +431,27 @@ const VotingWizard = ({ election, user, onBack, onSuccess }) => {
                             animate={{ x: 0, opacity: 1 }}
                             exit={{ x: direction < 0 ? '100%' : '-100%', opacity: 0 }}
                             transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                            className="absolute inset-0 px-4 py-4 flex flex-col"
+                            className="absolute inset-0 px-4 py-4 md:py-6 flex flex-col"
                         >
-                            <div className="text-center mb-6 flex-shrink-0">
-                                <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">{currentPos?.title}</h2>
-                                <p className="text-sm font-medium text-slate-500">Who is your choice?</p>
+                            <div className="text-center mb-4 md:mb-6 flex-shrink-0">
+                                <h2 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-1 md:mb-2">{currentPos?.title}</h2>
+                                <p className="text-xs md:text-sm font-medium text-slate-500">Who is your choice?</p>
                             </div>
 
-                            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pb-24 px-1 max-w-md mx-auto w-full">
+                            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2.5 md:space-y-3 pb-24 px-1 max-w-md mx-auto w-full">
                                 {currentPos?.candidates.map(cand => {
                                     const active = ballot[currentPos.title] === cand.name;
                                     return (
                                         <button
                                             key={cand.name}
                                             onClick={() => handleSelect(cand.name)}
-                                            className={`w-full p-4 rounded-2xl flex items-center gap-4 transition-all duration-200 border-2 active:scale-[0.97] group ${active ? 'bg-indigo-600 border-indigo-600 shadow-lg shadow-indigo-500/20' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700 shadow-sm'}`}
+                                            className={`w-full p-3 md:p-4 rounded-xl md:rounded-2xl flex items-center gap-3 md:gap-4 transition-all duration-200 border-2 active:scale-[0.97] group ${active ? 'bg-indigo-600 border-indigo-600 shadow-lg shadow-indigo-500/20' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700 shadow-sm'}`}
                                         >
-                                            <div className={`w-12 h-12 rounded-xl flex-shrink-0 flex items-center justify-center font-bold text-lg transition-colors ${active ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/20 group-hover:text-indigo-600'}`}>
+                                            <div className={`w-10 h-10 md:w-12 md:h-12 rounded-lg md:rounded-xl flex-shrink-0 flex items-center justify-center font-bold text-base md:text-lg transition-colors ${active ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/20 group-hover:text-indigo-600'}`}>
                                                 {cand.name.charAt(0)}
                                             </div>
-                                            <span className={`font-bold flex-grow text-left text-lg ${active ? 'text-white' : 'text-slate-700 dark:text-slate-200'}`}>{cand.name}</span>
-                                            {active && <div className="bg-white/20 p-1.5 rounded-full"><CheckBadgeIcon className="w-6 h-6 text-white" /></div>}
+                                            <span className={`font-bold flex-grow text-left text-sm md:text-lg ${active ? 'text-white' : 'text-slate-700 dark:text-slate-200'}`}>{cand.name}</span>
+                                            {active && <div className="bg-white/20 p-1 md:p-1.5 rounded-full"><CheckBadgeIcon className="w-4 h-4 md:w-6 md:h-6 text-white" /></div>}
                                         </button>
                                     )
                                 })}
@@ -639,19 +639,19 @@ export default function StudentElectionTab() {
                                 <p className="text-sm text-slate-500 max-w-xs mx-auto mt-2">There are no active elections for your grade level at the moment.</p>
                             </div>
                         ) : activeList.map(election => (
-                            <div key={election.id} onClick={() => setSelectedElection(election)} className="group bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 cursor-pointer hover:shadow-lg hover:border-indigo-300 dark:hover:border-indigo-800 hover:scale-[1.01] transition-all relative overflow-hidden flex flex-col h-full">
-                                <div className="absolute top-0 right-0 p-8 opacity-[0.03] dark:opacity-[0.05] group-hover:opacity-10 transition-opacity transform group-hover:rotate-12 duration-500"><CheckBadgeIcon className="w-32 h-32" /></div>
+                            <div key={election.id} onClick={() => setSelectedElection(election)} className="group bg-white dark:bg-slate-900 rounded-2xl p-4 md:p-6 shadow-sm border border-slate-200 dark:border-slate-800 cursor-pointer hover:shadow-lg hover:border-indigo-300 dark:hover:border-indigo-800 hover:scale-[1.01] transition-all relative overflow-hidden flex flex-col h-full">
+                                <div className="absolute top-0 right-0 p-6 md:p-8 opacity-[0.03] dark:opacity-[0.05] group-hover:opacity-10 transition-opacity transform group-hover:rotate-12 duration-500"><CheckBadgeIcon className="w-24 h-24 md:w-32 md:h-32" /></div>
                                 <div className="relative z-10 flex-1">
-                                    <div className="flex flex-wrap items-center gap-2 mb-4">
-                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold uppercase tracking-widest border border-indigo-100 dark:border-indigo-800">
-                                            <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span></span>Open Ballot
+                                    <div className="flex flex-wrap items-center gap-1.5 md:gap-2 mb-3 md:mb-4">
+                                        <span className="inline-flex items-center gap-1 md:gap-1.5 px-2 py-0.5 md:px-3 md:py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 text-[9px] md:text-[10px] font-bold uppercase tracking-widest border border-indigo-100 dark:border-indigo-800">
+                                            <span className="relative flex h-1.5 w-1.5 md:h-2 md:w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span><span className="relative inline-flex rounded-full h-1.5 w-1.5 md:h-2 md:w-2 bg-indigo-500"></span></span>Open
                                         </span>
-                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-widest border border-slate-100 dark:border-slate-700">Multi-Position</span>
+                                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 md:px-3 md:py-1 rounded-full bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[9px] md:text-[10px] font-bold uppercase tracking-widest border border-slate-100 dark:border-slate-700">Multi-Position</span>
                                     </div>
-                                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-1 leading-tight">{election.title}</h3>
-                                    <p className="text-slate-500 font-semibold text-xs uppercase tracking-wide mb-6">{election.organization}</p>
+                                    <h3 className="text-lg md:text-2xl font-bold text-slate-900 dark:text-white mb-1 leading-tight">{election.title}</h3>
+                                    <p className="text-slate-500 font-semibold text-[10px] md:text-xs uppercase tracking-wide mb-4 md:mb-6">{election.organization}</p>
                                 </div>
-                                <button className="w-full py-4 rounded-xl bg-slate-50 dark:bg-slate-800 group-hover:bg-indigo-600 group-hover:text-white text-slate-600 dark:text-slate-300 font-bold text-sm transition-all flex items-center justify-center gap-2 relative z-10 border border-slate-100 dark:border-slate-700 group-hover:border-indigo-600">Tap to Vote <ChevronRightIcon className="w-4 h-4" /></button>
+                                <button className="w-full py-3 md:py-4 rounded-xl bg-slate-50 dark:bg-slate-800 group-hover:bg-indigo-600 group-hover:text-white text-slate-600 dark:text-slate-300 font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-2 relative z-10 border border-slate-100 dark:border-slate-700 group-hover:border-indigo-600">Tap to Vote <ChevronRightIcon className="w-3 h-3 md:w-4 md:h-4" /></button>
                             </div>
                         ))}
                     </motion.div>

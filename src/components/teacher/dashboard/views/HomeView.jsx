@@ -147,12 +147,12 @@ const HomeView = ({
 						as={Fragment}
 						enter="ease-out duration-500"
 						enterFrom="opacity-0 backdrop-blur-none"
-						enterTo="opacity-100 backdrop-blur-md"
+						enterTo="opacity-100 backdrop-blur-sm md:backdrop-blur-md"
 						leave="ease-in duration-300"
-						leaveFrom="opacity-100 backdrop-blur-md"
+						leaveFrom="opacity-100 backdrop-blur-sm md:backdrop-blur-md"
 						leaveTo="opacity-0 backdrop-blur-none"
 					>
-						<div className="fixed inset-0 bg-black/50 transition-all" />
+						<div className="fixed inset-0 bg-black/60 transition-all" />
 					</Transition.Child>
 
 					<div className="fixed inset-0 overflow-y-auto">
@@ -176,11 +176,11 @@ const HomeView = ({
 
 										{/* Stunning Deep Spatial Gradients */}
 										<div className="absolute inset-0 bg-slate-900" />
-										<div className="absolute inset-0 opacity-60 mix-blend-screen bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.5),transparent_60%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.4),transparent_60%)]" />
+										<div className="absolute inset-0 opacity-40 md:opacity-60 md:mix-blend-screen bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.5),transparent_60%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.4),transparent_60%)]" />
 
 										{/* Animated Mesh Base */}
 										<div
-											className="absolute inset-0 opacity-30 mix-blend-overlay"
+											className="absolute inset-0 opacity-20 md:opacity-30 md:mix-blend-overlay hidden md:block"
 											style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}
 										/>
 
@@ -188,7 +188,7 @@ const HomeView = ({
 										<div className="relative z-10 flex flex-col items-center">
 
 											{/* Pulsing Rings */}
-											<div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+											<div className="absolute inset-0 flex items-center justify-center pointer-events-none hidden md:flex">
 												<div className="w-40 h-40 md:w-56 md:h-56 rounded-full border border-indigo-400/20 animate-[ping_4s_cubic-bezier(0,0,0.2,1)_infinite]" />
 												<div className="absolute w-28 h-28 md:w-36 md:h-36 rounded-full border border-indigo-400/30 animate-[ping_4s_cubic-bezier(0,0,0.2,1)_infinite_1.5s]" />
 											</div>

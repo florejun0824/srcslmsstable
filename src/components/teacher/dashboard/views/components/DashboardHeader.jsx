@@ -55,7 +55,7 @@ const TimeDisplay = memo(() => {
 const GlowSpot = ({ mouseX, mouseY }) => {
     return (
         <motion.div
-            className="pointer-events-none absolute -inset-px opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-10"
+            className="pointer-events-none absolute -inset-px opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-10 hidden lg:block"
             style={{
                 x: mouseX,
                 y: mouseY,
@@ -77,8 +77,8 @@ const GeminiBeacon = memo(({ onClick }) => (
         onClick={onClick}
         className="relative w-16 h-16 flex items-center justify-center group/beacon"
     >
-        <div className="absolute inset-0 rounded-full bg-gradient-to-r from-indigo-500 via-indigo-500 to-pink-500 opacity-20 animate-ping" />
-        <div className="absolute inset-2 rounded-full bg-gradient-to-r from-indigo-500 via-indigo-500 to-pink-500 opacity-10 animate-ping delay-75" />
+        <div className="absolute inset-0 rounded-full bg-gradient-to-r from-indigo-500 via-indigo-500 to-pink-500 opacity-20 animate-pulse" />
+        <div className="absolute inset-2 rounded-full bg-gradient-to-r from-indigo-500 via-indigo-500 to-pink-500 opacity-10" />
         <div className="relative w-12 h-12 bg-white/10 backdrop-blur-md rounded-full border border-white/20 flex items-center justify-center shadow-[0_0_15px_rgba(168,85,247,0.4)]">
             <svg viewBox="0 0 24 24" className="w-6 h-6 animate-pulse" style={{ filter: 'drop-shadow(0 0 4px rgba(255,255,255,0.5))' }}>
                 <defs>
@@ -200,10 +200,10 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
                         ) : (
                             <div className="w-full h-full relative overflow-hidden bg-slate-900">
                                 <div className="absolute inset-0 bg-gradient-to-br from-indigo-900 via-indigo-900 to-black" />
-                                <div className="absolute top-1/2 left-1/2 w-[300px] h-[300px] sm:w-[500px] sm:h-[500px] bg-[var(--monet-accent)] rounded-full mix-blend-overlay blur-[100px] sm:blur-[150px] opacity-40 animate-pulse" />
+                                <div className="absolute top-1/2 left-1/2 w-[300px] h-[300px] sm:w-[500px] sm:h-[500px] bg-[var(--monet-accent)] rounded-full lg:mix-blend-overlay blur-[100px] sm:blur-[150px] opacity-30 lg:opacity-40 lg:animate-pulse" />
                             </div>
                         )}
-                        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-30 mix-blend-overlay" />
+                        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-30 mix-blend-overlay hidden lg:block" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10 lg:from-black via-black/20 to-transparent" />
                     </div>
 
@@ -355,7 +355,7 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
                         className="hidden lg:flex relative group p-6 rounded-[2.5rem] bg-white dark:bg-[#121212] border border-slate-200 dark:border-white/10 overflow-hidden flex-col justify-between shadow-xl dark:shadow-black/50 h-[220px] sm:h-[220px]"
                     >
                          {/* Dynamic Background Mesh */}
-                         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-30 mix-blend-overlay z-10" />
+                         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-30 mix-blend-overlay z-10 hidden lg:block" />
                          <div className="absolute top-[-50%] left-[-50%] w-[150%] h-[150%] animate-spin-slow opacity-30 pointer-events-none">
                             <div className="absolute top-[20%] left-[30%] w-[50%] h-[50%] bg-[var(--monet-accent)] rounded-full mix-blend-multiply filter blur-[80px] animate-blob" />
                             <div className="absolute top-[20%] right-[30%] w-[50%] h-[50%] bg-indigo-300 dark:bg-indigo-900 rounded-full mix-blend-multiply filter blur-[80px] animate-blob animation-delay-2000" />
@@ -393,7 +393,7 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
                             onClick={() => setIsCreateModalOpen(true)}
                             className="relative col-span-1 lg:col-span-2 rounded-[2rem] sm:rounded-[2.5rem] bg-gradient-to-br from-[var(--monet-accent)] to-[var(--monet-accent)]/80 border border-white/20 p-5 lg:p-4 flex flex-col justify-between group overflow-hidden h-[150px] sm:h-[135px] lg:h-[140px] shadow-lg"
                         >
-                            <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay" />
+                            <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay hidden lg:block" />
                             <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/20 blur-2xl rounded-full" />
                             <div className="h-9 w-9 lg:h-8 lg:w-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/20 group-hover:rotate-12 transition-transform duration-300">
                                 <PenTool className="w-4 h-4 text-white" />

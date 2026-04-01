@@ -1,14 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, lazy, Suspense, useEffect } from 'react';
 import { useToast } from '../../contexts/ToastContext';
 import { db } from '../../services/firebase';
 import { doc, updateDoc, getDoc, Timestamp } from 'firebase/firestore';
-import AddUnitModal from './AddUnitModal';
-import EditUnitModal from './EditUnitModal';
-import LessonFormModal from './LessonFormModal';
-import LessonDetailModal from './LessonDetailModal';
-import ShareMultipleLessonsModal from './ShareMultipleLessonsModal';
-import DeleteLessonModal from './DeleteLessonModal';
 import { Trash2 } from 'lucide-react';
+
+// Lazy-loaded heavy modal components ("worker"-like chunk separation)
+const AddUnitModal = lazy(() => import('./AddUnitModal'));
+const EditUnitModal = lazy(() => import('./EditUnitModal'));
+const LessonFormModal = lazy(() => import('./LessonFormModal'));
+const LessonDetailModal = lazy(() => import('./LessonDetailModal'));
+const ShareMultipleLessonsModal = lazy(() => import('./ShareMultipleLessonsModal'));
+const DeleteLessonModal = lazy(() => import('./DeleteLessonModal'));
+
+// Wrapper to prevent initiating bundle fetch until the modal is actually opened,
+// but preserving it in the DOM after close so exit animations can complete.
+const LazyModalWrapper = ({ isOpen, children }) => {
+    const [hasMounted, setHasMounted] = useState(false);
+    useEffect(() => {
+        if (isOpen && !hasMounted) setHasMounted(true);
+    }, [isOpen, hasMounted]);
+
+    if (!hasMounted && !isOpen) return null;
+    return children;
+};
 
 const TeacherCourseView = ({ course, classes }) => {
     const [currentCourse, setCurrentCourse] = useState(course);
@@ -82,13 +96,35 @@ const TeacherCourseView = ({ course, classes }) => {
                 )) : <p className="text-gray-500 text-center py-8">No units in this subject yet. Add one to get started!</p>}
             </div>
 
-            <AddUnitModal isOpen={isUnitModalOpen} onClose={() => setUnitModalOpen(false)} courseId={course.id} onUnitAdded={refreshCourse} />
-            <EditUnitModal isOpen={isEditUnitModalOpen} onClose={() => setEditUnitModalOpen(false)} unit={unitToEdit} courseId={course.id} onUnitEdited={refreshCourse} />
-            {selectedUnit && <LessonFormModal isOpen={isLessonModalOpen} onClose={() => setLessonModalOpen(false)} courseId={course.id} unitId={selectedUnit.id} onFormSubmit={refreshCourse} title="Add New Lesson" />}
-            {isLessonDetailOpen && <LessonDetailModal isOpen={isLessonDetailOpen} onClose={() => setLessonDetailOpen(false)} lesson={selectedLessonForDetail} onEditRequest={(lessonData) => { setLessonToEdit(lessonData); setEditLessonModalOpen(true); }} onCourseUpdated={refreshCourse} />}
-            {lessonToEdit && <LessonFormModal isOpen={isEditLessonModalOpen} onClose={() => setEditLessonModalOpen(false)} courseId={course.id} unitId={lessonToEdit.unitId} initialData={lessonToEdit} onFormSubmit={refreshCourse} title="Edit Lesson" />}
-            {isShareModalOpen && <ShareMultipleLessonsModal isOpen={isShareModalOpen} onClose={() => setShareModalOpen(false)} course={currentCourse} classes={classes} />}
-            <DeleteLessonModal isOpen={isDeleteLessonModalOpen} onClose={() => setDeleteLessonModalOpen(false)} lesson={lessonToDelete} courseId={course.id} onLessonDeleted={refreshCourse} />
+            <Suspense fallback={null}>
+                <LazyModalWrapper isOpen={isUnitModalOpen}>
+                    <AddUnitModal isOpen={isUnitModalOpen} onClose={() => setUnitModalOpen(false)} courseId={course.id} onUnitAdded={refreshCourse} />
+                </LazyModalWrapper>
+                
+                <LazyModalWrapper isOpen={isEditUnitModalOpen}>
+                    <EditUnitModal isOpen={isEditUnitModalOpen} onClose={() => setEditUnitModalOpen(false)} unit={unitToEdit} courseId={course.id} onUnitEdited={refreshCourse} />
+                </LazyModalWrapper>
+                
+                <LazyModalWrapper isOpen={selectedUnit && isLessonModalOpen}>
+                    {selectedUnit && <LessonFormModal isOpen={isLessonModalOpen} onClose={() => setLessonModalOpen(false)} courseId={course.id} unitId={selectedUnit.id} onFormSubmit={refreshCourse} title="Add New Lesson" />}
+                </LazyModalWrapper>
+
+                <LazyModalWrapper isOpen={isLessonDetailOpen && selectedLessonForDetail}>
+                    {selectedLessonForDetail && <LessonDetailModal isOpen={isLessonDetailOpen} onClose={() => setLessonDetailOpen(false)} lesson={selectedLessonForDetail} onEditRequest={(lessonData) => { setLessonToEdit(lessonData); setEditLessonModalOpen(true); }} onCourseUpdated={refreshCourse} />}
+                </LazyModalWrapper>
+
+                <LazyModalWrapper isOpen={lessonToEdit && isEditLessonModalOpen}>
+                    {lessonToEdit && <LessonFormModal isOpen={isEditLessonModalOpen} onClose={() => setEditLessonModalOpen(false)} courseId={course.id} unitId={lessonToEdit.unitId} initialData={lessonToEdit} onFormSubmit={refreshCourse} title="Edit Lesson" />}
+                </LazyModalWrapper>
+
+                <LazyModalWrapper isOpen={isShareModalOpen}>
+                    <ShareMultipleLessonsModal isOpen={isShareModalOpen} onClose={() => setShareModalOpen(false)} course={currentCourse} classes={classes} />
+                </LazyModalWrapper>
+
+                <LazyModalWrapper isOpen={isDeleteLessonModalOpen}>
+                    <DeleteLessonModal isOpen={isDeleteLessonModalOpen} onClose={() => setDeleteLessonModalOpen(false)} lesson={lessonToDelete} courseId={course.id} onLessonDeleted={refreshCourse} />
+                </LazyModalWrapper>
+            </Suspense>
         </div>
     );
 };

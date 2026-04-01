@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Plus, Archive, IdentificationCard, ChartBar, MagnifyingGlass,
-    FunnelSimple, Lightning, Trophy, Confetti
+    FunnelSimple, Lightning, Trophy, Confetti, X
 } from '@phosphor-icons/react';
 import { doc, updateDoc, collection, getDocs, getDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../services/firebase';
@@ -30,15 +30,6 @@ const itemVariants = {
     hidden: { opacity: 0, y: 16 },
     visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 400, damping: 28 } }
 };
-
-// --- STAT PILL ---
-const StatPill = ({ icon: Icon, label, value, color }) => (
-    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${color}`}>
-        <Icon weight="fill" size={14} className="opacity-80" />
-        <span className="tabular-nums">{value}</span>
-        <span className="hidden sm:inline font-medium opacity-70">{label}</span>
-    </div>
-);
 
 export default function ElectionManager() {
     const { user } = useAuth();
@@ -229,239 +220,247 @@ export default function ElectionManager() {
 
     const liveCount = activeElections.filter(e => e.status === 'active' && new Date() < new Date(e.endDate)).length;
 
-    return (
-        <div className="relative min-h-screen pb-32 font-sans">
+	return (
+	        /* Outer padding wrapper to reveal the scaffold behind it */
+	        <div className="p-2 sm:p-4 md:p-6 min-h-[calc(100vh-6rem)] flex flex-col selection:bg-indigo-500/30">
+            
+	            {/* === PREMIUM ROUNDED APP WINDOW === */}
+	            {/* We do NOT put overflow-hidden here, so the sticky header continues to work perfectly */}
+	            <div className="relative flex-1 w-full bg-slate-50 dark:bg-slate-950 font-sans rounded-[32px] sm:rounded-[40px] lg:rounded-[48px] border border-slate-200/50 dark:border-slate-800/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] pb-32">
+                
+	                {/* Dedicated Background Layer (Clips the aurora lights to the rounded corners) */}
+	                <div className="absolute inset-0 rounded-[inherit] overflow-hidden pointer-events-none z-0">
+	                    <div className="absolute top-[-15%] left-[-10%] w-[50vw] h-[50vw] rounded-full bg-indigo-400/10 dark:bg-indigo-900/20 blur-[120px] mix-blend-multiply dark:mix-blend-screen animate-pulse" style={{ animationDuration: '8s' }} />
+	                    <div className="absolute top-[20%] right-[-10%] w-[40vw] h-[40vw] rounded-full bg-teal-400/10 dark:bg-teal-900/20 blur-[100px] mix-blend-multiply dark:mix-blend-screen animate-pulse" style={{ animationDuration: '12s', animationDelay: '2s' }} />
+	                </div>
 
-            {/* === STICKY HEADER AND CONTROLS === */}
-            <div className="sticky top-0 md:top-4 z-30 bg-slate-50/90 dark:bg-slate-900/95 backdrop-blur-xl border-b md:border border-slate-200/80 dark:border-slate-800/80 rounded-b-3xl md:rounded-[2.5rem] mx-0 md:mx-6 mb-6 shadow-sm overflow-hidden transition-all">
-                <div className="px-4 md:px-6 pt-5 md:pt-6">
-                    <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-4">
-                        <div className="space-y-1">
-                            <div className="flex flex-wrap items-center gap-2 opacity-80 mb-1">
-                                <Confetti weight="fill" size={16} className="text-indigo-500" />
-                                <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-md">
-                                    Election Manager
-                                </span>
-                                <span className="hidden xl:inline text-[13px] font-medium text-slate-500 dark:text-slate-400 ml-1">
-                                    — Schedule, manage, and tally school elections.
-                                </span>
-                            </div>
-                            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-                                Campus Elections
-                            </h1>
-                            <p className="text-sm font-medium text-slate-500 dark:text-slate-400 max-w-lg leading-relaxed xl:hidden">
-                                Schedule, manage, and tally school elections seamlessly across your institution.
-                            </p>
-                        </div>
+	                {/* Main Content Area */}
+	                <div className="relative z-10 max-w-7xl mx-auto pt-2 md:pt-4">
+                    
+	                    {/* === ULTRA PREMIUM COMMAND BAR (Sticky) === */}
+	                    <header className="sticky top-2 md:top-4 z-50 px-2 md:px-6 mb-6 md:mb-10 transition-all duration-300">
+	                        <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl border border-white/60 dark:border-slate-700/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] rounded-[32px] md:rounded-[40px] p-2 md:p-3 transition-all duration-300">
+	                            <div className="flex flex-col xl:flex-row gap-3 md:gap-4 items-center justify-between">
+                                
+	                                {/* TOP ROW (Mobile) / LEFT SIDE (Desktop): Title & Actions */}
+	                                <div className="flex items-center justify-between w-full xl:w-auto px-2 md:px-4">
+	                                    <div className="flex items-center gap-3">
+	                                        <div className="w-10 h-10 md:w-12 md:h-12 rounded-[16px] md:rounded-[20px] bg-indigo-500 text-white flex items-center justify-center shadow-inner shadow-white/20">
+	                                            <Trophy weight="fill" size={24} className="w-5 h-5 md:w-6 md:h-6" />
+	                                        </div>
+	                                        <div className="flex flex-col justify-center">
+	                                            <h1 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight leading-none">
+	                                                Elections
+	                                            </h1>
+	                                            {liveCount > 0 ? (
+	                                                <span className="flex items-center gap-1.5 mt-1 md:mt-1.5 text-[10px] md:text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+	                                                    <span className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
+	                                                    {liveCount} Live Now
+	                                                </span>
+	                                            ) : (
+	                                                <span className="mt-1 md:mt-1.5 text-[10px] md:text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+	                                                    Manager
+	                                                </span>
+	                                            )}
+	                                        </div>
+	                                    </div>
 
-                        {/* Stat Pills & CTA */}
-                        <div className="flex flex-wrap items-center gap-3">
-                            <div className="flex items-center gap-2">
-                                <StatPill
-                                    icon={Lightning}
-                                    label="Live"
-                                    value={liveCount}
-                                    color="bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400"
-                                />
-                                <StatPill
-                                    icon={ChartBar}
-                                    label="Active"
-                                    value={activeElections.length}
-                                    color="bg-indigo-50 dark:bg-indigo-500/10 border-indigo-200 dark:border-indigo-500/20 text-indigo-700 dark:text-indigo-400"
-                                />
-                                <StatPill
-                                    icon={Archive}
-                                    label="Archived"
-                                    value={archivedElections.length}
-                                    color="bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hidden sm:flex"
-                                />
-                            </div>
-                            <button
-                                onClick={startCreate}
-                                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2 md:px-6 md:py-2.5 bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-slate-100 text-white dark:text-slate-900 rounded-xl font-bold text-sm transition-all focus:ring-4 focus:ring-slate-200 dark:focus:ring-slate-800 active:scale-95 shadow-sm"
-                            >
-                                <Plus weight="bold" size={18} />
-                                New Election
-                            </button>
-                        </div>
-                    </div>
-                </div>
+	                                    {/* Mobile New Button (Hidden on Desktop) */}
+	                                    <button 
+	                                        onClick={startCreate} 
+	                                        className="xl:hidden flex items-center justify-center w-10 h-10 rounded-[16px] bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-lg active:scale-95 transition-transform"
+	                                    >
+	                                        <Plus weight="bold" size={20} />
+	                                    </button>
+	                                </div>
 
-                {/* CONTROLS TOOLBAR */}
-                <div className="mx-4 md:mx-6 mt-4 md:mt-5 pt-4 md:pt-5 pb-5 md:pb-6 border-t border-slate-200/60 dark:border-slate-800/60">
-                    <div className="flex flex-col sm:flex-row gap-3">
-                        {/* Tab switcher */}
-                        <div className="flex bg-slate-100/80 dark:bg-slate-900/50 p-1.5 rounded-xl flex-1 sm:max-w-[320px] ring-1 ring-slate-200/50 dark:ring-slate-800">
-                            {tabs.map((tab) => {
-                                const isActive = activeTab === tab.key;
-                                const TabIcon = tab.icon;
-                                return (
-                                    <button
-                                        key={tab.key}
-                                        onClick={() => { setActiveTab(tab.key); setSearchQuery(''); }}
-                                        className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all duration-200 relative z-10 ${
-                                            isActive ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-                                        }`}
-                                    >
-                                        {isActive && (
-                                            <motion.div
-                                                layoutId="activeElectionTab"
-                                                className="absolute inset-0 rounded-lg shadow-sm bg-white dark:bg-slate-800 ring-1 ring-slate-200/50 dark:ring-slate-700/50"
-                                                transition={{ type: 'spring', stiffness: 420, damping: 32 }}
-                                            />
-                                        )}
-                                        <span className="relative z-10 flex items-center gap-1.5">
-                                            <TabIcon weight={isActive ? "fill" : "regular"} size={16} />
-                                            <span>{tab.label}</span>
-                                            <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-black tabular-nums ${
-                                                isActive ? 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300' : 'bg-slate-200/50 dark:bg-slate-800/50 text-slate-400'
-                                            }`}>
-                                                {tab.count}
-                                            </span>
-                                        </span>
-                                    </button>
-                                );
-                            })}
-                        </div>
-    
-                        {/* Search */}
-                        <div className="relative flex-1 sm:max-w-[280px]">
-                            <MagnifyingGlass className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} weight="bold" />
-                            <input
-                                type="text"
-                                placeholder="Search elections..."
-                                value={searchQuery}
-                                onChange={e => setSearchQuery(e.target.value)}
-                                className="w-full pl-10 pr-10 py-2.5 text-sm font-medium bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500/50 transition-all shadow-sm"
-                            />
-                            {searchQuery && (
-                                <button
-                                    onClick={() => setSearchQuery('')}
-                                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 outline-none"
-                                >
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            </div>
+	                                {/* CENTER: Segmented Tabs */}
+	                                <div className="w-full xl:w-auto flex bg-slate-100 dark:bg-slate-800/80 p-1.5 rounded-[24px] md:rounded-[28px] ring-1 ring-slate-200/50 dark:ring-slate-700/50 shadow-inner">
+	                                    {tabs.map((tab) => {
+	                                        const isActive = activeTab === tab.key;
+	                                        const TabIcon = tab.icon;
+	                                        return (
+	                                            <button
+	                                                key={tab.key}
+	                                                onClick={() => { setActiveTab(tab.key); setSearchQuery(''); }}
+	                                                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-[20px] md:rounded-[24px] text-xs md:text-sm font-bold transition-all duration-300 relative z-10 ${
+	                                                    isActive ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+	                                                }`}
+	                                            >
+	                                                {isActive && (
+	                                                    <motion.div
+	                                                        layoutId="activeElectionTab"
+	                                                        className="absolute inset-0 rounded-[20px] md:rounded-[24px] shadow-sm bg-white dark:bg-slate-700 border border-slate-200/50 dark:border-slate-600/50"
+	                                                        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+	                                                    />
+	                                                )}
+	                                                <span className="relative z-10 flex items-center gap-2">
+	                                                    <TabIcon weight={isActive ? "fill" : "regular"} size={18} />
+	                                                    <span>{tab.label}</span>
+	                                                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-black tabular-nums transition-colors duration-300 ${
+	                                                        isActive ? 'bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-300' : 'bg-slate-200/50 dark:bg-slate-700 text-slate-400'
+	                                                    }`}>
+	                                                        {tab.count}
+	                                                    </span>
+	                                                </span>
+	                                            </button>
+	                                        );
+	                                    })}
+	                                </div>
 
-            {/* === MAIN CONTENT === */}
-            <div className="relative z-10 max-w-7xl mx-auto px-3 md:px-6">
-                <AnimatePresence mode="wait">
-                    <motion.div
-                        key={activeTab}
-                        variants={containerVariants}
-                        initial="hidden"
-                        animate="visible"
-                        exit={{ opacity: 0, transition: { duration: 0.15 } }}
-                    >
-                        {displayedElections.length > 0 ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-5">
-                                <AnimatePresence mode="popLayout">
-                                    {displayedElections.map((election) => {
-                                        const canModify = user?.role === 'admin' || election.createdBy === user?.id;
-                                        return (
-                                            <motion.div key={election.id} variants={itemVariants} layout>
-                                                <ElectionCard
-                                                    election={election}
-                                                    isArchived={activeTab === 'archived'}
-                                                    canModify={canModify}
-                                                    onClick={() => {
-                                                        if (election.hasTie && election.tieBreakerId) {
-                                                            showToast("This election has a Tie-Breaker. Please view the Tie-Breaker card for full results.", "info");
-                                                        } else {
-                                                            setSelectedElectionId(election.id);
-                                                        }
-                                                    }}
-                                                    onEdit={() => startEdit(election)}
-                                                    onDelete={(e) => initiateDelete(e, election.id)}
-                                                    onStartCountdown={(e) => { e.stopPropagation(); initiateCountdown(election); }}
-                                                    onFinalize={() => initiateFinalize(election)}
-                                                    onViewSummary={(e) => {
-                                                        e.stopPropagation();
-                                                        if (election.hasTie && election.tieBreakerId) {
-                                                            showToast("This election has a Tie-Breaker. Please view the Tie-Breaker card for full results.", "info");
-                                                        } else {
-                                                            setSummaryElection(election);
-                                                        }
-                                                    }}
-                                                />
-                                            </motion.div>
-                                        );
-                                    })}
-                                </AnimatePresence>
-                            </div>
-                        ) : (
-                            <motion.div
-                                variants={itemVariants}
-                                className="flex flex-col items-center justify-center py-20 sm:py-28 text-center"
-                            >
-                                {/* Icon */}
-                                <div className="relative mb-6">
-                                    <div className={`w-20 h-20 sm:w-24 sm:h-24 rounded-3xl flex items-center justify-center ${
-                                        activeTab === 'active'
-                                            ? 'bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20'
-                                            : 'bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700'
-                                    }`}>
-                                        {activeTab === 'active' ? (
-                                            <IdentificationCard weight="duotone" className="w-10 h-10 sm:w-12 sm:h-12 text-indigo-400" />
-                                        ) : (
-                                            <Archive weight="duotone" className="w-10 h-10 sm:w-12 sm:h-12 text-slate-400" />
-                                        )}
-                                    </div>
-                                    {searchQuery.trim() && (
-                                        <div className="absolute -top-1 -right-1 w-6 h-6 bg-amber-400 rounded-full flex items-center justify-center">
-                                            <FunnelSimple size={12} weight="bold" className="text-white" />
-                                        </div>
-                                    )}
-                                </div>
-                                <h3 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-white mb-2">
-                                    {searchQuery.trim()
-                                        ? `No results for "${searchQuery.trim()}"`
-                                        : activeTab === 'active' ? 'No Active Elections' : 'Archive is Empty'}
-                                </h3>
-                                <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm max-w-xs mx-auto leading-relaxed">
-                                    {searchQuery.trim()
-                                        ? 'Try adjusting your search term.'
-                                        : activeTab === 'active'
-                                            ? 'Start building democracy in your classroom by creating your first election.'
-                                            : 'Completed elections automatically move here 24 hours after they end.'}
-                                </p>
-                                {activeTab === 'active' && !searchQuery.trim() && (
-                                    <button
-                                        onClick={startCreate}
-                                        className="mt-6 flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/25 transition-all active:scale-[0.97]"
-                                    >
-                                        <Plus weight="bold" size={16} />
-                                        Create First Election
-                                    </button>
-                                )}
-                            </motion.div>
-                        )}
-                    </motion.div>
-                </AnimatePresence>
-            </div>
+	                                {/* RIGHT SIDE: Search & Desktop New Button */}
+	                                <div className="w-full xl:w-auto flex items-center gap-2 md:gap-3">
+	                                    {/* Search Bar */}
+	                                    <div className="relative flex-1 xl:w-64">
+	                                        <MagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} weight="bold" />
+	                                        <input
+	                                            type="text"
+	                                            placeholder="Search elections..."
+	                                            value={searchQuery}
+	                                            onChange={e => setSearchQuery(e.target.value)}
+	                                            className="w-full pl-11 pr-10 py-3 text-sm font-semibold bg-white/50 dark:bg-slate-900/50 border border-slate-200/80 dark:border-slate-700/80 rounded-[20px] md:rounded-[24px] text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-all shadow-sm backdrop-blur-sm"
+	                                        />
+	                                        {searchQuery && (
+	                                            <button
+	                                                onClick={() => setSearchQuery('')}
+	                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 bg-slate-100 dark:bg-slate-800 p-1 rounded-full transition-colors"
+	                                            >
+	                                                <X size={14} weight="bold" />
+	                                            </button>
+	                                        )}
+	                                    </div>
+	                                    {/* Desktop New Button */}
+	                                    <button 
+	                                        onClick={startCreate} 
+	                                        className="hidden xl:flex items-center gap-2 px-6 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-[24px] font-bold text-sm hover:scale-105 active:scale-95 transition-all shadow-[0_8px_20px_rgba(0,0,0,0.12)]"
+	                                    >
+	                                        <Plus weight="bold" size={18} />
+	                                        New Election
+	                                    </button>
+	                                </div>
 
-            {/* === MODALS === */}
-            <ConfirmationModal
-                isOpen={confirmModal.isOpen}
-                onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
-                type={confirmModal.type}
-                title={confirmModal.title}
-                message={confirmModal.message}
-                actionLabel={confirmModal.actionLabel}
-                isDestructive={confirmModal.isDestructive}
-                isLoading={confirmModal.isLoading}
-                onConfirm={confirmModal.type === 'countdown' ? executeCountdown : confirmModal.type === 'finalize' ? executeFinalize : confirmModal.type === 'delete' ? executeDelete : () => { }}
-            />
+	                            </div>
+	                        </div>
+	                    </header>
 
-            <ResultSummaryModal
-                election={summaryElection}
-                isOpen={!!summaryElection}
-                onClose={() => setSummaryElection(null)}
-            />
-        </div>
-    );
-}
+	                    {/* === MAIN CONTENT GRID === */}
+	                    <div className="px-3 md:px-6">
+	                        <AnimatePresence mode="wait">
+	                            <motion.div
+	                                key={activeTab}
+	                                variants={containerVariants}
+	                                initial="hidden"
+	                                animate="visible"
+	                                exit={{ opacity: 0, transition: { duration: 0.15 } }}
+	                            >
+	                                {displayedElections.length > 0 ? (
+	                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+	                                        <AnimatePresence mode="popLayout">
+	                                            {displayedElections.map((election) => {
+	                                                const canModify = user?.role === 'admin' || election.createdBy === user?.id;
+	                                                return (
+	                                                    <motion.div key={election.id} variants={itemVariants} layout>
+	                                                        <ElectionCard
+	                                                            election={election}
+	                                                            isArchived={activeTab === 'archived'}
+	                                                            canModify={canModify}
+	                                                            onClick={() => {
+	                                                                if (election.hasTie && election.tieBreakerId) {
+	                                                                    showToast("This election has a Tie-Breaker. Please view the Tie-Breaker card for full results.", "info");
+	                                                                } else {
+	                                                                    setSelectedElectionId(election.id);
+	                                                                }
+	                                                            }}
+	                                                            onEdit={() => startEdit(election)}
+	                                                            onDelete={(e) => initiateDelete(e, election.id)}
+	                                                            onStartCountdown={(e) => { e.stopPropagation(); initiateCountdown(election); }}
+	                                                            onFinalize={() => initiateFinalize(election)}
+	                                                            onViewSummary={(e) => {
+	                                                                e.stopPropagation();
+	                                                                if (election.hasTie && election.tieBreakerId) {
+	                                                                    showToast("This election has a Tie-Breaker. Please view the Tie-Breaker card for full results.", "info");
+	                                                                } else {
+	                                                                    setSummaryElection(election);
+	                                                                }
+	                                                            }}
+	                                                        />
+	                                                    </motion.div>
+	                                                );
+	                                            })}
+	                                        </AnimatePresence>
+	                                    </div>
+	                                ) : (
+	                                    /* PREMIUM EMPTY STATE */
+	                                    <motion.div
+	                                        variants={itemVariants}
+	                                        className="flex flex-col items-center justify-center py-20 md:py-32 text-center"
+	                                    >
+	                                        <div className="relative mb-8 group">
+	                                            <div className="absolute inset-0 bg-indigo-500/20 dark:bg-indigo-500/10 blur-2xl rounded-full scale-150 group-hover:scale-175 transition-transform duration-700" />
+	                                            <div className={`relative w-24 h-24 md:w-32 md:h-32 rounded-[28px] md:rounded-[40px] flex items-center justify-center backdrop-blur-xl shadow-xl border ${
+	                                                activeTab === 'active'
+	                                                    ? 'bg-white/60 dark:bg-slate-800/60 border-indigo-100 dark:border-indigo-500/20'
+	                                                    : 'bg-white/60 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700'
+	                                            }`}>
+	                                                {activeTab === 'active' ? (
+	                                                    <IdentificationCard weight="duotone" className="w-12 h-12 md:w-16 md:h-16 text-indigo-500 dark:text-indigo-400" />
+	                                                ) : (
+	                                                    <Archive weight="duotone" className="w-12 h-12 md:w-16 md:h-16 text-slate-400 dark:text-slate-500" />
+	                                                )}
+	                                            </div>
+	                                            {searchQuery.trim() && (
+	                                                <div className="absolute -top-2 -right-2 w-8 h-8 md:w-10 md:h-10 bg-amber-400 rounded-full flex items-center justify-center shadow-lg border-[3px] border-white dark:border-slate-950">
+	                                                    <FunnelSimple size={16} weight="bold" className="text-white md:w-5 md:h-5" />
+	                                                </div>
+	                                            )}
+	                                        </div>
+	                                        <h3 className="text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-white mb-3 tracking-tight">
+	                                            {searchQuery.trim()
+	                                                ? `No results for "${searchQuery.trim()}"`
+	                                                : activeTab === 'active' ? 'No Active Elections' : 'Archive is Empty'}
+	                                        </h3>
+	                                        <p className="text-slate-500 dark:text-slate-400 text-sm md:text-base max-w-sm mx-auto leading-relaxed font-medium">
+	                                            {searchQuery.trim()
+	                                                ? 'Try adjusting your search term or exploring the other tab.'
+	                                                : activeTab === 'active'
+	                                                    ? 'Start building democracy in your classroom by creating your first election today.'
+	                                                    : 'Completed elections automatically move here 24 hours after they are finalized.'}
+	                                        </p>
+	                                        {activeTab === 'active' && !searchQuery.trim() && (
+	                                            <button
+	                                                onClick={startCreate}
+	                                                className="mt-8 flex items-center gap-2.5 px-8 py-4 rounded-[24px] text-sm font-bold text-white bg-slate-900 dark:bg-indigo-600 hover:scale-105 shadow-xl shadow-slate-900/20 dark:shadow-indigo-500/25 transition-all active:scale-[0.97]"
+	                                            >
+	                                                <Plus weight="bold" size={20} />
+	                                                Create First Election
+	                                            </button>
+	                                        )}
+	                                    </motion.div>
+	                                )}
+	                            </motion.div>
+	                        </AnimatePresence>
+	                    </div>
+	                </div>
+	            </div>
+
+	            {/* === MODALS === */}
+	            <ConfirmationModal
+	                isOpen={confirmModal.isOpen}
+	                onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+	                type={confirmModal.type}
+	                title={confirmModal.title}
+	                message={confirmModal.message}
+	                actionLabel={confirmModal.actionLabel}
+	                isDestructive={confirmModal.isDestructive}
+	                isLoading={confirmModal.isLoading}
+	                onConfirm={confirmModal.type === 'countdown' ? executeCountdown : confirmModal.type === 'finalize' ? executeFinalize : confirmModal.type === 'delete' ? executeDelete : () => { }}
+	            />
+
+	            <ResultSummaryModal
+	                election={summaryElection}
+	                isOpen={!!summaryElection}
+	                onClose={() => setSummaryElection(null)}
+	            />
+	        </div>
+	    );
+	}
