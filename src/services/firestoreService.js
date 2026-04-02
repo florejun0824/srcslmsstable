@@ -125,6 +125,21 @@ export const getUsersPaginated = async (schoolId = DEFAULT_SCHOOL_ID, lastDoc = 
   }
 };
 
+export const getAllUsers = async (schoolId = DEFAULT_SCHOOL_ID) => {
+  try {
+    const q = query(
+      collection(db, 'users'),
+      where('schoolId', '==', schoolId),
+      orderBy('lastName', 'asc')
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (err) {
+    console.error("❌ getAllUsers failed", err);
+    throw err;
+  }
+};
+
 export const fixOrphanUsers = async () => {
   try {
     const usersRef = collection(db, 'users');
@@ -442,6 +457,7 @@ const firestoreService = {
   getAllSubjects,
   getUserProfile,
   getUsersPaginated,
+  getAllUsers, // <-- ADDED HERE
   fixOrphanUsers,
   addUser,
   deleteUser,

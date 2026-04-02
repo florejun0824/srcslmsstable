@@ -16,8 +16,28 @@ const ReactionsBreakdownModal = lazy(() => import('../../widgets/ReactionsBreakd
 // --- UTILITY: DATE FORMATTER ---
 const formatDateDetails = (createdAt) => {
     try {
-        if (!createdAt) return { day: '00', month: 'ABC', time: '00:00' };
-        const dateObj = createdAt.toDate ? createdAt.toDate() : new Date(createdAt);
+        if (!createdAt) createdAt = new Date();
+
+        let dateObj;
+        
+        // 1. Standard Firebase Timestamp
+        if (typeof createdAt.toDate === 'function') {
+            dateObj = createdAt.toDate();
+        } 
+        // 2. WEB WORKER FIX: Stripped Firebase Timestamp
+        else if (createdAt && typeof createdAt.seconds === 'number') {
+            dateObj = new Date(createdAt.seconds * 1000); 
+        } 
+        // 3. Standard Date or String
+        else {
+            dateObj = new Date(createdAt);
+        }
+
+        // Catch pending server tokens
+        if (isNaN(dateObj.getTime())) {
+            dateObj = new Date();
+        }
+
         return {
             day: new Intl.DateTimeFormat('en-US', { day: '2-digit' }).format(dateObj),
             month: new Intl.DateTimeFormat('en-US', { month: 'short' }).format(dateObj).toUpperCase(),
@@ -151,14 +171,18 @@ const PrismCard = memo(({ post, authorProfile, onClick, onTogglePin, theme }) =>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3 mt-auto pt-4 border-t border-slate-200/40 dark:border-white/5">
+<div className="flex items-center gap-3 mt-auto pt-4 border-t border-slate-200/40 dark:border-white/5">
                     <div className="w-8 h-8 rounded-full p-[1px] bg-gradient-to-br from-slate-200 dark:from-white/10 to-transparent">
                         <div className="w-full h-full rounded-full overflow-hidden">
-                            <UserInitialsAvatar user={authorProfile} size="full" />
+                            {/* FIX: Add robust fallback for avatar */}
+                            <UserInitialsAvatar user={authorProfile || { displayName: post.teacherName || 'Instructor' }} size="full" />
                         </div>
                     </div>
                     <div className="flex flex-col">
-                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{authorProfile?.displayName || 'Instructor'}</span>
+                        {/* FIX: Check firstName/lastName and post.teacherName */}
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                            {authorProfile?.displayName || (authorProfile ? `${authorProfile.firstName || ''} ${authorProfile.lastName || ''}`.trim() : '') || post.teacherName || 'Instructor'}
+                        </span>
                         <span className="text-[10px] text-slate-400 dark:text-slate-500">Tap to expand</span>
                     </div>
                     <div className="ml-auto w-8 h-8 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center group-hover:bg-indigo-100 dark:group-hover:bg-indigo-500/20 transition-colors">
@@ -209,13 +233,15 @@ const FrostedSlab = memo(({ post, authorProfile, onClick, onTogglePin, theme, in
                     <Pin size={14} className="fill-current" />
                 </button>
 
-                <div className="flex justify-between items-start mb-2 pr-8">
+<div className="flex justify-between items-start mb-2 pr-8">
                     <div className="flex items-center gap-2">
                         <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full overflow-hidden opacity-70 group-hover:opacity-100 transition-opacity">
-                            <UserInitialsAvatar user={authorProfile} size="full" />
+                            {/* FIX: Add robust fallback for avatar */}
+                            <UserInitialsAvatar user={authorProfile || { displayName: post.teacherName || 'Instructor' }} size="full" />
                         </div>
+                        {/* FIX: Check firstName/lastName and post.teacherName */}
                         <span className="text-xs font-bold text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200 transition-colors">
-                            {authorProfile?.displayName}
+                            {authorProfile?.displayName || (authorProfile ? `${authorProfile.firstName || ''} ${authorProfile.lastName || ''}`.trim() : '') || post.teacherName || 'Instructor'}
                         </span>
                     </div>
                 </div>

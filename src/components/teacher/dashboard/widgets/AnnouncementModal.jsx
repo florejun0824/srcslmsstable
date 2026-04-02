@@ -331,27 +331,59 @@ const AnnouncementModal = ({
     }
   }, [isOpen, announcement?.id])
 
-  // --- UTILS ---
+// --- UTILS ---
   const convertTimestampToDate = (timestamp) => {
-    if (!timestamp) return null
-    if (typeof timestamp.toDate === 'function') return timestamp.toDate()
-    if (timestamp instanceof Date) return timestamp
-    try { return new Date(timestamp) } catch (e) { return null }
+    if (!timestamp) return new Date(); 
+
+    // 1. Firebase Timestamp with prototype intact
+    if (typeof timestamp.toDate === 'function') {
+        const d = timestamp.toDate();
+        return isNaN(d.getTime()) ? new Date() : d;
+    }
+    
+    // 2. WEB WORKER FIX: Catch stripped Firestore Timestamps (plain object)
+    if (timestamp && typeof timestamp.seconds === 'number') {
+        return new Date(timestamp.seconds * 1000);
+    }
+    
+    // 3. Native JS Date
+    if (timestamp instanceof Date) {
+        return isNaN(timestamp.getTime()) ? new Date() : timestamp;
+    }
+    
+    // 4. Strings or pending server tokens
+    try { 
+        const parsedDate = new Date(timestamp);
+        if (isNaN(parsedDate.getTime())) {
+            return new Date(); 
+        }
+        return parsedDate;
+    } catch (e) { 
+        return new Date(); 
+    }
   }
 
   const formatRelativeTime = (date) => {
-    if (!date) return ''
-    const now = new Date()
-    const seconds = Math.floor((now - date) / 1000)
-    if (seconds < 60) return `Just now`
-    const minutes = Math.floor(seconds / 60)
-    if (minutes < 60) return `${minutes}m`
-    const hours = Math.floor(minutes / 60)
-    if (hours < 24) return `${hours}h`
-    const days = Math.floor(hours / 24)
-    if (days < 7) return `${days}d`
-    const weeks = Math.floor(days / 7)
-    return `${weeks}w`
+    // Bulletproof check against invalid dates
+    if (!date || isNaN(date.getTime())) return 'Just now';
+
+    const now = new Date();
+    const seconds = Math.floor((now - date) / 1000);
+    
+    // Account for slight local/server time differences (negative seconds)
+    if (seconds < 60) return `Just now`;
+    
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m`;
+    
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h`;
+    
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `${days}d`;
+    
+    const weeks = Math.floor(days / 7);
+    return `${weeks}w`;
   }
 
   // --- POST EDIT/DELETE HANDLERS (Same) ---

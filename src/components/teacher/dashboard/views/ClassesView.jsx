@@ -1,5 +1,5 @@
 // src/components/teacher/dashboard/views/ClassesView.jsx
-import React, { useMemo, memo, useCallback, forwardRef } from 'react';
+import React, { useState, useRef, useEffect, useMemo, memo, useCallback, forwardRef } from 'react';
 import {
     PlusCircleIcon, AcademicCapIcon, UserGroupIcon, ShieldCheckIcon,
     ClipboardIcon, PencilSquareIcon, ArchiveBoxIcon, TrashIcon, SquaresPlusIcon,
@@ -82,6 +82,9 @@ const ClassCard = memo(forwardRef(({
     c, theme, onOpenOverview, onEdit, onArchive, onDelete,
     onStartOnline, onEndOnline, showToast
 }, ref) => {
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const menuRef = useRef(null);
+
     const meetLink = c.meetLink || null;
     const hasValidLink = meetLink && meetLink.startsWith("https://meet.google.com/");
     const isLive = c.videoConference?.isLive || false;
@@ -103,6 +106,34 @@ const ClassCard = memo(forwardRef(({
         }
     }, [isLive, hasValidLink, meetLink, onStartOnline, onEdit, c]);
 
+    // Handle outside click for the dropdown menu
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (menuRef.current && !menuRef.current.contains(event.target)) {
+                setIsMenuOpen(false);
+            }
+        };
+        
+        if (isMenuOpen) {
+            document.addEventListener("mousedown", handleClickOutside);
+        }
+        
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [isMenuOpen]);
+
+    const toggleMenu = useCallback((e) => {
+        e.stopPropagation();
+        setIsMenuOpen(prev => !prev);
+    }, []);
+
+    const handleMenuAction = useCallback((action) => (e) => {
+        e.stopPropagation();
+        setIsMenuOpen(false);
+        action();
+    }, []);
+
     return (
         <motion.div
             ref={ref}
@@ -122,20 +153,23 @@ const ClassCard = memo(forwardRef(({
                 shadow-[0_8px_30px_rgb(0,0,0,0.04),inset_0_1px_1px_rgba(255,255,255,0.4)] 
                 dark:shadow-[0_8px_30px_rgb(0,0,0,0.2),inset_0_1px_1px_rgba(255,255,255,0.1)]
                 hover:shadow-[0_20px_40px_rgb(0,0,0,0.12)] dark:hover:shadow-[0_20px_40px_rgb(0,0,0,0.4)]
-                overflow-hidden flex flex-col justify-between
+                flex flex-col justify-between
                 transition-all duration-500
                 hover:-translate-y-2
                 cursor-pointer h-auto min-h-[200px] sm:min-h-[230px]
             `}
         >
-            {/* Ambient Glow Orb Inside Card (Mobile Optimized: Static on mobile, grows on desktop hover) */}
-            <div className={`absolute -top-16 -right-16 w-56 h-56 rounded-full bg-gradient-to-br ${theme.glow} blur-[50px] opacity-20 dark:opacity-30 mix-blend-multiply dark:mix-blend-screen transition-all duration-700 md:group-hover:scale-125 md:group-hover:opacity-40 pointer-events-none z-0`} />
-
-            {/* Inner Glow Highlight */}
-            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity z-10" />
+            {/* Background Container - Handles overflow hidden for effects without clipping dropdown */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-[inherit] z-0">
+                {/* Ambient Glow Orb Inside Card (Mobile Optimized: Static on mobile, grows on desktop hover) */}
+                <div className={`absolute -top-16 -right-16 w-56 h-56 rounded-full bg-gradient-to-br ${theme.glow} blur-[50px] opacity-20 dark:opacity-30 mix-blend-multiply dark:mix-blend-screen transition-all duration-700 md:group-hover:scale-125 md:group-hover:opacity-40 pointer-events-none`} />
+                {/* Inner Glow Highlight */}
+                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
 
             {/* --- TOP SECTION: Visuals & Info --- */}
-            <div className="relative z-20 p-5 sm:p-7 flex justify-between items-start gap-4">
+            {/* Elevated z-index to 30 ensures menu floats ABOVE bottom elements */}
+            <div className="relative z-30 p-5 sm:p-7 flex justify-between items-start gap-4">
                 <div className="flex gap-4 sm:gap-5 items-start overflow-hidden w-full">
                     {/* Modern Squircle Icon */}
                     <div className={`
@@ -177,28 +211,46 @@ const ClassCard = memo(forwardRef(({
                 </div>
 
                 {/* Floating Action Menu */}
-                <button
-                    onClick={(e) => e.stopPropagation()}
-                    className="group/menu relative -mr-2 -mt-2 p-2.5 text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-white transition-colors rounded-full hover:bg-black/5 dark:hover:bg-white/10 flex-shrink-0 z-50"
-                >
-                    <EllipsisHorizontalIcon className="w-6 h-6 stroke-[2.5]" />
-                    {/* Glass Dropdown Menu - Solid on mobile, blur on md */}
-                    <div className="absolute right-0 top-12 hidden group-hover/menu:flex flex-col bg-white/95 dark:bg-slate-900/95 md:bg-white/80 md:dark:bg-slate-900/80 md:backdrop-blur-2xl border border-slate-200/50 dark:border-slate-700/50 rounded-[20px] shadow-xl p-1.5 z-50 min-w-[180px] animate-in fade-in zoom-in-95 origin-top-right">
-                        <div onClick={() => onEdit(c)} className="px-4 py-3 hover:bg-slate-100 dark:hover:bg-white/10 rounded-[14px] text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-3 transition-colors">
-                            <PencilSquareIcon className="w-4 h-4" /> Edit Details
-                        </div>
-                        <div onClick={() => onArchive(c.id, c.name)} className="px-4 py-3 hover:bg-slate-100 dark:hover:bg-white/10 rounded-[14px] text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-3 transition-colors">
-                            <ArchiveBoxIcon className="w-4 h-4" /> Archive Class
-                        </div>
-                        <div className="h-px bg-slate-200/60 dark:bg-slate-700/60 my-1 mx-2" />
-                        <div onClick={() => onDelete(c.id)} className="px-4 py-3 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-[14px] text-xs font-bold text-red-600 dark:text-red-400 flex items-center gap-3 transition-colors">
-                            <TrashIcon className="w-4 h-4" /> Delete Class
-                        </div>
-                    </div>
-                </button>
+                <div ref={menuRef} className="relative -mr-2 -mt-2 flex-shrink-0 z-50">
+                    <button
+                        onClick={toggleMenu}
+                        className={`p-2.5 transition-colors rounded-full flex-shrink-0 z-50 ${
+                            isMenuOpen 
+                            ? 'bg-black/5 dark:bg-white/10 text-slate-700 dark:text-white' 
+                            : 'text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10'
+                        }`}
+                    >
+                        <EllipsisHorizontalIcon className="w-6 h-6 stroke-[2.5]" />
+                    </button>
+                    
+                    {/* Glass Dropdown Menu - Now controlled via state, preventing overlap issues */}
+                    <AnimatePresence>
+                        {isMenuOpen && (
+                            <motion.div 
+                                initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                                transition={{ duration: 0.15 }}
+                                className="absolute right-0 top-12 flex flex-col bg-white/95 dark:bg-slate-900/95 md:bg-white/80 md:dark:bg-slate-900/80 md:backdrop-blur-2xl border border-slate-200/50 dark:border-slate-700/50 rounded-[20px] shadow-xl p-1.5 z-50 min-w-[180px] origin-top-right"
+                            >
+                                <div onClick={handleMenuAction(() => onEdit(c))} className="px-4 py-3 hover:bg-slate-100 dark:hover:bg-white/10 rounded-[14px] text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-3 transition-colors cursor-pointer">
+                                    <PencilSquareIcon className="w-4 h-4" /> Edit Details
+                                </div>
+                                <div onClick={handleMenuAction(() => onArchive(c.id, c.name))} className="px-4 py-3 hover:bg-slate-100 dark:hover:bg-white/10 rounded-[14px] text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-3 transition-colors cursor-pointer">
+                                    <ArchiveBoxIcon className="w-4 h-4" /> Archive Class
+                                </div>
+                                <div className="h-px bg-slate-200/60 dark:bg-slate-700/60 my-1 mx-2" />
+                                <div onClick={handleMenuAction(() => onDelete(c.id))} className="px-4 py-3 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-[14px] text-xs font-bold text-red-600 dark:text-red-400 flex items-center gap-3 transition-colors cursor-pointer">
+                                    <TrashIcon className="w-4 h-4" /> Delete Class
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
             </div>
 
             {/* --- BOTTOM SECTION: Actions --- */}
+            {/* Kept at z-20 so the top menu drops cleanly OVER these buttons */}
             <div className="relative z-20 p-5 sm:p-7 pt-0 mt-auto flex items-center gap-3">
                 {/* 1. Code Ticket */}
                 <button
@@ -313,11 +365,9 @@ const ClassesView = ({
             style={{ willChange: "opacity" }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            // Removed h-full. Added px-3 sm:px-0 for mobile breathing room. Reduced pb-40 to pb-12.
             className="w-full flex flex-col px-3 sm:px-0 pb-12 relative z-10 selection:bg-indigo-500/30"
         >
             {/* --- HEADER --- */}
-            {/* Removed px-2 to avoid double padding with parent wrapper */}
             <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4 mb-6 md:mb-10">
                 <div className="w-full md:w-auto text-left">
                     <h1 className="text-slate-500 dark:text-slate-400 font-black text-sm uppercase tracking-widest flex items-center gap-2">

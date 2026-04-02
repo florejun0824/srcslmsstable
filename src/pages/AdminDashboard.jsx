@@ -742,18 +742,22 @@ const AdminDashboard = () => {
       users.forEach((user) => (user.isRestricted ? restricted.push(user) : active.push(user)));
       setRestrictedUsers(restricted);
 
-      const groupUsers = (list) => {
-        const groups = { admins: [], teachers: [], students: [], parents: [] };
-        list.forEach(u => {
-          if (u.role === 'admin') groups.admins.push(u);
-          else if (u.role === 'teacher') groups.teachers.push(u);
-          else if (u.role === 'parent') groups.parents.push(u);
-          else groups.students.push(u);
-        });
-        // Sort
-        Object.keys(groups).forEach(key => groups[key].sort((a, b) => (a.lastName || '').localeCompare(b.lastName || '')));
-        return groups;
-      };
+	  const groupUsers = (list) => {
+	    const groups = { admins: [], teachers: [], students: [], parents: [] };
+	    list.forEach(u => {
+	      if (u.role === 'admin') groups.admins.push(u);
+	      else if (u.role === 'teacher') groups.teachers.push(u);
+	      else if (u.role === 'parent') groups.parents.push(u);
+	      else groups.students.push(u);
+	    });
+  
+	    // Sort alphabetically by FIRST NAME
+	    Object.keys(groups).forEach(key => {
+	       groups[key].sort((a, b) => (a.firstName || '').localeCompare(b.firstName || ''));
+	    });
+  
+	    return groups;
+	  };
 
       const activeGroups = groupUsers(active);
       const restrictedGroups = groupUsers(restricted);
