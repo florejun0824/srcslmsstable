@@ -1,4 +1,5 @@
 // src/pages/StudentDashboard.jsx
+import { usePushNotifications } from '../hooks/usePushNotifications';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -45,6 +46,9 @@ const StudentDashboard = () => {
   // --- AUTH & CONTEXT ---
   const { userProfile, logout, loading: authLoading, setUserProfile, refreshUserProfile } = useAuth();
   const { showToast } = useToast();
+  
+// 2. Simply call the hook and pass the userProfile
+  usePushNotifications(userProfile);
 
   // Stable ref for toast to use in async functions without adding dependencies
   const showToastRef = useRef(showToast);

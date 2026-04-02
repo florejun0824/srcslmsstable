@@ -1,10 +1,10 @@
 // public/firebase-messaging-sw.js
 
-// Import and initialize the Firebase SDK
-importScripts("https.www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js");
+// 1. Import the Firebase SDK (Compat Version)
+importScripts("https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js");
 importScripts("https://www.gstatic.com/firebasejs/9.0.0/firebase-messaging-compat.js");
 
-// Your web app's Firebase configuration
+// 2. Your project configuration
 const firebaseConfig = {
   apiKey: "AIzaSyAwzXvo1MhL8Uj9UlhhMu4_LPB013SW2ig",
   authDomain: "srcs-log-book.firebaseapp.com",
@@ -14,29 +14,53 @@ const firebaseConfig = {
   appId: "1:1016390403599:web:303b35a99b0f2260a2057a",
 };
 
-// Initialize Firebase
+// 3. Initialize Firebase
 firebase.initializeApp(firebaseConfig);
-
-// Retrieve an instance of Firebase Messaging
 const messaging = firebase.messaging();
 
 /**
- * Handle background messages.
- * This function will be called when the app is in the background or closed.
+ * Handle background messages
+ * This triggers when the app is not in the active tab.
  */
 messaging.onBackgroundMessage((payload) => {
-  console.log(
-    "[firebase-messaging-sw.js] Received background message: ",
-    payload
-  );
+  console.log("[SW] Background message received: ", payload);
 
-  // Customize the notification here
   const notificationTitle = payload.notification.title;
   const notificationOptions = {
     body: payload.notification.body,
-    icon: "/icon-192.webp", // Make sure you have a 'logo192.png' in your 'public' folder
-    vibrate: [250], // Vibrate for 250ms
+    icon: "/icon-192.webp", 
+    vibrate: [250],
+    // Store the data (like meeting links) so it can be accessed on click
+    data: {
+      url: payload.data?.meetingLink || '/student',
+      type: payload.data?.type
+    }
   };
 
-  self.registration.showNotification(notificationTitle, notificationOptions);
+  return self.registration.showNotification(notificationTitle, notificationOptions);
+});
+
+/**
+ * Handle notification clicks
+ * This opens the meeting link or dashboard when the student taps the alert.
+ */
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  
+  const targetUrl = event.notification.data.url;
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      // Focus existing tab if open, otherwise open new
+      for (var i = 0; i < windowClients.length; i++) {
+        var client = windowClients[i];
+        if (client.url.includes('srcs-log-book') && 'focus' in client) {
+          return client.navigate(targetUrl).then(c => c.focus());
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+    })
+  );
 });

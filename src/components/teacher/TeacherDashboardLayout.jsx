@@ -154,37 +154,26 @@ const styles = `
 
 // --- SKELETON ---
 const DashboardSkeleton = memo(() => (
-    <div className="w-full font-sans pb-32 lg:pb-8 animate-pulse">
+    <div className="w-full font-sans pb-32 lg:pb-8 animate-pulse p-4">
         <div className="flex flex-col gap-4">
-            {/* === SECTION 1: Bento Grid Header (mirrors DashboardHeader) === */}
             <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-[14px]">
-                {/* Hero Banner Skeleton (7 cols) */}
                 <div className="col-span-1 lg:col-span-7 lg:order-2 h-[280px] sm:h-[320px] lg:h-[374px] relative rounded-[2rem] sm:rounded-[3rem] overflow-hidden bg-slate-200 dark:bg-slate-800/50">
-                    {/* Inner details */}
                     <div className="absolute inset-0 p-5 sm:p-12 lg:p-8 flex flex-col justify-between">
-                        {/* Mobile greeting placeholder */}
                         <div className="lg:hidden flex flex-col gap-2 mt-2">
                             <div className="w-32 h-6 bg-slate-300/40 dark:bg-slate-700/40 rounded-full"></div>
                             <div className="w-48 h-8 bg-slate-300/40 dark:bg-slate-700/40 rounded-lg"></div>
                         </div>
-                        {/* Bottom content placeholders */}
                         <div className="flex items-end justify-between mt-auto">
                             <div className="flex flex-col gap-2">
                                 <div className="w-24 h-4 bg-slate-300/30 dark:bg-slate-700/30 rounded-full"></div>
                                 <div className="w-48 h-6 bg-slate-300/30 dark:bg-slate-700/30 rounded-lg"></div>
                                 <div className="w-36 h-3 bg-slate-300/20 dark:bg-slate-700/20 rounded-full"></div>
                             </div>
-                            <div className="hidden lg:flex items-center gap-2">
-                                <div className="w-16 h-6 bg-slate-300/20 dark:bg-slate-700/20 rounded-full"></div>
-                                <div className="w-20 h-6 bg-slate-300/20 dark:bg-slate-700/20 rounded-full"></div>
-                            </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Left Column (5 cols) */}
                 <div className="col-span-1 lg:col-span-5 lg:order-1 flex flex-col gap-4 lg:gap-[14px] h-full">
-                    {/* Greeting Card Skeleton (desktop only) */}
                     <div className="hidden lg:flex relative rounded-[2.5rem] bg-slate-200 dark:bg-slate-800/50 overflow-hidden flex-col justify-between p-6 h-[220px]">
                         <div className="flex items-start justify-between w-full">
                             <div className="flex flex-col gap-1.5">
@@ -193,69 +182,18 @@ const DashboardSkeleton = memo(() => (
                             </div>
                             <div className="w-10 h-10 bg-slate-300/40 dark:bg-slate-700/40 rounded-full"></div>
                         </div>
-                        <div className="flex flex-col gap-1.5 mt-auto">
-                            <div className="w-28 h-3 bg-slate-300/40 dark:bg-slate-700/40 rounded-full"></div>
-                            <div className="w-44 h-8 bg-slate-300/50 dark:bg-slate-700/50 rounded-lg"></div>
-                        </div>
                     </div>
-
-                    {/* Action Buttons Skeleton (2+3 col split) */}
                     <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-[14px] flex-1">
-                        {/* Post button (2 cols) */}
                         <div className="relative col-span-1 lg:col-span-2 rounded-[2rem] sm:rounded-[2.5rem] bg-slate-300 dark:bg-slate-700/60 overflow-hidden h-[150px] sm:h-auto lg:h-[140px] p-5 lg:p-4 flex flex-col justify-between">
                             <div className="w-9 h-9 lg:w-8 lg:h-8 bg-slate-400/30 dark:bg-slate-600/40 rounded-full"></div>
-                            <div className="flex flex-col gap-1.5">
-                                <div className="w-10 h-2.5 bg-slate-400/30 dark:bg-slate-600/40 rounded-full"></div>
-                                <div className="w-14 h-5 bg-slate-400/30 dark:bg-slate-600/40 rounded-md"></div>
-                            </div>
                         </div>
-                        {/* Schedule widget (3 cols) */}
                         <div className="relative col-span-1 lg:col-span-3 rounded-[2rem] sm:rounded-[2.5rem] bg-slate-200 dark:bg-slate-800/50 overflow-hidden h-[150px] sm:h-auto lg:h-[140px] p-5 lg:p-4 flex flex-col justify-between">
                             <div className="flex items-start justify-between w-full">
                                 <div className="w-9 h-9 lg:w-8 lg:h-8 bg-slate-300/60 dark:bg-slate-700/50 rounded-full"></div>
-                                <div className="w-20 h-3 bg-slate-300/50 dark:bg-slate-700/40 rounded-full mt-1"></div>
-                            </div>
-                            <div className="flex flex-col gap-1.5 mt-auto">
-                                <div className="w-24 h-4 bg-slate-300/60 dark:bg-slate-700/50 rounded-md"></div>
-                                <div className="w-32 h-3 bg-slate-300/40 dark:bg-slate-700/30 rounded-full"></div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
-
-            {/* === SECTION 2: Activity Feed Skeleton (mirrors ActivityFeed) === */}
-            <div className="flex flex-col gap-4 mt-2">
-                {/* Section header */}
-                <div className="flex items-center gap-3 px-1">
-                    <div className="w-5 h-5 bg-slate-300 dark:bg-slate-700/50 rounded-md"></div>
-                    <div className="w-28 h-4 bg-slate-300 dark:bg-slate-700/50 rounded-full"></div>
-                </div>
-
-                {/* Feed items */}
-                {[1, 2, 3].map((i) => (
-                    <div key={i} className="flex gap-3 sm:gap-6">
-                        {/* Date column */}
-                        <div className="flex-none flex flex-col items-center pt-2 w-12 sm:w-14">
-                            <div className="w-8 h-3 bg-slate-300 dark:bg-slate-700/50 rounded-full mb-1"></div>
-                            <div className="w-10 h-8 bg-slate-200 dark:bg-slate-800/50 rounded-xl"></div>
-                        </div>
-                        {/* Card body */}
-                        <div className="flex-1 rounded-[1.5rem] sm:rounded-[2rem] bg-slate-100 dark:bg-slate-800/30 border border-slate-200/50 dark:border-white/5 p-5 sm:p-6 flex flex-col gap-3">
-                            <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 bg-slate-300 dark:bg-slate-700/50 rounded-full"></div>
-                                <div className="flex flex-col gap-1">
-                                    <div className="w-24 h-3.5 bg-slate-300 dark:bg-slate-700/50 rounded-full"></div>
-                                    <div className="w-16 h-2.5 bg-slate-200 dark:bg-slate-700/30 rounded-full"></div>
-                                </div>
-                            </div>
-                            <div className="flex flex-col gap-2">
-                                <div className="w-full h-3.5 bg-slate-200 dark:bg-slate-700/30 rounded-full"></div>
-                                <div className="w-3/4 h-3.5 bg-slate-200 dark:bg-slate-700/30 rounded-full"></div>
-                            </div>
-                        </div>
-                    </div>
-                ))}
             </div>
         </div>
     </div>
@@ -1066,33 +1004,53 @@ const TeacherDashboardLayout = (props) => {
         [rest.setCreateCourseModalOpen]
     );
 
-    const handleStartOnlineClass = useCallback(
-        async (classId, meetingCode, meetLink) => {
-            try {
-                const classRef = doc(db, "classes", classId);
-                await updateDoc(classRef, {
-                    videoConference: {
-                        isLive: true,
-                        meetingCode: meetingCode,
-                        platform: "GOOGLE_MEET",
-                        startTime: new Date().toISOString(),
-                    },
-                });
-                showToast(
-                    `Class ${meetingCode} is now live! Opening Google Meet...`,
-                    "success"
-                );
-                window.open(meetLink, "_blank");
-            } catch (error) {
-                console.error("Error starting online class:", error);
-                showToast(
-                    "Failed to start the online class due to a system error.",
-                    "error"
-                );
-            }
-        },
-        [showToast]
-    );
+	// src/components/teacher/TeacherDashboardLayout.jsx
+
+	const handleStartOnlineClass = useCallback(
+	    async (classId, meetingCode, meetLink) => {
+	        try {
+	            // 1. Call the HTTPS Cloud Function to notify students
+	            // This triggers the FCM logic in your index.js
+	            const response = await fetch('https://us-central1-srcs-log-book.cloudfunctions.net/startOnlineClass', {
+	                method: 'POST',
+	                headers: {
+	                    'Content-Type': 'application/json',
+	                    'Authorization': 'Bearer SRCS-Secret-2026' // Use your specific secret here
+	                },
+	                body: JSON.stringify({
+	                    classId: classId,
+	                    meetingLink: meetLink,
+	                    teacherName: `${userProfile?.firstName} ${userProfile?.lastName}`
+	                })
+	            });
+
+	            if (!response.ok) {
+	                const errorText = await response.text();
+	                throw new Error(`Notification failed: ${errorText}`);
+	            }
+
+	            // 2. Keep your existing Firestore update so the UI (ClassesView) stays in sync
+	            // Note: ClassesView looks for 'videoConference.isLive'
+	            const classRef = doc(db, "classes", classId);
+	            await updateDoc(classRef, {
+	                videoConference: {
+	                    isLive: true,
+	                    meetingCode: meetingCode,
+	                    platform: "GOOGLE_MEET",
+	                    startTime: new Date().toISOString(),
+	                },
+	            });
+
+	            showToast(`Class ${meetingCode} is now live! Students notified.`, "success");
+	            window.open(meetLink, "_blank");
+
+	        } catch (error) {
+	            console.error("Error starting online class:", error);
+	            showToast("Failed to start class session.", "error");
+	        }
+	    },
+	    [showToast, userProfile] // Added userProfile to dependencies for the teacher name
+	);
 
     const handleEndOnlineClass = useCallback(
         async (classId) => {
@@ -1214,7 +1172,8 @@ const TeacherDashboardLayout = (props) => {
                 );
             case "elections":
                 return (
-                    <div key={`${reloadKey}-elections`} className="p-6">
+                    /* CHANGED: Removed the 'p-6' padding wrapper that was squeezing the ElectionManager */
+                    <div key={`${reloadKey}-elections`} className="w-full h-full">
                         <ElectionManager />
                     </div>
                 );
@@ -1336,8 +1295,9 @@ const TeacherDashboardLayout = (props) => {
                 </div>
 
                 {/* Main Content */}
+                {/* CHANGED: Removed the overarching 'p-4' mobile padding so content can reach the edges */}
                 <main
-                    className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-0 lg:px-8 lg:pb-8 lg:mt-4 scroll-smooth"
+                    className="flex-1 overflow-y-auto overflow-x-hidden p-0 sm:p-4 lg:p-0 lg:px-8 lg:pb-8 lg:mt-4 scroll-smooth"
                     id="main-scroll-container"
                 >
                     <Suspense fallback={<DashboardSkeleton />}>
@@ -1579,6 +1539,12 @@ const TeacherDashboardLayout = (props) => {
                         onSave={handleRenameCategory}
                     />
                 )}
+				{rest.isCreateCategoryModalOpen && (
+				                    <CreateCategoryModal
+				                        isOpen={rest.isCreateCategoryModalOpen}
+				                        onClose={() => rest.setCreateCategoryModalOpen(false)}
+				                    />
+				                )}
                 <CreateClassModal
                     isOpen={rest.isCreateClassModalOpen}
                     onClose={() => rest.setCreateClassModalOpen(false)}

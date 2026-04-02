@@ -163,8 +163,9 @@ const CategoryList = memo((props) => {
                                             </div>
 
                                             {/* --- 2. TEXT CONTENT --- */}
-                                            <div className="relative z-10 flex-1 flex flex-col justify-center md:justify-end w-full">
-                                                <h3 className="text-[17px] md:text-[22px] font-black text-slate-900 dark:text-white leading-tight md:mb-2 tracking-tight line-clamp-1 md:line-clamp-2">
+                                            {/* MODIFIED: Added padding-right, removed truncate/line-clamp-1, applied whitespace-normal and break-words */}
+                                            <div className="relative z-10 flex-1 flex flex-col justify-center md:justify-end w-full pr-2 md:pr-0">
+                                                <h3 className="text-[16px] sm:text-[17px] md:text-[22px] font-black text-slate-900 dark:text-white leading-snug md:leading-tight tracking-tight whitespace-normal break-words line-clamp-3 md:line-clamp-2 md:mb-2">
                                                     {cleanName}
                                                 </h3>
                                                 

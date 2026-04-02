@@ -1,0 +1,19 @@
+[debug] [2026-04-02T04:50:27.695Z] ----------------------------------------------------------------------
+[debug] [2026-04-02T04:50:27.699Z] Command:       /Users/macbookair/.nvm/versions/node/v20.19.6/bin/node /Users/macbookair/.nvm/versions/node/v20.19.6/bin/firebase functions:shell
+[debug] [2026-04-02T04:50:27.700Z] CLI Version:   15.5.1
+[debug] [2026-04-02T04:50:27.700Z] Platform:      darwin
+[debug] [2026-04-02T04:50:27.700Z] Node Version:  v20.19.6
+[debug] [2026-04-02T04:50:27.700Z] Time:          Thu Apr 02 2026 12:50:27 GMT+0800 (Philippine Standard Time)
+[debug] [2026-04-02T04:50:27.700Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-04-02T04:50:29.134Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-04-02T04:50:29.134Z] > authorizing via signed-in user (floresflorejun@gmail.com)
+[debug] [2026-04-02T04:50:29.135Z] [iam] checking project srcs-log-book for permissions ["firebase.projects.get"]
+[debug] [2026-04-02T04:50:29.136Z] Checked if tokens are valid: true, expires at: 1775107473867
+[debug] [2026-04-02T04:50:29.136Z] Checked if tokens are valid: true, expires at: 1775107473867
+[debug] [2026-04-02T04:50:29.138Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/srcs-log-book:testIamPermissions [none]
+[debug] [2026-04-02T04:50:29.138Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/srcs-log-book:testIamPermissions  x-goog-user-project=srcs-log-book
+[debug] [2026-04-02T04:50:29.139Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/srcs-log-book:testIamPermissions {"permissions":["firebase.projects.get"]}
+[debug] [2026-04-02T04:50:30.489Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/srcs-log-book:testIamPermissions 200
+[debug] [2026-04-02T04:50:30.490Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/srcs-log-book:testIamPermissions {"permissions":["firebase.projects.get"]}
+[debug] [2026-04-02T04:50:30.626Z] [functions] Functions Emulator only supports listening on one address (127.0.0.1). Not listening on ::1

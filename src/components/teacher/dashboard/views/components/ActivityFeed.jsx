@@ -112,9 +112,10 @@ const PrismCard = memo(({ post, authorProfile, onClick, onTogglePin, theme }) =>
             whileHover={{ y: -5, scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => onClick(post)}
+            /* PERFORMANCE FIX: Restricted backdrop-blur to md: so it doesn't lag mobile scrolling */
             className={`
                 relative flex-shrink-0 w-[85vw] sm:w-96 min-h-[200px] p-6 rounded-[2rem] cursor-pointer
-                bg-white/80 dark:bg-white/10 backdrop-blur-xl group overflow-hidden
+                bg-white dark:bg-slate-900 md:bg-white/80 md:dark:bg-white/10 md:backdrop-blur-xl group overflow-hidden
                 border border-slate-200/60 dark:border-white/10 ${theme.glow} shadow-lg snap-center
             `}
         >
@@ -133,7 +134,7 @@ const PrismCard = memo(({ post, authorProfile, onClick, onTogglePin, theme }) =>
             <div className="relative z-10 flex flex-col h-full justify-between">
                 <div className="flex justify-between items-start mb-4">
                     <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest text-white ${theme.badge} shadow-lg shadow-black/10`}>
-                        <Sparkles size={10} className="animate-pulse" />
+                        <Sparkles size={10} className="md:animate-pulse" />
                         <span>Featured</span>
                     </div>
                     <span className="text-xs font-mono text-slate-400 opacity-60 sm:block hidden">
@@ -320,7 +321,8 @@ const ActivityFeed = ({ userProfile, teacherAnnouncements, showToast }) => {
     }, []);
 
     return (
-        <div className="w-full relative z-10 pb-8 min-h-[400px]" style={{ contentVisibility: 'auto', containIntrinsicSize: '0 400px' }}>
+        /* PERFORMANCE FIX: Removed content-visibility: auto */
+        <div className="w-full relative z-10 pb-8 min-h-[400px]">
             {/* Header Area */}
             <div className="flex flex-col mb-6 sm:mb-8 px-2">
                 <div className="flex items-center gap-3 mb-1">

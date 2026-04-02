@@ -9,6 +9,11 @@ import {
   ExclamationTriangleIcon
 } from "@heroicons/react/24/solid";
 
+// --- API KEY RETRIEVAL ---
+const POLLINATIONS_API_KEY = (import.meta && import.meta.env && import.meta.env.VITE_POLLINATIONS_API_KEY) 
+    || process.env.REACT_APP_POLLINATIONS_API_KEY 
+    || 'YOUR_API_KEY_MISSING';
+
 const getVideoEmbedUrl = (url) => {
   if (!url || typeof url !== "string") return null;
   const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
@@ -23,6 +28,38 @@ const getVideoEmbedUrl = (url) => {
 const DEFAULT_IMAGE_WIDTH = 50;
 
 /**
+ * HELPER: sanitizePollinationsUrl
+ * Forcefully fixes spaces, injects the required model, and hot-swaps broken keys.
+ */
+const sanitizePollinationsUrl = (url) => {
+    if (!url || typeof url !== 'string') return url;
+    
+    let processed = url;
+    
+    // 1. Specific fix for trailing periods/commas in prompts
+    processed = processed.replace(/\.%2C%20/g, '%2C%20'); 
+    
+    // 2. THE SPACE STRIPPER: Remove accidental newlines/spaces introduced by JSON sanitizers
+    processed = processed.replace(/\s+/g, '');
+
+    // 3. THE MODEL FIX: Force 'flux' model to avoid 403 Forbidden (zimage error)
+    if (processed.includes('pollinations.ai') && !processed.includes('model=')) {
+        if (processed.includes('?')) {
+            processed = processed.replace('?', '?model=flux&');
+        } else {
+            processed += '?model=flux';
+        }
+    }
+
+    // 4. RETROACTIVE KEY FIX: Swap old/broken keys for the working .env key
+    if (processed.includes('pollinations.ai') && processed.includes('key=')) {
+        processed = processed.replace(/key=[^&)]+/, `key=${POLLINATIONS_API_KEY}`);
+    }
+    
+    return processed;
+};
+
+/**
  * INTERNAL COMPONENT: LessonImage
  * Updated with robust error handling, loading skeletons, and Referrer Policy fixes.
  */
@@ -34,16 +71,7 @@ const LessonImage = memo(({ imageUrl, label }) => {
     useEffect(() => {
         if (imageUrl) {
             setStatus('loading');
-            // FIX: Remove trailing periods before query parameters which break some AI image hosts
-            // e.g. "prompt... .?nologo=true" -> "prompt...?nologo=true"
-            let cleaned = imageUrl;
-            try {
-                // specific fix for the Pollinations edge case in your screenshot
-                cleaned = imageUrl.replace(/\.%2C%20/g, '%2C%20'); 
-            } catch (e) {
-                cleaned = imageUrl;
-            }
-            setSafeUrl(cleaned);
+            setSafeUrl(sanitizePollinationsUrl(imageUrl));
         }
     }, [imageUrl]);
 
@@ -177,8 +205,13 @@ const LessonPage = forwardRef(({ page, isEditable, onFinalizeDiagram, onRevertDi
       }
       
       const initialImages = pageContent?.images && Array.isArray(pageContent.images)
-        ? pageContent.images.map((img, idx) => ({ url: img.url || urls[idx] || "", left: typeof img.left === "number" ? img.left : 50, top: typeof img.top === "number" ? img.top : 50, width: typeof img.width === "number" ? img.width : DEFAULT_IMAGE_WIDTH }))
-        : urls.map((u, idx) => ({ url: u, left: 50, top: 50, width: DEFAULT_IMAGE_WIDTH }));
+        ? pageContent.images.map((img, idx) => ({ 
+            url: sanitizePollinationsUrl(img.url || urls[idx] || ""), 
+            left: typeof img.left === "number" ? img.left : 50, 
+            top: typeof img.top === "number" ? img.top : 50, 
+            width: typeof img.width === "number" ? img.width : DEFAULT_IMAGE_WIDTH 
+          }))
+        : urls.map((u, idx) => ({ url: sanitizePollinationsUrl(u), left: 50, top: 50, width: DEFAULT_IMAGE_WIDTH }));
       
       setImages(initialImages);
     }
@@ -243,7 +276,7 @@ const LessonPage = forwardRef(({ page, isEditable, onFinalizeDiagram, onRevertDi
   const handleFontSizeChange = (amount) => { if (selectedLabelIndex === null) return; setLabels((prev) => prev.map((label, i) => i === selectedLabelIndex ? { ...label, fontSize: Math.max(8, label.fontSize + amount) } : label)); };
   const handleDeleteLabel = () => { if (selectedLabelIndex === null) return; setLabels((prev) => prev.filter((_, i) => i !== selectedLabelIndex)); setSelectedLabelIndex(null); };
   const handleAddLabel = () => { const newLabel = { text: "New Label", labelX: 50, labelY: 50, pointX: 50, pointY: 50, fontSize: 12, isPlaced: false }; setLabels((prev) => [...prev, newLabel]); };
-  const handleAddImage = (url = "") => { setImages((prev) => [ ...prev, { url, left: 50, top: 50, width: DEFAULT_IMAGE_WIDTH }, ]); };
+  const handleAddImage = (url = "") => { setImages((prev) => [ ...prev, { url: sanitizePollinationsUrl(url), left: 50, top: 50, width: DEFAULT_IMAGE_WIDTH }, ]); };
   const handleRemoveImage = (index) => { setImages((prev) => prev.filter((_, i) => i !== index)); };
   
   const handleFinalize = () => { 
@@ -309,7 +342,13 @@ const LessonPage = forwardRef(({ page, isEditable, onFinalizeDiagram, onRevertDi
                 {images.map((img, idx) => (
                     <div key={idx} style={{ position: "absolute", left: `${img.left}%`, top: `${img.top}%`, width: `${img.width}%`, transform: "translate(-50%, -50%)", cursor: isEditable ? "move" : "default", pointerEvents: isEditable ? "auto" : "none", }} onMouseDown={ isEditable ? onImageMouseDown(idx, "move") : undefined } draggable={false} >
                         <div className="relative">
-                            <img src={img.url} alt={`diagram-${idx + 1}`} className="block w-full h-auto rounded-lg shadow-lg" draggable={false} />
+                            <img 
+                                src={img.url} 
+                                alt={`diagram-${idx + 1}`} 
+                                className="block w-full h-auto rounded-lg shadow-lg" 
+                                draggable={false} 
+                                referrerPolicy="no-referrer"
+                            />
                             {isEditable && (
                                 <>
                                     <div onMouseDown={onImageMouseDown(idx, "resize")} className="absolute w-3.5 h-3.5 -right-1.5 -bottom-1.5 rounded-sm bg-white dark:bg-slate-700 border-2 border-gray-400 dark:border-slate-500 cursor-nwse-resize pointer-events-auto" />
@@ -367,11 +406,11 @@ const LessonPage = forwardRef(({ page, isEditable, onFinalizeDiagram, onRevertDi
                 >
                     {content && content.generatedImageUrl ? (
                         <img
-                            src={content.generatedImageUrl}
+                            src={sanitizePollinationsUrl(content.generatedImageUrl)}
                             alt="Finalized Diagram"
                             className="absolute top-1/2 left-1/2 h-full w-full -translate-x-1/2 -translate-y-1/2 object-contain"
                             loading="lazy"
-                            referrerPolicy="no-referrer" // Applied here too just in case
+                            referrerPolicy="no-referrer"
                         />
                     ) : (
                         <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center text-gray-500 dark:text-slate-400">

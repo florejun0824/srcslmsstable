@@ -2,12 +2,13 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { callGeminiWithLimitCheck } from '../../services/aiService';
 import { useToast } from '../../contexts/ToastContext';
 import InteractiveLoadingScreen from '../common/InteractiveLoadingScreen';
-import { ArrowUturnLeftIcon } from '@heroicons/react/24/outline';
+import { ArrowUturnLeftIcon, SparklesIcon } from '@heroicons/react/24/outline';
 import { sanitizeLessonsJson as sanitizeJsonBlock } from './sanitizeLessonText';
 
 // --- CONFIGURATION ---
-// Set to 31 seconds to stay safely under Gemma 3's 15k TPM limit.
-const GEMMA_SAFETY_DELAY_MS = 31000; 
+// 4000ms (4 seconds): The sweet spot for OpenRouter free tiers. 
+// Fast enough for good UX, but prevents bursting limits across multiple users.
+const AI_RATE_LIMIT_DELAY_MS = 4000; 
 
 /**
  * --- Helper: Smart Delay ---
@@ -19,7 +20,6 @@ const smartDelay = async (ms, signal) => {
         if (signal) {
             signal.addEventListener('abort', () => {
                 clearTimeout(timer);
-                // We use a specific error name to identify this logic later
                 const abortError = new Error("Aborted delay");
                 abortError.name = "AbortError";
                 reject(abortError);
@@ -29,20 +29,22 @@ const smartDelay = async (ms, signal) => {
 };
 
 /**
- * --- Micro-Worker Sanitizer (Bulletproof Version) ---
- * Aggressively fixes common AI JSON errors (bad escapes, LaTeX)
- * and falls back to regex extraction if parsing fails.
+ * --- Micro-Worker Sanitizer (Bulletproof Version v2) ---
+ * Aggressively fixes common AI JSON errors, strips control characters,
+ * and handles fallbacks dynamically based on the expected component type.
  */
 const sanitizeJsonComponent = (aiResponse) => {
     let jsonString = aiResponse;
 
     try {
-        // 1. Try to find a JSON block wrapped in markdown backticks
-        const markdownMatch = aiResponse.match(/```(json)?\s*(\{[\s\S]*\})\s*```/);
-        if (markdownMatch && markdownMatch[2]) {
-            jsonString = markdownMatch[2];
+        // 1. Extract JSON block if wrapped in markdown
+        // We use Hex codes for backticks (\x60) so it doesn't break the chat window
+        const mdRegex = new RegExp("\\x60\\x60\\x60(?:json)?\\s*([\\s\\S]*?)\\s*\\x60\\x60\\x60");
+        const markdownMatch = aiResponse.match(mdRegex);
+        
+        if (markdownMatch && markdownMatch[1]) {
+            jsonString = markdownMatch[1];
         } else {
-            // 2. If no markdown, find the first opening and last closing brace
             const startIndex = jsonString.indexOf('{');
             const endIndex = jsonString.lastIndexOf('}');
             if (startIndex !== -1 && endIndex !== -1) {
@@ -50,77 +52,67 @@ const sanitizeJsonComponent = (aiResponse) => {
             }
         }
 
-        // --- ATTEMPT 1: Clean and Parse ---
-        // Fix common AI JSON errors:
-        // 1. Fix unescaped newlines inside strings
-        let cleanString = jsonString.replace(/(?<=:\s*"[^"]*)\n(?=[^"]*")/g, "\\n");
+        // 2. CRITICAL: Strip literal control characters (newlines, tabs) that break JSON.parse
+        let cleanString = jsonString.replace(/[\u0000-\u001F]+/g, " ");
         
-        // 2. Fix invalid backslashes (e.g. \textbf -> \\textbf)
-        // This Regex finds backslashes that are NOT followed by valid JSON escape chars
+        // 3. Fix invalid backslashes (excluding legitimate escapes)
         cleanString = cleanString.replace(/\\(?![/u"\\bfnrt])/g, "\\\\");
 
         return JSON.parse(cleanString);
 
     } catch (parseError) {
-        console.warn("JSON.parse failed, attempting Manual Regex Extraction:", parseError.message);
+        console.warn("JSON.parse failed, attempting Smart Regex Fallbacks...", parseError.message);
 
-        // --- ATTEMPT 2: Manual Regex Extraction (The Safety Net) ---
         try {
-            // Extract Title
+            // Fallback for Objectives
+            if (aiResponse.includes('"objectives"')) {
+                const matches = [...aiResponse.matchAll(/"([^"]+)"/g)]
+                    .map(m => m[1])
+                    .filter(m => m !== "objectives" && m.length > 5);
+                return { objectives: matches.length > 0 ? matches : ["Understand the core concepts of the lesson."] };
+            }
+            
+            // Fallback for Competencies
+            if (aiResponse.includes('"competencies"')) {
+                 const matches = [...aiResponse.matchAll(/"([^"]+)"/g)]
+                    .map(m => m[1])
+                    .filter(m => m !== "competencies" && m.length > 5);
+                 return { competencies: matches.length > 0 ? matches : ["Aligned with standard competencies."] };
+            }
+
+            // Fallback for Core Content Planner
+            if (aiResponse.includes('"coreContentTitles"')) {
+                const matches = [...aiResponse.matchAll(/"([^"]+)"/g)]
+                   .map(m => m[1])
+                   .filter(m => m !== "coreContentTitles");
+                return { coreContentTitles: matches.length > 0 ? matches : ["Core Concept 1", "Core Concept 2"] };
+           }
+
+            // Fallback for Standard Pages
             const titleMatch = aiResponse.match(/"title"\s*:\s*"([^"]*?)"/);
             const title = titleMatch ? titleMatch[1] : "Generated Page";
 
-            // Extract Content
-            // We look for "content": " ... " 
             const contentMatch = aiResponse.match(/"content"\s*:\s*"([\s\S]*?)"(?=\s*\}|\s*,)/);
-            
-            let content = "";
-            if (contentMatch) {
-                content = contentMatch[1];
-            } else {
-                // Last ditch: just grab everything after "content":
-                const parts = aiResponse.split(/"content"\s*:\s*"/);
-                if (parts.length > 1) {
-                    const roughContent = parts[1];
-                    const lastQuote = roughContent.lastIndexOf('"');
-                    if (lastQuote !== -1) {
-                        content = roughContent.substring(0, lastQuote);
-                    } else {
-                        content = roughContent;
-                    }
-                }
-            }
+            let content = contentMatch ? contentMatch[1] : "Content could not be parsed properly.";
 
-            // Manually unescape standard JSON escapes since we didn't run JSON.parse
             content = content
                 .replace(/\\n/g, '\n')
                 .replace(/\\"/g, '"')
                 .replace(/\\\\/g, '\\');
 
-            if (!content || content.length < 5) {
-                throw new Error("Could not extract meaningful content via regex.");
-            }
-
-            return {
-                page: {
-                    title: title,
-                    content: content
-                }
-            };
+            return { page: { title, content } };
 
         } catch (extractError) {
-            console.error("Critical: Failed to sanitize JSON.", aiResponse.substring(0, 200));
-            // Return a dummy object so the app doesn't crash
+            console.error("Critical: Total failure to sanitize JSON.", aiResponse.substring(0, 200));
             return {
                 page: {
                     title: "Generation Error",
-                    content: `The AI generated content that could not be processed. \n\nRaw Output Preview:\n${aiResponse.substring(0, 500)}...`
+                    content: `The AI generated content that could not be processed.\n\nPreview:\n${aiResponse.substring(0, 300)}`
                 }
             };
         }
     }
 };
-
 /**
  * --- Base Context Builder ---
  */
@@ -301,7 +293,7 @@ const getComponentPrompt = (guideData, baseContext, lessonPlan, componentType, s
             ${previousContentInstruction}
             `;
 
-taskInstruction = `Generate *one* core content page for this lesson.
+            taskInstruction = `Generate *one* core content page for this lesson.
             - **Page Title:** It MUST be exactly: "${currentTitle}"
             ${contentContextInstruction}
 
@@ -412,8 +404,7 @@ const generateLessonComponent = async (
             return jsonData;
 
         } catch (error) {
-            // FIX: Robust check for abort errors (case insensitive)
-            if (error.name === 'AbortError' || (signal && signal.aborted) || error.message.toLowerCase().includes("aborted")) {
+            if (error.name === 'AbortError' || (signal && signal.aborted) || (error.message && error.message.toLowerCase().includes("aborted"))) {
                 throw new Error("Generation aborted by user.");
             }
             
@@ -437,7 +428,7 @@ const generateLessonComponent = async (
 /**
  * --- Master Instructions Function ---
  */
-const getMasterInstructions = async (guideData) => {
+const getMasterInstructions = async (guideData, apiKey) => {
     const objectivesLabel = guideData.language === 'Filipino' ? 'Mga Layunin sa Pagkatuto' : 'Learning Objectives';
     const letsGetStartedLabel = guideData.language === 'Filipino' ? 'Simulan Natin!' : "Let's Get Started!";
     const checkUnderstandingLabel = guideData.language === 'Filipino' ? 'Suriin ang Pag-unawa' : "Check for Understanding";
@@ -462,6 +453,14 @@ const getMasterInstructions = async (guideData) => {
         ${perspectiveInstruction}
         **CRITICAL INSTRUCTION FOR CORE CONTENT:** Instead of just listing facts, **weave them into a compelling narrative**. Tell the story *behind* the concept. Explain the "why" and "how". Use vivid analogies.
         
+**CRITICAL INSTRUCTION FOR IMAGES (NON-NEGOTIABLE):**
+        - You MUST embed one highly relevant image at the top of "Introduction" and "Core Content" pages.
+        - You MUST use the following URL format exactly:
+        - Format: ![Description](https://gen.pollinations.ai/image/[prompt]?width=800&height=400&nologo=true&model=flux&key=${apiKey})
+        - **IMPORTANT:** Notice the **&model=flux** parameter. This is required for your API key.
+        - **IMPORTANT:** You MUST replace all spaces in your image prompt with %20.
+        - Example: ![A busy marketplace](https://gen.pollinations.ai/image/a%20busy%20filipino%20marketplace%20realistic%20photo?width=800&height=400&nologo=true&model=flux&key=${apiKey})
+
         **CRITICAL INSTRUCTION FOR INTERACTIVITY (NON-NEGOTIABLE):** You MUST embed small, interactive elements directly within the core content pages.
         - Use Markdown blockquotes (\`>\`) to format these.
         - **Examples:**
@@ -515,7 +514,10 @@ const getMasterInstructions = async (guideData) => {
     return { masterInstructions, styleRules };
 };
 
-// --- This is the "Orchestrator" ---
+
+/**
+ * --- MAIN COMPONENT (Ultra Premium Lite) ---
+ */
 export default function GenerationScreen({ 
     subject, 
     unit, 
@@ -526,13 +528,25 @@ export default function GenerationScreen({
     onGenerationComplete, 
     onBack 
 }) {
+    // Safely retrieve the API key depending on the build tool (Vite vs CRA)
+    const POLLINATIONS_API_KEY = (import.meta && import.meta.env && import.meta.env.VITE_POLLINATIONS_API_KEY) 
+        || process.env.REACT_APP_POLLINATIONS_API_KEY 
+        || 'YOUR_API_KEY_MISSING';
+
     const { showToast } = useToast();
-    const [lessonProgress, setLessonProgress] = useState({ current: 0, total: 0 });
+    
+    // FIX: Initialize total to guideData.lessonCount or 1 immediately to prevent framer-motion NaN% errors
+    const [lessonProgress, setLessonProgress] = useState({ 
+        current: startLessonNumber - 1, 
+        total: guideData.lessonCount || 1 
+    });
+
     const [currentLessonPlan, setCurrentLessonPlan] = useState(initialLessonPlan);
     const [currentLessons, setCurrentLessons] = useState(existingLessons || []);
     
     const isMounted = useRef(false);
     const abortControllerRef = useRef(null);
+    const hasStartedRef = useRef(false); // Prevents strict-mode double firing
 
     const findSummaryContent = (lesson) => {
         if (!lesson || !lesson.pages) return "No summary available.";
@@ -545,6 +559,9 @@ export default function GenerationScreen({
      * --- Orchestrator Loop ---
      */
     const runGenerationLoop = useCallback(async () => {
+        if (hasStartedRef.current) return;
+        hasStartedRef.current = true;
+
         const controller = new AbortController();
         if (abortControllerRef.current) {
             abortControllerRef.current.abort();
@@ -559,14 +576,13 @@ export default function GenerationScreen({
             // --- STEP 1: Planner ---
             if (!plans) {
                 showToast("Generating lesson plan...", "info");
-                setLessonProgress({ current: 0, total: guideData.lessonCount });
+                setLessonProgress({ current: 0, total: guideData.lessonCount || 1 });
                 
                 const existingSubjectContext = "No existing content found.";
                 const baseContext = getBasePromptContext(guideData, existingSubjectContext);
                 const plannerPrompt = getPlannerPrompt(guideData, baseContext);
 
-                // Initial safety delay
-                await smartDelay(GEMMA_SAFETY_DELAY_MS, signal);
+                await smartDelay(1000, signal);
 
                 const plannerResponse = await callGeminiWithLimitCheck(plannerPrompt, { signal });
                 if (!isMounted.current || signal.aborted) return; 
@@ -579,21 +595,22 @@ export default function GenerationScreen({
                 
                 plans = parsedPlan;
                 setCurrentLessonPlan(plans);
+                setLessonProgress(prev => ({ ...prev, total: plans.length }));
             }
 
-            const { masterInstructions, styleRules } = await getMasterInstructions(guideData);
+            // Passing the API Key to the Master Instructions
+            const { masterInstructions, styleRules } = await getMasterInstructions(guideData, POLLINATIONS_API_KEY);
             if (!isMounted.current || signal.aborted) return;
 
             // --- STEP 2: Orchestrator ---
             const lessonsToProcess = plans.slice(startLessonNumber - 1);
-            setLessonProgress({ current: startLessonNumber - 1, total: plans.length });
 
             for (const [index, plan] of lessonsToProcess.entries()) {
                 if (!isMounted.current || signal.aborted) return; 
 
                 const currentLessonIndex = (startLessonNumber - 1) + index;
-                setLessonProgress({ current: currentLessonIndex + 1, total: plans.length });
-                showToast(`Generating Lesson ${currentLessonIndex + 1} of ${plans.length}: "${plan.lessonTitle}"...`, "info", 10000);
+                setLessonProgress({ current: currentLessonIndex, total: plans.length });
+                showToast(`Generating Lesson ${currentLessonIndex + 1} of ${plans.length}: "${plan.lessonTitle}"...`, "info", 5000);
 
                 const previousLessonsContext = lessonsSoFar
                     .map((lesson, idx) => `Lesson ${idx + 1}: "${lesson.lessonTitle}"\nSummary: ${findSummaryContent(lesson)}`)
@@ -616,56 +633,48 @@ export default function GenerationScreen({
                     assignedCompetencies: []
                 };
 
-                // --- 1. Objectives ---
-                await smartDelay(GEMMA_SAFETY_DELAY_MS, signal);
-                const objectivesData = await generateLessonComponent(guideData, baseContext, plan, 'objectives', isMounted, masterInstructions, styleRules, {}, 3, signal);
-                newLesson.learningObjectives = objectivesData.objectives;
+                // --- CHUNKED PARALLEL ARCHITECTURE ---
 
-                // --- 2. Competencies ---
-                await smartDelay(GEMMA_SAFETY_DELAY_MS, signal);
-                const competenciesData = await generateLessonComponent(guideData, baseContext, plan, 'competencies', isMounted, masterInstructions, styleRules, {}, 3, signal);
-                newLesson.assignedCompetencies = competenciesData.competencies;
-                
-                // --- 3. Intro ---
-                await smartDelay(GEMMA_SAFETY_DELAY_MS, signal);
-                const introData = await generateLessonComponent(guideData, baseContext, plan, 'Introduction', isMounted, masterInstructions, styleRules, {}, 3, signal);
+                // Stage 1: Objectives (Foundation)
+                await smartDelay(AI_RATE_LIMIT_DELAY_MS, signal);
+                const objectivesData = await generateLessonComponent(guideData, baseContext, plan, 'objectives', isMounted, masterInstructions, styleRules, {}, 3, signal);
+                newLesson.learningObjectives = objectivesData.objectives || [];
+
+                // Inject Objectives into Context
+                const enrichedContext = {
+                    ...baseContext,
+                    scaffoldingInstruction: baseContext.scaffoldingInstruction + `\n**TARGET OBJECTIVES:** ${newLesson.learningObjectives.join(', ')}`
+                };
+
+                // Stage 2: Sibling Nodes (Max 2 Concurrent)
+                await smartDelay(AI_RATE_LIMIT_DELAY_MS, signal);
+                const [compData, introData] = await Promise.all([
+                    generateLessonComponent(guideData, enrichedContext, plan, 'competencies', isMounted, masterInstructions, styleRules, {}, 3, signal),
+                    generateLessonComponent(guideData, enrichedContext, plan, 'Introduction', isMounted, masterInstructions, styleRules, {}, 3, signal)
+                ]);
+                newLesson.assignedCompetencies = compData.competencies || [];
                 newLesson.pages.push(introData.page);
                 const introContent = introData.page.content;
 
-                // --- 4. Activity ---
-                await smartDelay(GEMMA_SAFETY_DELAY_MS, signal);
+                // Stage 3: Activity (Sequential)
+                await smartDelay(AI_RATE_LIMIT_DELAY_MS, signal);
                 const activityData = await generateLessonComponent(
-                    guideData, 
-                    baseContext, 
-                    plan, 
-                    'LetsGetStarted', 
-                    isMounted, 
-                    masterInstructions, 
-                    styleRules, 
-                    { introContent: introContent },
-                    3,
-                    signal
+                    guideData, enrichedContext, plan, 'LetsGetStarted', isMounted, masterInstructions, styleRules, { introContent: introContent }, 3, signal
                 );
                 newLesson.pages.push(activityData.page);
                 const activityContent = activityData.page.content;
 
-                // --- 5. Content Planner ---
-                await smartDelay(GEMMA_SAFETY_DELAY_MS, signal);
-                const contentPlannerData = await generateLessonComponent(guideData, baseContext, plan, 'CoreContentPlanner', isMounted, masterInstructions, styleRules, {}, 3, signal);
+                // Stage 4: Content Planner
+                await smartDelay(AI_RATE_LIMIT_DELAY_MS, signal);
+                const contentPlannerData = await generateLessonComponent(guideData, enrichedContext, plan, 'CoreContentPlanner', isMounted, masterInstructions, styleRules, {}, 3, signal);
                 const contentPlanTitles = contentPlannerData.coreContentTitles || [];
                 
-                // --- 6. Core Content Pages ---
+                // Stage 5: Core Content Pages (Sequential)
                 let previousPageContent = null; 
-
                 for (const [contentIndex, contentTitle] of contentPlanTitles.entries()) {
                     if (!isMounted.current || signal.aborted) return;
                     
-                    let extraContext = { 
-                        contentTitle: contentTitle,
-                        allContentTitles: contentPlanTitles,
-                        currentIndex: contentIndex
-                    };
-
+                    let extraContext = { contentTitle, allContentTitles: contentPlanTitles, currentIndex: contentIndex };
                     if (contentIndex === 0) {
                         extraContext.introContent = introContent;
                         extraContext.activityContent = activityContent;
@@ -673,33 +682,23 @@ export default function GenerationScreen({
                         extraContext.previousPageContent = previousPageContent;
                     }
 
-                    await smartDelay(GEMMA_SAFETY_DELAY_MS, signal);
-                    const contentPageData = await generateLessonComponent(
-                        guideData, 
-                        baseContext, 
-                        plan, 
-                        'CoreContentPage', 
-                        isMounted, 
-                        masterInstructions, 
-                        styleRules, 
-                        extraContext,
-                        3,
-                        signal
-                    );
+                    await smartDelay(AI_RATE_LIMIT_DELAY_MS, signal);
+                    const contentPageData = await generateLessonComponent(guideData, enrichedContext, plan, 'CoreContentPage', isMounted, masterInstructions, styleRules, extraContext, 3, signal);
                     newLesson.pages.push(contentPageData.page);
                     previousPageContent = contentPageData.page.content;
                 }
                 
-                // --- 7. Standard Pages ---
-                const standardPages = ['CheckForUnderstanding', 'LessonSummary', 'WrapUp', 'EndofLessonAssessment', 'AnswerKey', 'References'];
-                for (const pageType of standardPages) {
-                    if (!isMounted.current || signal.aborted) return;
-                    await smartDelay(GEMMA_SAFETY_DELAY_MS, signal);
-                    const pageData = await generateLessonComponent(guideData, baseContext, plan, pageType, isMounted, masterInstructions, styleRules, {}, 3, signal);
-                    if (pageData && pageData.page) {
-                        newLesson.pages.push(pageData.page);
-                    }
-                }
+                // Stage 6: Standard Pages (Batched Parallel, Max 3 Concurrent)
+                const stdBatch1 = ['CheckForUnderstanding', 'LessonSummary', 'WrapUp'];
+                const stdBatch2 = ['EndofLessonAssessment', 'AnswerKey', 'References'];
+                
+                await smartDelay(AI_RATE_LIMIT_DELAY_MS, signal);
+                const b1Data = await Promise.all(stdBatch1.map(t => generateLessonComponent(guideData, enrichedContext, plan, t, isMounted, masterInstructions, styleRules, {}, 3, signal)));
+                b1Data.forEach(d => { if(d && d.page) newLesson.pages.push(d.page); });
+
+                await smartDelay(AI_RATE_LIMIT_DELAY_MS, signal);
+                const b2Data = await Promise.all(stdBatch2.map(t => generateLessonComponent(guideData, enrichedContext, plan, t, isMounted, masterInstructions, styleRules, {}, 3, signal)));
+                b2Data.forEach(d => { if(d && d.page) newLesson.pages.push(d.page); });
                 
                 lessonsSoFar.push(newLesson);
                 setCurrentLessons([...lessonsSoFar]);
@@ -708,52 +707,75 @@ export default function GenerationScreen({
             if (!isMounted.current || signal.aborted) return;
 
             onGenerationComplete({ previewData: { generated_lessons: lessonsSoFar }, failedLessonNumber: null, lessonPlan: plans });
-            showToast("All lessons generated successfully!", "success");
+            showToast("Curriculum constructed successfully!", "success");
 
-        } catch (err) {
-            // FIX: Robust check for abort errors (case insensitive)
-            if (!isMounted.current || err.name === 'AbortError' || (err.message && err.message.toLowerCase().includes("aborted"))) {
-                console.log("Generation loop aborted by user.");
-                return;
-            }
+		} catch (err) {
+		            if (!isMounted.current || err.name === 'AbortError' || (err.message && err.message.toLowerCase().includes("aborted"))) {
+		                console.log("Generation loop aborted by user.");
+		                return;
+		            }
 
-            const failedLessonNum = lessonsSoFar.length + 1;
-            console.error(`Error during generation of Lesson ${failedLessonNum}:`, err);
-            const userFriendlyError = `Failed to generate Lesson ${failedLessonNum}. You can try to continue the generation.`;
-            showToast(userFriendlyError, "error", 15000);
-            onGenerationComplete({ previewData: { generated_lessons: lessonsSoFar }, failedLessonNumber: failedLessonNum, lessonPlan: plans });
-        }
-    }, [guideData, startLessonNumber, currentLessonPlan, currentLessons, onGenerationComplete, showToast]);
+		            const failedLessonNum = lessonsSoFar.length + 1;
+		            console.error(`Error during generation of Lesson ${failedLessonNum}:`, err);
+		            const userFriendlyError = `Failed to generate Lesson ${failedLessonNum}. You can try to continue the generation.`;
+		            showToast(userFriendlyError, "error", 15000);
+		            onGenerationComplete({ previewData: { generated_lessons: lessonsSoFar }, failedLessonNumber: failedLessonNum, lessonPlan: plans });
+		        }
+		    // eslint-disable-next-line react-hooks/exhaustive-deps
+		    }, []); // <--- CHANGE THIS LINE TO BE COMPLETELY EMPTY
 
-
-    useEffect(() => {
-        isMounted.current = true;
-        runGenerationLoop();
+	useEffect(() => {
+	        isMounted.current = true;
+	        runGenerationLoop();
         
-        return () => {
-            isMounted.current = false;
-            // Abort any active requests when the component unmounts
-            if (abortControllerRef.current) {
-                abortControllerRef.current.abort();
-            }
-        };
+	        return () => {
+	            isMounted.current = false;
+	            hasStartedRef.current = false; // <-- ADD THIS LINE
+	            if (abortControllerRef.current) {
+	                abortControllerRef.current.abort();
+	            }
+	        };
         
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+	    }, [runGenerationLoop]);
 
     return (
-        <div className="flex flex-col h-full bg-slate-200 dark:bg-neumorphic-base-dark rounded-2xl">
-            <header className="flex-shrink-0 p-6">
-                 <button 
-                    onClick={onBack} 
-                    className="inline-flex items-center justify-center px-4 py-2 bg-slate-200 text-sm font-medium text-slate-700 rounded-xl shadow-[4px_4px_8px_#bdc1c6,-4px_-4px_8px_#ffffff] hover:shadow-[inset_2px_2px_4px_#bdc1c6,inset_-2px_-2px_4px_#ffffff] active:shadow-[inset_4px_4px_8px_#bdc1c6,inset_-4px_-4px_8px_#ffffff] transition-shadow duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-200 focus:ring-sky-500
-                               dark:bg-neumorphic-base-dark dark:text-slate-300 dark:shadow-lg dark:hover:shadow-neumorphic-inset-dark dark:active:shadow-neumorphic-inset-dark dark:focus:ring-offset-neumorphic-base-dark"
-                 >
-                    <ArrowUturnLeftIcon className="h-5 w-5 mr-2" />
-                    Back to Topic
-                </button>
+        <div className="relative flex flex-col h-full bg-slate-50 dark:bg-slate-950 rounded-[32px] overflow-hidden border border-slate-200/50 dark:border-white/10 selection:bg-indigo-500/30">
+            {/* Ambient Background Decoration */}
+            <div className="absolute inset-0 rounded-[inherit] overflow-hidden pointer-events-none z-0">
+                <div className="absolute top-[-10%] right-[-5%] w-[40vw] h-[40vw] rounded-full bg-indigo-500/5 dark:bg-indigo-500/10 blur-[100px]" />
+            </div>
+
+            {/* Premium Sticky Header */}
+            <header className="relative z-20 flex-shrink-0 px-6 py-4 md:py-6 border-b border-slate-200/50 dark:border-white/5 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 md:gap-4">
+                        <button 
+                            onClick={onBack}
+                            className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-[14px] md:rounded-[18px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all active:scale-90 shadow-inner"
+                        >
+                            <ArrowUturnLeftIcon className="w-5 h-5 md:w-6 md:h-6 stroke-[2.5]" />
+                        </button>
+                        <div className="min-w-0">
+                            <h2 className="text-lg md:text-2xl font-black text-slate-900 dark:text-white tracking-tight leading-none mb-1">
+                                AI Architect
+                            </h2>
+                            <p className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-[0.15em] truncate">
+                                Constructing Module {lessonProgress.current + 1}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-600/10 dark:bg-indigo-500/10 border border-indigo-600/20 dark:border-indigo-500/20">
+                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-600 dark:bg-indigo-500 animate-pulse" />
+                        <span className="text-[10px] font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-widest">
+                            {lessonProgress.current + 1} / {lessonProgress.total}
+                        </span>
+                    </div>
+                </div>
             </header>
-            <main className="flex-grow">
+
+            {/* Main Interactive Space */}
+            <main className="relative z-10 flex-grow flex flex-col min-h-0 overflow-hidden will-change-transform">
                 <InteractiveLoadingScreen 
                     topic={guideData.content || "new ideas"}
                     isSaving={false}

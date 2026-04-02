@@ -11,6 +11,11 @@ import 'katex/dist/katex.min.css';
 // mermaid is now dynamically imported inside MermaidRenderer to save ~15MB
 import { ChevronDownIcon } from '@heroicons/react/24/solid';
 
+// --- API KEY RETRIEVAL ---
+const POLLINATIONS_API_KEY = (import.meta && import.meta.env && import.meta.env.VITE_POLLINATIONS_API_KEY) 
+    || process.env.REACT_APP_POLLINATIONS_API_KEY 
+    || 'YOUR_API_KEY_MISSING';
+
 // --- CSS OVERRIDES: FIX INDEX.CSS CONFLICTS ---
 const katexDarkFix = `
   .content-renderer .katex {
@@ -49,18 +54,18 @@ const katexDarkFix = `
     fill-opacity: 1 !important;
   }
 
-  /* Ensure proper spacing in display mode */
+  /* Ensure proper spacing and scrolling in display mode for large matrices */
   .content-renderer .katex-display {
     margin: 1em 0;
     overflow-x: auto;
     overflow-y: hidden;
+    padding-bottom: 0.5em; /* Prevent scrollbar clipping */
   }
 `;
 
-// --- HELPER: Google Drive Image Fixer (Ported from EditLessonModal) ---
+// --- HELPER: Google Drive Image Fixer ---
 const convertGoogleDriveLink = (url) => {
   if (!url) return '';
-  // Check for standard "view" link: /file/d/FILE_ID/view
   const driveMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
   if (driveMatch && driveMatch[1]) {
     return `https://drive.google.com/uc?export=view&id=${driveMatch[1]}`;
@@ -68,50 +73,62 @@ const convertGoogleDriveLink = (url) => {
   return url;
 };
 
-// --- NEW HELPER: The "Healer" (Fixes Broken Table Rows) ---
+// --- NEW HELPER: Markdown Image URL Fixer & Retroactive Key Swapper ---
+const fixMarkdownImages = (text) => {
+  if (!text) return '';
+  // RegEx looks for ![alt](url)
+  return text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, url) => {
+    // 1. CLEANING: Remove accidental spaces/newlines and escape quotes
+    // This fixes issues caused by sanitizeLessonText.js newline-to-space conversion
+    let fixedUrl = url.replace(/\s+/g, '').replace(/"/g, '%22');
+    
+    // 2. THE MODEL FIX: Force 'flux' model for your publishable key (pk_)
+    // This prevents the "Model 'zimage' is not allowed" 403 error
+    if (fixedUrl.includes('pollinations.ai') && !fixedUrl.includes('model=')) {
+        fixedUrl = fixedUrl.replace('?', '?model=flux&');
+    }
+
+    // 3. THE KEY FIX: Hot-swap old/broken sk_ keys for the clean .env key
+    if (fixedUrl.includes('key=')) {
+        fixedUrl = fixedUrl.replace(/key=[^&)]+/, `key=${POLLINATIONS_API_KEY}`);
+    }
+
+    return `![${alt}](${fixedUrl})`;
+  });
+};
+
+// --- HELPER: The "Healer" (Fixes Broken Table Rows) ---
 const healBrokenMarkdown = (text) => {
   if (!text) return '';
 
-  // 1. Split into lines
   const rawLines = text.split(/\r?\n/);
   const healedLines = [];
   let insideTable = false;
 
-  // Helper to detect if a line looks like a table separator (e.g., |---|)
   const isSeparator = (str) => /^\|?[\s-:]+\|[\s-:]+\|?$/.test(str.trim());
 
   for (let i = 0; i < rawLines.length; i++) {
     let line = rawLines[i].trim();
 
-    // A. Detect Table Start (Look ahead for separator)
     if (!insideTable && rawLines[i + 1] && isSeparator(rawLines[i + 1])) {
       insideTable = true;
     }
 
-    // B. Handle Table Logic
     if (insideTable) {
-      // If empty line, table is likely over
       if (line === '') {
         insideTable = false;
         healedLines.push(line);
         continue;
       }
 
-      // If line starts with '|', it's a valid new row. Keep it.
       if (line.startsWith('|')) {
         healedLines.push(line);
-      }
-      // If line DOES NOT start with '|', it is a broken wrap. Merge it up!
-      else {
+      } else {
         if (healedLines.length > 0) {
-          // Append this text to the end of the previous line
-          // We add a space to prevent words mashing together
           healedLines[healedLines.length - 1] += ' ' + line;
         }
       }
-    }
-    // C. Normal Text (Not in a table)
-    else {
+    } else {
       healedLines.push(line);
     }
   }
@@ -172,13 +189,17 @@ const normalizeLatex = (text) => {
   if (!text) return '';
   let normalized = text;
 
-  // --- FIXES ---
+  // DELIMITER NORMALIZATION
+  normalized = normalized.replace(/\\\[([\s\S]*?)\\\]/g, '$$$$$1$$$$');
+  normalized = normalized.replace(/\\\(([\s\S]*?)\\\)/g, '$$$1$$');
+
+  // FIXES
   normalized = normalized.replace(/\\text{\\char`\\₱}/g, '₱');
   normalized = normalized.replace(/\\₱/g, '₱');
   normalized = normalized.replace(/\\degree/g, '°');
   normalized = normalized.replace(/\^\\\circ/g, '°');
 
-  // --- SYMBOL FALLBACKS ---
+  // SYMBOL FALLBACKS
   normalized = normalized.replace(/\\ne /g, '≠ ');
   normalized = normalized.replace(/\\neq /g, '≠ ');
   normalized = normalized.replace(/\\le /g, '≤ ');
@@ -191,7 +212,7 @@ const normalizeLatex = (text) => {
   return normalized;
 };
 
-// ✅ Robust helper: extract plain text from node tree
+// Extract plain text from node tree
 const getNodeText = (node) => {
   if (!node) return '';
   if (node.type === 'text') {
@@ -203,7 +224,7 @@ const getNodeText = (node) => {
   return '';
 };
 
-// ✅ Mermaid Renderer Component — LAZY LOADS mermaid only when needed
+// Mermaid Renderer Component
 const MermaidRenderer = ({ code }) => {
   const ref = useRef(null);
   const [error, setError] = useState(false);
@@ -252,7 +273,6 @@ export default function ContentRenderer({ htmlContent, text }) {
   // --- Diagram renderer logic ---
   if (text && typeof text === 'object' && text.diagram_prompt) {
     if (text.generatedImageUrl) {
-      // Apply drive converter to raw diagram URLs too if needed
       const processedUrl = convertGoogleDriveLink(text.generatedImageUrl);
       return (
         <div className="diagram-renderer flex flex-col items-center my-4">
@@ -260,6 +280,7 @@ export default function ContentRenderer({ htmlContent, text }) {
             src={processedUrl}
             alt="Generated diagram"
             className="max-w-full rounded shadow"
+            referrerPolicy="no-referrer"
           />
           {Array.isArray(text.labels) && text.labels.length > 0 && (
             <ul className="mt-2 text-sm text-gray-600 dark:text-gray-400 list-disc list-inside">
@@ -281,7 +302,6 @@ export default function ContentRenderer({ htmlContent, text }) {
 
   // --- Raw HTML content (e.g., svg) ---
   if (htmlContent && typeof htmlContent === 'string') {
-    // Detect Mermaid inside HTML
     if (/<div[^>]*class=["']?mermaid["']?[^>]*>([\s\S]*?)<\/div>/i.test(htmlContent)) {
       const match = htmlContent.match(/<div[^>]*class=["']?mermaid["']?[^>]*>([\s\S]*?)<\/div>/i);
       const mermaidCode = match ? match[1] : '';
@@ -301,19 +321,20 @@ export default function ContentRenderer({ htmlContent, text }) {
   if (text && typeof text === 'string') {
     let processedText = text;
 
-    // --- APPLY THE HEALER FIRST ---
+    // --- 🚨 APPLY THE FIXERS FIRST 🚨 ---
+    processedText = fixMarkdownImages(processedText);
     processedText = healBrokenMarkdown(processedText);
 
-    // ✅ FIX: Replace non-breaking spaces
+    // Replace non-breaking spaces
     processedText = processedText.replace(/\u00A0/g, ' ');
 
-    // ✅ Find SVG code wrapped in markdown fences
+    // Find SVG code wrapped in markdown fences
     processedText = processedText.replace(
       /```(html)?\s*(<svg[\s\S]*?<\/svg>)\s*```/gi,
       '$2'
     );
 
-    // ✅ Find SVG code prefixed with html
+    // Find SVG code prefixed with html
     processedText = processedText.replace(
       /(?:^|\n)html\s*\n(<svg[\s\S]*?<\/svg>)/gi,
       (match, svgContent) => {
@@ -323,7 +344,7 @@ export default function ContentRenderer({ htmlContent, text }) {
       }
     );
 
-    // ✅ Handle Mermaid code blocks
+    // Handle Mermaid code blocks
     if (processedText.trim().startsWith('```mermaid')) {
       processedText = processedText
         .replace(/^```mermaid/, '')
@@ -332,18 +353,18 @@ export default function ContentRenderer({ htmlContent, text }) {
       return <MermaidRenderer code={processedText} />;
     }
 
-    // ✅ Handle "html" prefixes
+    // Handle "html" prefixes
     if (/^html\s*\n/i.test(processedText.trim())) {
       processedText = processedText.replace(/^html\s*\n?/i, '');
     }
 
-    // ✅ Handle inline "html <svg>"
+    // Handle inline "html <svg>"
     processedText = processedText.replace(
       /\bhtml\s*<svg([\s\S]*?)<\/svg>/gi,
       '<svg$1</svg>'
     );
 
-    // ✅ Handle ```html fenced blocks
+    // Handle ```html fenced blocks
     if (/^```html/i.test(processedText.trim())) {
       processedText = processedText
         .replace(/^```html/i, '')
@@ -380,7 +401,7 @@ export default function ContentRenderer({ htmlContent, text }) {
         <ReactMarkdown
           children={processedText}
           remarkPlugins={[remarkGfm, remarkMath, remarkBreaks]}
-          rehypePlugins={[rehypeRaw, rehypeKatex]}
+          rehypePlugins={[rehypeRaw, [rehypeKatex, { strict: false, throwOnError: false }]]}
           components={{
             blockquote: ({ node, ...props }) => {
               const textContent = getNodeText(node);
@@ -389,6 +410,8 @@ export default function ContentRenderer({ htmlContent, text }) {
                 styleClass = 'border-green-500 bg-green-50 text-green-800 dark:border-green-400 dark:bg-green-900/30 dark:text-green-200';
               } else if (textContent.toLowerCase().includes('warning:')) {
                 styleClass = 'border-yellow-500 bg-yellow-50 text-yellow-800 dark:border-yellow-400 dark:bg-yellow-900/30 dark:text-yellow-200';
+              } else if (textContent.toLowerCase().includes('think about it:')) {
+                styleClass = 'border-purple-500 bg-purple-50 text-purple-800 dark:border-purple-400 dark:bg-purple-900/30 dark:text-purple-200';
               }
               return (
                 <blockquote
@@ -400,15 +423,30 @@ export default function ContentRenderer({ htmlContent, text }) {
             strong: ({ node, ...props }) => {
               return <strong className="font-bold text-slate-800 dark:text-slate-100" {...props} />;
             },
-            // ✅ UPDATED: Apply Google Drive Converter to Markdown Images
             img: ({ node, src, ...props }) => {
-              const processedSrc = convertGoogleDriveLink(src);
+              let processedSrc = convertGoogleDriveLink(src);
+              
+              if (processedSrc.includes('pollinations.ai')) {
+                  // Apply same robust healing as the pre-processor to cover all images
+                  processedSrc = processedSrc.replace(/\s+/g, ''); 
+                  if (!processedSrc.includes('model=')) {
+                      processedSrc = processedSrc.replace('?', '?model=flux&');
+                  }
+                  if (processedSrc.includes('key=')) {
+                      processedSrc = processedSrc.replace(/key=[^&)]+/, `key=${POLLINATIONS_API_KEY}`);
+                  }
+                  // Specific fix for AI trailing characters
+                  processedSrc = processedSrc.replace(/\.%2C%20/g, '%2C%20'); 
+              }
+
               return (
                 <img
                   src={processedSrc}
                   {...props}
                   alt={props.alt || ""}
-                  className="max-w-full rounded-lg shadow-sm"
+                  className="max-w-full rounded-lg shadow-sm my-4"
+                  referrerPolicy="no-referrer"
+                  loading="lazy"
                 />
               );
             },

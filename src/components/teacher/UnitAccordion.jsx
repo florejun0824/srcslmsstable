@@ -257,7 +257,8 @@ const MobileToolsMenu = ({ onSortToggle, isReordering, renderPptButton, activeUn
                     />
                     {renderPptButton && (
                         <div className="border-t border-black/5 dark:border-white/10 p-2 mt-1">
-                            <div className="flex items-center gap-3 px-3 py-3 rounded-[16px] hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer active:scale-95" onClickCapture={() => setIsOpen(false)}>
+                            {/* FIX: Changed onClickCapture to onClick with a timeout to allow the button's click event to fire first */}
+                            <div className="flex items-center gap-3 px-3 py-3 rounded-[16px] hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer active:scale-95" onClick={() => setTimeout(() => setIsOpen(false), 0)}>
                                 <PresentationChartLineIcon className="w-5 h-5 text-slate-500 dark:text-slate-400" />
                                 <div className="flex-1 pr-1">
                                     {renderPptButton(activeUnit)}
@@ -648,21 +649,26 @@ export default function UnitAccordion({ subject, onAddUnit, onInitiateDelete, us
                         <div className={MAT_STYLES.stickyHeader}>
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-1 md:px-2">
 
-                                {/* Header Text Group */}
-                                <div className="flex-1 min-w-0 w-full flex justify-between items-start md:block">
-                                    <div className="flex-1 min-w-0 mr-3 md:mr-6 px-2 md:px-3">
-                                        <h2 className={MAT_STYLES.displayLarge} title={activeUnit.title}>
-                                            {activeUnit.title}
-                                        </h2>
-                                        <div className="flex items-center gap-1.5 md:gap-2 mt-1 md:mt-2 text-[11px] md:text-xs font-semibold text-slate-500 dark:text-slate-400 font-mono tracking-tight">
-                                            <span className="flex items-center gap-1 px-2.5 py-1 rounded-[8px] bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                                                <BookOpenIcon className="w-3.5 h-3.5 shrink-0" /> {lessons.length} Modules
-                                            </span>
-                                            <span className="flex items-center gap-1 px-2.5 py-1 rounded-[8px] bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                                                <ClockIcon className="w-3.5 h-3.5 shrink-0" /> {quizzes.length} Quizzes
-                                            </span>
-                                        </div>
-                                    </div>
+						{/* Header Text Group */}
+						<div className="flex-1 min-w-0 w-full flex justify-between items-start md:block">
+						    <div className="flex-1 min-w-0 mr-3 md:mr-6 px-2 md:px-3">
+						        {/* Updated h2 to include line-clamp for mobile truncation */}
+						        <h2 
+						            className={`${MAT_STYLES.displayLarge} line-clamp-1 md:line-clamp-none`} 
+						            title={activeUnit.title}
+						        >
+						            {activeUnit.title}
+						        </h2>
+        
+						        <div className="flex items-center gap-1.5 md:gap-2 mt-1 md:mt-2 text-[11px] md:text-xs font-semibold text-slate-500 dark:text-slate-400 font-mono tracking-tight">
+						            <span className="flex items-center gap-1 px-2.5 py-1 rounded-[8px] bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+						                <BookOpenIcon className="w-3.5 h-3.5 shrink-0" /> {lessons.length} Modules
+						            </span>
+						            <span className="flex items-center gap-1 px-2.5 py-1 rounded-[8px] bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+						                <ClockIcon className="w-3.5 h-3.5 shrink-0" /> {quizzes.length} Quizzes
+						            </span>
+						        </div>
+						    </div>
 
                                     {/* Mobile Floating Action Row */}
                                     {/* ADDED: flex-shrink-0 to prevent buttons from shrinking */}

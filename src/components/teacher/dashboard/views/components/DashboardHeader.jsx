@@ -18,8 +18,6 @@ const ChangelogDetailModal = lazy(() => import('../../widgets/ChangelogDetailMod
 const CreateChangelogModal = lazy(() => import('../../widgets/CreateChangelogModal'));
 
 // --- OPTIMIZATION 1: ISOLATED CLOCK ---
-// Only this tiny component re-renders every second, preventing the heavy 
-// banner graphics from being recalculated constantly.
 const TimeDisplay = memo(() => {
     const [time, setTime] = useState(new Date());
 
@@ -51,7 +49,6 @@ const TimeDisplay = memo(() => {
 });
 
 // --- OPTIMIZATION 2: GPU ACCELERATED GLOW ---
-// Instead of recalculating the gradient string (Paint), we move a div (Composite).
 const GlowSpot = ({ mouseX, mouseY }) => {
     return (
         <motion.div
@@ -77,10 +74,12 @@ const GeminiBeacon = memo(({ onClick }) => (
         onClick={onClick}
         className="relative w-16 h-16 flex items-center justify-center group/beacon"
     >
-        <div className="absolute inset-0 rounded-full bg-gradient-to-r from-indigo-500 via-indigo-500 to-pink-500 opacity-20 animate-pulse" />
+        {/* PERFORMANCE FIX: Restricted pulse to md: so it doesn't cause mobile repaints */}
+        <div className="absolute inset-0 rounded-full bg-gradient-to-r from-indigo-500 via-indigo-500 to-pink-500 opacity-20 md:animate-pulse" />
         <div className="absolute inset-2 rounded-full bg-gradient-to-r from-indigo-500 via-indigo-500 to-pink-500 opacity-10" />
-        <div className="relative w-12 h-12 bg-white/10 backdrop-blur-md rounded-full border border-white/20 flex items-center justify-center shadow-[0_0_15px_rgba(168,85,247,0.4)]">
-            <svg viewBox="0 0 24 24" className="w-6 h-6 animate-pulse" style={{ filter: 'drop-shadow(0 0 4px rgba(255,255,255,0.5))' }}>
+        {/* PERFORMANCE FIX: Replaced backdrop blur with solid color on mobile */}
+        <div className="relative w-12 h-12 bg-slate-800/90 md:bg-white/10 md:backdrop-blur-md rounded-full border border-white/20 flex items-center justify-center shadow-[0_0_15px_rgba(168,85,247,0.4)]">
+            <svg viewBox="0 0 24 24" className="w-6 h-6 md:animate-pulse" style={{ filter: 'drop-shadow(0 0 4px rgba(255,255,255,0.5))' }}>
                 <defs>
                     <linearGradient id="geminiGradient" x1="0%" y1="0%" x2="100%" y2="100%">
                         <stop offset="0%" stopColor="#818cf8" />
@@ -115,7 +114,6 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
 
     const isAdmin = userProfile?.role === 'admin' && userProfile?.schoolId === 'srcs_main';
 
-    // Initial greeting set (no interval needed here anymore)
     useEffect(() => {
         const h = new Date().getHours();
         setGreeting(h < 12 ? 'Good Morning' : h < 18 ? 'Good Afternoon' : 'Good Evening');
@@ -136,15 +134,11 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
         setIsCreateModalOpen(false);
     }, [handleCreateAnnouncement]);
 
-    // --- 3D LOGIC (Optimized) ---
-    // Using raw MotionValues instead of useSpring for X/Y if performance is critical, 
-    // but Spring is fine here since it only updates transform
     const x = useMotionValue(0);
     const y = useMotionValue(0);
     const rotateX = useTransform(y, [-0.5, 0.5], [2, -2]);
     const rotateY = useTransform(x, [-0.5, 0.5], [-2, 2]);
 
-    // Separate MotionValues for the glow spot so it follows cursor exactly
     const glowX = useMotionValue(0);
     const glowY = useMotionValue(0);
 
@@ -155,11 +149,9 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
         const mouseXVal = e.clientX - rect.left;
         const mouseYVal = e.clientY - rect.top;
         
-        // Tilt values
         x.set(mouseXVal / width - 0.5);
         y.set(mouseYVal / height - 0.5);
         
-        // Glow values
         glowX.set(mouseXVal);
         glowY.set(mouseYVal);
     }, [x, y, glowX, glowY]);
@@ -170,7 +162,6 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
 
     return (
         <Fragment>
-            {/* GRID LAYOUT */}
             <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-[14px] relative">
                 
                 {/* --- 1. HERO BANNER --- */}
@@ -185,10 +176,8 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
                     transition={{ duration: 0.5 }}
                     className="col-span-1 lg:col-span-6 lg:order-2 h-[280px] sm:h-[320px] lg:h-[374px] relative rounded-[2rem] sm:rounded-[3rem] overflow-hidden group cursor-pointer perspective-1000 shadow-xl sm:shadow-2xl dark:shadow-black/80 ring-1 ring-white/10"
                 >
-                    {/* OPTIMIZED GLOW */}
                     <GlowSpot mouseX={glowX} mouseY={glowY} />
                     
-                    {/* Background Image */}
                     <div className="absolute inset-0 bg-slate-900 transform transition-transform duration-700 group-hover:scale-105 pointer-events-none">
                         {hasBannerImage ? (
                             <img 
@@ -207,13 +196,12 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
                         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10 lg:from-black via-black/20 to-transparent" />
                     </div>
 
-                    {/* Content Layer */}
                     <div className="absolute inset-0 p-5 sm:p-12 lg:p-8 flex flex-col justify-between z-20 pointer-events-none">
                         
-                        {/* Mobile Greeting (Hidden on Desktop) */}
                         <div className="lg:hidden flex flex-col w-full mt-2">
                              <div className="flex flex-col items-start gap-1">
-                                <div className="flex items-center gap-3 px-4 py-1.5 bg-black/40 backdrop-blur-xl rounded-full border border-white/10 w-fit mb-2 shadow-lg">
+                                {/* PERFORMANCE FIX: Replaced backdrop-blur with solid bg-black/80 on mobile */}
+                                <div className="flex items-center gap-3 px-4 py-1.5 bg-black/80 md:bg-black/40 md:backdrop-blur-xl rounded-full border border-white/10 w-fit mb-2 shadow-lg">
                                     <Clock className="w-3 h-3 text-[var(--monet-accent)]" />
                                     <div className="h-3 w-[1px] bg-white/20" />
                                     <div className="flex items-center gap-2 text-[10px] font-bold text-white uppercase tracking-widest font-mono">
@@ -232,12 +220,11 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
                         
                         <div className="flex flex-col gap-2 w-full mt-auto relative h-full justify-end">
                             
-                            {/* --- MOBILE: GEMINI BEACON --- */}
                             {bannerSettings.title && (
                                 <div className="lg:hidden pointer-events-auto flex items-end justify-between px-2 pb-2">
                                     <GeminiBeacon onClick={(e) => { e.stopPropagation(); setIsMobileFeatureOpen(true); }} />
                                     {userProfile?.role === 'admin' && (
-                                        <button onClick={(e) => { e.stopPropagation(); openBannerEditModal(); }} className="px-4 py-2 bg-black/40 backdrop-blur-md rounded-full border border-white/10 flex items-center gap-1.5 shadow-lg">
+                                        <button onClick={(e) => { e.stopPropagation(); openBannerEditModal(); }} className="px-4 py-2 bg-black/80 md:bg-black/40 md:backdrop-blur-md rounded-full border border-white/10 flex items-center gap-1.5 shadow-lg">
                                             <Zap className="w-3 h-3 text-yellow-400" fill="currentColor" />
                                             <span className="text-[10px] font-bold text-white uppercase tracking-wider">Edit</span>
                                         </button>
@@ -245,7 +232,6 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
                                 </div>
                             )}
 
-                            {/* Mobile Reveal Overlay */}
                             <AnimatePresence>
                                 {isMobileFeatureOpen && (
                                     <motion.div
@@ -277,7 +263,6 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
                                 )}
                             </AnimatePresence>
 
-                            {/* --- DESKTOP: DRAGGABLE CARD --- */}
                             {bannerSettings.title && (
                                 <div className="hidden lg:flex w-full h-full relative">
                                     <motion.div 
@@ -354,7 +339,6 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
                         animate={{ opacity: 1, y: 0 }}
                         className="hidden lg:flex relative group p-6 rounded-[2.5rem] bg-white dark:bg-[#121212] border border-slate-200 dark:border-white/10 overflow-hidden flex-col justify-between shadow-xl dark:shadow-black/50 h-[220px] sm:h-[220px]"
                     >
-                         {/* Dynamic Background Mesh */}
                          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-30 mix-blend-overlay z-10 hidden lg:block" />
                          <div className="absolute top-[-50%] left-[-50%] w-[150%] h-[150%] animate-spin-slow opacity-30 pointer-events-none">
                             <div className="absolute top-[20%] left-[30%] w-[50%] h-[50%] bg-[var(--monet-accent)] rounded-full mix-blend-multiply filter blur-[80px] animate-blob" />
@@ -363,15 +347,13 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
                          </div>
                          
                          <div className="relative z-20 flex flex-col h-full justify-between">
-                            {/* Top: Visually Stunning Clock - ISOLATED */}
                             <div className="flex items-start justify-between w-full">
-                                <TimeDisplay /> {/* Replaced direct code with component */}
+                                <TimeDisplay /> 
                                 <div className="p-2 rounded-full border border-slate-200 dark:border-white/10 bg-white/50 dark:bg-white/5 backdrop-blur-md">
                                     <Sparkles className="w-5 h-5 text-[var(--monet-accent)]" />
                                 </div>
                             </div>
 
-                            {/* Bottom: Typography Flip */}
                             <div className="flex flex-col gap-0.5 mb-1">
                                 <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] opacity-80">
                                     {greeting},
@@ -465,14 +447,13 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
                                 )}
                             </div>
                             
-                            {/* Decorative Wave for Schedule */}
                             <div className="absolute -bottom-4 -right-4 w-20 h-20 bg-[var(--monet-accent)] opacity-5 blur-2xl rounded-full" />
                         </motion.button>
                     </div>
                 </div>
             </div>
 
-            {/* --- MODALS (Unchanged) --- */}
+            {/* --- MODALS --- */}
             <Suspense fallback={null}>
                 {isBannerEditModalOpen && (
                     <AdminBannerEditModal 
@@ -536,7 +517,6 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
                                 leaveTo="opacity-0 scale-95"
                             >
                                 <Dialog.Panel className="w-full max-w-4xl transform overflow-hidden rounded-[2.5rem] bg-white dark:bg-slate-900 p-6 sm:p-10 shadow-[0_0_50px_-12px_rgba(0,0,0,0.1)] dark:shadow-[0_0_60px_-15px_rgba(0,0,0,0.5)] transition-all border border-slate-200 dark:border-white/10 relative">
-                                    {/* Animated Ambient Glows */}
                                     <div className="absolute -top-24 -left-24 w-64 h-64 bg-indigo-500/30 dark:bg-indigo-500/20 blur-[80px] rounded-full pointer-events-none mix-blend-multiply dark:mix-blend-screen" />
                                     <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-fuchsia-500/30 dark:bg-purple-500/20 blur-[80px] rounded-full pointer-events-none mix-blend-multiply dark:mix-blend-screen" />
                                     
@@ -561,7 +541,6 @@ const DashboardHeader = ({ userProfile, showToast, onOpenScheduleModal, activeCl
     );
 };
 
-// Simplified component for mobile clock to avoid re-renders there too
 const TimeDisplayMobile = memo(() => {
     const [time, setTime] = useState(new Date());
     useEffect(() => {

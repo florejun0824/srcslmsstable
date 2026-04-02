@@ -98,14 +98,7 @@ const ContentGroupSelector = memo((props) => {
                         <span className="text-[10px] md:text-sm font-black uppercase tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-teal-500 mb-2 md:mb-3">
                             Choose Your Destination
                         </span>
-                        
-                        <h1 className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-black text-slate-900 dark:text-white tracking-tight mb-2 md:mb-4 leading-tight px-2">
-                            Welcome to the SRCS Digital Ecosystem
-                        </h1>
-                        
-                        <p className="text-xs sm:text-sm md:text-lg text-slate-500 dark:text-slate-400 font-semibold max-w-2xl px-4 md:px-0 leading-snug">
-                            Hi {firstName}. Please select your designated portal below to proceed securely.
-                        </p>
+
                     </motion.div>
                     
                     {/* Portal Selection Cards */}

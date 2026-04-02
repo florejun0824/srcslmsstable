@@ -1,8 +1,10 @@
+// src/components/teacher/dashboard/views/courses/CreateExamAndTosModal.jsx
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Dialog } from '@headlessui/react';
 import {
     XMarkIcon,
     ClipboardDocumentListIcon,
+    SparklesIcon
 } from '@heroicons/react/24/outline';
 import { useToast } from '../../contexts/ToastContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -11,8 +13,6 @@ import { callGeminiWithLimitCheck } from '../../services/aiService';
 // --- Extracted Utilities & Logic ---
 import {
     getThemeStyles,
-    btnExtruded,
-    btnDisabled,
     calculateItemsForRange,
     extractJson,
     tryParseJson,
@@ -174,12 +174,11 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
             setGenerationSteps(prev => prev.map((s, i) => i === 0 ? { ...s, status: 'done' } : s));
 
             // --- STEP 2: MICRO-WORKERS ---
-            let stepOffset = 1; // step index offset (step 0 was TOS)
+            let stepOffset = 1;
             for (const testType of testTypes) {
                 if (!isGenerationRunning.current) throw new Error("Generation aborted by user.");
                 if (testType.numItems === 0) continue;
 
-                // Mark current step active
                 setCurrentStepIndex(stepOffset);
                 setGenerationSteps(prev => prev.map((s, i) =>
                     i === stepOffset ? { ...s, status: 'active' } : s
@@ -202,7 +201,6 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
                     }));
                 }
 
-                // Mark step as done
                 setGenerationSteps(prev => prev.map((s, i) =>
                     i === stepOffset ? { ...s, status: 'done' } : s
                 ));
@@ -273,17 +271,18 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
     }, []);
 
     return (
-        <Dialog open={isOpen} onClose={handleClose} className="relative z-[110]">
-            {/* M3 Scrim */}
-            <div className="fixed inset-0 bg-black/50" aria-hidden="true" />
+        <Dialog open={isOpen} onClose={handleClose} className="relative z-[9999]">
+            {/* GPU-Lite Overlay: Solid color with opacity */}
+            <div 
+                className="fixed inset-0 bg-slate-900/60 transition-opacity" 
+                aria-hidden="true" 
+            />
 
-            {/* M3 Full-screen container */}
-            <div className="fixed inset-0 lg:inset-4 flex flex-col z-[110]">
-                <Dialog.Panel
-                    className="relative flex flex-col h-full w-full overflow-hidden rounded-none lg:rounded-[28px] transition-colors duration-500"
-                    onClick={(e) => e.stopPropagation()}
-                    style={{ backgroundColor: themeStyles.modalBg }}
-                >
+            {/* Modal Container: Native slide-up animation, sharp shadows, flat colors */}
+            <div className="fixed inset-0 z-10 flex items-end sm:items-center justify-center sm:p-6 pointer-events-none">
+<Dialog.Panel
+    className="relative w-full lg:w-[calc(100vw-2rem)] xl:w-[calc(100vw-3rem)] max-w-[1920px] bg-white dark:bg-slate-950 rounded-t-[32px] sm:rounded-[32px] shadow-2xl flex flex-col h-[95vh] sm:h-[90vh] lg:h-[calc(100vh-2rem)] xl:h-[calc(100vh-3rem)] overflow-hidden animate-in slide-in-from-bottom-8 sm:zoom-in-95 duration-200 border border-slate-200 dark:border-slate-800 pointer-events-auto"
+>
                     {/* Enhanced Loading Overlay */}
                     <ExamGenerationOverlay
                         isVisible={isGenerating || isSaving}
@@ -303,40 +302,46 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
                         />
                     )}
 
-                    {/* === M3 TOP APP BAR === */}
-                    <div className="flex items-center gap-3 px-4 lg:px-6 h-16 lg:h-[72px] flex-shrink-0 border-b" style={{ borderColor: themeStyles.outline || themeStyles.borderColor }}>
-                        <button
-                            onClick={handleClose}
-                            className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-slate-500/10 active:bg-slate-500/20 transition-colors flex-shrink-0"
-                            style={{ color: themeStyles.onSurface || themeStyles.textColor }}
-                        >
-                            <XMarkIcon className="w-6 h-6" />
-                        </button>
-
-                        <div className="flex-1 flex items-center gap-3 min-w-0">
-                            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: themeStyles.primaryContainer || 'rgba(99,102,241,0.15)' }}>
-                                <ClipboardDocumentListIcon className="h-5 w-5" style={{ color: themeStyles.primary || '#818cf8' }} />
+                    {/* === HEADER: Clean, Linear-style === */}
+                    <div className="flex-none px-6 pt-6 pb-5 sm:px-8 sm:pt-8 flex items-start justify-between border-b border-slate-100 dark:border-slate-800/80 bg-white dark:bg-slate-950 z-10">
+                        <div className="flex gap-4 sm:gap-5 items-center">
+                            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-[18px] bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center border border-indigo-100 dark:border-indigo-800/30 shrink-0">
+                                <ClipboardDocumentListIcon className="w-6 h-6 sm:w-7 sm:h-7 text-indigo-600 dark:text-indigo-400 stroke-[2]" />
                             </div>
-                            <div className="min-w-0">
-                                <Dialog.Title className="text-base lg:text-lg font-semibold truncate" style={{ color: themeStyles.onSurface || themeStyles.textColor }}>Exam & TOS Generator</Dialog.Title>
-                                <p className="text-xs truncate hidden sm:block" style={{ color: themeStyles.onSurfaceVariant || themeStyles.textColor }}>Create a comprehensive exam and its Table of Specifications.</p>
+                            <div className="min-w-0 pr-2">
+                                <Dialog.Title className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+                                    Exam & TOS Generator
+                                </Dialog.Title>
+                                <p className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400 mt-1 truncate max-w-[250px] sm:max-w-md">
+                                    Create a comprehensive exam and its Table of Specifications.
+                                </p>
                             </div>
                         </div>
-
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold" style={{ backgroundColor: themeStyles.primaryContainer || 'rgba(99,102,241,0.15)', color: themeStyles.primary || '#818cf8' }}>
-                                <span>{totalConfiguredItems}</span>
-                                <span className="font-normal" style={{ color: themeStyles.onSurfaceVariant || themeStyles.textColor }}>items</span>
+                        
+                        <div className="flex items-center gap-3">
+                            {/* Item Count Badge */}
+                            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-[12px] bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700">
+                                <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{totalConfiguredItems}</span>
+                                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Items</span>
                             </div>
+                            
+                            {/* Close Button */}
+                            <button
+                                onClick={handleClose}
+                                className="p-2 sm:p-2.5 rounded-full bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 border border-slate-200/50 dark:border-slate-800 shrink-0 active:scale-95"
+                            >
+                                <XMarkIcon className="w-6 h-6 stroke-[2]" />
+                            </button>
                         </div>
                     </div>
 
-                    {/* === CONTENT AREA === */}
-                    <div className="flex-1 overflow-y-auto">
-                        <div className="p-4 sm:p-6 lg:p-8 space-y-6">
-                            {!previewData ? (
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
-                                    {/* LEFT COLUMN */}
+								{/* === CONTENT AREA: Solid lite background === */}
+								<div className="flex-1 overflow-y-auto hide-scrollbar relative z-10 bg-slate-50/50 dark:bg-slate-900/30">
+								    {/* Updated from max-w-7xl to max-w-[1800px] w-full */}
+								    <div className="p-4 sm:p-6 lg:p-8 max-w-[1800px] w-full mx-auto space-y-6">
+								        {!previewData ? (
+								            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-8 xl:gap-12">
+								                {/* LEFT COLUMN */}
                                     <div className="space-y-5">
                                         <ExamConfigPanel
                                             totalConfiguredItems={totalConfiguredItems}
@@ -383,48 +388,57 @@ export default function CreateExamAndTosModal({ isOpen, onClose, unitId, subject
                         </div>
                     </div>
 
-                    {/* === M3 BOTTOM ACTION BAR === */}
-                    <div className="flex-shrink-0 px-4 sm:px-6 lg:px-8 py-4 border-t flex flex-col sm:flex-row sm:justify-end gap-3" style={{ borderColor: themeStyles.outline || themeStyles.borderColor, backgroundColor: themeStyles.modalBg }}>
-                        {previewData ? (
-                            <>
-                                <button
-                                    onClick={() => setPreviewData(null)}
-                                    disabled={isSaving || isGenerating}
-                                    className={`py-3 px-6 rounded-full text-sm font-medium border ${btnExtruded} ${btnDisabled} order-2 sm:order-1`}
-                                    style={{ borderColor: themeStyles.outline || themeStyles.borderColor, color: themeStyles.onSurface || themeStyles.textColor, backgroundColor: 'transparent' }}
-                                >
-                                    Back to Edit
-                                </button>
-                                <button
-                                    onClick={() => setIsSaveOptionsOpen(true)}
-                                    disabled={!isValidPreview || isSaving || isGenerating}
-                                    className={`py-3 px-6 rounded-full text-sm font-semibold text-white ${btnExtruded} ${btnDisabled} order-1 sm:order-2`}
-                                    style={{ backgroundColor: themeStyles.primary || '#818cf8' }}
-                                >
-                                    {isSaving ? 'Saving...' : 'Accept & Save'}
-                                </button>
-                            </>
-                        ) : (
-                            <>
-                                <button
-                                    type="button"
-                                    className={`py-3 px-6 rounded-full text-sm font-medium border ${btnExtruded} order-2 sm:order-1`}
-                                    style={{ borderColor: themeStyles.outline || themeStyles.borderColor, color: themeStyles.onSurface || themeStyles.textColor, backgroundColor: 'transparent' }}
-                                    onClick={handleClose}
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="button"
-                                    className={`py-3 px-6 rounded-full text-sm font-semibold text-white ${btnExtruded} ${btnDisabled} order-1 sm:order-2`}
-                                    style={{ backgroundColor: themeStyles.primary || '#818cf8' }}
-                                    onClick={handleGenerate}
-                                    disabled={!isValidForGeneration || isGenerating}
-                                >
-                                    {isGenerating ? 'Generating...' : 'Generate Exam & TOS'}
-                                </button>
-                            </>
-                        )}
+                    {/* === FOOTER ACTIONS: Clean separation === */}
+                    <div className="flex-none px-5 py-4 sm:px-8 sm:py-5 border-t border-slate-100 dark:border-slate-800/80 bg-white dark:bg-slate-950 z-10">
+                        <div className="flex flex-col sm:flex-row justify-end gap-3 w-full">
+                            {previewData ? (
+                                <>
+                                    <button
+                                        onClick={() => setPreviewData(null)}
+                                        disabled={isSaving || isGenerating}
+                                        className="px-6 py-3 rounded-full text-sm font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed order-2 sm:order-1"
+                                    >
+                                        Back to Edit
+                                    </button>
+                                    <button
+                                        onClick={() => setIsSaveOptionsOpen(true)}
+                                        disabled={!isValidPreview || isSaving || isGenerating}
+                                        className="flex items-center justify-center gap-2 px-6 py-3 rounded-full text-sm font-bold transition-all duration-200 active:scale-95 bg-indigo-600 text-white shadow-lg shadow-indigo-500/25 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed order-1 sm:order-2"
+                                    >
+                                        {isSaving ? 'Saving...' : 'Accept & Save'}
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    <button
+                                        type="button"
+                                        onClick={handleClose}
+                                        className="px-6 py-3 rounded-full text-sm font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors active:scale-95 order-2 sm:order-1"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleGenerate}
+                                        disabled={!isValidForGeneration || isGenerating}
+                                        className={`flex items-center justify-center gap-2 px-6 py-3 rounded-full text-sm font-bold transition-all duration-200 active:scale-95 order-1 sm:order-2 ${
+                                            !isValidForGeneration || isGenerating
+                                                ? 'bg-slate-100 dark:bg-slate-900 text-slate-400 dark:text-slate-600 cursor-not-allowed border border-slate-200 dark:border-slate-800'
+                                                : 'bg-gradient-to-b from-indigo-500 to-purple-600 text-white shadow-[0_8px_20px_rgba(99,102,241,0.3)] border-t border-white/20 hover:scale-[1.02]'
+                                        }`}
+                                    >
+                                        {isGenerating ? (
+                                            'Generating...'
+                                        ) : (
+                                            <>
+                                                <SparklesIcon className="w-5 h-5 stroke-[2]" />
+                                                <span className="tracking-wide">Generate Exam & TOS</span>
+                                            </>
+                                        )}
+                                    </button>
+                                </>
+                            )}
+                        </div>
                     </div>
                 </Dialog.Panel>
             </div>

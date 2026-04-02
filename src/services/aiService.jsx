@@ -20,8 +20,8 @@ const PRIMARY_CONFIGS = [
     {
         service: 'openrouter',
         url: `${API_BASE}/api/openrouter`,
-        name: 'Arcee Trinity',
-        model: 'nvidia/nemotron-3-super-120b-a12b:free',
+        name: 'Gemini 3.1 Pro',
+        model: 'qwen/qwen3.6-plus-preview:free',
         tier: 'primary' // <--- Forces backend to use Key #1
     },
 ];
@@ -31,8 +31,8 @@ const LOGIC_CONFIGS = [
     {
         service: 'openrouter',
         url: `${API_BASE}/api/openrouter`,
-        name: 'NVIDIA Nemotron 3 Super',
-        model: 'nvidia/nemotron-3-super-120b-a12b:free',
+        name: 'Qwen 3.6 Plus',
+        model: 'qwen/qwen3.6-plus-preview:free',
         tier: 'logic' // <--- New tier flag for OpenRouter routing
     },
 ];
@@ -42,29 +42,29 @@ const FALLBACK_CONFIGS = [
     {
         service: 'openrouter',
         url: `${API_BASE}/api/openrouter`,
-        name: 'Trinity Backup 1',
-        model: 'nvidia/nemotron-3-super-120b-a12b:free', // Correct OpenRouter Model ID
+        name: 'Gemini 3.1 Pro Backup 1',
+        model: 'qwen/qwen3.6-plus-preview:free', // Correct OpenRouter Model ID
         tier: 'backup' // <--- Forces backend to use Keys #2-5
     },
     {
         service: 'openrouter',
         url: `${API_BASE}/api/openrouter`,
-        name: 'Trinity Backup 2',
-        model: 'nvidia/nemotron-3-super-120b-a12b:free',
+        name: 'Gemini 3.1 Pro Backup 2',
+        model: 'qwen/qwen3.6-plus-preview:free',
         tier: 'backup'
     },
     {
         service: 'openrouter',
         url: `${API_BASE}/api/openrouter`,
-        name: 'Trinity Backup 3',
-        model: 'nvidia/nemotron-3-super-120b-a12b:free',
+        name: 'Gemini 3.1 Pro Backup 3',
+        model: 'qwen/qwen3.6-plus-preview:free',
         tier: 'backup'
     },
     {
         service: 'openrouter',
         url: `${API_BASE}/api/openrouter`,
-        name: 'Trinity Backup 4',
-        model: 'nvidia/nemotron-3-super-120b-a12b:free',
+        name: 'Gemini 3.1 Pro Backup 4',
+        model: 'qwen/qwen3.6-plus-preview:free',
         tier: 'backup'
     },
 ];

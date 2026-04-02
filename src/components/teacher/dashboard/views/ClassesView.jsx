@@ -313,10 +313,12 @@ const ClassesView = ({
             style={{ willChange: "opacity" }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="w-full h-full flex flex-col pb-40 lg:pb-12 relative z-10 selection:bg-indigo-500/30"
+            // Removed h-full. Added px-3 sm:px-0 for mobile breathing room. Reduced pb-40 to pb-12.
+            className="w-full flex flex-col px-3 sm:px-0 pb-12 relative z-10 selection:bg-indigo-500/30"
         >
             {/* --- HEADER --- */}
-            <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4 mb-6 md:mb-10 px-2">
+            {/* Removed px-2 to avoid double padding with parent wrapper */}
+            <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4 mb-6 md:mb-10">
                 <div className="w-full md:w-auto text-left">
                     <h1 className="text-slate-500 dark:text-slate-400 font-black text-sm uppercase tracking-widest flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] md:animate-pulse" />

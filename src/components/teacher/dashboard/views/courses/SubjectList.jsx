@@ -48,7 +48,7 @@ const SubjectList = memo((props) => {
         ).sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' }));
     }, [courses, decodedCategoryName, searchTerm, userProfile?.schoolId]);
 
-    // Ultra Premium Theme Mappings (Upgraded with glowing gradients)
+    // Ultra Premium Theme Mappings
     const getMaterialTheme = (title) => {
         const t = title.toLowerCase();
 
@@ -181,12 +181,13 @@ const SubjectList = memo((props) => {
 
                                             {/* --- 2. TEXT CONTENT --- */}
                                             <div className="relative z-10 flex-1 flex flex-col justify-center w-full min-w-0 pr-2 md:pr-0">
-                                                <h3 className="text-[17px] md:text-[22px] font-black text-slate-900 dark:text-white leading-tight tracking-tight truncate md:whitespace-normal md:line-clamp-2 md:mb-4">
+                                                {/* MODIFIED: Replaced 'truncate' with text wrapping classes so full names show on mobile */}
+                                                <h3 className="text-[16px] sm:text-[17px] md:text-[22px] font-black text-slate-900 dark:text-white leading-snug md:leading-tight tracking-tight whitespace-normal break-words line-clamp-3 md:line-clamp-2 md:mb-4">
                                                     {course.title}
                                                 </h3>
 
                                                 {/* Mobile 'Enter' Indicator */}
-                                                <span className={`md:hidden text-[11px] font-bold uppercase tracking-widest ${theme.iconText} mt-0.5 flex items-center gap-1`}>
+                                                <span className={`md:hidden text-[11px] font-bold uppercase tracking-widest ${theme.iconText} mt-1 flex items-center gap-1`}>
                                                     Enter Subject <ChevronRightIcon className="w-3 h-3 stroke-[3]" />
                                                 </span>
 

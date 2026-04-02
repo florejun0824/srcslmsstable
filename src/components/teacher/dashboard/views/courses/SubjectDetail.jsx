@@ -1,5 +1,6 @@
 // src/components/teacher/dashboard/views/courses/SubjectDetail.jsx
 import React, { memo, useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { db } from '../../../../../services/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -87,7 +88,6 @@ const SubjectDetail = memo((props) => {
     if (!activeSubject) return <div className="h-full flex items-center justify-center"><Spinner /></div>;
 
     return (
-        /* Outer padding wrapper to reveal the scaffold behind it */
         <div className="p-2 sm:p-4 md:p-6 min-h-[calc(100vh-6rem)] flex flex-col selection:bg-indigo-500/30">
             
             {/* === PREMIUM ROUNDED APP WINDOW === */}
@@ -167,7 +167,7 @@ const SubjectDetail = memo((props) => {
                                 renderGeneratePptButton={(unit) => (
                                     <button
                                         onClick={(e) => { e.stopPropagation(); setSelectedLessons(new Set()); setActiveUnitForPicker(unit); setShowLessonPicker(true); }}
-                                        className="group px-5 py-3 md:px-6 md:py-3.5 rounded-[24px] text-xs md:text-sm font-bold gap-2 md:gap-3 flex items-center bg-gradient-to-b from-rose-500 to-pink-600 text-white shadow-[0_8px_20px_rgba(244,63,94,0.3)] border-t border-white/20 hover:scale-[1.02] transition-all duration-300 active:scale-[0.97] flex-shrink-0"
+                                        className="group px-5 py-3 md:px-6 md:py-3.5 rounded-[24px] text-xs md:text-sm font-bold gap-2 md:gap-3 flex items-center bg-gradient-to-b from-rose-500 to-pink-600 text-white shadow-[0_8px_20px_rgba(244,63,94,0.3)] border-t border-white/20 hover:scale-[1.02] transition-transform duration-200 active:scale-[0.97] flex-shrink-0"
                                         disabled={isAiGenerating}
                                     >
                                         {isAiGenerating ? <ArrowPathIcon className="w-4 h-4 animate-spin stroke-[2.5]" /> : <PresentationChartBarIcon className="w-5 h-5 md:w-6 md:h-6 group-hover:scale-110 transition-transform stroke-[2.5]" />}
@@ -181,46 +181,45 @@ const SubjectDetail = memo((props) => {
                 </div>
             </div>
 
-            {/* --- REDESIGNED PREMIUM LITE LESSON PICKER MODAL --- */}
-            {showLessonPicker && activeUnitForPicker && (
-                <div className="fixed inset-0 z-[5000] flex items-center justify-center p-3 sm:p-6 md:p-8 pointer-events-auto">
-                    {/* Backdrop Overlay (Solid on mobile, blurred on desktop) */}
+            {/* --- GPU-LITE, ULTRA-PREMIUM LESSON PICKER MODAL --- */}
+            {showLessonPicker && activeUnitForPicker && createPortal(
+                // Uses items-end on mobile for a native bottom-sheet feel, items-center on desktop
+                <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center sm:p-6 pointer-events-auto">
+                    
+                    {/* GPU-Lite Overlay: Solid color with opacity, NO backdrop-blur */}
                     <div
-                        className="absolute inset-0 bg-slate-900/60 md:bg-slate-900/40 md:backdrop-blur-md transition-opacity"
+                        className="absolute inset-0 bg-slate-900/60 transition-opacity"
                         onClick={() => setShowLessonPicker(false)}
                     />
 
-                    <div className="relative w-full max-w-3xl bg-white/98 md:bg-white/95 dark:bg-slate-900/98 md:dark:bg-slate-900/95 md:backdrop-blur-3xl rounded-[32px] sm:rounded-[40px] shadow-[0_24px_64px_-12px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.4)] dark:shadow-[0_24px_64px_-12px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.1)] flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-300 border border-white/80 dark:border-slate-700/50 z-10">
+                    {/* Modal Container: Native slide-up animation, sharp shadows, flat colors */}
+                    <div className="relative w-full max-w-3xl bg-white dark:bg-slate-950 rounded-t-[32px] sm:rounded-[32px] shadow-2xl flex flex-col max-h-[85vh] sm:max-h-[80vh] overflow-hidden animate-in slide-in-from-bottom-8 sm:zoom-in-95 duration-200 border border-slate-200 dark:border-slate-800 z-10">
                         
-                        {/* Decorative background glows inside modal (Static for performance) */}
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 dark:bg-indigo-500/5 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2 pointer-events-none z-0"></div>
-                        <div className="absolute bottom-0 left-0 w-64 h-64 bg-rose-500/10 dark:bg-rose-500/5 rounded-full blur-[80px] translate-y-1/2 -translate-x-1/2 pointer-events-none z-0"></div>
-
-                        {/* Modal Header */}
-                        <div className="flex-none px-6 sm:px-8 pt-8 sm:pt-10 pb-6 flex items-start justify-between border-b border-slate-100 dark:border-slate-800/50 relative z-10">
+                        {/* Header: Clean, Linear-style */}
+                        <div className="flex-none px-6 pt-6 pb-5 sm:px-8 sm:pt-8 flex items-start justify-between border-b border-slate-100 dark:border-slate-800/80 bg-white dark:bg-slate-950 z-10">
                             <div className="flex gap-4 sm:gap-5 items-center">
-                                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-[20px] bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center border border-indigo-100 dark:border-indigo-500/20 shadow-inner shrink-0">
-                                    <PresentationChartBarIcon className="w-6 h-6 sm:w-7 sm:h-7 text-indigo-600 dark:text-indigo-400 stroke-[2.5]" />
+                                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-[18px] bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center border border-indigo-100 dark:border-indigo-800/30 shrink-0">
+                                    <PresentationChartBarIcon className="w-6 h-6 sm:w-7 sm:h-7 text-indigo-600 dark:text-indigo-400 stroke-[2]" />
                                 </div>
                                 <div className="min-w-0 pr-2">
-                                    <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+                                    <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
                                         Select Lessons
                                     </h2>
-                                    <p className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400 mt-1 truncate max-w-[200px] sm:max-w-md tracking-wide">
+                                    <p className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400 mt-1 truncate max-w-[200px] sm:max-w-md">
                                         {activeUnitForPicker.title}
                                     </p>
                                 </div>
                             </div>
                             <button
                                 onClick={() => setShowLessonPicker(false)}
-                                className="p-2.5 rounded-[16px] bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 shadow-sm border border-transparent hover:border-slate-200 dark:hover:border-slate-600 shrink-0"
+                                className="p-2 sm:p-2.5 rounded-full bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 border border-slate-200/50 dark:border-slate-800 shrink-0 active:scale-95"
                             >
-                                <XMarkIcon className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.5]" />
+                                <XMarkIcon className="w-6 h-6 stroke-[2]" />
                             </button>
                         </div>
 
-                        {/* Modal Body (Scrollable List) */}
-                        <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 hide-scrollbar relative z-10 bg-slate-50/50 dark:bg-transparent">
+                        {/* Body: Solid lite background, native scrolling */}
+                        <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-8 sm:py-6 hide-scrollbar relative z-10 bg-slate-50/50 dark:bg-slate-900/30">
                             {(() => {
                                 const lessons = allLessonsForSubject
                                     .filter(l => l.unitId === activeUnitForPicker.id)
@@ -229,17 +228,17 @@ const SubjectDetail = memo((props) => {
                                 if (lessons.length === 0) {
                                     return (
                                         <div className="h-full flex flex-col items-center justify-center p-8 text-center">
-                                            <div className="w-20 h-20 rounded-[28px] bg-white dark:bg-slate-800 flex items-center justify-center mb-5 border border-slate-200 dark:border-white/5 shadow-sm">
-                                                <BookOpenIcon className="w-10 h-10 text-slate-400 dark:text-slate-500 stroke-[1.5]" />
+                                            <div className="w-16 h-16 rounded-[20px] bg-white dark:bg-slate-900 flex items-center justify-center mb-4 border border-slate-200 dark:border-slate-800 shadow-sm">
+                                                <BookOpenIcon className="w-8 h-8 text-slate-400 dark:text-slate-500 stroke-[1.5]" />
                                             </div>
-                                            <p className="text-xl font-black text-slate-900 dark:text-white mb-1">No lessons found</p>
-                                            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Add lessons to this unit first.</p>
+                                            <p className="text-lg font-bold text-slate-900 dark:text-white mb-1">No lessons found</p>
+                                            <p className="text-sm text-slate-500 dark:text-slate-400">Add lessons to this unit first.</p>
                                         </div>
                                     );
                                 }
 
                                 return (
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 pb-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pb-4">
                                         {lessons.map(lesson => {
                                             const isSelected = selectedLessons.has(lesson.id);
                                             return (
@@ -250,23 +249,27 @@ const SubjectDetail = memo((props) => {
                                                         n.has(lesson.id) ? n.delete(lesson.id) : n.add(lesson.id);
                                                         return n;
                                                     })}
-                                                    className={`group relative flex items-center gap-4 p-4 sm:p-5 rounded-[24px] cursor-pointer transition-all duration-300 border ${isSelected
-                                                        ? 'bg-indigo-50/80 dark:bg-indigo-500/20 border-indigo-300 dark:border-indigo-500/50 shadow-md shadow-indigo-100/50 dark:shadow-none'
-                                                        : 'bg-white dark:bg-slate-800/80 border-slate-200/80 dark:border-slate-700/50 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-lg hover:shadow-slate-200/50 dark:hover:shadow-none hover:-translate-y-1'
-                                                        }`}
+                                                    // Hardware accelerated transform, minimal box-shadows
+                                                    className={`group relative flex items-center gap-4 p-4 rounded-[20px] cursor-pointer transition-transform duration-200 active:scale-[0.98] border ${
+                                                        isSelected
+                                                            ? 'bg-indigo-50/80 dark:bg-indigo-900/20 border-indigo-400 dark:border-indigo-500/50'
+                                                            : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                                                    }`}
                                                 >
-                                                    <div className={`shrink-0 w-6 h-6 rounded-full border-[2.5px] flex items-center justify-center transition-all duration-300 ${isSelected
-                                                        ? 'bg-indigo-600 border-indigo-600 scale-110 shadow-[0_0_10px_rgba(79,70,229,0.3)]'
-                                                        : 'border-slate-300 dark:border-slate-600 bg-transparent group-hover:border-indigo-400 dark:group-hover:border-indigo-500'
-                                                        }`}>
-                                                        {isSelected && <CheckCircleIcon className="w-4 h-4 text-white drop-shadow-sm stroke-[3]" />}
+                                                    <div className={`shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors duration-200 ${
+                                                        isSelected
+                                                            ? 'bg-indigo-600 border-indigo-600'
+                                                            : 'border-slate-300 dark:border-slate-600 bg-transparent group-hover:border-indigo-400'
+                                                    }`}>
+                                                        {isSelected && <CheckCircleIcon className="w-4 h-4 text-white stroke-[3]" />}
                                                     </div>
 
                                                     <div className="flex-1 min-w-0">
-                                                        <span className={`block font-bold text-[15px] sm:text-[16px] transition-colors leading-snug tracking-tight truncate ${isSelected
-                                                            ? 'text-indigo-900 dark:text-indigo-100'
-                                                            : 'text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white'
-                                                            }`}>
+                                                        <span className={`block font-semibold text-[15px] leading-snug tracking-tight truncate transition-colors duration-200 ${
+                                                            isSelected
+                                                                ? 'text-indigo-900 dark:text-indigo-100'
+                                                                : 'text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white'
+                                                        }`}>
                                                             {lesson.title}
                                                         </span>
                                                     </div>
@@ -278,42 +281,45 @@ const SubjectDetail = memo((props) => {
                             })()}
                         </div>
 
-                        {/* Modal Footer Actions */}
-                        <div className="flex-none px-5 py-5 sm:px-8 sm:py-6 border-t border-slate-100 dark:border-slate-800/50 bg-white/90 dark:bg-slate-900/90 md:backdrop-blur-xl relative z-10">
-                            <div className="flex flex-col sm:flex-row items-center justify-between gap-5">
-                                <div className="flex items-center gap-2">
-                                    <div className="px-3.5 py-1.5 rounded-[12px] bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-indigo-600 dark:text-indigo-400 font-black text-xl shadow-inner">
+                        {/* Footer Actions: Clean separation, standard shadows */}
+                        <div className="flex-none px-5 py-4 sm:px-8 sm:py-5 border-t border-slate-100 dark:border-slate-800/80 bg-white dark:bg-slate-950 z-10">
+                            <div className="flex flex-row items-center justify-between gap-4">
+                                
+                                <div className="flex items-center gap-2 shrink-0">
+                                    <div className="px-3 py-1 rounded-[10px] bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-indigo-600 dark:text-indigo-400 font-bold text-lg">
                                         {selectedLessons.size}
                                     </div>
-                                    <span className="text-[10px] sm:text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">
+                                    <span className="hidden sm:inline text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-1">
                                         Selected
                                     </span>
                                 </div>
 
-                                <div className="flex gap-3 w-full sm:w-auto">
+                                <div className="flex gap-2 sm:gap-3 w-full sm:w-auto justify-end">
                                     <button
                                         onClick={() => setShowLessonPicker(false)}
-                                        className="flex-1 sm:flex-none px-6 py-3.5 md:py-4 rounded-[24px] text-sm font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200/50 dark:border-slate-700 shadow-inner active:scale-95 transition-all"
+                                        className="px-5 py-3 rounded-full text-sm font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors active:scale-95"
                                     >
                                         Cancel
                                     </button>
                                     <button
                                         onClick={() => { setShowLessonPicker(false); handleGeneratePresentationClick(); }}
                                         disabled={selectedLessons.size === 0}
-                                        className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-8 py-3.5 md:py-4 rounded-[24px] text-sm font-bold transition-all duration-300 active:scale-95 ${selectedLessons.size === 0
-                                            ? 'bg-slate-100 dark:bg-slate-800/50 text-slate-400 dark:text-slate-600 cursor-not-allowed border border-slate-200 dark:border-slate-800'
-                                            : 'bg-gradient-to-b from-indigo-500 to-indigo-600 text-white shadow-[0_8px_20px_rgba(99,102,241,0.3)] border-t border-white/20 hover:shadow-[0_12px_25px_rgba(99,102,241,0.4)]'
-                                            }`}
+                                        className={`flex items-center justify-center gap-2 px-6 py-3 rounded-full text-sm font-bold transition-all duration-200 active:scale-95 ${
+                                            selectedLessons.size === 0
+                                                ? 'bg-slate-100 dark:bg-slate-900 text-slate-400 dark:text-slate-600 cursor-not-allowed border border-slate-200 dark:border-slate-800'
+                                                : 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/25 hover:bg-indigo-700'
+                                        }`}
                                     >
-                                        <SparklesIcon className="w-5 h-5 stroke-[2.5]" />
-                                        <span className="tracking-wide">Generate Presentation</span>
+                                        <SparklesIcon className="w-5 h-5 stroke-[2]" />
+                                        <span className="tracking-wide">Generate</span>
                                     </button>
                                 </div>
                             </div>
                         </div>
 
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

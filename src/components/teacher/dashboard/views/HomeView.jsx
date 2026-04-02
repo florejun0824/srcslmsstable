@@ -99,7 +99,8 @@ const HomeView = ({
 	}, [userProfile?.id, dontShowAgain]);
 
 	return (
-		<div className="w-full font-sans pb-32 lg:pb-8 relative z-10" style={{ contentVisibility: 'auto' }}>
+        /* PERFORMANCE FIX: Removed content-visibility: auto which breaks scroll performance */
+		<div className="w-full font-sans pb-32 lg:pb-8 relative z-10">
 			{/* --- PASSIVE BRANDING HANDLER --- */}
 			<SchoolBrandingHandler shouldCheck={readyForBranding} />
 
