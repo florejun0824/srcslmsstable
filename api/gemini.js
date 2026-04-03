@@ -53,7 +53,7 @@ export default async function handler(req) {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const modelOptions = { model: requestedModel || 'gemini-3.1-flash-lite-preview' };
+    const modelOptions = { model: requestedModel || 'gemma-4-31b-it' };
 
     // The Gemini SDK expects systemInstruction as an object with parts
     if (systemInstruction) {

@@ -229,10 +229,10 @@ const ContentSelectionModal = ({ isOpen, onClose, onConfirm, title, options, cur
             containerClassName="h-full w-full bg-slate-900/30 p-0 sm:p-6" 
             contentClassName="!p-0 h-full"
         >
-            <div className="relative h-full flex flex-col bg-transparent sm:rounded-b-[2rem]">
+            <div className="relative h-full max-h-[100dvh] overflow-hidden flex flex-col bg-transparent sm:rounded-b-[2rem]">
                 
                 {/* Scrollable Area */}
-                <main className="flex-grow p-4 sm:p-8 overflow-y-auto custom-scrollbar overscroll-contain">
+                <main className="flex-1 p-4 sm:p-8 overflow-y-auto custom-scrollbar overscroll-contain">
                     <div className="flex flex-col space-y-2 pb-4">
                         {sortedGroupNames.map(groupName => {
                             const groupOptions = options[groupName];
