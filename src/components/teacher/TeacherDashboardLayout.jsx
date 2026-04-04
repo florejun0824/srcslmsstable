@@ -286,7 +286,7 @@ const AestheticSidebar = memo(
                             <div className="flex items-center gap-1.5 mt-0.5">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                                 <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500/60 dark:text-slate-400">
-                                    Version 18.0
+                                    Version 18.1
                                 </span>
                             </div>
                         </div>
@@ -441,14 +441,14 @@ const TopContextBar = memo(
 
         const titles = {
             home: "Dashboard",
-            lounge: "Faculty Neural Lounge",
+            lounge: "Neural Lounge",
             studentManagement: "Student Directory",
             classes: "Live Classrooms",
             courses: "Knowledge Library",
             analytics: "Data Intelligence",
             elections: "Election Command",
             profile: "User Identity",
-            admin: "System Core",
+            admin: "Admin",
         };
 
         return (
@@ -1084,7 +1084,7 @@ const TeacherDashboardLayout = (props) => {
         ];
         if (userProfile?.role === "admin") {
             items.push({ view: "monitoring", text: "Monitoring", icon: ChartLineUp });
-            items.push({ view: "admin", text: "System", icon: Gear });
+            items.push({ view: "admin", text: "Admin", icon: Gear });
         }
         return items;
     }, [userProfile?.role]);

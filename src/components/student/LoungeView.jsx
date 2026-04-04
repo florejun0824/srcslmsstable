@@ -145,54 +145,7 @@ const LoungeView = ({
       {/* Container with EXPANDED WIDTH for desktop to use full space */}
       <div className="max-w-[1600px] mx-auto w-full space-y-6 px-4 md:px-8 pb-40 lg:pb-12 relative z-10" style={{ contentVisibility: 'auto', containIntrinsicSize: '0 800px' }}>
         
-        {/* --- 1. SOCIAL CONTROL DECK --- */}
-        <div className={`
-            sticky top-4 z-30
-            flex flex-row items-center justify-between gap-2 sm:gap-4
-            p-3 sm:p-5 rounded-[2rem] sm:rounded-[2.5rem]
-            shadow-sm border
-            transition-all duration-300
-            ${theme.wrapper}
-        `}>
-             {/* Gradient Ambience */}
-             <div className={`absolute inset-0 bg-gradient-to-r ${theme.gradient} opacity-50 rounded-[2rem] sm:rounded-[2.5rem] pointer-events-none`} />
 
-             <div className="relative z-10 flex items-center gap-3 sm:gap-4">
-                 <div className={`
-                    w-10 h-10 sm:w-12 sm:h-12 rounded-[1rem] sm:rounded-[1.2rem] flex items-center justify-center 
-                    bg-white/50 dark:bg-white/10 shadow-sm border border-white/20 dark:border-white/5
-                    ${theme.accentText}
-                 `}>
-                    <RocketLaunchIcon className="w-5 h-5 sm:w-6 sm:h-6" />
-                 </div>
-                 <div>
-                    <h1 className="text-base sm:text-xl font-black text-slate-900 dark:text-white tracking-tight leading-tight">
-                        Community Lounge
-                    </h1>
-                    
-                 </div>
-             </div>
-
-             <div className="relative z-10 flex items-center gap-2">
-                 <button
-                    onClick={() => fetchPublicPosts()}
-                    disabled={isPostsLoading}
-                    className="
-                        group relative overflow-hidden
-                        px-4 sm:px-5 py-2 sm:py-3 rounded-[1rem] sm:rounded-[1.2rem]
-                        bg-slate-100 dark:bg-black/20 
-                        hover:bg-slate-200 dark:hover:bg-black/40
-                        text-slate-600 dark:text-slate-300
-                        font-bold text-[10px] sm:text-xs tracking-wide
-                        transition-all active:scale-95 disabled:opacity-50
-                        flex items-center gap-2
-                    "
-                >
-                    <ArrowPathIcon className={`w-3.5 h-3.5 transition-transform group-hover:rotate-180 ${isPostsLoading ? 'animate-spin' : ''}`} />
-                    <span>Refresh</span>
-                </button>
-             </div>
-        </div>
 
         {/* --- 2. POST FEED (MASONRY LAYOUT) --- */}
         <motion.div 
