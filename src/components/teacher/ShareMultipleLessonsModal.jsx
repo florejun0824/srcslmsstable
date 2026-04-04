@@ -441,27 +441,35 @@ export default function ShareMultipleLessonsModal({ isOpen, onClose, subject }) 
                 ? { ...quizSettings, maxAttempts }
                 : { enabled: false, shuffleQuestions: false, lockOnLeave: false, preventScreenCapture: false, detectDevTools: false, warnOnPaste: false, preventBackNavigation: false, maxAttempts };
 
-            let totalClassesShared = 0;
-            for (const [classId, studentSet] of selectionMap.entries()) {
-                const targetStudentIds = Array.from(studentSet);
-                if (targetStudentIds.length === 0) continue;
+				let totalClassesShared = 0;
+				            for (const [classId, studentSet] of selectionMap.entries()) {
+				                const targetStudentIds = Array.from(studentSet);
+				                if (targetStudentIds.length === 0) continue;
                 
-                totalClassesShared++;
-                const newPostRef = doc(collection(db, `classes/${classId}/posts`));
+				                totalClassesShared++;
+				                const newPostRef = doc(collection(db, `classes/${classId}/posts`));
                 
-                batch.set(newPostRef, {
-                    title: postTitle, content: postComment.trim() ? postComment : generatedContent,
-                    author: user.displayName || 'Teacher', createdAt: serverTimestamp(),
-                    subjectId: subject.id, availableFrom: Timestamp.fromDate(availableFrom),
-                    availableUntil: availableUntil ? Timestamp.fromDate(availableUntil) : null,
-                    quarter: selectedQuarter, unitId: postUnitId,
-                    lessons: lessonsToPost, quizzes: quizzesToPost,
-                    quizSettings: settingsToSave, targetAudience: "specific", targetStudentIds: targetStudentIds, 
-                });
+				                batch.set(newPostRef, {
+				                    title: postTitle, 
+				                    content: postComment.trim() ? postComment : generatedContent,
+				                    author: user.displayName || 'Teacher', 
+				                    createdAt: serverTimestamp(),
+				                    subjectId: subject.id, 
+				                    availableFrom: Timestamp.fromDate(availableFrom),
+				                    availableUntil: availableUntil ? Timestamp.fromDate(availableUntil) : null,
+				                    quarter: selectedQuarter, 
+				                    unitId: postUnitId,
+				                    lessons: lessonsToPost, 
+				                    quizzes: quizzesToPost,
+				                    quizSettings: settingsToSave, 
+				                    targetAudience: "specific", 
+				                    targetStudentIds: targetStudentIds, 
+				                    classId: classId // <-- ADD THIS CRITICAL LINE!
+				                });
 
-                const classRef = doc(db, "classes", classId);
-                batch.update(classRef, { contentLastUpdatedAt: serverTimestamp() });
-            }
+				                const classRef = doc(db, "classes", classId);
+				                batch.update(classRef, { contentLastUpdatedAt: serverTimestamp() });
+				            }
             
             if (totalClassesShared === 0) {
                  setError("No students were selected.");

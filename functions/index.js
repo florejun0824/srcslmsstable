@@ -6,6 +6,7 @@ const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { setGlobalOptions } = require("firebase-functions/v2");
 
 const admin = require("firebase-admin");
+const { FieldValue } = require("firebase-admin/firestore"); // <-- ADDED: Needed for atomic increments
 const cors = require("cors")({ origin: true });
 
 admin.initializeApp();
@@ -37,6 +38,7 @@ const validateCustomAuth = async (req, res, next) => {
         return res.status(403).json({ error: "Forbidden: Invalid or expired token." });
     }
 };
+
 // ============================================================================
 // HELPER: TOKEN FETCHER
 // ============================================================================
@@ -219,7 +221,7 @@ exports.updateUserRole = onRequest((req, res) => cors(req, res, () => res.send("
 exports.setUserRestrictionStatus = onRequest((req, res) => cors(req, res, () => res.send("OK")));
 
 // ============================================================================
-// BACKGROUND TRIGGER (v2)
+// BACKGROUND TRIGGERS (v2)
 // ============================================================================
 
 exports.onNewPostNotify = onDocumentCreated("classes/{classId}/posts/{postId}", async (event) => {
@@ -269,5 +271,41 @@ exports.onNewPostNotify = onDocumentCreated("classes/{classId}/posts/{postId}", 
     } catch (error) {
         console.error("Error sending new post notification:", error);
     }
+    return null;
+});
+
+// ============================================================================
+// HIGH-CONCURRENCY QUIZ ANALYTICS TRIGGER (Fixed for Global Collection)
+// ============================================================================
+exports.onQuizSubmitted = onDocumentCreated("quizSubmissions/{submissionId}", async (event) => {
+    const submissionData = event.data.data();
+    const db = admin.firestore();
+
+    // 1. Extract the routing IDs directly from the submitted document
+    const classId = submissionData.classId;
+    const quizId = submissionData.quizId;
+    const studentScore = submissionData.score || 0;
+
+    // 2. Safety check to ensure we know where to put the stats
+    if (!classId || !quizId) {
+        console.error(`Submission ${event.params.submissionId} is missing classId or quizId. Cannot update stats.`);
+        return null;
+    }
+
+    // 3. Update the specific quiz's analytics summary inside the class
+    const analyticsRef = db.doc(`classes/${classId}/quizzes/${quizId}/analytics/summary`);
+
+    try {
+        await analyticsRef.set({
+            totalSubmissions: FieldValue.increment(1),
+            totalScoreSum: FieldValue.increment(studentScore),
+            lastSubmissionTime: FieldValue.serverTimestamp()
+        }, { merge: true });
+
+        console.log(`✅ Analytics updated for Quiz ${quizId} in Class ${classId}`);
+    } catch (error) {
+        console.error("Failed to update quiz analytics:", error);
+    }
+    
     return null;
 });
