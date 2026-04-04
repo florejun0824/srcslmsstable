@@ -6,6 +6,21 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 
+// Helper to reliably extract votes handling BOTH new flat Cloud Functions and old nested tally
+const getCandidateVotes = (election, posTitle, candId, candName) => {
+  if (!election) return 0;
+  // 1. New Cloud Function format
+  if (election.finalResults && election.finalResults[candId] !== undefined) {
+      return election.finalResults[candId];
+  }
+  // 2. Old Client-Side format
+  const legacy = election.results || election.tally || election.liveResults || {};
+  if (legacy[posTitle] && legacy[posTitle][candName] !== undefined) {
+      return legacy[posTitle][candName];
+  }
+  return 0;
+};
+
 export const electionService = {
 
   publishOfficialResults: async (election) => {
@@ -23,17 +38,26 @@ export const electionService = {
 
       const electionRef = doc(db, 'elections', election.id);
 
-      // Copy the tally into results so student result cards can display them
-      const finalResults = election.results || election.tally || election.liveResults || {};
-      const finalTotalVotes = election.totalVotes || 0;
+      // Safely carry over Cloud Function data if it exists, fallback to live data
+      const finalTotalVotes = election.totalVotesCast || election.totalVotes || 0;
 
-      await updateDoc(electionRef, {
+      // Build the payload dynamically to prevent overwriting cloud function data
+      const updatePayload = {
         resultsPending: false,
         resultsPosted: true,
-        status: 'completed',
-        results: finalResults,
+        status: 'completed', // Push to completed so UI shows "View Results"
         totalVotes: finalTotalVotes,
-      });
+        totalVotesCast: finalTotalVotes // Keep naming aligned with Cloud Function
+      };
+
+      if (election.finalResults) {
+          updatePayload.finalResults = election.finalResults;
+      } else {
+          // Fallback if cloud function hasn't run or is legacy
+          updatePayload.results = election.results || election.tally || election.liveResults || {};
+      }
+
+      await updateDoc(electionRef, updatePayload);
 
       if (election.resultsPostId) {
         const postRef = doc(db, 'studentPosts', election.resultsPostId);
@@ -60,6 +84,7 @@ export const electionService = {
         status: 'scheduled',  // Default fallback
         resultsPosted: false,
         totalVotes: 0,
+        totalVotesCast: 0,
         tally: {},
         ...electionData,      // Spread this AFTER the default so it can override the status
         createdAt: serverTimestamp()
@@ -153,12 +178,12 @@ export const electionService = {
     await setDoc(voteRef, {
       studentId,
       votes,
+      selections: votes, // Added selections to ensure Cloud Function compatibility
       votedAt: serverTimestamp()
     });
 
     // 2. Atomically increment the tally counters on the election doc
-    // This builds a map like: { 'tally.President.Alice': increment(1), totalVotes: increment(1) }
-    const tallyUpdates = { totalVotes: increment(1) };
+    const tallyUpdates = { totalVotes: increment(1), totalVotesCast: increment(1) };
     Object.entries(votes).forEach(([positionTitle, candidateName]) => {
       // Firestore dot-notation to update nested fields atomically
       tallyUpdates[`tally.${positionTitle}.${candidateName}`] = increment(1);
@@ -169,16 +194,16 @@ export const electionService = {
   },
 
   // [OPTIMIZED] getLiveResults now listens to ONE election doc instead of all vote docs
-  // Callback receives { tally, totalVotes } from the election document
   getLiveResults: (electionId, callback) => {
     const electionRef = doc(db, 'elections', electionId);
     return onSnapshot(electionRef, (docSnap) => {
       if (!docSnap.exists()) return;
       const data = docSnap.data();
-      // Prefer tally (increment-based), fall back to liveResults (legacy periodic scan)
+      // Pass down Cloud Function data if it resolves while watching Live Canvassing
       const tally = data.tally || data.liveResults || {};
-      const totalVotes = data.totalVotes || 0;
-      callback({ tally, totalVotes });
+      const finalResults = data.finalResults || null;
+      const totalVotes = data.totalVotesCast || data.totalVotes || 0;
+      callback({ tally, finalResults, totalVotes });
     });
   },
 
@@ -186,19 +211,16 @@ export const electionService = {
 
   /**
    * Scans the tally for each position and detects ties among the top candidates.
-   * @param {Object} election - The election document (must have .positions and .tally/.results)
-   * @returns {{ hasTie: boolean, tiedPositions: Array<{ title: string, candidates: string[], votes: number }> }}
    */
   detectTies: (election) => {
-    const tally = election.tally || election.results || election.liveResults || {};
     const tiedPositions = [];
 
     if (!election.positions) return { hasTie: false, tiedPositions: [] };
 
     election.positions.forEach(pos => {
-      const posTally = tally[pos.title] || {};
+      // Use the helper so ties are correctly detected even if finalized by Cloud Function
       const sorted = pos.candidates
-        .map(c => ({ name: c.name, votes: posTally[c.name] || 0 }))
+        .map(c => ({ name: c.name, id: c.id, votes: getCandidateVotes(election, pos.title, c.id, c.name) }))
         .sort((a, b) => b.votes - a.votes);
 
       if (sorted.length < 2) return;
@@ -220,11 +242,7 @@ export const electionService = {
   },
 
   /**
-   * Creates a tie-breaker election for the tied positions with a 30-minute voting window.
-   * Links the child election to the parent and updates the parent with the tie-breaker reference.
-   * @param {Object} parentElection - The parent election document
-   * @param {Array} tiedPositions - Array from detectTies().tiedPositions
-   * @returns {string} The ID of the newly created tie-breaker election
+   * Creates a tie-breaker election for the tied positions.
    */
   createTieBreakerElection: async (parentElection, tiedPositions) => {
       const now = new Date();
@@ -251,17 +269,18 @@ export const electionService = {
         startDate: now.toISOString(),
         endDate: endTime.toISOString(),
         positions: tbPositions,
-        // Default top-level to school-wide so everyone can see the election exists
         targetType: 'school', 
         schoolId: parentElection.schoolId,
         createdBy: parentElection.createdBy,
         visibility: parentElection.visibility || 'public',
         status: 'active',
         isTieBreaker: true,
+        // Embed the parent's resolved Cloud Function data so the modal history renders correctly
         parentData: {
           positions: parentElection.positions,
+          finalResults: parentElection.finalResults || null,
           tally: parentElection.tally || parentElection.results || parentElection.liveResults || {},
-          totalVotes: parentElection.totalVotes || 0
+          totalVotesCast: parentElection.totalVotesCast || parentElection.totalVotes || 0
         },
         tiedPositions: tiedPositions.map(tp => tp.title),
       });

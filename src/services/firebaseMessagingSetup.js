@@ -1,13 +1,14 @@
 // src/services/firebaseMessagingSetup.js
 
-import { getMessaging, getToken } from "firebase/messaging";
+import { getMessaging, getToken, onMessage } from "firebase/messaging";
 import { app, db } from "./firebase"; // Import your main firebase app and db
 import { doc, updateDoc } from "firebase/firestore";
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { Capacitor } from "@capacitor/core";
 
 // --- IMPORTANT ---
 // You must create a 'firebase-messaging-sw.js' file
 // in your 'public' folder for this to work in the background.
-// (I will provide the code for that file after this one)
 
 // Initialize messaging
 const messaging = getMessaging(app);
@@ -84,4 +85,35 @@ const getAndSaveToken = async (userId) => {
   } catch (error) {
     console.error("Error getting or saving FCM token:", error);
   }
+};
+
+/**
+ * Listens for messages while the app is in the foreground.
+ * Triggers hardware vibration for specific events.
+ */
+export const setupForegroundMessaging = () => {
+  return onMessage(messaging, async (payload) => {
+    console.log("Message received in foreground: ", payload);
+    
+    // Check if the payload is specifically for a live class
+    const isLiveClass = 
+      payload.data?.type === "live_class_started" || 
+      payload.notification?.title?.toLowerCase().includes("live class");
+
+    if (isLiveClass) {
+      try {
+        // Attempt Capacitor native device vibration
+        if (Capacitor.isNativePlatform()) {
+          // Heavy double-pulse effect for high urgency
+          await Haptics.impact({ style: ImpactStyle.Heavy });
+          setTimeout(() => Haptics.impact({ style: ImpactStyle.Heavy }), 200);
+        } else if ("vibrate" in navigator) {
+          // Fallback to web vibration API
+          navigator.vibrate([200, 100, 200]);
+        }
+      } catch (e) {
+        console.warn("Vibration not supported on this device.", e);
+      }
+    }
+  });
 };

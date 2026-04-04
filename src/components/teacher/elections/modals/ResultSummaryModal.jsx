@@ -1,237 +1,394 @@
-import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-    ChartPieSlice, X, Printer as PrinterIcon, 
-    GraduationCap, Buildings, FilePdf, CheckCircle,
-    CalendarBlank, Users, IdentificationCard, ShieldCheck
+import {
+    CaretLeft, SealCheck, ChartBar, Table, TrendUp,
+    Printer, Buildings, GraduationCap, ClockCounterClockwise
 } from '@phosphor-icons/react';
+import { electionService } from '../../../../services/electionService';
+import { useTheme } from '../../../../contexts/ThemeContext';
 import { getDoc, doc } from 'firebase/firestore';
 import { db } from '../../../../services/firebase';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 
-const getCandidateColor = (index) => {
+// --- UTILS ---
+const getInitials = (name) => name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+
+const stringToColor = (str) => {
     const colors = [
-        'bg-indigo-600 text-white',
-        'bg-violet-600 text-white',
-        'bg-emerald-600 text-white',
-        'bg-amber-600 text-white',
-        'bg-rose-600 text-white',
-        'bg-cyan-600 text-white',
-        'bg-orange-600 text-white',
-        'bg-pink-600 text-white',
+        'bg-indigo-600 text-white', 'bg-emerald-600 text-white',
+        'bg-violet-600 text-white', 'bg-amber-600 text-white',
+        'bg-rose-600 text-white', 'bg-cyan-600 text-white',
     ];
-    return colors[index % colors.length];
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return colors[Math.abs(hash) % colors.length];
 };
 
-const ResultSummaryModal = ({ election, isOpen, onClose }) => {
-    const [isGenerating, setIsGenerating] = useState(false);
-    const [parentElection, setParentElection] = useState(election?.isTieBreaker && election?.parentData ? election.parentData : null);
+// Helper to reliably extract votes handling BOTH new flat Cloud Functions and old nested live tally
+const getVotes = (sourceElection, liveTallyObj, posTitle, candId, candName) => {
+    // 1. Cloud Function format (Finalized)
+    // Check both ID and Name because server now uses name-based results for robustness
+    if (sourceElection?.finalResults) {
+        if (sourceElection.finalResults[candId] !== undefined) return sourceElection.finalResults[candId];
+        if (sourceElection.finalResults[candName] !== undefined) return sourceElection.finalResults[candName];
+    }
+    
+    // 2. Real-time Live Tally format (Ongoing)
+    if (liveTallyObj && liveTallyObj[posTitle] && liveTallyObj[posTitle][candName] !== undefined) {
+        return liveTallyObj[posTitle][candName];
+    }
+    // 3. Old Client-Side fallback
+    const legacy = sourceElection?.results || sourceElection?.tally || sourceElection?.liveResults || {};
+    if (legacy[posTitle]) {
+        if (legacy[posTitle][candName] !== undefined) return legacy[posTitle][candName];
+        if (legacy[posTitle][candId] !== undefined) return legacy[posTitle][candId];
+    }
+    return 0;
+};
 
-    const results = election?.results || election?.tally || election?.liveResults || {};
+const ResultSummaryModal = ({ election, onBack }) => {
+    if (!election) return null;
+    const [liveTally, setLiveTally] = useState(election.results || election.tally || {});
+    const [totalVotesCast, setTotalVotesCast] = useState(election.totalVotesCast || election.totalVotes || 0);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const { monetTheme } = useTheme();
+
+    const [parentElection, setParentElection] = useState(election.isTieBreaker && election.parentData ? election.parentData : null);
+
+    useEffect(() => {
+        if (!election?.id || election.status === 'completed' || election.status === 'archived') return;
+        
+        // Only fetch live real-time updates if the election is still actively running
+        const unsub = electionService.getLiveResults(election.id, (data) => {
+            setLiveTally(data.tally);
+            setTotalVotesCast(data.totalVotes);
+        });
+        return () => unsub();
+    }, [election]);
 
     useEffect(() => {
         const fetchParentFallback = async () => {
-            if (isOpen && election?.isTieBreaker && !election?.parentData && election?.parentElectionId) {
+            if (election.isTieBreaker && !election.parentData && election.parentElectionId) {
                 try {
                     const snap = await getDoc(doc(db, 'elections', election.parentElectionId));
-                    if (snap.exists()) setParentElection({ id: snap.id, ...snap.data() });
-                } catch (err) { console.error("Error fetching parent:", err); }
-            } else if (!isOpen) {
-                setParentElection(null);
+                    if (snap.exists()) {
+                        setParentElection({ id: snap.id, ...snap.data() });
+                    }
+                } catch (err) {
+                    console.error("Error fetching parent election:", err);
+                }
             }
         };
         fetchParentFallback();
-    }, [election, isOpen]);
+    }, [election]);
 
-    if (!isOpen || !election) return null;
+    // --- DATA SORTING ENGINE (Splits & Restores Original Hierarchy) ---
+    const { finalPositions, archivePositions } = useMemo(() => {
+        if (!election) return { finalPositions: [], archivePositions: [] };
 
-    // --- PDF GENERATION ENGINE (unchanged logic) ---
+        const processPosition = (pos, sourceElection, liveDataObj, isInherited, isTieBreakerPos) => {
+            let posTotal = 0;
+            const candidatesWithVotes = pos.candidates.map(cand => {
+                const votes = getVotes(sourceElection, liveDataObj, pos.title, cand.id, cand.name);
+                posTotal += votes;
+                return { ...cand, votes };
+            }).sort((a, b) => b.votes - a.votes);
+            return { ...pos, candidates: candidatesWithVotes, posTotal, isInherited, isTieBreakerPos };
+        };
+
+        const finalArr = [];
+        const archiveArr = [];
+
+        // Identify definitive order from parent if possible, so Round 2 stays in its "correct" spot
+        const baseElection = parentElection || election;
+        const masterOrder = baseElection.positions?.map(p => p.title) || [];
+        const getOrderIndex = (title) => {
+            const idx = masterOrder.indexOf(title);
+            return idx === -1 ? 999 : idx; 
+        };
+
+        if (election.isTieBreaker && parentElection) {
+            // 1. Process parent election positions
+            const liveParentTally = parentElection.results || parentElection.tally || parentElection.finalResults || {};
+            (parentElection.positions || []).forEach(pos => {
+                const processed = processPosition(pos, parentElection, liveParentTally, true, false);
+                
+                // Determine if this position ended in a tie on the parent round
+                const isTiedOnParent = (parentElection.hasTie === true) && (
+                    (parentElection.tiedPositions && parentElection.tiedPositions.includes(pos.title)) ||
+                    (processed.candidates.length > 1 && processed.candidates[0].votes > 0 && processed.candidates[0].votes === processed.candidates[1].votes)
+                );
+
+                if (isTiedOnParent) {
+                    archiveArr.push(processed); // Send tied Round 1 to bottom archive
+                } else {
+                    processed.isInherited = false; // Resolved winner, show at top normally
+                    finalArr.push(processed);
+                }
+            });
+
+            // 2. Process current tie-breaker positions (Round 2/3) and add to the top list
+            (election.positions || []).forEach(pos => {
+                finalArr.push(processPosition(pos, election, liveTally, false, true));
+            });
+        } else {
+            // Normal election display
+            (election.positions || []).forEach(pos => {
+                finalArr.push(processPosition(pos, election, liveTally, false, false));
+            });
+        }
+
+        // Sort both by original form hierarchy
+        finalArr.sort((a, b) => getOrderIndex(a.title) - getOrderIndex(b.title));
+        archiveArr.sort((a, b) => getOrderIndex(a.title) - getOrderIndex(b.title));
+
+        return { finalPositions: finalArr, archivePositions: archiveArr };
+    }, [election, parentElection, liveTally]);
+
+
+// --- STUNNING CORPORATE A4 PDF GENERATOR ---
     const generateReport = async () => {
         setIsGenerating(true);
-        const avatarColors = ['#2563eb', '#7c3aed', '#0891b2', '#059669', '#d97706', '#dc2626', '#db2777', '#4f46e5'];
 
         try {
-            let tbData = null;
-            if (election.tieBreakerId) {
-                const tbSnap = await getDoc(doc(db, 'elections', election.tieBreakerId));
-                if (tbSnap.exists()) tbData = tbSnap.data();
-            }
+            const buildCorporateTable = (pos, titlePrefix = '', isArchive = false) => {
+                const topVote = pos.candidates[0]?.votes || 0;
+                const isTied = pos.candidates.length > 1 && pos.candidates[0].votes > 0 && pos.candidates[0].votes === pos.candidates[1].votes;
 
-            let parentData = null;
-            if (election.isTieBreaker) {
-                if (election.parentData) {
-                    parentData = election.parentData;
-                } else if (election.parentElectionId) {
-                    const parentSnap = await getDoc(doc(db, 'elections', election.parentElectionId));
-                    if (parentSnap.exists()) parentData = parentSnap.data();
-                }
-            }
-
-            const baseElection = parentData ? parentData : election;
-            const baseResults = parentData ? (parentData.results || parentData.tally || parentData.liveResults || {}) : results;
-            const actualTbData = parentData ? election : tbData;
-
-            const buildPositionTable = (pos, tallyData, titlePrefix = '') => {
-                const posTitle = pos.title;
-                const posResults = tallyData[posTitle] || {};
-                const totalPosVotes = Object.values(posResults).reduce((a, b) => a + b, 0);
-                const sorted = pos.candidates
-                    .map(c => ({ name: c.name, votes: posResults[c.name] || 0 }))
-                    .sort((a, b) => b.votes - a.votes);
-
-                const targetLabel = pos.targetType === 'grade' ? `GRADE ${pos.targetGrade}` : 'SCHOOL WIDE';
-
-                const rows = sorted.map((c, i) => {
-                    const pct = totalPosVotes === 0 ? 0 : ((c.votes / totalPosVotes) * 100);
+                const rows = pos.candidates.map((c, i) => {
+                    const pct = pos.posTotal === 0 ? 0 : (c.votes / pos.posTotal) * 100;
                     const pctStr = pct.toFixed(1);
-                    const isWinner = i === 0 && c.votes > 0 && (!actualTbData || !baseElection.tiedPositions?.includes(posTitle) || titlePrefix.includes('Round 2'));
-                    const avatarBg = isWinner ? 'linear-gradient(135deg,#f59e0b,#d97706)' : avatarColors[(i) % avatarColors.length];
+                    const isWinner = i === 0 && c.votes > 0 && !isTied && !isArchive;
+                    const isThisTied = isTied && c.votes === topVote && c.votes > 0;
 
-                    return `<tr style="${isWinner ? 'background:linear-gradient(90deg,#fffbeb,#ffffff);' : ''}">
-                        <td style="padding:14px 16px;border-bottom:1px solid #f1f5f9;text-align:center;width:44px;">
-                            ${isWinner
-                            ? '<div style="width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-weight:800;font-size:11px;display:flex;align-items:center;justify-content:center;margin:0 auto;box-shadow:0 2px 6px rgba(217,119,6,0.3);">★</div>'
-                            : `<span style="color:#cbd5e1;font-weight:700;font-size:12px;">${i + 1}</span>`
-                        }
-                        </td>
-                        <td style="padding:14px 16px;border-bottom:1px solid #f1f5f9;">
-                            <div style="display:flex;align-items:center;gap:10px;">
-                                <div style="width:34px;height:34px;border-radius:10px;background:${avatarBg};color:#fff;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${c.name.charAt(0).toUpperCase()}</div>
-                                <div>
-                                    <div style="font-weight:${isWinner ? '700' : '500'};color:#0f172a;font-size:13px;line-height:1.3;">${c.name}</div>
-                                    ${isWinner ? '<div style="font-size:9px;font-weight:700;color:#d97706;text-transform:uppercase;letter-spacing:1.5px;margin-top:2px;">🏆 Elected</div>' : ''}
+                    return `
+                        <tr class="${isWinner ? 'winner-row' : ''}">
+                            <td class="col-rank">
+                                <span class="rank-badge ${isWinner || isThisTied ? 'winner' : ''}">
+                                    ${isWinner || isThisTied ? '★' : i + 1}
+                                </span>
+                            </td>
+                            <td class="col-cand">
+                                ${c.name}
+                                ${isWinner ? '<span class="status-badge elected">Elected</span>' : ''}
+                                ${isThisTied ? '<span class="status-badge tied">Tied</span>' : ''}
+                            </td>
+                            <td class="col-bar">
+                                <div class="bar-bg">
+                                    <div class="bar-fill ${isWinner || isThisTied ? 'winner' : ''}" style="width: ${pct}%;"></div>
                                 </div>
-                            </div>
-                        </td>
-                        <td style="padding:14px 16px;border-bottom:1px solid #f1f5f9;text-align:center;width:70px;">
-                            <div style="font-family:'SF Mono','Menlo',Consolas,monospace;font-weight:700;font-size:15px;color:${isWinner ? '#b45309' : '#0f172a'};">${c.votes}</div>
-                        </td>
-                        <td style="padding:14px 16px;border-bottom:1px solid #f1f5f9;width:200px;">
-                            <div style="display:flex;align-items:center;gap:8px;">
-                                <div style="flex:1;height:8px;background:#f1f5f9;border-radius:99px;overflow:hidden;">
-                                    <div style="width:${pctStr}%;height:100%;border-radius:99px;background:${isWinner ? 'linear-gradient(90deg,#f59e0b,#fbbf24)' : 'linear-gradient(90deg,#3b82f6,#60a5fa)'};"></div>
-                                </div>
-                                <span style="font-family:'SF Mono','Menlo',Consolas,monospace;font-size:11px;font-weight:700;color:${isWinner ? '#b45309' : '#64748b'};min-width:40px;text-align:right;">${pctStr}%</span>
-                            </div>
-                        </td>
-                    </tr>`;
+                            </td>
+                            <td class="col-pct">${pctStr}%</td>
+                            <td class="col-votes">${c.votes.toLocaleString()}</td>
+                        </tr>
+                    `;
                 }).join('');
 
                 return `
-                    <div style="margin-bottom:32px;page-break-inside:avoid;">
-                        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #0f172a;">
-                            <div style="flex:1;">
-                                <h3 style="font-size:15px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#0f172a;margin:0;">${titlePrefix}${posTitle}</h3>
-                                <div style="font-size:9px;font-weight:700;color:#94a3b8;margin-top:2px;">ELIGIBILITY: ${targetLabel}</div>
-                            </div>
-                            <div style="font-size:10px;font-weight:700;color:#64748b;background:#f1f5f9;padding:4px 14px;border-radius:99px;">${totalPosVotes} votes</div>
+                    <div class="position-block ${isArchive ? 'archive-section' : ''}">
+                        <div class="pos-title-bar">
+                            <h4>${titlePrefix}${pos.title} ${isArchive ? '<span style="font-weight:normal; font-style:italic; color:#94a3b8; text-transform:none;">— Original Tie</span>' : ''}</h4>
+                            <span class="pos-scope">${pos.posTotal.toLocaleString()} Valid Votes</span>
                         </div>
-                        <table style="width:100%;border-collapse:collapse;font-size:13px;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;">
+                        <table>
                             <thead>
-                                <tr style="background:linear-gradient(90deg,#f8fafc,#f1f5f9);">
-                                    <th style="padding:11px 16px;text-align:center;font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#94a3b8;font-weight:700;border-bottom:2px solid #e2e8f0;width:44px;">Rank</th>
-                                    <th style="padding:11px 16px;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#94a3b8;font-weight:700;border-bottom:2px solid #e2e8f0;">Candidate</th>
-                                    <th style="padding:11px 16px;text-align:center;font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#94a3b8;font-weight:700;border-bottom:2px solid #e2e8f0;width:70px;">Votes</th>
-                                    <th style="padding:11px 16px;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#94a3b8;font-weight:700;border-bottom:2px solid #e2e8f0;width:200px;">Vote Share</th>
+                                <tr>
+                                    <th class="col-rank">Rank</th>
+                                    <th class="col-cand">Candidate</th>
+                                    <th class="col-bar" colspan="2">Vote Share</th>
+                                    <th class="col-votes">Votes</th>
                                 </tr>
                             </thead>
                             <tbody>${rows}</tbody>
                         </table>
-                    </div>`;
+                    </div>
+                `;
             };
 
-            let positionSections = '';
-            baseElection.positions.forEach(pos => {
-                const isTiedPosition = baseElection.tiedPositions?.includes(pos.title);
-                const prefix1 = (isTiedPosition && actualTbData) ? 'Round 1: ' : '';
-                positionSections += buildPositionTable(pos, baseResults, prefix1);
+            // Build Sections dynamically using the pre-sorted engine data
+            let positionSections = finalPositions.map(pos => {
+                const prefix = pos.isTieBreakerPos ? 'Round 2 (Resolved): ' : '';
+                return buildCorporateTable(pos, prefix, false);
+            }).join('');
 
-                if (actualTbData && isTiedPosition) {
-                    const tbPos = actualTbData.positions.find(p => p.title === pos.title);
-                    if (tbPos) {
-                        const tbTally = actualTbData.tally || actualTbData.results || actualTbData.liveResults || {};
-                        positionSections += buildPositionTable(tbPos, tbTally, '⚡ Round 2 (Tie-Breaker): ');
-                    }
+            if (archivePositions.length > 0) {
+                positionSections += `
+                    <div class="archive-divider">
+                        <span>Round 1 Archive (Original Ties)</span>
+                    </div>`;
+                positionSections += archivePositions.map(pos => {
+                    return buildCorporateTable(pos, 'Round 1: ', true);
+                }).join('');
+            }
+
+            // Extract Winners for the Highlight Grid
+            const winnersList = finalPositions.map(pos => {
+                const topVote = pos.candidates[0]?.votes || 0;
+                const isTied = pos.candidates.length > 1 && pos.candidates[0].votes > 0 && pos.candidates[0].votes === pos.candidates[1].votes;
+                
+                if (!isTied && topVote > 0) {
+                    return `
+                        <div class="winner-card">
+                            <div class="w-pos">${pos.title} • ${pos.targetType === 'grade' ? `G${pos.targetGrade}` : 'All'}</div>
+                            <div class="w-name">${pos.candidates[0].name}</div>
+                            <div class="w-votes">${topVote.toLocaleString()} votes</div>
+                        </div>
+                    `;
                 }
-            });
-
-            const winnersList = baseElection.positions.map(pos => {
-                let posResults = baseResults[pos.title] || {};
-                let isTiedPosition = false;
-
-                if (actualTbData && baseElection.tiedPositions?.includes(pos.title)) {
-                    isTiedPosition = true;
-                    posResults = actualTbData.tally?.[pos.title] || actualTbData.results?.[pos.title] || actualTbData.liveResults?.[pos.title] || {};
-                }
-
-                const sorted = pos.candidates
-                    .map(c => ({ name: c.name, votes: posResults[c.name] || 0 }))
-                    .sort((a, b) => b.votes - a.votes);
-                const winner = sorted[0];
-
-                return winner && winner.votes > 0 ? {
-                    position: pos.title,
-                    name: winner.name,
-                    votes: winner.votes,
-                    isTieBreaker: isTiedPosition,
-                    target: pos.targetType === 'grade' ? `G${pos.targetGrade}` : 'All'
-                } : null;
+                return null;
             }).filter(Boolean);
 
-            const winnersSection = winnersList.length > 0 ? `
-            <div style="margin-bottom:36px;page-break-inside:avoid;">
-                <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
-                    <div style="font-size:22px;">🏆</div>
-                    <h2 style="font-size:16px;font-weight:800;color:#0f172a;margin:0;">Proclaimed Winners</h2>
-                </div>
-                <div style="background:linear-gradient(135deg,#fffbeb 0%,#fef3c7 50%,#fff7ed 100%);border:1px solid #fde68a;border-radius:16px;padding:20px 24px;display:flex;flex-wrap:wrap;gap:12px;">
-                    ${winnersList.map(w => `
-                        <div style="flex:1;min-width:170px;background:#ffffff;border-radius:12px;padding:16px 18px;border:1px solid #fde68a;box-shadow:0 2px 8px rgba(0,0,0,0.03);">
-                            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-                                <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#92400e;margin-bottom:6px;">${w.position}</div>
-                                <div style="font-size:8px;font-weight:800;color:#64748b;background:#f1f5f9;padding:3px 8px;border-radius:99px;">${w.target}</div>
+            const reportDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute:'2-digit' });
+            const baseElection = parentElection || election;
+            const totalBallots = baseElection.totalVotesCast || baseElection.totalVotes || totalVotesCast || 0;
+
+            const html = `<!DOCTYPE html>
+            <html>
+            <head>
+                <title>Official Return — ${election.title}</title>
+                <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+                <style>
+                    @page { margin: 0; size: A4 portrait; }
+                    body { font-family: 'Inter', sans-serif; color: #1e293b; background: #fff; line-height: 1.5; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
+                    .page-container { padding: 0; margin: 0; width: 100%; }
+                    
+                    /* Header Banner */
+                    .header-banner { background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%); color: white; padding: 40px 50px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid #f59e0b; }
+                    .header-content h1 { font-size: 22pt; font-weight: 800; margin: 0 0 6px 0; letter-spacing: -0.5px; text-transform: uppercase; }
+                    .header-content p { margin: 0; color: #a5b4fc; font-size: 11pt; font-weight: 500; letter-spacing: 1px; text-transform: uppercase; }
+                    .header-badge { background: rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); text-align: center; }
+                    .header-badge span { display: block; font-size: 8pt; color: #a5b4fc; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
+                    .header-badge strong { font-size: 12pt; color: white; font-family: monospace; }
+
+                    .content-wrapper { padding: 40px 50px; }
+
+                    /* Metrics Grid */
+                    .metrics-row { display: flex; gap: 20px; margin-bottom: 35px; }
+                    .metric-card { flex: 1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; border-top: 4px solid #6366f1; }
+                    .metric-card.gold { border-top-color: #f59e0b; background: #fffbeb; border-color: #fde68a; }
+                    .metric-label { font-size: 9pt; color: #64748b; text-transform: uppercase; font-weight: 700; letter-spacing: 1px; margin-bottom: 5px; }
+                    .metric-value { font-size: 20pt; font-weight: 800; color: #0f172a; font-family: monospace; }
+
+                    /* Proclaimed Winners */
+                    .winners-section { margin-bottom: 40px; background: white; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+                    .winners-header { background: #f8fafc; padding: 15px 25px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; gap: 10px; }
+                    .winners-header h3 { margin: 0; font-size: 13pt; color: #0f172a; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
+                    .winners-grid { display: flex; flex-wrap: wrap; padding: 20px 25px; gap: 15px; }
+                    .winner-card { flex: 1; min-width: 200px; background: linear-gradient(to bottom right, #ffffff, #faf5ff); border: 1px solid #e9d5ff; border-radius: 10px; padding: 15px 20px; position: relative; overflow: hidden; }
+                    .winner-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: #a855f7; }
+                    .w-pos { font-size: 8pt; color: #7e22ce; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+                    .w-name { font-size: 14pt; font-weight: 800; color: #1e293b; line-height: 1.2; margin-bottom: 8px; }
+                    .w-votes { display: inline-block; background: #f3e8ff; color: #6b21a8; font-size: 10pt; font-weight: 700; padding: 4px 10px; border-radius: 99px; }
+
+                    /* Position Tables */
+                    .position-block { margin-bottom: 35px; page-break-inside: avoid; }
+                    .pos-title-bar { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #cbd5e1; padding-bottom: 8px; margin-bottom: 15px; }
+                    .pos-title-bar h4 { margin: 0; font-size: 13pt; color: #0f172a; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+                    .pos-scope { font-size: 9pt; background: #f1f5f9; border: 1px solid #e2e8f0; color: #475569; padding: 4px 10px; border-radius: 6px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+                    
+                    table { width: 100%; border-collapse: separate; border-spacing: 0; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; }
+                    th { background: #f8fafc; padding: 12px 15px; text-align: left; font-size: 8pt; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #e2e8f0; }
+                    td { padding: 12px 15px; font-size: 11pt; border-bottom: 1px solid #f1f5f9; background: #ffffff; vertical-align: middle; }
+                    tr:last-child td { border-bottom: none; }
+                    
+                    .col-rank { width: 50px; text-align: center; }
+                    .rank-badge { display: inline-flex; justify-content: center; align-items: center; width: 26px; height: 26px; border-radius: 6px; background: #f1f5f9; color: #64748b; font-weight: 700; font-size: 10pt; }
+                    .rank-badge.winner { background: linear-gradient(135deg, #f59e0b, #ea580c); color: white; box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3); }
+                    
+                    .col-cand { font-weight: 600; color: #1e293b; }
+                    .col-votes { text-align: right; font-weight: 800; color: #0f172a; font-family: monospace; font-size: 13pt; width: 90px; }
+                    
+                    .col-bar { width: 120px; padding-right: 0; }
+                    .bar-bg { width: 100%; height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; }
+                    .bar-fill { height: 100%; background: #6366f1; border-radius: 3px; }
+                    .bar-fill.winner { background: #f59e0b; }
+                    
+                    .col-pct { width: 50px; text-align: right; font-weight: 700; color: #64748b; font-size: 9pt; padding-left: 8px; }
+
+                    .winner-row td { background: #fffbeb; }
+                    .status-badge { font-size: 7pt; padding: 3px 6px; border-radius: 4px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-left: 8px; vertical-align: middle; }
+                    .status-badge.elected { background: #10b981; color: white; }
+                    .status-badge.tied { background: #f59e0b; color: white; }
+
+                    .archive-divider { margin: 50px 0 30px; text-align: center; border-top: 2px dashed #cbd5e1; position: relative; }
+                    .archive-divider span { background: white; padding: 0 20px; position: relative; top: -10px; font-weight: 800; color: #94a3b8; font-size: 9pt; letter-spacing: 2px; text-transform: uppercase; }
+                    .archive-section { opacity: 0.7; filter: grayscale(100%); }
+
+                    /* Signatures */
+                    .signatures { margin-top: 60px; display: flex; justify-content: space-between; page-break-inside: avoid; padding: 0 20px; }
+                    .sig-box { width: 40%; text-align: center; }
+                    .sig-line { border-bottom: 1px solid #94a3b8; height: 50px; margin-bottom: 10px; }
+                    .sig-name { font-weight: 800; color: #0f172a; font-size: 10pt; text-transform: uppercase; letter-spacing: 0.5px; }
+                    .sig-title { font-size: 9pt; color: #64748b; font-weight: 600; margin-top: 2px; }
+
+                    /* Footer */
+                    .footer { margin-top: 40px; text-align: center; font-size: 8pt; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 20px; font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase; }
+                </style>
+            </head>
+            <body>
+                <div class="page-container">
+                    
+                    <div class="header-banner">
+                        <div class="header-content">
+                            <h1>Official Election Return</h1>
+                            <p>${election.organization || 'Electoral Board'}</p>
+                        </div>
+                        <div class="header-badge">
+                            <span>Status</span>
+                            <strong>CERTIFIED</strong>
+                        </div>
+                    </div>
+
+                    <div class="content-wrapper">
+                        <div class="metrics-row">
+                            <div class="metric-card gold">
+                                <div class="metric-label">Total Ballots Cast</div>
+                                <div class="metric-value">${totalBallots.toLocaleString()}</div>
                             </div>
-                            <div style="font-size:17px;font-weight:800;color:#0f172a;line-height:1.2;">${w.name}</div>
-                            <div style="display:flex;align-items:center;gap:4px;margin-top:4px;">
-                                <div style="width:16px;height:16px;border-radius:50%;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;font-size:8px;">✓</div>
-                                <span style="font-family:'SF Mono','Menlo',Consolas,monospace;font-size:11px;color:#92400e;font-weight:600;">${w.votes} votes</span>
+                            <div class="metric-card">
+                                <div class="metric-label">Positions Contested</div>
+                                <div class="metric-value">${baseElection.positions.length}</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-label">Date Generated</div>
+                                <div class="metric-value" style="font-size: 14pt; line-height: 1.4; font-family: 'Inter', sans-serif;">${reportDate}</div>
                             </div>
                         </div>
-                    `).join('')}
-                </div>
-            </div>
-        ` : '';
 
-            const html = `<!DOCTYPE html><html><head><title>Election Report — ${election.title}</title>
-            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-            <style>
-                @page { margin: 16mm; size: A4; }
-                * { box-sizing: border-box; margin: 0; padding: 0; }
-                body { font-family: 'Inter', sans-serif; color: #1e293b; background: #fff; }
-                @media screen { body { padding: 40px; background: #f1f5f9; } .report-container { max-width: 800px; margin: 0 auto; background: #fff; border-radius: 20px; box-shadow: 0 12px 48px rgba(0,0,0,0.06); overflow: hidden; } }
-            </style>
-            </head><body><div class="report-container">
-            <div style="background:#0f172a;padding:40px 44px;color:#fff;">
-                <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:4px;color:#64748b;margin-bottom:12px;">Official Election Report</div>
-                <h1 style="font-size:30px;font-weight:900;letter-spacing:-0.5px;">${election.title}</h1>
-                <div style="font-size:13px;color:#94a3b8;margin-top:4px;">${election.organization}</div>
-            </div>
-            <div style="padding:32px 44px;">
-                <div style="display:flex;gap:12px;margin-bottom:28px;">
-                    <div style="flex:1;background:#f0f9ff;border:1px solid #bae6fd;border-radius:14px;padding:20px;text-align:center;">
-                        <div style="font-size:9px;text-transform:uppercase;letter-spacing:2px;color:#0284c7;font-weight:700;">Total Ballots</div>
-                        <div style="font-family:monospace;font-size:34px;font-weight:900;">${baseElection.totalVotes || 0}</div>
-                    </div>
-                    <div style="flex:1;background:#f5f3ff;border:1px solid #c4b5fd;border-radius:14px;padding:20px;text-align:center;">
-                        <div style="font-size:9px;text-transform:uppercase;letter-spacing:2px;color:#7c3aed;font-weight:700;">Positions</div>
-                        <div style="font-family:monospace;font-size:34px;font-weight:900;">${baseElection.positions.length}</div>
+                        ${winnersList.length > 0 ? `
+                        <div class="winners-section">
+                            <div class="winners-header">
+                                <h3 style="margin:0;">🏆 Proclaimed Winners Summary</h3>
+                            </div>
+                            <div class="winners-grid">${winnersList.join('')}</div>
+                        </div>
+                        ` : ''}
+                        
+                        ${positionSections}
+                        
+                        <div class="signatures">
+                            <div class="sig-box">
+                                <div class="sig-line"></div>
+                                <div class="sig-name">System Administrator</div>
+                                <div class="sig-title">Prepared By / Canvasser</div>
+                            </div>
+                            <div class="sig-box">
+                                <div class="sig-line"></div>
+                                <div class="sig-name">Electoral Board</div>
+                                <div class="sig-title">Certified Correct By</div>
+                            </div>
+                        </div>
+
+                        <div class="footer">
+                            Document Generated Securely via Automated Canvassing System • ID: ${election.id}
+                        </div>
                     </div>
                 </div>
-                ${winnersSection}
-                ${positionSections}
-            </div></div></body></html>`;
+            </body>
+            </html>`;
 
             const loadHtml2Pdf = () => {
                 return new Promise((resolve, reject) => {
@@ -244,13 +401,15 @@ const ResultSummaryModal = ({ election, isOpen, onClose }) => {
                 });
             };
 
-            const filename = `${election.title.replace(/[^a-zA-Z0-9]/g, '_')}_Report.pdf`;
+            const filename = `OFFICIAL_RETURN_${election.title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
             const html2pdfLib = await loadHtml2Pdf();
+            
+            // Note: Removed margin from config because CSS @page and .page-container handle it better
             const opt = {
-                margin: 10,
+                margin: 0,
                 filename: filename,
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, useCORS: true },
+                image: { type: 'jpeg', quality: 1.0 },
+                html2canvas: { scale: 2, useCORS: true, letterRendering: true },
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
 
@@ -274,216 +433,266 @@ const ResultSummaryModal = ({ election, isOpen, onClose }) => {
             setIsGenerating(false);
         }
     };
+    return (
+        <div className="w-full font-sans text-slate-900 dark:text-white pb-32" style={monetTheme?.variables || {}}>
+            <div className="max-w-7xl mx-auto relative">
 
-    const totalVotesCast = election?.totalVotes || 0;
-
-    const modalContent = (
-        <div className="fixed inset-0 z-[9999] bg-slate-950/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
-            <motion.div
-                initial={{ y: "100%", opacity: 0.5 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: "100%", opacity: 0 }}
-                transition={{ type: "spring", stiffness: 380, damping: 32 }}
-                className="bg-white dark:bg-slate-900 w-full sm:max-w-3xl max-h-[95dvh] sm:max-h-[90dvh] rounded-t-[2rem] sm:rounded-[2rem] overflow-hidden flex flex-col shadow-2xl border border-slate-200/50 dark:border-slate-800"
-                onClick={e => e.stopPropagation()}
-            >
-                {/* === MODAL HEADER === */}
-                <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 to-violet-700 px-5 sm:px-7 pt-6 pb-5">
-                    {/* Decorative circles */}
-                    <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/5 rounded-full" />
-                    <div className="absolute -bottom-6 right-20 w-24 h-24 bg-violet-400/10 rounded-full" />
-
-                    <div className="relative flex items-start justify-between gap-4">
-                        <div className="min-w-0">
-                            <div className="flex items-center gap-2 mb-2">
-                                <div className="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center">
-                                    <ChartPieSlice weight="fill" size={18} className="text-white" />
-                                </div>
-                                <span className="text-[10px] font-black text-indigo-200 uppercase tracking-[3px]">Official Canvassing Record</span>
-                            </div>
-                            <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight leading-tight line-clamp-2">{election.title}</h2>
-                            <p className="text-indigo-300 text-sm font-medium mt-1 truncate">{election.organization}</p>
-                        </div>
-                        <button
-                            onClick={onClose}
-                            className="shrink-0 w-9 h-9 rounded-xl flex items-center justify-center bg-white/10 hover:bg-white/20 text-white transition-colors active:scale-95"
-                        >
-                            <X weight="bold" size={18} />
-                        </button>
-                    </div>
-
-                    {/* Stats row */}
-                    <div className="flex items-center gap-2 sm:gap-3 mt-4">
-                        <div className="flex items-center gap-2 px-3 py-2 bg-white/10 rounded-xl border border-white/10">
-                            <Users weight="fill" size={14} className="text-indigo-200" />
-                            <span className="text-white font-black tabular-nums text-sm">{election.totalVotes?.toLocaleString() || 0}</span>
-                            <span className="text-indigo-300 text-[10px] font-bold">Ballots</span>
-                        </div>
-                        <div className="flex items-center gap-2 px-3 py-2 bg-white/10 rounded-xl border border-white/10">
-                            <IdentificationCard weight="fill" size={14} className="text-indigo-200" />
-                            <span className="text-white font-black tabular-nums text-sm">{election.positions?.length || 0}</span>
-                            <span className="text-indigo-300 text-[10px] font-bold">Positions</span>
-                        </div>
-                        <div className="hidden sm:flex items-center gap-2 px-3 py-2 bg-white/10 rounded-xl border border-white/10">
-                            <CalendarBlank weight="fill" size={14} className="text-indigo-200" />
-                            <span className="text-white font-bold text-xs">{new Date(election.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Scrollable Body */}
-                <div className="flex-1 overflow-y-auto">
-
-                    {/* Winner Summary Cards */}
-                    {election.positions?.length > 0 && (
-                        <div className="px-5 sm:px-7 pt-5 pb-3">
-                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                <div className="h-px flex-1 bg-slate-100 dark:bg-slate-800" />
-                                Positions Overview
-                                <div className="h-px flex-1 bg-slate-100 dark:bg-slate-800" />
-                            </div>
-                            <div className="grid grid-cols-1 gap-4 sm:gap-5">
-                                {election.positions?.map(pos => {
-                                    const posResults = results[pos.title] || {};
-                                    const posTotal = Object.values(posResults).reduce((a, b) => a + b, 0);
-                                    const candidates = [...pos.candidates].sort((a, b) => (posResults[b.name] || 0) - (posResults[a.name] || 0));
-                                    const winner = candidates[0];
-                                    const winnerVotes = winner ? (posResults[winner.name] || 0) : 0;
-                                    const winnerPct = posTotal === 0 ? 0 : ((winnerVotes / posTotal) * 100).toFixed(1);
-
-                                    return (
-                                        <div key={pos.title} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
-                                            {/* Position header */}
-                                            <div className="flex justify-between items-center px-4 sm:px-5 py-3 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-800">
-                                                <h3 className="font-black text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300">{pos.title}</h3>
-                                                {pos.targetType === 'grade' ? (
-                                                    <span className="text-[9px] font-black bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 px-2 py-1 rounded-lg border border-violet-100 dark:border-violet-800/40">Grade {pos.targetGrade}</span>
-                                                ) : (
-                                                    <span className="text-[9px] font-black bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 px-2 py-1 rounded-lg border border-emerald-100 dark:border-emerald-800/40">School Wide</span>
-                                                )}
-                                            </div>
-
-                                            {/* Candidate rows */}
-                                            <div className="divide-y divide-slate-50 dark:divide-slate-800">
-                                                {candidates.map((cand, idx) => {
-                                                    const votes = posResults[cand.name] || 0;
-                                                    const percent = posTotal === 0 ? 0 : ((votes / posTotal) * 100).toFixed(1);
-                                                    const isWinner = idx === 0 && votes > 0;
-                                                    return (
-                                                        <div key={cand.name} className={`px-4 sm:px-5 py-3.5 ${isWinner ? 'bg-amber-50/60 dark:bg-amber-900/5' : ''}`}>
-                                                            <div className="flex items-center gap-3">
-                                                                {/* Rank */}
-                                                                <div className={`flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black ${
-                                                                    isWinner
-                                                                        ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-white'
-                                                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
-                                                                }`}>{isWinner ? '★' : idx + 1}</div>
-                                                                {/* Avatar */}
-                                                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-black text-white flex-shrink-0 ${getCandidateColor(idx)}`}>
-                                                                    {cand.name.charAt(0).toUpperCase()}
-                                                                </div>
-                                                                {/* Info + bar */}
-                                                                <div className="flex-1 min-w-0">
-                                                                    <div className="flex items-center justify-between gap-2 mb-1.5">
-                                                                        <div className="min-w-0">
-                                                                            <span className={`text-sm font-bold block truncate ${
-                                                                                isWinner ? 'text-amber-700 dark:text-amber-300' : 'text-slate-700 dark:text-slate-300'
-                                                                            }`}>{cand.name}</span>
-                                                                            {isWinner && (
-                                                                                <span className="text-[9px] font-black text-amber-600 dark:text-amber-400 flex items-center gap-0.5">
-                                                                                    <ShieldCheck weight="fill" size={10} /> Winner
-                                                                                </span>
-                                                                            )}
-                                                                        </div>
-                                                                        <div className="flex items-baseline gap-1 shrink-0">
-                                                                            <span className={`font-mono font-black text-sm ${
-                                                                                isWinner ? 'text-amber-700 dark:text-amber-300' : 'text-slate-800 dark:text-white'
-                                                                            }`}>{votes.toLocaleString()}</span>
-                                                                            <span className="text-[10px] text-slate-400 font-bold">{percent}%</span>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                                                        <motion.div
-                                                                            initial={{ width: 0 }}
-                                                                            animate={{ width: `${percent}%` }}
-                                                                            transition={{ duration: 0.8, ease: 'easeOut', delay: idx * 0.05 }}
-                                                                            className={`h-full rounded-full ${
-                                                                                isWinner
-                                                                                    ? 'bg-gradient-to-r from-amber-400 to-orange-400'
-                                                                                    : 'bg-slate-300 dark:bg-slate-600'
-                                                                            }`}
-                                                                        />
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-
-                                {/* Round 1 History */}
-                                {parentElection && (
-                                    <div className="space-y-3 opacity-60 hover:opacity-100 transition-opacity">
-                                        <div className="flex items-center gap-3 px-1">
-                                            <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Round 1 Archive</span>
-                                            <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
-                                        </div>
-                                        {parentElection.positions?.map(pos => {
-                                            const parentRes = parentElection.results || parentElection.tally || {};
-                                            const posResults = parentRes[pos.title] || {};
-                                            const candidates = [...pos.candidates].sort((a, b) => (posResults[b.name] || 0) - (posResults[a.name] || 0));
-                                            return (
-                                                <div key={`parent-${pos.title}`} className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden">
-                                                    <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
-                                                        <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-wider">{pos.title}</h4>
-                                                    </div>
-                                                    <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                                                        {candidates.map((cand, idx) => (
-                                                            <div key={cand.name} className="flex items-center gap-3 px-4 py-3">
-                                                                <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-[9px] font-black ${getCandidateColor(idx)} opacity-60`}>
-                                                                    {cand.name.charAt(0)}
-                                                                </div>
-                                                                <span className="flex-1 text-sm text-slate-600 dark:text-slate-400 font-medium">{cand.name}</span>
-                                                                <span className="font-mono text-sm text-slate-500 font-bold tabular-nums">{posResults[cand.name]?.toLocaleString() || 0}</span>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
+                {/* === STICKY HEADER === */}
+                <div className="sticky top-0 z-40 mx-3 md:mx-6 mb-4 mt-2">
+                    <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 p-3 md:px-6 md:py-4 rounded-2xl shadow-lg shadow-slate-200/30 dark:shadow-none">
+                        <div className="flex items-center justify-between gap-2 md:gap-4">
+                            {/* Back + Title */}
+                            <div className="flex items-center gap-2 md:gap-3 overflow-hidden min-w-0">
+                                <button
+                                    onClick={onBack}
+                                    className="shrink-0 w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors active:scale-95"
+                                >
+                                    <CaretLeft weight="bold" size={20} />
+                                </button>
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-1.5 mb-0.5">
+                                        <SealCheck weight="fill" size={13} className="text-indigo-500 shrink-0" />
+                                        <p className="text-[10px] md:text-xs font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest truncate">
+                                            {election.title}
+                                        </p>
                                     </div>
+                                    <h1 className="text-sm md:text-lg font-black text-slate-900 dark:text-white tracking-tight truncate">
+                                        Official Canvassing
+                                    </h1>
+                                </div>
+                            </div>
+
+                            {/* Right actions */}
+                            <div className="flex items-center gap-2 shrink-0">
+                                {(election.status === 'completed' || election.status === 'archived') && (
+                                    <button
+                                        onClick={generateReport}
+                                        disabled={isGenerating}
+                                        className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-xl text-white text-xs font-bold transition-all active:scale-95 ${
+                                            isGenerating
+                                                ? 'bg-slate-800 cursor-wait'
+                                                : 'bg-slate-900 shadow-md hover:bg-black dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200'
+                                        }`}
+                                    >
+                                        {isGenerating
+                                            ? <div className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full" />
+                                            : <Printer weight="bold" size={16} />
+                                        }
+                                        <span className="hidden sm:inline">{isGenerating ? 'Preparing...' : 'Print Return'}</span>
+                                    </button>
                                 )}
+
+                                <div className={`flex items-center gap-1.5 px-2.5 md:px-3 py-1.5 rounded-xl border text-[10px] font-bold uppercase tracking-widest ${
+                                    (election.status === 'completed' || election.status === 'archived')
+                                        ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400'
+                                        : 'bg-rose-50 dark:bg-rose-900/20 border-rose-100 dark:border-rose-800 text-rose-600 dark:text-rose-400'
+                                }`}>
+                                    <div className={`w-1.5 h-1.5 rounded-full ${
+                                        (election.status === 'completed' || election.status === 'archived') ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'
+                                    }`} />
+                                    <span>{(election.status === 'completed' || election.status === 'archived') ? 'Finalized' : 'Live'}</span>
+                                </div>
                             </div>
                         </div>
-                    )}
+                    </div>
                 </div>
 
-                {/* Footer */}
-                <div className="p-4 sm:p-5 border-t border-slate-100 dark:border-slate-800 flex gap-3 bg-white dark:bg-slate-900">
-                    <button
-                        onClick={onClose}
-                        className="flex-1 py-3.5 font-bold text-sm text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-all active:scale-[0.98] border border-slate-200 dark:border-slate-700"
-                    >
-                        Close
-                    </button>
-                    <button
-                        onClick={generateReport}
-                        disabled={isGenerating}
-                        className="flex-[2] py-3.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold text-sm rounded-xl shadow-md shadow-indigo-500/20 flex items-center justify-center gap-2.5 transition-all active:scale-[0.98]"
-                    >
-                        {isGenerating ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <FilePdf weight="fill" size={18} />}
-                        {isGenerating ? 'Generating PDF...' : 'Export Official Return'}
-                    </button>
+                {/* === MAIN BODY === */}
+                <div className="relative z-10 max-w-7xl mx-auto px-3 md:px-6">
+                    <div className="space-y-4 md:space-y-6">
+
+                        {/* METRICS GRID */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <MetricCard label="Total Ballots" value={totalVotesCast.toLocaleString()} icon={Table} colorTheme="emerald" />
+                            <MetricCard label="Positions" value={election.positions.length} icon={ChartBar} colorTheme="purple" />
+                            <div className="col-span-2 bg-gradient-to-br from-indigo-50 to-violet-50 dark:from-indigo-900/20 dark:to-violet-900/10 border border-indigo-100 dark:border-indigo-800/50 p-4 md:p-5 rounded-xl flex items-center justify-between relative overflow-hidden">
+                                <div className="relative z-10">
+                                    <div className="text-[10px] font-black uppercase tracking-widest text-indigo-500 mb-1">Electorate Scope</div>
+                                    <div className="text-sm md:text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                                        <Buildings size={17} weight="duotone" className="text-indigo-400" />
+                                        Position-Specific Eligibility
+                                    </div>
+                                </div>
+                                <TrendUp size={40} className="text-indigo-300 dark:text-indigo-600 opacity-30 absolute -right-2 -bottom-2" />
+                            </div>
+                        </div>
+
+                        {/* TALLY CARDS (FINAL POSITIONS) */}
+                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-5 pb-6">
+                            {finalPositions.map(pos => (
+                                <OfficialTallyCard
+                                    key={`final-${pos.title}`}
+                                    title={pos.title}
+                                    candidates={pos.candidates}
+                                    totalVotes={pos.posTotal}
+                                    isTieBreakerPos={pos.isTieBreakerPos}
+                                    isInherited={pos.isInherited} 
+                                    targetType={pos.targetType}
+                                    targetGrade={pos.targetGrade}
+                                />
+                            ))}
+                        </div>
+
+                        {/* TALLY CARDS (ROUND 1 ARCHIVE) */}
+                        {archivePositions.length > 0 && (
+                            <div className="mt-4 md:mt-8 pt-6 md:pt-8 border-t border-dashed border-slate-300 dark:border-slate-700 pb-12">
+                                <div className="flex items-center gap-2 mb-6 text-slate-500 dark:text-slate-400">
+                                    <ClockCounterClockwise size={18} weight="bold" />
+                                    <h4 className="text-xs sm:text-sm font-bold uppercase tracking-widest">
+                                        Round 1 Archive (Original Ties)
+                                    </h4>
+                                </div>
+                                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-5 opacity-60 grayscale hover:opacity-100 hover:grayscale-0 transition-all duration-300">
+                                    {archivePositions.map(pos => (
+                                        <OfficialTallyCard
+                                            key={`archive-${pos.title}`}
+                                            title={pos.title}
+                                            candidates={pos.candidates}
+                                            totalVotes={pos.posTotal}
+                                            isTieBreakerPos={false}
+                                            isInherited={true}
+                                            targetType={pos.targetType}
+                                            targetGrade={pos.targetGrade}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
-            </motion.div>
+            </div>
         </div>
     );
+};
 
-    return createPortal(modalContent, document.body);
+const MetricCard = ({ label, value, icon: Icon, colorTheme }) => {
+    const themes = {
+        emerald: {
+            bg: 'bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/15 dark:to-green-900/10 border-emerald-100 dark:border-emerald-800/50',
+            text: 'text-emerald-700 dark:text-emerald-400',
+            icon: 'text-emerald-500 dark:text-emerald-400'
+        },
+        purple: {
+            bg: 'bg-gradient-to-br from-violet-50 to-indigo-50 dark:from-violet-900/15 dark:to-indigo-900/10 border-violet-100 dark:border-violet-800/50',
+            text: 'text-violet-700 dark:text-violet-400',
+            icon: 'text-violet-500 dark:text-violet-400'
+        }
+    };
+    const theme = themes[colorTheme] || { bg: 'bg-slate-50 border-slate-100 dark:border-slate-700', text: 'text-slate-600', icon: 'text-slate-400' };
+    return (
+        <div className={`${theme.bg} border p-4 md:p-5 rounded-xl flex items-center justify-between relative overflow-hidden`}>
+            <div className="relative z-10">
+                <div className={`text-[10px] font-black uppercase tracking-widest ${theme.text} mb-1 opacity-80`}>{label}</div>
+                <div className="text-2xl md:text-3xl font-black text-slate-800 dark:text-white tabular-nums">{value}</div>
+            </div>
+            <Icon size={36} weight="duotone" className={`${theme.icon} opacity-25 absolute -right-2 -bottom-2`} />
+        </div>
+    );
+};
+
+const OfficialTallyCard = ({ title, candidates, totalVotes, isTieBreakerPos, isInherited, targetType, targetGrade }) => {
+    return (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden relative shadow-sm hover:shadow-md dark:shadow-none transition-shadow">
+            {isTieBreakerPos && <div className="absolute top-0 right-0 bg-amber-500 text-white text-[9px] font-black uppercase px-3 py-1 rounded-bl-xl z-20 tracking-wider">Round 2</div>}
+            {isInherited && <div className="absolute top-0 right-0 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[9px] font-black uppercase px-3 py-1 rounded-bl-xl z-20 tracking-wider">Round 1</div>}
+
+            {/* Card Header */}
+            <div className="bg-gradient-to-r from-slate-50 to-slate-100/50 dark:from-slate-800/80 dark:to-slate-800/40 px-4 sm:px-5 py-4 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex justify-between items-start gap-3">
+                    <div className="min-w-0">
+                        <h3 className="text-xs sm:text-sm font-black uppercase tracking-widest text-slate-700 dark:text-slate-200 truncate">{title}</h3>
+                        <div className="flex items-center gap-1.5 mt-1">
+                            {targetType === 'grade' ? (
+                                <span className="text-[9px] font-bold text-violet-600 dark:text-violet-400 flex items-center gap-1 bg-violet-50 dark:bg-violet-900/20 px-2 py-0.5 rounded-full">
+                                    <GraduationCap weight="fill" size={10} /> Grade {targetGrade} Only
+                                </span>
+                            ) : (
+                                <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full">
+                                    <Buildings weight="fill" size={10} /> School Wide
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                    <div className="shrink-0 px-2.5 py-1 bg-white dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700 text-[10px] font-black text-slate-500 dark:text-slate-400 tabular-nums">
+                        {totalVotes.toLocaleString()} votes
+                    </div>
+                </div>
+            </div>
+
+            {/* Candidate Rows */}
+            <div className="divide-y divide-slate-50 dark:divide-slate-800/80">
+                {(() => {
+                    const maxVotes = candidates.length > 0 ? candidates[0].votes : 0;
+                    const tiedCandidatesCount = candidates.filter(c => c.votes === maxVotes).length;
+
+                    return candidates.map((cand, idx) => {
+                        const votes = cand.votes;
+                        const percent = totalVotes === 0 ? 0 : ((votes / totalVotes) * 100).toFixed(1);
+                        const isTop = votes > 0 && votes === maxVotes;
+                        const isTied = isTop && tiedCandidatesCount > 1;
+                        
+                        // If it's an inherited archive card, we don't declare a "Leader/Elected" since it failed
+                        const isLeading = isTop && !isTied && !isInherited; 
+
+                        return (
+                            <div key={cand.id} className={`px-4 sm:px-5 py-3.5 transition-colors ${(isLeading || (isTied && !isInherited)) ? 'bg-indigo-50/60 dark:bg-indigo-900/10' : ''}`}>
+                                <div className="flex items-center gap-3">
+                                    {/* Rank badge */}
+                                    <div className={`flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black ${
+                                        (isLeading || (isTied && !isInherited))
+                                            ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-sm shadow-amber-400/30'
+                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
+                                    }`}>
+                                        {(isLeading || (isTied && !isInherited)) ? '★' : idx + 1}
+                                    </div>
+
+                                    {/* Avatar */}
+                                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-[11px] font-black flex-shrink-0 ${stringToColor(cand.name)}`}>
+                                        {getInitials(cand.name)}
+                                    </div>
+
+                                    {/* Name + bar */}
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                                            <div className="min-w-0">
+                                                <span className={`text-xs sm:text-sm font-bold truncate block ${
+                                                    (isLeading || (isTied && !isInherited)) ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-700 dark:text-slate-200'
+                                                }`}>{cand.name}</span>
+                                                {(isLeading || (isTied && !isInherited)) && (
+                                                    <span className={`text-[9px] font-black ${isTied ? 'text-amber-600 dark:text-amber-400' : 'text-indigo-500 dark:text-indigo-400'} uppercase flex items-center gap-0.5`}>
+                                                        <SealCheck weight="fill" size={10} /> {isTied ? 'Tied' : 'Leading'}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="flex items-baseline gap-1.5 shrink-0">
+                                                <span className={`font-mono font-black text-sm sm:text-base ${
+                                                    (isLeading || (isTied && !isInherited)) ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-800 dark:text-white'
+                                                }`}>{votes.toLocaleString()}</span>
+                                                <span className="text-[10px] font-bold text-slate-400">{percent}%</span>
+                                            </div>
+                                        </div>
+                                        {/* Progress bar */}
+                                        <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                            <motion.div
+                                                initial={{ width: 0 }}
+                                                animate={{ width: `${percent}%` }}
+                                                transition={{ duration: 0.9, ease: 'easeOut', delay: idx * 0.05 }}
+                                                className={`h-full rounded-full ${
+                                                    (isLeading || (isTied && !isInherited))
+                                                        ? 'bg-gradient-to-r from-indigo-500 to-violet-500'
+                                                        : 'bg-slate-300 dark:bg-slate-600'
+                                                }`}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    });
+                })()}
+            </div>
+        </div>
+    );
 };
 
 export default ResultSummaryModal;

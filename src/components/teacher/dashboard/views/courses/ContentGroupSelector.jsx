@@ -77,29 +77,7 @@ const ContentGroupSelector = memo((props) => {
 
                 <div className="w-full max-w-5xl relative z-10 flex flex-col items-center mt-8 md:mt-0">
                     
-                    {/* Header Section */}
-                    <motion.div 
-                        style={{ willChange: "transform, opacity" }} // Hardware acceleration 
-                        initial={{ opacity: 0, y: -20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.6, ease: "easeOut" }}
-                        className="flex flex-col items-center text-center mb-6 md:mb-16 mt-2 md:mt-0"
-                    >
-                        {/* Logo Container with inner shadow - Optimized bg for mobile */}
-                        <div className="w-16 h-16 md:w-24 md:h-24 mb-4 md:mb-6 rounded-[20px] md:rounded-[32px] bg-white dark:bg-slate-900 md:bg-white/80 md:dark:bg-slate-900/80 md:backdrop-blur-md shadow-lg flex items-center justify-center p-2.5 md:p-3 border border-white dark:border-slate-700/50 relative">
-                            <div className="absolute inset-0 rounded-[inherit] shadow-inner pointer-events-none" />
-                            <img 
-                                src={schoolLogoUrl} 
-                                alt="School Logo" 
-                                className="w-full h-full object-contain drop-shadow-sm rounded-[12px] md:rounded-[20px]" 
-                            />
-                        </div>
-                        
-                        <span className="text-[10px] md:text-sm font-black uppercase tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-teal-500 mb-2 md:mb-3">
-                            Choose Your Destination
-                        </span>
-
-                    </motion.div>
+                    
                     
                     {/* Portal Selection Cards */}
                     <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-8 px-2 md:px-0">

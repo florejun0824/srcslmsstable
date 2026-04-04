@@ -17,6 +17,7 @@ import CreateElectionForm from './elections/forms/CreateElectionForm';
 import LiveCanvassing from './elections/views/LiveCanvassing';
 import ConfirmationModal from './elections/modals/ConfirmationModal';
 import ResultSummaryModal from './elections/modals/ResultSummaryModal';
+import TiedInfoModal from './elections/modals/TiedInfoModal';
 
 const containerVariants = {
     hidden: { opacity: 0 },
@@ -41,6 +42,7 @@ export default function ElectionManager() {
     const [activeTab, setActiveTab] = useState('active');
     const [selectedElectionId, setSelectedElectionId] = useState(null);
     const [summaryElection, setSummaryElection] = useState(null);
+    const [tiedInfoElection, setTiedInfoElection] = useState(null);
     const [confirmModal, setConfirmModal] = useState({ isOpen: false, type: null, data: null, isLoading: false });
     const [editingId, setEditingId] = useState(null);
     const [formStep, setFormStep] = useState(1);
@@ -61,14 +63,24 @@ export default function ElectionManager() {
 
     // --- MEMOIZED DATA ---
     const { activeElections, archivedElections } = useMemo(() => {
-        const now = new Date().getTime();
         const active = [];
         const archived = [];
+        const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+        const now = Date.now();
+
         elections.forEach(e => {
-            if (e.hasTie && e.tieBreakerId) return;
-            const endDate = new Date(e.endDate).getTime();
-            const isExpired24h = now > endDate + (24 * 60 * 60 * 1000);
-            if (isExpired24h) archived.push(e); else active.push(e);
+            const endMs = e.endDate ? new Date(e.endDate).getTime() : 0;
+            const isRecentlyCompleted = e.status === 'completed' && (now - endMs < TWENTY_FOUR_HOURS);
+
+            // Tie-breakers move to archive immediately to avoid cluttering active view
+            if (e.status === 'archived') {
+                archived.push(e);
+            } else if (e.status === 'completed') {
+                if (isRecentlyCompleted) active.push(e);
+                else archived.push(e);
+            } else {
+                active.push(e);
+            }
         });
         return { activeElections: active, archivedElections: archived };
     }, [elections]);
@@ -102,71 +114,32 @@ export default function ElectionManager() {
         setConfirmModal({ isOpen: false, type: null, data: null, isLoading: false });
     };
 
-    const initiateFinalize = (election) => { setConfirmModal({ isOpen: true, type: 'finalize', title: 'Proclaim Winners?', message: 'This ends the election and publishes results.', actionLabel: 'Proclaim', data: election, isLoading: false }); };
+    const initiateFinalize = (election) => { 
+        setConfirmModal({ 
+            isOpen: true, 
+            type: 'finalize', 
+            title: 'End Election Early?', 
+            message: 'This ends voting immediately. The automated cloud system will canvass the results and post an announcement within 5 minutes.', 
+            actionLabel: 'End Now', 
+            data: election, 
+            isLoading: false 
+        }); 
+    };
 
     const executeFinalize = async () => {
         setConfirmModal(prev => ({ ...prev, isLoading: true }));
         const election = confirmModal.data;
         try {
             const electionRef = doc(db, 'elections', election.id);
-            const electionSnap = await getDoc(electionRef);
-            const electionData = electionSnap.data();
-            let tally = electionData?.tally || electionData?.liveResults;
-            let totalVotesCast = electionData?.totalVotes || 0;
-
-            if (!tally || Object.keys(tally).length === 0) {
-                const votesRef = collection(db, 'elections', election.id, 'votes');
-                const votesSnap = await getDocs(votesRef);
-                tally = {};
-                totalVotesCast = 0;
-                if (election.positions) {
-                    election.positions.forEach(pos => {
-                        tally[pos.title] = {};
-                        pos.candidates.forEach(cand => tally[pos.title][cand.name] = 0);
-                    });
-                }
-                votesSnap.forEach(docSnapshot => {
-                    const data = docSnapshot.data();
-                    const ballot = data.votes || data;
-                    if (ballot && typeof ballot === 'object') {
-                        let hasVote = false;
-                        Object.entries(ballot).forEach(([posTitle, candName]) => {
-                            if (['studentId', 'votedAt', 'votes'].includes(posTitle)) return;
-                            if (!tally[posTitle]) tally[posTitle] = {};
-                            if (tally[posTitle][candName] === undefined) tally[posTitle][candName] = 0;
-                            tally[posTitle][candName]++;
-                            hasVote = true;
-                        });
-                        if (hasVote) totalVotesCast++;
-                    }
-                });
-            }
-
-            const fullElection = { ...election, ...electionData, tally, positions: electionData?.positions || election.positions };
-            const { hasTie, tiedPositions } = electionService.detectTies(fullElection);
-
+            // Trigger the Cloud Function Cron Job by ending the election now
             await updateDoc(electionRef, {
-                status: 'completed',
-                results: tally,
-                totalVotes: totalVotesCast,
-                resultsPending: false,
-                resultsPosted: true,
-                updatedAt: serverTimestamp()
+                endDate: new Date().toISOString()
             });
 
-            if (hasTie) {
-                await electionService.createTieBreakerElection(
-                    { id: election.id, ...electionData, tally },
-                    tiedPositions
-                );
-                const posNames = tiedPositions.map(tp => tp.title).join(', ');
-                showToast(`Tie detected in ${posNames}! Tie-breaker election created.`, "info");
-            } else {
-                showToast("Finalized!", "success");
-            }
+            showToast("Election ended! Results are being processed...", "success");
         } catch (err) {
             console.error("Finalize failed:", err);
-            showToast("Failed.", "error");
+            showToast("Failed to end election.", "error");
         }
         setConfirmModal({ isOpen: false, type: null, data: null, isLoading: false });
     };
@@ -211,6 +184,7 @@ export default function ElectionManager() {
     const removePosition = (i) => { const n = [...formData.positions]; n.splice(i, 1); setFormData({ ...formData, positions: n }); };
 
     if (selectedElection) return <LiveCanvassing election={selectedElection} onBack={() => setSelectedElectionId(null)} />;
+    if (summaryElection) return <ResultSummaryModal election={summaryElection} onBack={() => setSummaryElection(null)} />;
     if (viewMode === 'create') return <CreateElectionForm formData={formData} setFormData={setFormData} formStep={formStep} setFormStep={setFormStep} editingId={editingId} onCancel={resetForm} onSubmit={handleSubmit} updatePosition={updatePosition} addCandidate={addCandidate} updateCandidate={updateCandidate} removeCandidate={removeCandidate} removePosition={removePosition} handleAddPosition={handleAddPosition} />;
 
     const tabs = [
@@ -370,7 +344,7 @@ export default function ElectionManager() {
                                                             canModify={canModify}
                                                             onClick={() => {
                                                                 if (election.hasTie && election.tieBreakerId) {
-                                                                    showToast("This election has a Tie-Breaker. Please view the Tie-Breaker card for full results.", "info");
+                                                                    setTiedInfoElection(election);
                                                                 } else {
                                                                     setSelectedElectionId(election.id);
                                                                 }
@@ -381,11 +355,7 @@ export default function ElectionManager() {
                                                             onFinalize={() => initiateFinalize(election)}
                                                             onViewSummary={(e) => {
                                                                 e.stopPropagation();
-                                                                if (election.hasTie && election.tieBreakerId) {
-                                                                    showToast("This election has a Tie-Breaker. Please view the Tie-Breaker card for full results.", "info");
-                                                                } else {
-                                                                    setSummaryElection(election);
-                                                                }
+                                                                setSummaryElection(election);
                                                             }}
                                                         />
                                                     </motion.div>
@@ -428,7 +398,7 @@ export default function ElectionManager() {
                                                 ? 'Try adjusting your search term or exploring the other tab.'
                                                 : activeTab === 'active'
                                                     ? 'Start building democracy in your classroom by creating your first election today.'
-                                                    : 'Completed elections automatically move here 24 hours after they are finalized.'}
+                                                    : 'Completed elections automatically move here once canvassed.'}
                                         </p>
                                         {activeTab === 'active' && !searchQuery.trim() && (
                                             <button
@@ -460,10 +430,12 @@ export default function ElectionManager() {
                 onConfirm={confirmModal.type === 'countdown' ? executeCountdown : confirmModal.type === 'finalize' ? executeFinalize : confirmModal.type === 'delete' ? executeDelete : () => { }}
             />
 
-            <ResultSummaryModal
-                election={summaryElection}
-                isOpen={!!summaryElection}
-                onClose={() => setSummaryElection(null)}
+
+            <TiedInfoModal 
+                isOpen={!!tiedInfoElection}
+                onClose={() => setTiedInfoElection(null)}
+                election={tiedInfoElection}
+                onViewSummary={() => setSummaryElection(tiedInfoElection)}
             />
         </div>
     );

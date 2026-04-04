@@ -2,26 +2,24 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    CheckBadgeIcon,
-    HandRaisedIcon,
-    ChevronRightIcon,
-    ChevronLeftIcon,
-    PencilSquareIcon,
-    DocumentArrowDownIcon,
-    ChartBarIcon,
-    StarIcon,
-    ArrowPathIcon,
-    SignalIcon,
-    ExclamationTriangleIcon,
-    ClipboardDocumentCheckIcon,
-    ChevronDownIcon,
-    ChevronUpIcon,
-    ShieldCheckIcon,
-    ClockIcon,
-    InformationCircleIcon,
-    AcademicCapIcon,
-    BuildingLibraryIcon
-} from '@heroicons/react/24/solid';
+    CheckCircle,
+    CaretRight,
+    CaretLeft,
+    ChartBar,
+    Lightning,
+    Trophy,
+    CalendarBlank,
+    Users,
+    Clock,
+    ShieldCheck,
+    Archive,
+    ArrowCounterClockwise,
+    IdentificationCard,
+    WarningCircle,
+    Check,
+    PencilSimple,
+    ArrowDown
+} from '@phosphor-icons/react';
 import { electionService } from '../../services/electionService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -33,6 +31,7 @@ import { db } from '../../services/firebase';
 import Lottie from 'lottie-react';
 import countingAnimation from '../../assets/data.json';
 
+// --- CUSTOM HOOK ---
 const useWindowSizeCustom = () => {
     const [size, setSize] = useState([0, 0]);
     useEffect(() => {
@@ -44,188 +43,168 @@ const useWindowSizeCustom = () => {
     return { width: size[0], height: size[1] };
 };
 
-// --- SUB-COMPONENT: RESULT CARD ---
+// --- HELPER: Read Cloud Function Data safely ---
+const getVotes = (election, posTitle, candId, candName) => {
+    if (!election) return 0;
+    // 1. Cloud Function format (Finalized)
+    // Supports both ID and Name lookup for server transparency
+    if (election.finalResults) {
+        if (election.finalResults[candId] !== undefined) return election.finalResults[candId];
+        if (election.finalResults[candName] !== undefined) return election.finalResults[candName];
+    }
+    
+    // 2. Legacy / Live format
+    const legacy = election.results || election.tally || election.liveResults || {};
+    if (legacy[posTitle]) {
+        if (legacy[posTitle][candName] !== undefined) return legacy[posTitle][candName];
+        if (legacy[posTitle][candId] !== undefined) return legacy[posTitle][candId];
+    }
+    return 0;
+};
+
+// ==========================================
+// RESULT ELECTION CARD (VERCEL STYLE)
+// ==========================================
 const ElectionResultCard = ({ election }) => {
-    const [tally, setTally] = useState({});
-    const [totalProcessed, setTotalProcessed] = useState(0);
-    const [isLive, setIsLive] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
     const [expandedPositions, setExpandedPositions] = useState({});
-
+    
+    // Cloud function compatibility
+    const totalVotes = election.totalVotesCast || election.totalVotes || 0;
+    const isTieBreaker = election.isTieBreaker;
     const isCalculating = election.status === 'calculating';
-    const isActive = election.status === 'active';
-    const isCompleted = election.status === 'completed';
+    const isCompleted = election.status === 'completed' || election.status === 'archived';
 
-    const togglePosition = (posId) => {
-        setExpandedPositions(prev => ({ ...prev, [posId]: !prev[posId] }));
+    const togglePosition = (posTitle) => {
+        setExpandedPositions(prev => ({ ...prev, [posTitle]: !prev[posTitle] }));
     };
-
-    useEffect(() => {
-        setIsLoading(true);
-        const tallySource = election.results || election.liveResults;
-
-        if (tallySource && Object.keys(tallySource).length > 0) {
-            setTally(tallySource);
-            setTotalProcessed(election.totalVotes || 0);
-        } else {
-            const initialTally = {};
-            election.positions?.forEach(pos => {
-                initialTally[pos.title] = {};
-                pos.candidates.forEach(cand => {
-                    initialTally[pos.title][cand.name] = 0;
-                });
-            });
-            setTally(initialTally);
-            setTotalProcessed(election.totalVotes || 0);
-        }
-        setIsLive(election.status === 'active');
-        setIsLoading(false);
-    }, [election]);
-
-    const formatLastUpdated = (timestamp) => {
-        if (!timestamp) return 'Just now';
-        const secondsAgo = Math.floor((Date.now() - timestamp) / 1000);
-        if (secondsAgo < 60) return `${secondsAgo}s ago`;
-        return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    };
-
-    const hasResultsData = tally && Object.keys(tally).length > 0;
 
     return (
-        <motion.div
-            layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-            className={`rounded-2xl p-5 shadow-sm border mb-4 overflow-hidden relative transition-colors duration-500
-                ${isCalculating
-                    ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-500/30'
-                    : isLive
-                        ? 'bg-orange-50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-500/30'
-                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'}
-            `}
-        >
-            <div className="relative z-10 mb-3 md:mb-4 border-b border-slate-100 dark:border-slate-800 pb-2.5 md:pb-3">
-                <div className="flex justify-between items-start gap-2 md:gap-3">
-                    <div className="flex-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-1.5 md:gap-2 mb-1.5">
-                            {isCalculating ? (
-                                <span className="flex items-center gap-1 bg-amber-500 text-white px-2 py-0.5 md:px-2.5 md:py-1 rounded-full text-[9px] md:text-[10px] font-bold uppercase tracking-widest animate-pulse">
-                                    <ArrowPathIcon className="w-2.5 h-2.5 md:w-3 md:h-3 animate-spin" /> Consolidating
-                                </span>
-                            ) : isActive ? (
-                                <div className="flex items-center gap-1.5 md:gap-2">
-                                    <span className="flex items-center gap-1 bg-orange-500 text-white px-2 py-0.5 md:px-2.5 md:py-1 rounded-full text-[9px] md:text-[10px] font-bold uppercase tracking-widest animate-pulse">
-                                        <SignalIcon className="w-2.5 h-2.5 md:w-3 md:h-3" /> Live
-                                    </span>
-                                    <span className="text-[8px] md:text-[9px] font-semibold text-orange-500/60 dark:text-orange-400/60 uppercase">
-                                        Updated {formatLastUpdated(election.lastLiveUpdate)}
-                                    </span>
-                                </div>
-                            ) : (
-                                <span className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 px-2 py-0.5 md:px-2.5 md:py-1 rounded-full text-[9px] md:text-[10px] font-bold uppercase tracking-widest flex items-center gap-1">
-                                    <CheckBadgeIcon className="w-2.5 h-2.5 md:w-3 md:h-3" /> Official
-                                </span>
-                            )}
-                            <span className="bg-slate-100 dark:bg-slate-800 text-slate-500 px-2 py-0.5 md:px-2.5 md:py-1 rounded-full text-[9px] md:text-[10px] font-bold uppercase tracking-widest flex items-center gap-1">
-                                <BuildingLibraryIcon className="w-2.5 h-2.5 md:w-3 md:h-3" /> Multi-Target
+        <motion.div layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white dark:bg-[#111] border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow w-full">
+            
+            {/* Result Header */}
+            <div className="bg-slate-50/50 dark:bg-[#151515] p-4 sm:p-6 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="min-w-0 w-full">
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                        {isCalculating ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20 shrink-0">
+                                <ArrowCounterClockwise weight="bold" size={12} className="animate-spin" />
+                                Consolidating
                             </span>
-                        </div>
-                        <h2 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white leading-tight truncate">
-                            {election.title}
-                        </h2>
-                        <div className="text-[10px] md:text-xs font-medium text-slate-400 mt-0.5 md:mt-1 flex items-center gap-1.5 md:gap-2">
-                            <span>{election.organization}</span>
-                            <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600"></span>
-                            <span className="tabular-nums">{totalProcessed.toLocaleString()} Votes</span>
-                        </div>
+                        ) : (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 shrink-0">
+                                <CheckCircle weight="fill" size={12} />
+                                Official Result
+                            </span>
+                        )}
+                        
+                        {isTieBreaker && (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20 shrink-0">
+                                <Lightning weight="fill" size={12} /> Tie-Breaker
+                            </span>
+                        )}
+                    </div>
+                    <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight break-words">
+                        {election.title}
+                    </h3>
+                </div>
+                
+                <div className="shrink-0 flex items-center gap-3 bg-white dark:bg-[#1a1a1a] px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm w-full sm:w-auto">
+                    <Users weight="duotone" size={20} className="text-slate-400 shrink-0" />
+                    <div className="flex flex-col min-w-0">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Turnout</span>
+                        <span className="text-sm font-bold text-slate-900 dark:text-white leading-none font-mono truncate">{totalVotes.toLocaleString()}</span>
                     </div>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-6 relative z-10">
+            {/* Proclaimed Winners Grid */}
+            <div className="p-4 sm:p-6">
                 {isCalculating ? (
-                    <div className="flex flex-col items-center justify-center py-6 min-h-[200px]">
-                        <div className="w-32 h-32 md:w-48 md:h-48 opacity-80">
-                            <Lottie animationData={countingAnimation} loop={true} />
-                        </div>
-                        <p className="text-xs font-bold text-amber-600 dark:text-amber-400 animate-pulse mt-4">Counting ballots...</p>
-                    </div>
-                ) : !hasResultsData ? (
-                    <div className="text-center py-12 text-slate-400 text-sm bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
-                        <ExclamationTriangleIcon className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                        <span className="font-medium">{isLoading ? 'Fetching data...' : 'Waiting for results...'}</span>
+                    <div className="flex flex-col items-center justify-center py-12 text-slate-400 w-full">
+                        <div className="w-32 h-32 opacity-50 mb-4 mix-blend-luminosity"><Lottie animationData={countingAnimation} loop={true} /></div>
+                        <p className="text-sm font-bold text-slate-500 dark:text-slate-400 animate-pulse text-center">Finalizing official tallies...</p>
                     </div>
                 ) : (
-                    election.positions?.map((pos) => {
-                        const votes = tally[pos.title] || {};
-                        const candidates = pos.candidates.map(c => ({
-                            name: c.name,
-                            count: votes[c.name] || 0
-                        })).sort((a, b) => b.count - a.count);
+                    <>
+                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <Trophy weight="fill" className="text-amber-500 shrink-0" size={16} /> Proclaimed Winners
+                        </h4>
 
-                        const maxVotes = Math.max(...candidates.map(c => c.count), 1);
-                        const isExpanded = expandedPositions[pos.id];
-                        const visibleCandidates = isExpanded ? candidates : candidates.slice(0, 3);
-                        const hiddenCount = candidates.length - 3;
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {election.positions?.map((pos) => {
+                                let posTotal = 0;
+                                const sortedCandidates = pos.candidates.map(cand => {
+                                    const votes = getVotes(election, pos.title, cand.id, cand.name);
+                                    posTotal += votes;
+                                    return { ...cand, votes };
+                                }).sort((a, b) => b.votes - a.votes);
 
-                        return (
-                            <div key={pos.id} className="bg-slate-50 dark:bg-slate-800/50 p-3 md:p-4 rounded-xl border border-slate-100 dark:border-slate-700/50">
-                                <div className="flex justify-between items-center mb-2.5 md:mb-3">
-                                    <h3 className="font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 md:gap-2 text-[10px] md:text-xs uppercase tracking-wide">
-                                        <span className={`w-1.5 h-1.5 rounded-full ${isCompleted ? 'bg-emerald-500' : 'bg-orange-400 animate-pulse'}`}></span>
-                                        {pos.title}
-                                    </h3>
-                                    <span className="text-[8px] md:text-[9px] font-bold px-1.5 md:px-2 py-0.5 rounded-full bg-white dark:bg-slate-900 text-slate-400 uppercase border border-slate-100 dark:border-slate-700">
-                                        {pos.targetType === 'grade' ? `Grade ${pos.targetGrade}` : 'School Wide'}
-                                    </span>
-                                </div>
+                                const isExpanded = expandedPositions[pos.title];
+                                const visibleCandidates = isExpanded ? sortedCandidates : sortedCandidates.slice(0, 3);
+                                const hiddenCount = sortedCandidates.length - 3;
 
-                                <div className="space-y-2 md:space-y-2.5">
-                                    {visibleCandidates.map((cand, idx) => {
-                                        const isLeader = idx === 0 && cand.count > 0;
-                                        const percent = Math.round((cand.count / maxVotes) * 100);
+                                return (
+                                    <div key={pos.title} className="flex flex-col p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 min-w-0">
+                                        <div className="flex justify-between items-start mb-4 gap-2">
+                                            <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider truncate min-w-0">
+                                                {pos.title}
+                                            </span>
+                                            <span className="text-[9px] font-bold bg-white dark:bg-slate-800 text-slate-500 px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700 uppercase shrink-0">
+                                                {pos.targetType === 'grade' ? `G${pos.targetGrade}` : 'All'}
+                                            </span>
+                                        </div>
 
-                                        return (
-                                            <div key={idx} className="relative group">
-                                                <div className="flex justify-between text-[10px] md:text-[11px] font-bold mb-0.5 md:mb-1 z-10 relative">
-                                                    <span className={`flex items-center gap-1.5 truncate max-w-[75%] ${isLeader ? (isCompleted ? 'text-emerald-600 dark:text-emerald-400' : 'text-orange-600 dark:text-orange-400') : 'text-slate-600 dark:text-slate-400'}`}>
-                                                        {isLeader && isCompleted && <StarIcon className="w-2.5 h-2.5 md:w-3 md:h-3 text-amber-500" />}
-                                                        {cand.name}
-                                                    </span>
-                                                    <span className="text-slate-900 dark:text-white tabular-nums bg-white dark:bg-slate-900 px-1 md:px-1.5 text-[9px] md:text-[11px] rounded-md border border-slate-100 dark:border-slate-700">{cand.count}</span>
-                                                </div>
-                                                <div className="h-1.5 md:h-2 w-full bg-white dark:bg-slate-900 rounded-full overflow-hidden border border-slate-100 dark:border-slate-700">
-                                                    <motion.div
-                                                        initial={{ width: 0 }}
-                                                        whileInView={{ width: `${percent}%` }}
-                                                        transition={{ duration: 1, ease: "easeOut" }}
-                                                        className={`h-full rounded-full ${isLeader
-                                                            ? (isCompleted ? 'bg-gradient-to-r from-emerald-500 to-green-400' : 'bg-gradient-to-r from-orange-400 to-amber-400')
-                                                            : 'bg-slate-200 dark:bg-slate-600'
-                                                            }`}
-                                                    />
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
+                                        <div className="space-y-3">
+                                            {visibleCandidates.map((cand, idx) => {
+                                                const isWinner = idx === 0 && cand.votes > 0;
+                                                const isTied = isWinner && sortedCandidates.length > 1 && sortedCandidates[0].votes === sortedCandidates[1].votes;
+                                                const winPercent = posTotal > 0 ? ((cand.votes / posTotal) * 100).toFixed(1) : 0;
 
-                                {candidates.length > 3 && (
-                                    <button
-                                        onClick={() => togglePosition(pos.id)}
-                                        className="w-full py-1.5 md:py-2 mt-2 flex items-center justify-center gap-1 text-[9px] md:text-[10px] font-bold text-slate-400 hover:text-indigo-500 hover:bg-white dark:hover:bg-slate-900 rounded-lg transition-all"
-                                    >
-                                        {isExpanded ? <>Show Less <ChevronUpIcon className="w-2 h-2 md:w-3 md:h-3" /></> : <>Show {hiddenCount} More <ChevronDownIcon className="w-2 h-2 md:w-3 md:h-3" /></>}
-                                    </button>
-                                )}
-                            </div>
-                        );
-                    })
+                                                return (
+                                                    <div key={cand.name} className="relative min-w-0">
+                                                        <div className="flex items-end justify-between mb-1.5 gap-2">
+                                                            <div className="flex items-center gap-1.5 min-w-0">
+                                                                <span className={`text-sm font-bold truncate ${isWinner ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>
+                                                                    {cand.name}
+                                                                </span>
+                                                                {isWinner && !isTied && <CheckCircle weight="fill" className="text-emerald-500 w-3.5 h-3.5 shrink-0" />}
+                                                                {isTied && <span className="text-[9px] font-bold text-amber-500 bg-amber-50 dark:bg-amber-500/10 px-1.5 py-0.5 rounded uppercase shrink-0">Tie</span>}
+                                                            </div>
+                                                            <div className="flex items-baseline gap-2 shrink-0">
+                                                                <span className={`text-xs font-mono font-bold ${isWinner ? 'text-slate-900 dark:text-white' : 'text-slate-500'}`}>{cand.votes}</span>
+                                                                <span className="text-[10px] font-mono text-slate-400 w-8 text-right shrink-0">{winPercent}%</span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                                                            <motion.div 
+                                                                initial={{ width: 0 }} whileInView={{ width: `${winPercent}%` }} viewport={{ once: true }} transition={{ duration: 1, ease: "easeOut" }}
+                                                                className={`h-full rounded-full ${isWinner ? (isTied ? 'bg-amber-500' : 'bg-slate-900 dark:bg-white') : 'bg-slate-400 dark:bg-slate-600'}`}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+
+                                        {sortedCandidates.length > 3 && (
+                                            <button onClick={() => togglePosition(pos.title)} className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center justify-center gap-1 w-full transition-colors outline-none">
+                                                {isExpanded ? 'Show Less' : `Show ${hiddenCount} More`}
+                                            </button>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </>
                 )}
             </div>
         </motion.div>
     );
 };
 
-// --- SUB-COMPONENT: VOTING WIZARD ---
+// ==========================================
+// VOTING WIZARD (VERCEL STYLE)
+// ==========================================
 const VotingWizard = ({ election, user, onBack, onSuccess }) => {
     const { showToast } = useToast();
     const { width, height } = useWindowSizeCustom();
@@ -258,7 +237,6 @@ const VotingWizard = ({ election, user, onBack, onSuccess }) => {
     useEffect(() => {
         if (viewState !== 'countdown') return;
         const startMs = new Date(election.startDate).getTime();
-
         const tick = () => {
             const diff = startMs - Date.now();
             if (diff <= 0) {
@@ -271,7 +249,6 @@ const VotingWizard = ({ election, user, onBack, onSuccess }) => {
             const secs = Math.floor((diff % 60000) / 1000);
             setCountdownText(days > 0 ? `${days}d ${hrs}h ${mins}m ${secs}s` : hrs > 0 ? `${hrs}h ${mins}m ${secs}s` : `${mins}m ${secs}s`);
         };
-
         tick();
         const interval = setInterval(tick, 1000);
         return () => clearInterval(interval);
@@ -317,45 +294,44 @@ const VotingWizard = ({ election, user, onBack, onSuccess }) => {
         }
     };
 
-    if (viewState === 'loading') return <div className="flex justify-center items-center h-[50vh]"><div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" /></div>;
+    if (viewState === 'loading') return <div className="flex justify-center items-center h-[50vh] w-full"><div className="w-8 h-8 border-4 border-slate-900 dark:border-white border-t-transparent rounded-full animate-spin" /></div>;
 
     if (viewState === 'voted') return (
-        <div className="relative h-full flex flex-col items-center justify-center text-center p-6 min-h-[500px] bg-white dark:bg-slate-900 rounded-[2rem]">
-            <Confetti width={width} height={height} recycle={false} numberOfPieces={400} />
-            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 400, damping: 15 }} className="w-24 h-24 bg-emerald-500 rounded-3xl flex items-center justify-center mb-6 shadow-lg shadow-emerald-500/25">
-                <CheckBadgeIcon className="w-12 h-12 text-white" />
+        <div className="relative h-full w-full flex flex-col items-center justify-center text-center p-6 pb-24 min-h-[500px] bg-white dark:bg-[#0A0A0A] rounded-2xl md:rounded-[2rem] border border-slate-200 dark:border-slate-800">
+            <Confetti width={width} height={height} recycle={false} numberOfPieces={300} gravity={0.15} colors={['#000', '#333', '#666', '#fff', '#e2e8f0']} />
+            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 400, damping: 20 }} className="w-20 h-20 bg-slate-900 dark:bg-white rounded-full flex items-center justify-center mb-6 shadow-xl shrink-0">
+                <Check weight="bold" className="w-10 h-10 text-white dark:text-slate-900" />
             </motion.div>
-            <h1 className="text-3xl font-black text-slate-900 dark:text-white mb-2">Vote Cast!</h1>
-            <p className="text-slate-500 font-medium mb-8">Your voice has been heard.</p>
-            <button onClick={onBack} className="px-8 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-white font-bold text-sm hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors active:scale-[0.97]">Return to Elections</button>
+            <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-2 break-words">Vote Cast.</h1>
+            <p className="text-slate-500 dark:text-slate-400 font-medium mb-10 px-4">Your ballot has been securely verified and recorded.</p>
+            <button onClick={onBack} className="px-8 py-3.5 rounded-xl bg-slate-100 dark:bg-[#111] border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white font-bold text-sm hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors active:scale-[0.98] outline-none">
+                Return to Elections
+            </button>
         </div>
     );
 
     if (viewState === 'countdown') return (
-        <div className="flex flex-col items-center justify-center h-full p-6 md:p-10 text-center bg-white dark:bg-slate-900 rounded-2xl md:rounded-[2rem]">
-            <div className="w-16 h-16 md:w-20 md:h-20 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl flex items-center justify-center mb-4 md:mb-6 border border-indigo-100 dark:border-indigo-800">
-                <ClockIcon className="w-8 h-8 md:w-10 md:h-10 text-indigo-400 animate-pulse" />
+        <div className="flex flex-col items-center justify-center h-full w-full p-6 pb-24 text-center bg-white dark:bg-[#0A0A0A] rounded-2xl md:rounded-[2rem] border border-slate-200 dark:border-slate-800">
+            <div className="w-16 h-16 bg-slate-100 dark:bg-[#111] rounded-2xl flex items-center justify-center mb-6 border border-slate-200 dark:border-slate-800 shrink-0">
+                <Clock weight="duotone" className="w-8 h-8 text-slate-900 dark:text-white animate-pulse" />
             </div>
-            <h2 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white mb-2 md:mb-3">Polls Open Soon</h2>
-            <div className="font-mono text-xl md:text-2xl font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-4 md:px-6 py-2.5 md:py-3 rounded-xl tabular-nums tracking-wider border border-indigo-100 dark:border-indigo-800">
+            <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight mb-3 break-words">Polls Open Soon</h2>
+            <div className="font-mono text-xl sm:text-2xl font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-[#111] px-4 sm:px-6 py-3 rounded-xl tabular-nums tracking-widest border border-slate-200 dark:border-slate-800 break-words max-w-full">
                 {countdownText || '...'}
             </div>
-            <p className="text-[10px] md:text-xs text-slate-400 mt-3 font-medium">Opens {new Date(election.startDate).toLocaleString()}</p>
-            <button onClick={onBack} className="mt-6 md:mt-8 text-xs md:text-sm font-bold text-indigo-600 hover:underline">Go Back</button>
+            <button onClick={onBack} className="mt-8 text-sm font-bold text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors outline-none">Go Back</button>
         </div>
     );
 
     if (viewState === 'casting') return (
-        <div className="flex flex-col items-center justify-center h-full min-h-[400px] bg-white dark:bg-slate-900 rounded-[2rem]">
-            <div className="relative mb-8">
-                <div className="w-48 h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden border border-slate-200 dark:border-slate-700">
-                    <motion.div initial={{ width: 0 }} animate={{ width: "100%" }} transition={{ duration: 2 }} className="h-full bg-indigo-600 rounded-full" />
-                </div>
-                <motion.div initial={{ y: -50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="absolute inset-0 flex justify-center -top-12">
-                    <DocumentArrowDownIcon className="w-10 h-10 text-indigo-500" />
-                </motion.div>
+        <div className="flex flex-col items-center justify-center h-full w-full min-h-[500px] bg-white dark:bg-[#0A0A0A] rounded-2xl md:rounded-[2rem] border border-slate-200 dark:border-slate-800 pb-24">
+            <motion.div animate={{ y: [0, 10, 0] }} transition={{ repeat: Infinity, duration: 1.5 }} className="mb-6 shrink-0">
+                <ArrowDown weight="bold" className="w-8 h-8 text-slate-400" />
+            </motion.div>
+            <div className="w-48 max-w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mb-6 mx-4">
+                <motion.div initial={{ width: 0 }} animate={{ width: "100%" }} transition={{ duration: 2 }} className="h-full bg-slate-900 dark:bg-white rounded-full" />
             </div>
-            <p className="text-sm font-bold text-slate-500 animate-pulse">Encrypting & Submitting Ballot...</p>
+            <p className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-widest animate-pulse px-4 text-center break-words">Encrypting Ballot...</p>
         </div>
     );
 
@@ -363,30 +339,23 @@ const VotingWizard = ({ election, user, onBack, onSuccess }) => {
     const isSelected = !!ballot[currentPos?.title];
 
     return (
-        <div className="h-full flex flex-col relative max-h-[85vh] md:max-h-[90vh] bg-white dark:bg-slate-900 md:rounded-2xl overflow-hidden shadow-xl border border-slate-200 dark:border-slate-800">
+        <div className="h-full w-full flex flex-col relative max-h-[100dvh] md:max-h-[85vh] bg-[#FAFAFA] dark:bg-[#0A0A0A] md:rounded-2xl overflow-hidden shadow-2xl border-x-0 border-y-0 md:border md:border-slate-200 dark:md:border-slate-800">
             {/* TOP BAR */}
-            <div className="flex flex-col items-center z-10 px-6 pt-6 flex-shrink-0 bg-white dark:bg-slate-900 pb-4 border-b border-slate-100 dark:border-slate-800">
-                <div className="flex items-center w-full justify-between mb-4">
-                    <button onClick={handleBackStep} className="p-2 -ml-2 text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors bg-slate-50 dark:bg-slate-800 rounded-full border border-slate-100 dark:border-slate-700">
-                        <ChevronLeftIcon className="w-5 h-5" />
+            <div className="flex flex-col items-center z-10 px-4 sm:px-6 pt-safe-top bg-[#FAFAFA]/90 dark:bg-[#0A0A0A]/90 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 shrink-0">
+                <div className="flex items-center w-full justify-between py-4">
+                    <button onClick={handleBackStep} className="p-2 -ml-2 text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 outline-none shrink-0">
+                        <CaretLeft weight="bold" className="w-5 h-5" />
                     </button>
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                        {isReviewing ? 'Final Review' : `Position ${currentStep + 1} of ${eligiblePositions.length}`}
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 truncate px-2 min-w-0">
+                        {isReviewing ? 'Final Review' : `Step ${currentStep + 1} of ${eligiblePositions.length}`}
                     </span>
-                    <div className="w-9" />
+                    <div className="w-9 shrink-0" />
                 </div>
                 {!isReviewing && (
-                    <div className="flex gap-1.5 w-full max-w-[240px] h-1.5">
+                    <div className="flex gap-1 w-full max-w-sm h-1 mb-4">
                         {eligiblePositions.map((_, idx) => (
-                            <div key={idx} className="flex-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                <motion.div
-                                    initial={false}
-                                    animate={{
-                                        width: idx <= currentStep ? '100%' : '0%',
-                                        backgroundColor: idx <= currentStep ? (idx === currentStep ? '#4f46e5' : '#c7d2fe') : 'transparent'
-                                    }}
-                                    className="h-full rounded-full"
-                                />
+                            <div key={idx} className="flex-1 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                                <motion.div initial={false} animate={{ width: idx <= currentStep ? '100%' : '0%', backgroundColor: idx <= currentStep ? (idx === currentStep ? 'var(--tw-prose-body)' : 'var(--tw-prose-lead)') : 'transparent' }} className={`h-full rounded-full ${idx <= currentStep ? (idx === currentStep ? 'bg-slate-900 dark:bg-white' : 'bg-slate-400 dark:bg-slate-600') : ''}`} />
                             </div>
                         ))}
                     </div>
@@ -394,66 +363,53 @@ const VotingWizard = ({ election, user, onBack, onSuccess }) => {
             </div>
 
             {/* CONTENT */}
-            <div className="flex-1 relative overflow-hidden flex flex-col bg-slate-50 dark:bg-slate-950/50">
+            {/* Increased bottom padding specifically for scrolling over the elevated bottom button */}
+            <div className="flex-1 relative overflow-hidden flex flex-col w-full">
                 <AnimatePresence initial={false} custom={direction} mode="wait">
                     {isReviewing ? (
-                        <motion.div
-                            key="review"
-                            initial={{ x: direction > 0 ? '100%' : '-100%', opacity: 0 }}
-                            animate={{ x: 0, opacity: 1 }}
-                            exit={{ x: direction < 0 ? '100%' : '-100%', opacity: 0 }}
-                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                            className="absolute inset-0 px-4 py-4 overflow-y-auto custom-scrollbar pb-24"
-                        >
-                            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-800">
-                                <h2 className="text-2xl font-bold mb-1 text-slate-900 dark:text-white">Summary</h2>
-                                <p className="text-sm text-slate-500 mb-6">Review your choices before submitting.</p>
+                        <motion.div key="review" custom={direction} initial={{ x: direction > 0 ? '100%' : '-100%', opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: direction < 0 ? '100%' : '-100%', opacity: 0 }} transition={{ type: "spring", stiffness: 300, damping: 30 }} className="absolute inset-0 w-full px-4 sm:px-6 py-6 overflow-y-auto custom-scrollbar pb-48 md:pb-32">
+                            <div className="max-w-md mx-auto w-full">
+                                <h2 className="text-2xl font-black mb-1 text-slate-900 dark:text-white tracking-tight break-words">Review Ballot</h2>
+                                <p className="text-sm text-slate-500 mb-6 font-medium break-words">Verify your selections before casting.</p>
+                                
                                 <div className="space-y-3">
                                     {eligiblePositions.map((pos, idx) => (
-                                        <div key={idx} onClick={() => { setDirection(-1); setCurrentStep(idx); setIsReviewing(false); }} className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl flex justify-between items-center cursor-pointer hover:ring-2 ring-indigo-500/50 transition-all group border border-slate-100 dark:border-slate-700">
-                                            <div>
-                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{pos.title}</p>
-                                                <p className="font-bold text-slate-900 dark:text-white text-lg">{ballot[pos.title]}</p>
+                                        <div key={idx} onClick={() => { setDirection(-1); setCurrentStep(idx); setIsReviewing(false); }} className="p-4 bg-white dark:bg-[#111] rounded-xl flex justify-between items-center cursor-pointer hover:border-slate-400 transition-all border border-slate-200 dark:border-slate-800 shadow-sm group min-w-0">
+                                            <div className="min-w-0 pr-4">
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 truncate">{pos.title}</p>
+                                                {ballot[pos.title] ? (
+                                                    <p className="font-bold text-slate-900 dark:text-white text-base truncate">{ballot[pos.title]}</p>
+                                                ) : (
+                                                    <p className="font-bold text-rose-500 text-sm flex items-center gap-1 shrink-0"><WarningCircle weight="bold" /> Abstain</p>
+                                                )}
                                             </div>
-                                            <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-900 flex items-center justify-center text-slate-300 group-hover:text-indigo-500 transition-colors shadow-sm border border-slate-100 dark:border-slate-700">
-                                                <PencilSquareIcon className="w-5 h-5" />
-                                            </div>
+                                            <PencilSimple weight="bold" className="w-5 h-5 text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors shrink-0" />
                                         </div>
                                     ))}
                                 </div>
                             </div>
                         </motion.div>
                     ) : (
-                        <motion.div
-                            key={currentStep}
-                            custom={direction}
-                            initial={{ x: direction > 0 ? '100%' : '-100%', opacity: 0 }}
-                            animate={{ x: 0, opacity: 1 }}
-                            exit={{ x: direction < 0 ? '100%' : '-100%', opacity: 0 }}
-                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                            className="absolute inset-0 px-4 py-4 md:py-6 flex flex-col"
-                        >
-                            <div className="text-center mb-4 md:mb-6 flex-shrink-0">
-                                <h2 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-1 md:mb-2">{currentPos?.title}</h2>
-                                <p className="text-xs md:text-sm font-medium text-slate-500">Who is your choice?</p>
+                        <motion.div key={currentStep} custom={direction} initial={{ x: direction > 0 ? '100%' : '-100%', opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: direction < 0 ? '100%' : '-100%', opacity: 0 }} transition={{ type: "spring", stiffness: 300, damping: 30 }} className="absolute inset-0 w-full px-4 sm:px-6 py-6 flex flex-col">
+                            <div className="text-center mb-6 shrink-0 max-w-md mx-auto w-full">
+                                <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-2 break-words">{currentPos?.title}</h2>
+                                <p className="text-sm font-medium text-slate-500">Select one candidate</p>
                             </div>
 
-                            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2.5 md:space-y-3 pb-24 px-1 max-w-md mx-auto w-full">
+                            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pb-48 md:pb-32 max-w-md mx-auto w-full px-1">
                                 {currentPos?.candidates.map(cand => {
                                     const active = ballot[currentPos.title] === cand.name;
                                     return (
-                                        <button
-                                            key={cand.name}
-                                            onClick={() => handleSelect(cand.name)}
-                                            className={`w-full p-3 md:p-4 rounded-xl md:rounded-2xl flex items-center gap-3 md:gap-4 transition-all duration-200 border-2 active:scale-[0.97] group ${active ? 'bg-indigo-600 border-indigo-600 shadow-lg shadow-indigo-500/20' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700 shadow-sm'}`}
-                                        >
-                                            <div className={`w-10 h-10 md:w-12 md:h-12 rounded-lg md:rounded-xl flex-shrink-0 flex items-center justify-center font-bold text-base md:text-lg transition-colors ${active ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/20 group-hover:text-indigo-600'}`}>
+                                        <button key={cand.name} onClick={() => handleSelect(cand.name)} className={`w-full p-4 rounded-2xl flex items-center gap-4 transition-all duration-200 border-2 text-left outline-none min-w-0 ${active ? 'bg-slate-900 dark:bg-white border-slate-900 dark:border-white shadow-md transform scale-[1.02]' : 'bg-white dark:bg-[#111] border-slate-200 dark:border-slate-800 hover:border-slate-400 dark:hover:border-slate-600'}`}>
+                                            <div className={`w-12 h-12 rounded-xl flex shrink-0 items-center justify-center font-bold text-lg transition-colors ${active ? 'bg-white/20 dark:bg-black/10 text-white dark:text-slate-900' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
                                                 {cand.name.charAt(0)}
                                             </div>
-                                            <span className={`font-bold flex-grow text-left text-sm md:text-lg ${active ? 'text-white' : 'text-slate-700 dark:text-slate-200'}`}>{cand.name}</span>
-                                            {active && <div className="bg-white/20 p-1 md:p-1.5 rounded-full"><CheckBadgeIcon className="w-4 h-4 md:w-6 md:h-6 text-white" /></div>}
+                                            <span className={`font-bold flex-grow text-base sm:text-lg tracking-tight break-words min-w-0 ${active ? 'text-white dark:text-slate-900' : 'text-slate-900 dark:text-white'}`}>{cand.name}</span>
+                                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${active ? 'border-white dark:border-slate-900' : 'border-slate-300 dark:border-slate-700'}`}>
+                                                {active && <div className="w-2.5 h-2.5 bg-white dark:bg-slate-900 rounded-full" />}
+                                            </div>
                                         </button>
-                                    )
+                                    );
                                 })}
                             </div>
                         </motion.div>
@@ -461,24 +417,22 @@ const VotingWizard = ({ election, user, onBack, onSuccess }) => {
                 </AnimatePresence>
             </div>
 
-            {/* BOTTOM ACTION */}
-            <div className="p-6 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 absolute bottom-0 w-full z-20">
-                <button
-                    onClick={isReviewing ? handleSubmit : handleNext}
-                    disabled={!isReviewing && !isSelected}
-                    className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg transition-all flex items-center justify-center gap-2
-                        ${(!isReviewing && !isSelected) ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed border border-slate-200 dark:border-slate-700' : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-500/20 active:scale-[0.98]'}
-                    `}
-                >
-                    {isReviewing ? 'Submit Ballot' : 'Next Position'}
-                    {isReviewing ? <HandRaisedIcon className="w-5 h-5" /> : <ChevronRightIcon className="w-5 h-5" />}
-                </button>
+            {/* BOTTOM ACTION - Elevated for mobile docks */}
+            <div className="absolute bottom-0 w-full p-4 sm:p-6 pb-[90px] md:pb-6 bg-gradient-to-t from-[#FAFAFA] dark:from-[#0A0A0A] via-[#FAFAFA] dark:via-[#0A0A0A] to-transparent z-20 pointer-events-none">
+                <div className="max-w-md mx-auto w-full pointer-events-auto">
+                    <button onClick={isReviewing ? handleSubmit : handleNext} disabled={!isReviewing && !isSelected} className={`w-full py-4 rounded-xl font-bold text-base transition-all flex items-center justify-center gap-2 outline-none ${(!isReviewing && !isSelected) ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed' : 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-xl active:scale-[0.98]'}`}>
+                        {isReviewing ? 'Cast Ballot Securely' : 'Continue'}
+                        {!isReviewing && <CaretRight weight="bold" className="w-5 h-5 shrink-0" />}
+                    </button>
+                </div>
             </div>
         </div>
     );
 };
 
-// --- MAIN COMPONENT ---
+// ==========================================
+// MAIN TAB COMPONENT
+// ==========================================
 export default function StudentElectionTab() {
     const { userProfile, currentUser } = useAuth();
     const user = userProfile || currentUser;
@@ -498,7 +452,6 @@ export default function StudentElectionTab() {
 
             const filteredData = data.filter(e => {
                 if (user?.schoolId && e.schoolId && e.schoolId !== user.schoolId) return false;
-
                 if (e.positions && e.positions.length > 0) {
                     const hasEligiblePosition = e.positions.some(pos => {
                         if (!pos.targetType || pos.targetType === 'school') return true;
@@ -554,8 +507,8 @@ export default function StudentElectionTab() {
             const isTimeUp = now > endDate;
             const isWithin24Hours = (now.getTime() - endDate.getTime()) < twentyFourHoursMs;
 
-            if (e.status === 'completed' || e.status === 'calculating') {
-                if (isWithin24Hours || !isTimeUp) results.push(e);
+            if (e.status === 'completed' || e.status === 'archived' || e.status === 'calculating') {
+                if (isWithin24Hours || !isTimeUp || e.status === 'archived') results.push(e);
             } else if (e.status === 'active' || e.status === 'scheduled') {
                 if (isTimeUp) {
                     if (isWithin24Hours) results.push(e);
@@ -571,7 +524,7 @@ export default function StudentElectionTab() {
 
     if (selectedElection) {
         return (
-            <div className="fixed inset-0 z-[200] bg-slate-100 dark:bg-slate-950 overflow-hidden flex items-center justify-center p-0 md:p-6">
+            <div className="fixed inset-0 z-[200] bg-[#FAFAFA] dark:bg-[#0A0A0A] overflow-hidden flex items-center justify-center p-0 md:p-6 w-full">
                 <div className="relative z-10 h-full w-full max-w-2xl mx-auto">
                     <VotingWizard
                         election={selectedElection}
@@ -588,87 +541,102 @@ export default function StudentElectionTab() {
         );
     }
 
-    if (loading) return <div className="flex justify-center items-center py-32 text-slate-400"><ArrowPathIcon className="w-8 h-8 animate-spin opacity-50" /></div>;
-
     const tabs = [
-        { id: 'vote', label: 'Cast Vote', icon: HandRaisedIcon, count: activeList.length },
-        { id: 'results', label: 'Results', icon: ChartBarIcon, count: 0 }
+        { id: 'vote', label: 'Active', icon: Lightning, count: activeList.length },
+        { id: 'results', label: 'Results', icon: Archive, count: 0 }
     ];
 
     return (
-        <div className="max-w-4xl mx-auto px-3 md:px-4 pb-32 min-h-[60vh] font-sans">
-            {/* TAB HEADER */}
-            <div className="flex justify-center mb-6 sticky top-0 z-20 pt-3 pb-3 -mx-3 px-3">
-                <div className="bg-white dark:bg-slate-900 p-1.5 rounded-xl border border-slate-200 dark:border-slate-800 flex shadow-sm w-full max-w-md relative">
-                    {tabs.map((tab) => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id)}
-                            className={`flex-1 px-4 py-3 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 relative z-10
-                            ${activeTab === tab.id ? 'text-white' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
-                        >
-                            {activeTab === tab.id && (
-                                <motion.div
-                                    layoutId="activeStudentTab"
-                                    className="absolute inset-0 bg-indigo-600 rounded-lg shadow-md shadow-indigo-500/25"
-                                    transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-                                />
-                            )}
-                            <span className="relative z-10 flex items-center gap-2">
-                                <tab.icon className="w-4 h-4" />
-                                {tab.label}
-                                {tab.count > 0 && <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${activeTab === tab.id ? 'bg-white/20' : 'bg-rose-500 text-white shadow-sm'}`}>{tab.count}</span>}
-                            </span>
-                        </button>
-                    ))}
+        <div className="w-full min-h-[80vh] bg-[#FAFAFA] dark:bg-[#0A0A0A] text-slate-900 dark:text-white pb-[100px] font-sans selection:bg-slate-200 dark:selection:bg-slate-800 overflow-x-hidden">
+            {/* Header & Animated Tab Switcher */}
+            <div className="sticky top-0 z-40 bg-[#FAFAFA]/90 dark:bg-[#0A0A0A]/90 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 pt-6 pb-4 px-4 md:px-6 w-full">
+                <div className="max-w-3xl mx-auto flex flex-col md:flex-row md:items-end justify-between gap-4 w-full">
+                    <div className="min-w-0">
+                        <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white mb-1 break-words">
+                            Elections Center
+                        </h1>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 font-medium break-words">
+                            Cast your vote and view official canvassing returns.
+                        </p>
+                    </div>
+
+                    <div className="flex bg-slate-100 dark:bg-[#111] p-1 rounded-xl border border-slate-200 dark:border-slate-800 relative w-full md:w-auto shrink-0 overflow-x-auto custom-scrollbar">
+                        {tabs.map((tab) => (
+                            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`relative flex-1 md:w-28 py-2.5 text-xs font-bold tracking-wide transition-colors z-10 uppercase outline-none rounded-lg min-w-[100px] ${activeTab === tab.id ? 'text-slate-900 dark:text-white' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>
+                                {activeTab === tab.id && (
+                                    <motion.div layoutId="activeTabIndicator" className="absolute inset-0 bg-white dark:bg-[#222] rounded-lg shadow-sm border border-slate-200 dark:border-slate-700" transition={{ type: "spring", stiffness: 500, damping: 30 }} />
+                                )}
+                                <span className="relative z-20 flex items-center justify-center gap-1.5 whitespace-nowrap">
+                                    <tab.icon weight={activeTab === tab.id ? "bold" : "regular"} size={16} />
+                                    {tab.label}
+                                    {tab.count > 0 && <span className="ml-1 w-2 h-2 rounded-full bg-rose-500 shrink-0" />}
+                                </span>
+                            </button>
+                        ))}
+                    </div>
                 </div>
-                <button onClick={fetchElections} className="ml-2 w-10 h-10 flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all active:scale-95 shadow-sm">
-                    <ArrowPathIcon className="w-4 h-4" />
-                </button>
             </div>
 
-            <AnimatePresence mode="wait">
-                {activeTab === 'vote' ? (
-                    <motion.div key="vote-list" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {activeList.length === 0 ? (
-                            <div className="col-span-full flex flex-col items-center justify-center text-center py-24">
-                                <div className="w-20 h-20 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl flex items-center justify-center mb-4 border border-indigo-100 dark:border-indigo-800">
-                                    <ClipboardDocumentCheckIcon className="w-10 h-10 text-indigo-300" />
-                                </div>
-                                <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300">No Ballots Open</h3>
-                                <p className="text-sm text-slate-500 max-w-xs mx-auto mt-2">There are no active elections for your grade level at the moment.</p>
-                            </div>
-                        ) : activeList.map(election => (
-                            <div key={election.id} onClick={() => setSelectedElection(election)} className="group bg-white dark:bg-slate-900 rounded-2xl p-4 md:p-6 shadow-sm border border-slate-200 dark:border-slate-800 cursor-pointer hover:shadow-lg hover:border-indigo-300 dark:hover:border-indigo-800 hover:scale-[1.01] transition-all relative overflow-hidden flex flex-col h-full">
-                                <div className="absolute top-0 right-0 p-6 md:p-8 opacity-[0.03] dark:opacity-[0.05] group-hover:opacity-10 transition-opacity transform group-hover:rotate-12 duration-500"><CheckBadgeIcon className="w-24 h-24 md:w-32 md:h-32" /></div>
-                                <div className="relative z-10 flex-1">
-                                    <div className="flex flex-wrap items-center gap-1.5 md:gap-2 mb-3 md:mb-4">
-                                        <span className="inline-flex items-center gap-1 md:gap-1.5 px-2 py-0.5 md:px-3 md:py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 text-[9px] md:text-[10px] font-bold uppercase tracking-widest border border-indigo-100 dark:border-indigo-800">
-                                            <span className="relative flex h-1.5 w-1.5 md:h-2 md:w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span><span className="relative inline-flex rounded-full h-1.5 w-1.5 md:h-2 md:w-2 bg-indigo-500"></span></span>Open
-                                        </span>
-                                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 md:px-3 md:py-1 rounded-full bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[9px] md:text-[10px] font-bold uppercase tracking-widest border border-slate-100 dark:border-slate-700">Multi-Position</span>
-                                    </div>
-                                    <h3 className="text-lg md:text-2xl font-bold text-slate-900 dark:text-white mb-1 leading-tight">{election.title}</h3>
-                                    <p className="text-slate-500 font-semibold text-[10px] md:text-xs uppercase tracking-wide mb-4 md:mb-6">{election.organization}</p>
-                                </div>
-                                <button className="w-full py-3 md:py-4 rounded-xl bg-slate-50 dark:bg-slate-800 group-hover:bg-indigo-600 group-hover:text-white text-slate-600 dark:text-slate-300 font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-2 relative z-10 border border-slate-100 dark:border-slate-700 group-hover:border-indigo-600">Tap to Vote <ChevronRightIcon className="w-3 h-3 md:w-4 md:h-4" /></button>
-                            </div>
-                        ))}
-                    </motion.div>
+            {/* Main Content Area */}
+            <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 md:py-8 w-full">
+                {loading ? (
+                    <div className="flex justify-center items-center py-20 w-full"><ArrowCounterClockwise className="w-8 h-8 animate-spin text-slate-300" /></div>
                 ) : (
-                    <motion.div key="results-list" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
-                        {resultsList.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center text-center py-24">
-                                <div className="w-20 h-20 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center mb-4 border border-slate-100 dark:border-slate-700">
-                                    <ChartBarIcon className="w-10 h-10 text-slate-300" />
-                                </div>
-                                <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300">No Results Yet</h3>
-                                <p className="text-sm text-slate-500 mt-2">Completed election tallies will appear here.</p>
-                            </div>
-                        ) : resultsList.map(election => <ElectionResultCard key={election.id} election={election} />)}
-                    </motion.div>
+                    <AnimatePresence mode="wait">
+                        {activeTab === 'vote' ? (
+                            <motion.div key="vote" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+                                {activeList.length === 0 ? (
+                                    <div className="col-span-full flex flex-col items-center justify-center text-center py-20 px-4 border border-dashed border-slate-300 dark:border-slate-800 rounded-2xl bg-white/50 dark:bg-[#111]/50 w-full">
+                                        <div className="w-16 h-16 bg-slate-100 dark:bg-[#1a1a1a] rounded-2xl flex items-center justify-center mb-4 border border-slate-200 dark:border-slate-800 shrink-0">
+                                            <Archive weight="duotone" className="w-8 h-8 text-slate-400" />
+                                        </div>
+                                        <h3 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight mb-1 break-words">No Open Ballots</h3>
+                                        <p className="text-sm text-slate-500 max-w-sm px-2 break-words">There are no active elections for your grade level at the moment.</p>
+                                    </div>
+                                ) : activeList.map(election => (
+                                    <div key={election.id} onClick={() => setSelectedElection(election)} className="group relative bg-white dark:bg-[#111] border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden hover:shadow-xl hover:border-slate-300 dark:hover:border-slate-700 transition-all duration-300 cursor-pointer flex flex-col h-full min-w-0 w-full">
+                                        <div className={`h-1.5 w-full shrink-0 ${election.isTieBreaker ? 'bg-indigo-500' : 'bg-slate-900 dark:bg-white'}`} />
+                                        <div className="p-5 flex-1 flex flex-col min-w-0">
+                                            <div className="flex flex-wrap items-center gap-2 mb-3">
+                                                <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[9px] font-bold uppercase tracking-widest bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 shrink-0 whitespace-nowrap">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" /> Live
+                                                </span>
+                                                {election.isTieBreaker && (
+                                                    <span className="inline-flex items-center px-2 py-1 rounded-md text-[9px] font-bold uppercase tracking-widest bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20 shrink-0 whitespace-nowrap">
+                                                        Tie-Breaker
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <h3 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight mb-1 line-clamp-2 break-words">{election.title}</h3>
+                                            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-6 flex flex-wrap items-center gap-1.5 min-w-0">
+                                                <IdentificationCard weight="bold" className="shrink-0" /> <span className="truncate">{election.organization}</span>
+                                            </p>
+                                            
+                                            <div className="mt-auto pt-4 shrink-0">
+                                                <button className="w-full bg-slate-100 dark:bg-[#1a1a1a] text-slate-900 dark:text-white group-hover:bg-slate-900 group-hover:text-white dark:group-hover:bg-white dark:group-hover:text-slate-900 font-bold text-sm py-3.5 rounded-xl transition-all flex items-center justify-center gap-2 outline-none">
+                                                    Cast Ballot <CaretRight weight="bold" className="shrink-0" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </motion.div>
+                        ) : (
+                            <motion.div key="results" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6 w-full">
+                                {resultsList.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center text-center py-20 px-4 border border-dashed border-slate-300 dark:border-slate-800 rounded-2xl bg-white/50 dark:bg-[#111]/50 w-full">
+                                        <div className="w-16 h-16 bg-slate-100 dark:bg-[#1a1a1a] rounded-2xl flex items-center justify-center mb-4 border border-slate-200 dark:border-slate-800 shrink-0">
+                                            <ChartBar weight="duotone" className="w-8 h-8 text-slate-400" />
+                                        </div>
+                                        <h3 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight mb-1 break-words">No Results Yet</h3>
+                                        <p className="text-sm text-slate-500 max-w-sm px-2 break-words">Completed election tallies will appear here.</p>
+                                    </div>
+                                ) : resultsList.map(election => <ElectionResultCard key={election.id} election={election} />)}
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 )}
-            </AnimatePresence>
+            </div>
         </div>
     );
 }

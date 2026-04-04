@@ -9,14 +9,14 @@ import React, {
   useCallback,
   useRef
 } from 'react';
-import { app, db } from '../services/firebase'; // ✅ Added 'app' for Firebase Auth
-import { getAuth, signInWithCustomToken } from 'firebase/auth'; // ✅ Added Auth methods
+import { app, db } from '../services/firebase'; 
+import { getAuth, signInWithCustomToken } from 'firebase/auth'; 
 import {
   collection,
   query,
   where,
   getDocs,
-  getDoc, // ✅ Added getDoc
+  getDoc, 
   doc,
   updateDoc,
   onSnapshot
@@ -105,8 +105,6 @@ export const AuthProvider = ({ children }) => {
     const handleBeforeUnload = () => {
       const sessionUserId = sessionStorage.getItem('srcs_session_user');
       if (sessionUserId) {
-        // Use sendBeacon-style sync approach: navigator.sendBeacon isn't great for Firestore
-        // Instead we rely on the heartbeat having saved recent data
         flushSessionTime(sessionUserId).catch(() => { });
       }
     };
@@ -188,11 +186,18 @@ export const AuthProvider = ({ children }) => {
       },
       (error) => {
         console.error("Error listening to user document:", error);
+        
+        // 🚨 CRITICAL FIX: If they lack permissions, their Firebase Auth token is missing/invalid.
+        // Force log them out instantly to clear the broken localStorage footprint.
+        if (error.code === 'permission-denied' || (error.message && error.message.toLowerCase().includes('permission'))) {
+            console.warn("Invalid Auth State detected. Forcing global logout for legacy user.");
+            performLogout('/login'); 
+        }
       }
     );
 
     return () => unsubscribe();
-  }, [user?.id, handleSessionConflict]);
+  }, [user?.id, handleSessionConflict, performLogout]); // Added performLogout to dependencies
 
 
   // 🔹 Automatic Level-Up Watcher
@@ -228,7 +233,6 @@ export const AuthProvider = ({ children }) => {
     setLoading(true);
     try {
       // 1. Send credentials to your secure Vercel API to check the password
-      // Note: Make sure the Vercel backend expects 'email' or 'username' depending on how you programmed it.
       const response = await fetch('https://srcslms.vercel.app/api/get-firebase-token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

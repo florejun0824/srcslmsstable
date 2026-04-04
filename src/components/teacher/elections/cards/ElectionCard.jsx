@@ -4,7 +4,7 @@ import {
     IdentificationCard, Users, Clock, Lightning, Trophy,
     PencilSimple, Trash, GraduationCap, Buildings, Printer,
     CaretRight, ChartBar, LockKey, Eye, CalendarBlank,
-    ArrowRight, SealCheck
+    ArrowRight, SealCheck, Confetti
 } from '@phosphor-icons/react';
 import CountdownTimer from '../shared/CountdownTimer';
 
@@ -59,6 +59,9 @@ const ElectionCard = React.forwardRef(({ election, onClick, onEdit, onDelete, on
     const [canFinalize, setCanFinalize] = useState(false);
     const [isFinalizing, setIsFinalizing] = useState(false);
 
+    // CRITICAL: Ensure we read total votes from the new Cloud Function property if available
+    const totalVotesDisplay = election.totalVotesCast || election.totalVotes || 0;
+
     useEffect(() => {
         if (!election.revealTime || !isCalculating) return;
         const checkTimer = () => {
@@ -88,30 +91,28 @@ const ElectionCard = React.forwardRef(({ election, onClick, onEdit, onDelete, on
             ref={ref}
             layout
             onClick={onClick}
-            whileHover={election.hasTie ? undefined : { y: -4, transition: { duration: 0.3, ease: "easeOut" } }}
-            whileTap={election.hasTie ? undefined : { scale: 0.98 }}
+            whileHover={{ y: -4, transition: { duration: 0.3, ease: "easeOut" } }}
+            whileTap={{ scale: 0.98 }}
             className={`group relative flex flex-col w-full h-full bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl rounded-[28px] md:rounded-[32px] overflow-hidden transition-all duration-500
-                ${election.hasTie
-                    ? 'opacity-70 cursor-not-allowed filter grayscale-[0.3] border border-slate-200 dark:border-slate-800'
-                    : 'border border-white/80 dark:border-slate-700/50 hover:border-white dark:hover:border-slate-600 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] dark:hover:shadow-[0_20px_40px_rgb(0,0,0,0.4)] cursor-pointer'
-                }
+                border border-white/80 dark:border-slate-700/50 hover:border-white dark:hover:border-slate-600 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] dark:hover:shadow-[0_20px_40px_rgb(0,0,0,0.4)] cursor-pointer
+                ${election.hasTie ? 'ring-2 ring-amber-500/10' : ''}
             `}
         >
             {/* Ambient Status Glow Orb */}
             <div className={`absolute -top-10 -right-10 w-48 h-48 rounded-full bg-gradient-to-br ${statusConfig.glow} blur-[60px] opacity-40 mix-blend-multiply dark:mix-blend-screen transition-all duration-700 group-hover:scale-110 group-hover:opacity-60 pointer-events-none`} />
 
-            {/* Tie-breaker overlay (Glassmorphism) */}
+            {/* Tie-breaker badge (Subtle Corner Float - Non-Blocking) */}
             {election.hasTie && election.tieBreakerId && (
-                <div className="absolute inset-0 z-50 bg-white/40 dark:bg-slate-950/40 backdrop-blur-[2px] flex items-center justify-center rounded-[28px] md:rounded-[32px] pointer-events-none">
-                    <div className="bg-amber-100/90 dark:bg-amber-900/90 backdrop-blur-md text-amber-800 dark:text-amber-300 text-[10px] md:text-xs font-black px-4 py-2 rounded-full border border-amber-200 dark:border-amber-700/50 uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-amber-500/20">
-                        <Lightning weight="fill" size={14} className="animate-pulse" />
-                        Tie-Breaker Active
+                <div className="absolute top-4 right-4 z-[60] pointer-events-none">
+                    <div className="bg-amber-100/90 dark:bg-amber-900/90 backdrop-blur-md text-amber-800 dark:text-amber-300 text-[10px] font-black px-3 py-1.5 rounded-full border border-amber-200 dark:border-amber-700/50 uppercase tracking-widest flex items-center gap-1.5 shadow-lg shadow-amber-500/20">
+                        <Lightning weight="fill" size={12} className="animate-pulse" />
+                        Tied
                     </div>
                 </div>
             )}
 
             {/* --- TOP CONTENT --- */}
-            <div className="relative z-10 p-4 md:p-6 flex-1 flex flex-col">
+            <div className={`relative z-10 p-4 md:p-6 flex-1 flex flex-col transition-all duration-500 ${election.hasTie ? 'filter grayscale opacity-40' : ''}`}>
                 
                 {/* Badges Row */}
                 <div className="flex items-center justify-between gap-2 mb-4 md:mb-5">
@@ -123,6 +124,16 @@ const ElectionCard = React.forwardRef(({ election, onClick, onEdit, onDelete, on
                         <StatusIcon weight="fill" size={14} />
                         <span>{statusConfig.label}</span>
                     </div>
+
+                    {/* Highly vibrant 'New Result' flash for elections completed within 24 hours */}
+                    {isCompleted && !isArchived && now - endDate < 24 * 60 * 60 * 1000 && (
+                        <div className="flex items-center gap-1 px-2.5 py-1 md:py-1.5 rounded-full bg-indigo-500 text-white text-[9px] md:text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-500/30 animate-pulse">
+                            <Confetti weight="fill" size={12} />
+                            New Result
+                        </div>
+                    )}
+
+                    <div className="flex-1" />
 
                     <div className="flex items-center gap-1.5 px-2.5 py-1 md:py-1.5 rounded-full bg-slate-100/80 dark:bg-slate-800/80 backdrop-blur-md border border-slate-200/50 dark:border-slate-700/50 text-[9px] md:text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                         {election.targetType === 'grade'
@@ -153,7 +164,7 @@ const ElectionCard = React.forwardRef(({ election, onClick, onEdit, onDelete, on
                             <span className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest">Votes Cast</span>
                         </div>
                         <div className="text-xl md:text-3xl font-black text-slate-900 dark:text-white tabular-nums tracking-tighter">
-                            {(election.totalVotes || 0).toLocaleString()}
+                            {totalVotesDisplay.toLocaleString()}
                         </div>
                     </div>
 
