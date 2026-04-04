@@ -1,4 +1,5 @@
 // src/components/teacher/TeacherDashboardLayout.jsx
+import { getAuth } from "firebase/auth";
 import React, {
     useState,
     Suspense,
@@ -1009,13 +1010,19 @@ const TeacherDashboardLayout = (props) => {
 	const handleStartOnlineClass = useCallback(
 	    async (classId, meetingCode, meetLink) => {
 	        try {
-	            // 1. Call the HTTPS Cloud Function to notify students
-	            // This triggers the FCM logic in your index.js
+	            // 1. Get the real Firebase Auth token directly from the auth instance
+	            const auth = getAuth();
+	            if (!auth.currentUser) {
+	                throw new Error("No authenticated user found.");
+	            }
+	            const idToken = await auth.currentUser.getIdToken(); // Fetches the valid JWT
+
+	            // 2. Call the HTTPS Cloud Function to notify students
 	            const response = await fetch('https://us-central1-srcs-log-book.cloudfunctions.net/startOnlineClass', {
 	                method: 'POST',
 	                headers: {
 	                    'Content-Type': 'application/json',
-	                    'Authorization': 'Bearer SRCS-Secret-2026' // Use your specific secret here
+	                    'Authorization': `Bearer ${idToken}` 
 	                },
 	                body: JSON.stringify({
 	                    classId: classId,
@@ -1029,8 +1036,7 @@ const TeacherDashboardLayout = (props) => {
 	                throw new Error(`Notification failed: ${errorText}`);
 	            }
 
-	            // 2. Keep your existing Firestore update so the UI (ClassesView) stays in sync
-	            // Note: ClassesView looks for 'videoConference.isLive'
+	            // 3. Keep your existing Firestore update so the UI stays in sync
 	            const classRef = doc(db, "classes", classId);
 	            await updateDoc(classRef, {
 	                videoConference: {
@@ -1049,27 +1055,27 @@ const TeacherDashboardLayout = (props) => {
 	            showToast("Failed to start class session.", "error");
 	        }
 	    },
-	    [showToast, userProfile] // Added userProfile to dependencies for the teacher name
+	    // We can remove 'user' from dependencies since we use getAuth() now
+	    [showToast, userProfile] 
 	);
 
-    const handleEndOnlineClass = useCallback(
-        async (classId) => {
-            try {
-                const classRef = doc(db, "classes", classId);
-                await updateDoc(classRef, {
-                    "videoConference.isLive": false,
-                    "videoConference.meetingCode": null,
-                    "videoConference.startTime": null,
-                });
-                showToast("Online class successfully ended.", "info");
-            } catch (error) {
-                console.error("Error ending online class:", error);
-                showToast("Failed to end the online class.", "error");
-            }
-        },
-        [showToast]
-    );
-
+	const handleEndOnlineClass = useCallback(
+	    async (classId) => {
+	        try {
+	            const classRef = doc(db, "classes", classId);
+	            await updateDoc(classRef, {
+	                "videoConference.isLive": false,
+	                "videoConference.meetingCode": null,
+	                "videoConference.startTime": null,
+	            });
+	            showToast("Online class successfully ended.", "info");
+	        } catch (error) {
+	            console.error("Error ending online class:", error);
+	            showToast("Failed to end the online class.", "error");
+	        }
+	    },
+	    [showToast]
+	);
     // NAVIGATION ITEMS
     const navItems = useMemo(() => {
         const items = [
