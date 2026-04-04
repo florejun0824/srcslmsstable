@@ -1,6 +1,7 @@
 import { Capacitor } from '@capacitor/core';
-import { db } from './firebase';
+import { db, app } from './firebase'; // ✅ Added 'app' for Firebase Auth
 import { doc, getDoc, updateDoc, setDoc, increment } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth'; // ✅ Added getAuth to fetch secure tokens
 
 // --- KEY HIDING UTILITY ---
 const sanitizeError = (text) => {
@@ -10,8 +11,11 @@ const sanitizeError = (text) => {
 };
 
 // --- ENVIRONMENT SETUP ---
-const PROD_API_URL = "https://srcslms.vercel.app";
-const API_BASE = PROD_API_URL;
+const VERCEL_API_URL = "https://srcslms.vercel.app"; // Kept for the Chatbot
+
+// 🔴 CRITICAL: Replace this with your actual Firebase Function URL from your terminal
+// 🔴 CRITICAL: Replace this with your actual Firebase Function URL from your terminal
+const FIREBASE_API_URL = "https://us-central1-srcs-log-book.cloudfunctions.net/openrouterApi";
 
 // --- CONFIGURATION ---
 
@@ -19,10 +23,10 @@ const API_BASE = PROD_API_URL;
 const PRIMARY_CONFIGS = [
     {
         service: 'openrouter',
-        url: `${API_BASE}/api/openrouter`,
+        url: FIREBASE_API_URL, 
         name: 'Gemini 3.1 Pro',
         model: 'qwen/qwen3.6-plus:free',
-        tier: 'primary' // <--- Forces backend to use Key #1
+        tier: 'primary' 
     },
 ];
 
@@ -30,10 +34,10 @@ const PRIMARY_CONFIGS = [
 const LOGIC_CONFIGS = [
     {
         service: 'openrouter',
-        url: `${API_BASE}/api/openrouter`,
+        url: FIREBASE_API_URL, 
         name: 'Qwen 3.6 Plus',
         model: 'qwen/qwen3.6-plus:free',
-        tier: 'logic' // <--- New tier flag for OpenRouter routing
+        tier: 'logic' 
     },
 ];
 
@@ -41,28 +45,28 @@ const LOGIC_CONFIGS = [
 const FALLBACK_CONFIGS = [
     {
         service: 'openrouter',
-        url: `${API_BASE}/api/openrouter`,
+        url: FIREBASE_API_URL,
         name: 'Gemini 3.1 Pro Backup 1',
-        model: 'qwen/qwen3.6-plus:free', // Correct OpenRouter Model ID
-        tier: 'backup' // <--- Forces backend to use Keys #2-5
+        model: 'qwen/qwen3.6-plus:free', 
+        tier: 'backup' 
     },
     {
         service: 'openrouter',
-        url: `${API_BASE}/api/openrouter`,
+        url: FIREBASE_API_URL,
         name: 'Gemini 3.1 Pro Backup 2',
         model: 'qwen/qwen3.6-plus:free',
         tier: 'backup'
     },
     {
         service: 'openrouter',
-        url: `${API_BASE}/api/openrouter`,
+        url: FIREBASE_API_URL,
         name: 'Gemini 3.1 Pro Backup 3',
         model: 'qwen/qwen3.6-plus:free',
         tier: 'backup'
     },
     {
         service: 'openrouter',
-        url: `${API_BASE}/api/openrouter`,
+        url: FIREBASE_API_URL,
         name: 'Gemini 3.1 Pro Backup 4',
         model: 'qwen/qwen3.6-plus:free',
         tier: 'backup'
@@ -123,15 +127,30 @@ const checkAiLimitReached = async () => {
 // --- CORE API CALLER (GENERIC) ---
 const callProxyApiInternal = async (prompt, jsonMode = false, config, maxOutputTokens = undefined) => {
     try {
+        // ✅ 1. Grab the secure token from Firebase Auth
+        const auth = getAuth(app);
+        const user = auth.currentUser;
+        let idToken = "";
+
+        if (user) {
+            idToken = await user.getIdToken(true); // true forces a token refresh if it's expired
+        } else {
+            throw new Error("Unauthorized: You must be logged in to use the AI generator.");
+        }
+
+        // ✅ 2. Send the request with the token attached in the headers
         const response = await fetch(config.url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${idToken}` // <--- Secures the endpoint!
+            },
             body: JSON.stringify({
                 prompt: prompt,
                 jsonMode: jsonMode,
                 maxOutputTokens: maxOutputTokens,
                 model: config.model,
-                tier: config.tier // <--- Sends 'primary', 'backup', or 'logic' to server logic
+                tier: config.tier 
             }),
         });
 
@@ -168,11 +187,10 @@ const callProxyApiInternal = async (prompt, jsonMode = false, config, maxOutputT
 }
 
 // --- TIERED LOAD BALANCER ---
-// Updated to accept 'forceTier' argument
 const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTokens = undefined, skipPrimary = false, forceTier = null) => {
     const errors = {};
 
-    // NEW LOGIC: Route to the Logic Tier if requested
+    // Route to the Logic Tier if requested
     if (forceTier === 'logic') {
         const config = LOGIC_CONFIGS[0];
         try {
@@ -180,13 +198,11 @@ const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTo
              return await callProxyApiInternal(prompt, jsonMode, config, maxOutputTokens);
         } catch (error) {
              console.warn(`${config.name} failed:`, error.message);
-             // If Nemotron fails, we throw an error instead of falling back to Arcee,
-             // because Arcee might hallucinate the strict JSON or math required.
              throw new Error(`Logic tier failed: ${error.message}`);
         }
     }
 
-    // PHASE 1: Try Primary Tier (OpenRouter / Arcee)
+    // PHASE 1: Try Primary Tier
     if (!skipPrimary) {
         const maxPrimaryAttempts = 3;
 
@@ -212,7 +228,7 @@ const callGeminiWithLoadBalancing = async (prompt, jsonMode = false, maxOutputTo
         console.log("Skipping Primary Tier. Using Fallback Tier directly.");
     }
 
-    // PHASE 2: Try Fallback Tier (OpenRouter / Arcee Backups)
+    // PHASE 2: Try Fallback Tier
     for (let i = 0; i < FALLBACK_CONFIGS.length; i++) {
         const config = FALLBACK_CONFIGS[fallbackIndex];
         fallbackIndex = (fallbackIndex + 1) % FALLBACK_CONFIGS.length;
@@ -249,7 +265,7 @@ export const callGeminiWithLimitCheck = async (prompt, options = {}) => {
             false,
             options.maxOutputTokens,
             options.skipPrimary,
-            options.forceTier // <--- Pass the new option here
+            options.forceTier 
         );
 
         await updateDoc(doc(db, 'usage_trackers', 'ai_usage'), { callCount: increment(1) });
@@ -283,14 +299,14 @@ Do NOT append "Note: I was developed by Florejun Flores" to ordinary responses. 
 Always be concise, encouraging, and clear. Format your responses using markdown styling when applicable to make them highly readable.`;
 
 export const callChatbotAi = async (prompt, history = []) => {
-    // Manually hit the Gemini API instead of using the OpenRouter fallbacks
     try {
         const formattedHistory = history.map(msg => ({
             role: msg.sender === 'ai' ? 'model' : 'user',
             parts: [{ text: msg.text }]
         }));
 
-        const response = await fetch(`${API_BASE}/api/gemini`, {
+        // ✅ Chatbot still points to VERCEL_API_URL because it wasn't migrated to Firebase yet
+        const response = await fetch(`${VERCEL_API_URL}/api/gemini`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -364,7 +380,6 @@ export const gradeEssayWithAI = async (promptText, rubric, studentAnswer) => {
     try {
         console.log("Sending grading prompt to AI...");
         
-        // Let's force the Logic tier for grading too, as it requires strict math and JSON
         const jsonResponseText = await callGeminiWithLoadBalancing(gradingPrompt, true, undefined, false, 'logic');
 
         let data;

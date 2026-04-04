@@ -1,6 +1,7 @@
 // src/services/firestoreService.js
 
-import { db } from './firebase';
+import { db, app } from './firebase'; // ✅ Added 'app' for Firebase Auth
+import { getAuth } from 'firebase/auth'; // ✅ Added getAuth to fetch secure tokens
 import {
   collection,
   getDocs,
@@ -372,12 +373,20 @@ export const postTeacherAnnouncement = async (profile, content) => {
 // ==============================
 
 const callCloudFunction = async (functionName, payload) => {
+  // ✅ 1. Grab the secure token from the logged-in user
+  const auth = getAuth(app);
+  const user = auth.currentUser;
+  
+  if (!user) throw new Error("Unauthorized: You must be logged in to perform this action.");
+  
+  const idToken = await user.getIdToken(true);
+
   const url = `https://us-central1-srcs-log-book.cloudfunctions.net/${functionName}`;
   const response = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': 'Bearer SRCS-Secret-2026' 
+      'Authorization': `Bearer ${idToken}` // ✅ Now uses the dynamic, secure token!
     },
     body: JSON.stringify(payload)
   });

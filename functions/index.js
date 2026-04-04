@@ -14,7 +14,7 @@ admin.initializeApp();
 setGlobalOptions({ region: "us-central1" });
 
 // ============================================================================
-// CUSTOM AUTHENTICATION MIDDLEWARE
+// CUSTOM AUTHENTICATION MIDDLEWARE (Updated for Firebase Auth)
 // ============================================================================
 const validateCustomAuth = async (req, res, next) => {
     const authHeader = req.headers.authorization;
@@ -22,19 +22,21 @@ const validateCustomAuth = async (req, res, next) => {
         return res.status(401).json({ error: "Unauthorized: Missing token." });
     }
 
-    const token = authHeader.split("Bearer ")[1];
+    const idToken = authHeader.split("Bearer ")[1];
 
     try {
-        const MY_SECRET_KEY = "SRCS-Secret-2026"; 
-        if (token !== MY_SECRET_KEY) {
-            return res.status(403).json({ error: "Forbidden: Invalid custom token." });
-        }
+        // Verify the secure Firebase token instead of the hardcoded secret
+        const decodedToken = await admin.auth().verifyIdToken(idToken);
+        
+        // Optional: Attach the user info to the request if your other functions need it
+        req.user = decodedToken; 
+        
         next();
     } catch (error) {
-        return res.status(500).json({ error: "Internal Auth Error" });
+        console.error("Auth Middleware Error:", error);
+        return res.status(403).json({ error: "Forbidden: Invalid or expired token." });
     }
 };
-
 // ============================================================================
 // HELPER: TOKEN FETCHER
 // ============================================================================
@@ -52,6 +54,112 @@ const getTokensForUsers = async (userIds) => {
     }
     return tokens;
 };
+
+// ============================================================================
+// AI API ENDPOINT (v2) - MOVED FROM VERCEL
+// ============================================================================
+exports.openrouterApi = onRequest({
+    cors: true,
+    timeoutSeconds: 300, // 5 minutes for heavy generation
+    memory: "1GiB",
+    secrets: ["OPENROUTER_API_KEY"] 
+}, async (req, res) => {
+    // 1. Enforce POST requests only
+    if (req.method !== "POST") {
+        return res.status(405).json({ error: "Method not allowed. Use POST." });
+    }
+
+    // 2. Verify Firebase Authentication (Secures the endpoint!)
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ error: "Unauthorized: No token provided." });
+    }
+
+    const idToken = authHeader.split("Bearer ")[1];
+    try {
+        // This verifies the token your React app got after the custom login
+        await admin.auth().verifyIdToken(idToken);
+    } catch (error) {
+        return res.status(401).json({ error: "Unauthorized: Invalid or expired token." });
+    }
+
+    // 3. Process the AI Request
+    try {
+        const { prompt, model, maxOutputTokens, tier } = req.body;
+        
+        if (!prompt) {
+            return res.status(400).json({ error: "Missing 'prompt' in request body." });
+        }
+
+        const apiKey = process.env.OPENROUTER_API_KEY;
+        // Default to a known stable model if none is passed
+        const selectedModel = model || "qwen/qwen-2.5-72b-instruct"; 
+
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://srcslms.vercel.app", 
+                "X-Title": "LMS Teacher Assistant",
+            },
+            body: JSON.stringify({
+                model: selectedModel,
+                messages: [{ role: "user", content: [{ type: "text", text: prompt }] }],
+                stream: true,
+                max_tokens: maxOutputTokens || 8192,
+            }),
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            return res.status(response.status).json({ error: `OpenRouter API Failed: ${errText}` });
+        }
+
+        // 4. Stream the Response Back to React
+        res.setHeader("Content-Type", "text/plain; charset=utf-8");
+        
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop();
+
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (trimmed.startsWith("data: ")) {
+                    const dataStr = trimmed.replace("data: ", "").trim();
+                    if (dataStr === "[DONE]") continue;
+
+                    try {
+                        const data = JSON.parse(dataStr);
+                        const content = data.choices?.[0]?.delta?.content;
+                        if (content) {
+                            res.write(content); // Send chunk to client
+                        }
+                    } catch (e) {
+                        // Ignore partial JSON parsing errors in the stream
+                    }
+                }
+            }
+        }
+        
+        res.end(); // Close the stream when finished
+
+    } catch (error) {
+        console.error("Function Error:", error);
+        if (!res.headersSent) {
+            res.status(500).json({ error: "Internal Server Error" });
+        }
+    }
+});
+
 
 // ============================================================================
 // HTTPS ENDPOINTS (v2)
