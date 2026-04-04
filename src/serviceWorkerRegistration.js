@@ -43,6 +43,15 @@ function registerValidSW(swUrl, config) {
   navigator.serviceWorker
     .register(swUrl)
     .then((registration) => {
+      
+      // [FIX FOR iOS PWA]: Check if a new version was already downloaded in the 
+      // background while the app was closed. If so, trigger the update prompt immediately!
+      if (registration.waiting) {
+        if (config && config.onUpdate) {
+          config.onUpdate(registration);
+        }
+      }
+
       registration.onupdatefound = () => {
         const installingWorker = registration.installing;
         if (installingWorker == null) {

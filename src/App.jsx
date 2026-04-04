@@ -87,19 +87,18 @@ const SystemStatusListener = () => {
         const localVersion = localStorage.getItem('app_version');
 
         if (localVersion && localVersion !== serverVersion) {
-          console.log(`New version detected: ${serverVersion}. Updating from ${localVersion}`);
+          console.log(`New version detected: ${serverVersion}. Triggering update...`);
 
           localStorage.setItem('app_version', serverVersion);
-          localStorage.setItem("hologram_update_pending", "true");
-
+          
+          // [FIX FOR iOS PWA]: Do NOT unregister and force reload here!
+          // Instead, force the Service Worker to fetch the latest assets.
           if ('serviceWorker' in navigator) {
             const registrations = await navigator.serviceWorker.getRegistrations();
             for (const registration of registrations) {
-              await registration.unregister();
+              registration.update(); // Ask the SW to check for updates organically
             }
           }
-
-          window.location.reload(true);
         } else {
           localStorage.setItem('app_version', serverVersion);
         }
