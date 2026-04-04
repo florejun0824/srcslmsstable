@@ -7,6 +7,7 @@ import { SplashScreen } from '@capacitor/splash-screen';
 import { PrivacyScreen } from '@capacitor-community/privacy-screen'; // [NEW] Required to fix black screen
 import { AnimatePresence, motion } from 'framer-motion';
 import { SignalSlashIcon } from '@heroicons/react/24/outline';
+import { Analytics } from '@vercel/analytics/react';
 import { useAuth } from './contexts/AuthContext';
 import { useToast } from './contexts/ToastContext';
 import { handleAuthRedirect, createPresentationFromData } from './services/googleSlidesService';
@@ -661,6 +662,7 @@ export default function App() {
         <SystemStatusListener />
 
         <AppRouter />
+        <Analytics />
       </div>
     </BrowserRouter>
   );
