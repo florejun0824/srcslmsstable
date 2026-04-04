@@ -36,6 +36,7 @@
     "@tsparticles/slim": "^3.9.1",
     "@types/katex": "^0.16.7",
     "@vercel/kv": "^1.0.1",
+    "@vercel/speed-insights": "^2.0.0",
     "axios": "^1.10.0",
     "browser-image-compression": "^2.0.2",
     "browserify-sign": "4.2.2",
